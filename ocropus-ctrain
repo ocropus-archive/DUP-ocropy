@@ -1,0 +1,68 @@
+#!/usr/bin/python
+
+import sys,os,re,glob,math,glob,signal
+from optparse import OptionParser
+from pylab import *
+from scipy.ndimage import interpolation
+import ocropy
+from ocropy import dbtables
+from ocropy import N,NI,F,FI
+signal.signal(signal.SIGINT,lambda *args:sys.exit(1))
+
+parser = OptionParser(usage="""
+%prog [options] input.db output.model
+
+Trains models based on a cluster database.
+""")
+parser.add_option("-m","--model",help="IModel name",default="")
+parser.add_option("-r","--reject",help="train reject as well",action="store_true")
+parser.add_option("-u","--unlabeled",help="treat unlabeled ('_') as reject",action="store_true")
+parser.add_option("-1","--single",help="train only single chars",action="store_true")
+parser.add_option("-v","--verbose",help="verbose",action="store_true")
+(options,args) = parser.parse_args()
+
+if len(args)!=2:
+    parser.print_help()
+    sys.exit(0)
+
+db = args[0] # "unlv-clusters-0684.db"
+output = args[1]
+
+if options.model=="":
+    if options.reject:
+        options.model = "latin"
+    else:
+        options.model = "mlp"
+
+print "loading..."
+table = dbtables.ClusterTable(db)
+clusters = table.get()
+
+ion()
+
+classifier = ocropy.make_IModel(options.model)
+classifier.setExtractor("scaledfe")
+ocropy.dinit(512,512)
+
+print "training..."
+# clusters = list(clusters)
+# print len(clusters)
+count = 0
+for cluster in clusters:
+    count += 1
+    if count%10000==0: print count
+    cls = cluster.cls
+    if cls is None: continue
+    if len(cls)==0: continue
+    if len(cls)>3: continue
+    if options.single and len(cls)>1: continue
+    if options.unlabeled and cls=="_": cls = "~"
+    if not options.reject and cls=="~": continue
+    if cls=="_": continue
+    image = FI(cluster.image/255.0)
+    classifier.cadd(image,cls)
+
+classifier.updateModel()
+classifier.info()
+classifier.getExtractor().info()
+ocropy.save_component(output,classifier)

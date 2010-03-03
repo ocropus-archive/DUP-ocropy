@@ -1,0 +1,76 @@
+#!/usr/bin/python
+import code,pickle,sys,os,re
+from optparse import OptionParser
+from pylab import *
+import ocropy
+from ocropy import dbtables,binnednn,ocrobook
+
+parser = OptionParser("""
+usage: %prog [options] .../.../010001.png ...
+
+Extract character images from OCR output and store them in a database file.  
+This assume that for each line.png, there is a line.cseg.gt.png and line.gt.txt file.
+""")
+
+parser.add_option("-o","--output",help="output file",default="chars.db")
+parser.add_option("-u","--unmerged",help="unmerged output file",default=None)
+parser.add_option("-m","--missegmented",help="output missegmented characters",action="store_true")
+parser.add_option("-r","--raw",help="output unlabeled characters",action="store_true")
+parser.add_option("-a","--maxage",help="output missegmented",default=10000000,type="int")
+
+parser.add_option("-D","--display",help="display chars",action="store_true")
+parser.add_option("-v","--verbose",help="verbose output",action="store_true")
+
+(options,args) = parser.parse_args()
+
+if len(args)<1:
+    parser.print_help()
+    sys.exit(0)
+
+ion()
+show()
+
+if os.path.exists(options.output):
+    print options.output,"exists; please remove"
+    sys.exit(1)
+
+table = dbtables.Table(options.output,"chars")
+table.converter("image",dbtables.SmallImage())
+table.create(image="blob",count="integer",cls="text",classes="text",key="text")
+
+total = 0
+for file in args:
+    segments = []
+    text = ""
+    try:
+        items = list(ocrobook.cseg_chars(file,verbose=options.verbose))
+    except:
+        print "#",file,"failed"
+        continue
+    if options.verbose:
+        print file,len(segments),len(text)
+    for raw,mask,cls in items:
+        segments.append(raw)
+        if options.display:
+            clf(); gray(); imshow(ocrobook.NI(raw)); draw()
+        text += cls
+        if cls is None:
+            # no ground truth
+            if not options.raw: continue
+            cls = "_"
+        elif cls<=0 or cls=="":
+            # missegmented
+            if not options.missegmented: continue
+            cls = "~"
+        raw = ocrobook.NI(raw)
+        if raw.shape[0]>255 or raw.shape[1]>255: continue
+        raw = raw/float(amax(raw))
+        key = re.sub(r'^.*/(\d\d\d\d/)','\\1',file)
+        key = re.sub(r'\.png$','',key)
+        if options.verbose:
+            print key,cls,raw.shape
+        table.set(image=raw,cls=cls,count=1,classes=None,key=file)
+        total+=1
+        if total%10000==0:
+            print total,"chars"
+            table.commit()

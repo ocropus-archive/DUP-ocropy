@@ -1,0 +1,120 @@
+#!/usr/bin/python
+
+# make the clustering class-specific
+
+import sys,os,re,glob,math,glob,signal
+from scipy.ndimage import interpolation
+from pylab import *
+from optparse import OptionParser
+import ocropy
+from ocropy import fstutils
+from ocropy import N,NI,F,FI
+
+signal.signal(signal.SIGINT,lambda *args:sys.exit(1))
+
+# ocropy.dinit(512,512,1)
+
+parser = OptionParser("""
+usage: %prog [options] [text.txt langmod.fst image.png ...]
+
+Performs recognition and optional alignment using the given classifier
+and language models. The classifier should be an isolated character classifier.
+
+Arguments can be a mix of text files, language models, and images.
+
+If a language model is given, that's used for aligning/recognizing
+subsequent images.
+
+If a text file is given, it is compiled into a language model and
+then used for recognizing subsequent images.
+
+When alignment is performed, rseg.gt.png, cseg.gt.png,
+and gt.txt files are written.
+""")
+
+parser.add_option("-m","--model",help="model file",default="unlv.model")
+parser.add_option("-s","--segmenter",help="segmenter",default="DpSegmenter")
+parser.add_option("-l","--langmod",help="language model",default=None)
+
+parser.add_option("-p","--precomp",help="precompose extra transducer",default=None)
+parser.add_option("-v","--verbose",help="verbose",action="store_true")
+parser.add_option("-b","--best",help="# best chars to add to FST",type="int",default=10)
+parser.add_option("-t","--cthreshold",help="avg per character threshold",type="float",default=7.0)
+parser.add_option("-T","--gthreshold",help="max total threshold",type="float",default=100.0)
+parser.add_option("-d","--display",help="verbose",action="store_true")
+parser.add_option("-M","--maxcost",help="maxcost for transition",type="float",default=5.0)
+parser.add_option("-D","--maxdist",help="maxdist for grouper",type="int",default=5)
+parser.add_option("-A","--noambigs",help="don't use ambiguous classes",action="store_true")
+parser.add_option("-x","--gtextension",help="extension used for ground truth (ex: .txt, .gt.txt, .fst,...)",default=None)
+(options,args) = parser.parse_args()
+
+if len(args)==0:
+    parser.print_help()
+    sys.exit(0)
+
+assert options.precomp is None,"precomp not implemented yet"
+
+segmenter = ocropy.make_ISegmentLine(options.segmenter)
+grouper = ocropy.make_IGrouper("SimpleGrouper")
+grouper.pset("maxdist",options.maxdist) # use 5 to handle "/''
+
+ion()
+
+print "loading",options.model
+
+cmodel = ocropy.load_IModel(options.model)
+linerec = ocropy.CmodelLineRecognizer(cmodel=cmodel)
+
+default_lmodel = None
+
+def read_lmodel(file):
+    if file[-4:]==".fst":
+        result = ocropy.make_OcroFST()
+        result.load(imagefile)
+        return result
+    else:
+        result = fstutils.load_text_file_as_fst(imagefile)
+        return result
+    
+for imagefile in args:
+    prefix = re.sub(r'\.[^/]*$','',imagefile)
+
+    ## if the file is a language model, load it
+    if imagefile[-4:]==".fst" or imagefile[-4:]==".txt":
+        assert options.gtextension is None,"either specify gtextension or language model"
+        default_lmodel = read_lmodel(imagefile)
+        continue
+        
+    ## load the line image
+    print "load\t",imagefile
+    image = ocropy.bytearray()
+    ocropy.read_image_gray(image,imagefile)
+
+    ## perform line recognition, yielding a recognition lattice
+    lattice = ocropy.make_OcroFST()
+    rseg = ocropy.intarray()
+    linerec.recognizeLineSeg(lattice,rseg,image)
+    lattice.save("_lattice.fst")
+
+    ## compute and output the raw best path
+    s = ocropy.ustrg()
+    lattice.bestpath(s)
+    cost = 0.0
+    print "lraw %6.2f\t%3d\t%s"%(cost,s.length(),ocropy.ustrg_as_string(s))
+
+    ## if we can find a language model for it then perform alignment
+    lmodel = default_lmodel
+    if options.gtextension is not None:
+        base = re.sub(r'\.[^/]*$','',imagefile)
+        lmodel = read_lmodel(base+options.gtextension)
+
+    if lmodel is not None:
+        result,cseg,costs = ocropy.compute_alignment(lattice,rseg,lmodel)
+        print "costs",sum(costs),mean(costs),amax(costs),median(costs)
+        print "result",result
+        ## output the aligned segmentations
+        ocropy.write_segmentation(prefix+".rseg.gt.png",rseg)
+        ocropy.write_segmentation(prefix+".cseg.gt.png",cseg)
+        ocropy.write_text(prefix+".gt.txt",result)
+
+    print

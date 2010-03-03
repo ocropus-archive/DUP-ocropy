@@ -1,0 +1,34 @@
+#!/usr/bin/env python
+
+import pygtk
+pygtk.require("2.0") 
+import gobject,gtk,gtk.glade
+import binnednn,dbtables
+import sys,pickle,os,glob
+import scipy
+from optparse import OptionParser
+from pylab import *
+import ocromisc
+from ocromisc import IsolatedCharacterClassifier
+
+parser = OptionParser(usage="""
+%prog [options] [input.db]
+
+Trains models based on a cluster database.
+""")
+parser.add_option("-t","--table",help="which table to edit",default="clusters")
+(options,args) = parser.parse_args()
+
+file = args[0]
+db = dbtables.Database(file)
+
+for name in list(db.query("select name from sqlite_master where type='table'")):
+    name = name[0]
+    print file,name
+    total = int(list(db.query("select count(id) from %s"%name))[0][0])
+    print "   total         %.4g"%total
+    unclassified = int(list(db.query("select count(id) from %s where cls='_'"%name))[0][0])
+    print "   unclassified  %.4g"%unclassified
+    reject = int(list(db.query("select count(id) from %s where cls='~'"%name))[0][0])
+    print "   reject        %.4g"%reject
+    print "   chars         %.4g"%(total-unclassified-reject,)

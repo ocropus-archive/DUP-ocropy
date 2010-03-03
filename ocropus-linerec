@@ -1,0 +1,30 @@
+#!/usr/bin/python
+
+import sys,os,re,glob
+import iulib,ocropus
+from ocromisc import *
+
+from optparse import OptionParser
+prefix = "/usr/local/share/ocropus/models/"
+parser = OptionParser(usage="""
+%prog [options] image.png ...
+
+Recognize models using the OCRopus C++ line recognizer (IRecognizeLine)
+""")
+parser.add_option("-m","--linerec",help="linerec model",default=prefix+"default.model")
+parser.add_option("-l","--langmod",help="langmod",default=prefix+"default.fst")
+parser.add_option("-v","--verbose",help="verbose",action="store_true")
+(options,args) = parser.parse_args()
+
+linerec = ocropus.load_IRecognizeLine(options.linerec)
+lmodel = ocropus.make_OcroFST()
+lmodel.load(options.langmod)
+
+for line in args:
+    image = iulib.bytearray()
+    iulib.read_image_gray(image,line)
+    fst = ocropus.make_OcroFST()
+    linerec.recognizeLine(fst,image)
+    s = iulib.ustrg()
+    cost = ocropus.beam_search(s,fst,lmodel,1000)
+    print "%6.2f\t%3d\t%s"%(cost,s.length(),ustrg_as_string(s))

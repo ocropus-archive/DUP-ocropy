@@ -1,0 +1,38 @@
+#!/usr/bin/env python
+import sys
+
+import matplotlib
+import gobject
+import pickle
+from pylab import *
+
+ion()
+
+if len(sys.argv)>1:
+    binned = pickle.load(open(sys.argv[1]))
+else:
+    binned = pickle.load(open("clusters.dump"))
+
+binsizes = []
+bincounts = []
+repeat = 0
+single = 0
+
+threshold = 1
+
+for key,bin in binned.bins.items():
+    binsizes.append(len(bin))
+    count = 0
+    for pat in bin:
+        count += pat.count
+        if pat.count>threshold: repeat += pat.count
+        else: single += pat.count
+    bincounts.append(count)
+
+print "average binsize",average(binsizes)
+print "median binsize",median(binsizes)
+print "max binsize",max(binsizes)
+print "expected binsize",sum(array(bincounts)*array(binsizes))/float(sum(bincounts))
+print
+print "#repeats",repeat,"#single",single
+print "fraction",single/float(repeat+single)
