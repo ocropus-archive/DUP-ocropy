@@ -2,6 +2,36 @@ import sys,os,re,glob,math,glob,signal
 import iulib,ocropus
 from pylab import *
 
+def findfile(name):
+    """Find some OCRopus-related resource by looking in a bunch off standard places.
+    (This needs to be integrated better with setup.py and the build system.)"""
+    local = "/usr/local/share/ocropus/"
+    path = name
+    if os.path.exists(path) and os.path.isfile(path): return path
+    path = local+name
+    if os.path.exists(path) and os.path.isfile(path): return path
+    _,tail = os.path.split(name)
+    path = tail
+    if os.path.exists(path) and os.path.isfile(path): return path
+    path = local+tail
+    if os.path.exists(path) and os.path.isfile(path): return path
+    raise IOError("file '"+path+"' not found in . or /usr/local/share/ocropus/")
+
+def finddir(name):
+    """Find some OCRopus-related resource by looking in a bunch off standard places.
+    (This needs to be integrated better with setup.py and the build system.)"""
+    local = "/usr/local/share/ocropus/"
+    path = name
+    if os.path.exists(path) and os.path.isdir(path): return path
+    path = local+name
+    if os.path.exists(path) and os.path.isdir(path): return path
+    _,tail = os.path.split(name)
+    path = tail
+    if os.path.exists(path) and os.path.isdir(path): return path
+    path = local+tail
+    if os.path.exists(path) and os.path.isdir(path): return path
+    raise IOError("file '"+path+"' not found in . or /usr/local/share/ocropus/")
+
 def imsdl(image,wait=1,norm=1):
     """Display the given iulib image using iulib's own
     display code."""

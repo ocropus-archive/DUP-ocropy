@@ -384,7 +384,13 @@ def classifier_menu(cmd):
     menu = gtk.Menu()
     group = None
     activated = 0
-    for model in glob.glob("*.cmodel"):
+    models = glob.glob("*.cmodel")
+    try:
+        modeldir = ocropy.finddir("models")
+        models += glob.glob(modeldir+"/*.cmodel")
+    except IOError:
+        pass
+    for model in models:
         item = gtk.RadioMenuItem(group=group,label=model)
         if "default" in model:
             item.activate()
@@ -430,7 +436,7 @@ def build_toolbar():
 
 def main():
     global main_widget_tree,class_selector,cluster_viewer,info_area
-    gladefile = "ocropus-cedit.glade"
+    gladefile = ocropy.findfile("gui/ocropus-cedit.glade")
     windowname = "window1" 
     main_widget_tree = gtk.glade.XML(gladefile)
     dic = {
