@@ -149,10 +149,12 @@
         <child>
           <widget class="GtkHButtonBox" id="hbuttonbox1">
             <property name="visible">True</property>
-            <property name="spacing">4</property>
+            <property name="spacing">5</property>
             <child>
-              <widget class="GtkComboBoxEntry" id="cleanup">
+              <widget class="GtkLabel" id="label7">
                 <property name="visible">True</property>
+                <property name="label" translatable="yes">Preprocessing</property>
+                <property name="justify">right</property>
               </widget>
               <packing>
                 <property name="expand">False</property>
@@ -161,8 +163,9 @@
               </packing>
             </child>
             <child>
-              <widget class="GtkComboBoxEntry" id="pageseg">
+              <widget class="GtkComboBoxEntry" id="ppselect">
                 <property name="visible">True</property>
+                <signal name="changed" handler="on_ppselect_changed"/>
               </widget>
               <packing>
                 <property name="expand">False</property>
@@ -171,7 +174,27 @@
               </packing>
             </child>
             <child>
-              <placeholder/>
+              <widget class="GtkLabel" id="label8">
+                <property name="visible">True</property>
+                <property name="label" translatable="yes">Segmentation</property>
+                <property name="justify">right</property>
+              </widget>
+              <packing>
+                <property name="expand">False</property>
+                <property name="fill">False</property>
+                <property name="position">2</property>
+              </packing>
+            </child>
+            <child>
+              <widget class="GtkComboBoxEntry" id="segselect">
+                <property name="visible">True</property>
+                <signal name="changed" handler="on_segselect_changed"/>
+              </widget>
+              <packing>
+                <property name="expand">False</property>
+                <property name="fill">False</property>
+                <property name="position">3</property>
+              </packing>
             </child>
           </widget>
           <packing>

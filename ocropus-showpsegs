@@ -39,9 +39,6 @@ parser.add_option("-v","--verbose",help="verbose",action="store_true")
 
 iconwidth = 200
 
-preproc = ocropy.make_IBinarize("StandardPreprocessing")
-segmenter = ocropy.make_ISegmentPage("SegmentPageByRAST")
-
 def gtk_yield():
     while gtk.events_pending():
        gtk.main_iteration(False)
@@ -89,8 +86,25 @@ def get_icon0(file,size=iconwidth):
     del image
     return result
     
+def compute_component_combolist(widget,kind=None,dflt=None):
+    """Compute the combolist from the current charlist."""
+    combolist = gtk.ListStore(str)
+    componentlist = ocropy.ComponentList()
+    select = 0
+    for i in range(componentlist.length()):
+        n = componentlist.name(i)
+        k = componentlist.kind(i)
+        print n,k
+        if kind is not None and kind!=k: continue
+        if n==dflt: select = len(combolist)
+        combolist.append([n])
+    widget.set_model(combolist)
+    widget.set_text_column(0)
+    widget.set_active(select)
+
 class GraphWindow: 
     def __init__(self): 
+        self.file = None
         gladefile = "ocropus-showpsegs.glade" 
         self.windowname = "pagesegs" 
         self.wtree = gtk.glade.XML(gladefile, self.windowname) 
@@ -98,6 +112,8 @@ class GraphWindow:
         dic = {
             "on_window1_destroy" : gtk.main_quit,
             "on_pagelist_item_activated" : self.pagelistActivated,
+            "on_segselect_changed" : self.segupdate,
+            "on_ppselect_changed" : self.ppupdate,
             }
         self.pagelist = self.wtree.get_widget("pagelist")
         self.pagelist.set_selection_mode(gtk.SELECTION_MULTIPLE)
@@ -105,6 +121,13 @@ class GraphWindow:
         self.pagelist.set_pixbuf_column(0)
         self.pagelist.set_text_column(1)
         self.pagelist.show_all()
+
+        self.ppselect = self.wtree.get_widget("ppselect")
+        compute_component_combolist(self.ppselect,"IBinarize","StandardPreprocessing")
+        self.ppupdate()
+        self.segselect = self.wtree.get_widget("segselect")
+        compute_component_combolist(self.segselect,"ISegmentPage","SegmentPageByRAST")
+        self.segupdate()
 
         self.notebook = self.wtree.get_widget("notebook")
         self.wtree.signal_autoconnect(dic)
@@ -148,9 +171,21 @@ class GraphWindow:
             gtk_yield()
     def pagelistActivated(self,view,index):
         file = self.grid[index][1]
-        self.show(file)
-    def show(self, file):
+        self.file = file
+        self.recompute()
+    def ppupdate(self,*args):
+        name = self.ppselect.get_active_text()
+        self.preproc = ocropy.make_IBinarize(name)
+        self.recompute()
+    def segupdate(self,*args):
+        name = self.segselect.get_active_text()
+        self.segmenter = ocropy.make_ISegmentPage(name)
+        self.recompute()
+    def recompute(self):
+        file = self.file
         self.removeFigures()
+        if file is None: return
+        print self.file,self.preproc.name(),self.segmenter.name()
         
         # load the image
         print "loading",file
@@ -164,7 +199,7 @@ class GraphWindow:
         # clean it up using the given cleanup method
         print "cleanup",file
         page_bin = ocropy.bytearray()
-        preproc.binarize(page_bin,page_gray)
+        self.preproc.binarize(page_bin,page_gray)
         self.cleanup_axis = self.makeFigure("cleanup_container")
         self.cleanup_axis.imshow(NI(page_bin),cmap=cm.gray)
         gtk_yield()
@@ -174,7 +209,7 @@ class GraphWindow:
         self.segmentation_axis = self.makeFigure("segmentation_container")
         self.segmentation_axis.imshow(NI(page_bin),cmap=cm.gray)
         page_seg = ocropy.intarray()
-        segmenter.segment(page_seg,page_bin)      
+        self.segmenter.segment(page_seg,page_bin)      
         regions = ocropy.RegionExtractor()
         regions.setPageLines(page_seg)
         print "lines:",regions.length()
@@ -195,7 +230,6 @@ class GraphWindow:
 def main():
     app = GraphWindow()
     app.addImages(args)
-    app.show(args[0])
     gtk.main()
 
 main()
