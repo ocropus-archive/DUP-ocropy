@@ -60,6 +60,22 @@ def numpy2pixbuf(a):
         return gtk.gdk.pixbuf_new_from_array(data,gtk.gdk.COLORSPACE_RGB,8)
 
 def get_icon(file,size=iconwidth):
+    page_gray = ocropy.bytearray()
+    ocropy.read_image_gray(page_gray,file)
+    w = page_gray.dim(0)
+    h = page_gray.dim(1)
+    scale = max(w/size,h/size)
+    scale = max(1.0,scale)
+    icon_gray = ocropy.bytearray()
+    ocropy.rescale(icon_gray,page_gray,int(w/scale),int(h/scale))
+    page_gray.clear()
+    icon = NI(icon_gray)
+    icon_gray.clear()
+    lo,hi = amin(icon),amax(icon)
+    icon = (icon-lo)*1.0/(hi-lo)
+    return numpy2pixbuf(icon)
+
+def get_icon0(file,size=iconwidth):
     image = imread(file)
     h,w = image.shape[:2]
     scale = max(w/size,h/size)
@@ -141,9 +157,8 @@ class GraphWindow:
         page_gray = ocropy.bytearray()
         ocropy.read_image_gray(page_gray,file)
         print "got",page_gray.dim(0),page_gray.dim(1)
-        page_gray_image = NI(page_gray)
         self.raw_axis = self.makeFigure("raw_container")
-        self.raw_axis.imshow(page_gray_image,cmap=cm.gray)
+        self.raw_axis.imshow(NI(page_gray),cmap=cm.gray)
         gtk_yield()
         
         # clean it up using the given cleanup method
@@ -157,7 +172,7 @@ class GraphWindow:
         # perform segmentation
         print "segmentation",file
         self.segmentation_axis = self.makeFigure("segmentation_container")
-        self.segmentation_axis.imshow(page_gray_image,cmap=cm.gray)
+        self.segmentation_axis.imshow(NI(page_bin),cmap=cm.gray)
         page_seg = ocropy.intarray()
         segmenter.segment(page_seg,page_bin)      
         regions = ocropy.RegionExtractor()
@@ -172,6 +187,9 @@ class GraphWindow:
             p = patches.Rectangle((x0,h-y1-1),x1-x0,y1-y0,edgecolor="red",fill=0)
             self.segmentation_axis.add_patch(p)
         gtk_yield()
+        page_gray.clear()
+        page_bin.clear()
+        page_seg.clear()
         print "done"
 
 def main():
