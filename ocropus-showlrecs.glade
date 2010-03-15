@@ -250,6 +250,7 @@
                       <widget class="GtkTreeView" id="linelist">
                         <property name="visible">True</property>
                         <property name="can_focus">True</property>
+                        <signal name="row_activated" handler="on_linelist_row_activated"/>
                       </widget>
                     </child>
                   </widget>

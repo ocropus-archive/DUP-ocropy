@@ -1,5 +1,8 @@
 #!/usr/bin/env python
 
+### FIXME
+### replace comboboxes with file menu
+
 from optparse import OptionParser
 import re,os,glob
 import sys
@@ -122,6 +125,7 @@ class LineWindow:
             "on_langmod_changed" : self.langmod_update,
             "on_run_recognizer_clicked" : self.run_recognizer,
             "on_record_clicked" : self.record,
+            "on_linelist_row_activated" : self.linelist_row,
             }
         self.wtree.signal_autoconnect(dic)
         self.linelist = self.wtree.get_widget("linelist")
@@ -131,7 +135,7 @@ class LineWindow:
         self.lines.set_sort_func(2,float_sort,2)
         self.linelist.set_model(self.lines)
         self.setupTreeView()
-        self.notebook = self.wtree.get_widget("notebook")
+        self.details = self.wtree.get_widget("details")
 
         self.recognizers = gtk.ListStore(str)
         self.recognizers.append(["none"])
@@ -228,7 +232,29 @@ class LineWindow:
     def record(self,*args):
         for i in range(len(self.lines)):
             self.lines[i][1] = self.lines[i][0]
-            
+    def detail(self,*args):
+        for arg in args:
+            self.buffer.insert(self.buffer.get_end_iter(),arg)
+    def detail_pixbuf(self,arg):
+        self.buffer.insert_pixbuf(self.buffer.get_end_iter(),arg)
+    def linelist_row(self,view,index,column):
+        self.buffer = gtk.TextBuffer()
+        self.details.set_buffer(self.buffer)
+        row = self.lines[index]
+        file = row[6]
+        self.detail(file+"\n\n")
+        self.detail_pixbuf(gtk.gdk.pixbuf_new_from_file(file))
+        self.detail("\n\n")
+        self.detail("output: \n")
+        self.detail("ground truth: \n")
+        self.detail("error: \n")
+        self.detail("\n")
+        self.detail("\nraw segmentation\n")
+        self.detail("\n")
+        self.detail("\naligned segmentation\n")
+        self.detail("\n")
+        self.detail("\nper-character results\n")
+        self.detail("\n")
     def recognizer_update(self,*args):
         pass
     def langmod_update(self,*args):
