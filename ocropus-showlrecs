@@ -1,0 +1,250 @@
+#!/usr/bin/env python
+
+from optparse import OptionParser
+import re,os,glob
+import sys
+import matplotlib 
+matplotlib.use('GTK') 
+from matplotlib.figure import Figure 
+from matplotlib.axes import Subplot 
+from matplotlib.backends.backend_gtk import FigureCanvasGTK, NavigationToolbar 
+from numpy import arange,sin, pi 
+import pygtk 
+pygtk.require("2.0") 
+import gtk 
+import gtk.glade
+import gobject
+from pylab import *
+import gnome
+import ocropy
+from ocropy import NI
+from matplotlib import patches
+import scipy
+
+from matplotlib.backends.backend_gtk import FigureCanvasGTK as FigureCanvas
+from matplotlib.backends.backend_gtk import NavigationToolbar2GTK as NavigationToolbar
+
+#from matplotlib.backends.backend_gtkcairo import FigureCanvasGTKCairo as FigureCanvas
+#from matplotlib.backends.backend_gtkcairo import NavigationToolbar2Cairo as NavigationToolbar
+#from matplotlib.backends.backend_gtkagg import FigureCanvasGTKAgg as FigureCanvas
+#from matplotlib.backends.backend_gtkagg import NavigationToolbar2GTKAgg as NavigationToolbar
+
+parser = OptionParser(usage="""
+%prog [options] [input.db]
+
+Trains models based on a cluster database.
+""")
+parser.add_option("-v","--verbose",help="verbose",action="store_true")
+(options,args) = parser.parse_args()
+
+iconwidth = 200
+
+def readfile(file):
+    with open(file) as stream:
+        return stream.read()
+
+def gtk_yield():
+    while gtk.events_pending():
+       gtk.main_iteration(False)
+
+def numpy2pixbuf(a):
+    """Convert a numpy array to a pixbuf."""
+    if len(a.shape)==3:
+        data = zeros(list(a.shape),'B')
+        data[:,:,:] = 255*a
+        return gtk.gdk.pixbuf_new_from_array(data,gtk.gdk.COLORSPACE_RGB,8)
+    elif len(a.shape)==2:
+        data = zeros(list(a.shape)+[3],'B')
+        data[:,:,0] = 255*a
+        data[:,:,1] = 255*a
+        data[:,:,2] = 255*a
+        return gtk.gdk.pixbuf_new_from_array(data,gtk.gdk.COLORSPACE_RGB,8)
+
+def get_icon(file,size=iconwidth):
+    page_gray = ocropy.bytearray()
+    ocropy.read_image_gray(page_gray,file)
+    w = page_gray.dim(0)
+    h = page_gray.dim(1)
+    scale = max(w/size,h/size)
+    scale = max(1.0,scale)
+    icon_gray = ocropy.bytearray()
+    ocropy.rescale(icon_gray,page_gray,int(w/scale),int(h/scale))
+    page_gray.clear()
+    icon = NI(icon_gray)
+    icon_gray.clear()
+    lo,hi = amin(icon),amax(icon)
+    icon = (icon-lo)*1.0/(hi-lo)
+    return numpy2pixbuf(icon)
+
+def get_icon0(file,size=iconwidth):
+    image = imread(file)
+    h,w = image.shape[:2]
+    scale = max(w/size,h/size)
+    scale = max(1.0,scale)
+    if scale>1.0:
+        icon = scipy.ndimage.interpolation.zoom(image,(1.0/scale,1.0/scale,1.0))
+        result = numpy2pixbuf(icon)
+        del icon
+    else:
+        result = numpy2pixbuf(image)
+    del image
+    return result
+    
+def compute_component_combolist(widget,kind=None,dflt=None):
+    """Compute the combolist from the current charlist."""
+    combolist = gtk.ListStore(str)
+    for n in ocropy.get_components(kind):
+        if n==dflt: select = len(combolist)
+        combolist.append([n])
+    widget.set_model(combolist)
+    widget.set_text_column(0)
+    widget.set_active(select)
+
+def float_sort(model,x,y,col):
+    x = model[x][col]
+    y = model[y][col]
+    if y=="": return -1
+    if x=="": return 1
+    if float(x)<float(y): return -1
+    if float(x)>float(y): return 1
+    return 0    
+
+class LineWindow: 
+    def __init__(self): 
+        self.file = None
+        gladefile = "ocropus-showlrecs.glade" 
+        self.windowname = "linerecs" 
+        self.wtree = gtk.glade.XML(gladefile,self.windowname) 
+        self.window = self.wtree.get_widget(self.windowname)
+        dic = {
+            "on_window1_destroy" : gtk.main_quit,
+            "on_recognizer_changed" : self.recognizer_update,
+            "on_langmod_changed" : self.langmod_update,
+            "on_run_recognizer_clicked" : self.run_recognizer,
+            "on_record_clicked" : self.record,
+            }
+        self.wtree.signal_autoconnect(dic)
+        self.linelist = self.wtree.get_widget("linelist")
+        self.lines = gtk.ListStore(str,str,str,gtk.gdk.Pixbuf,str,str,str)
+        self.lines.set_sort_func(0,float_sort,0)
+        self.lines.set_sort_func(1,float_sort,1)
+        self.lines.set_sort_func(2,float_sort,2)
+        self.linelist.set_model(self.lines)
+        self.setupTreeView()
+        self.notebook = self.wtree.get_widget("notebook")
+
+        self.recognizers = gtk.ListStore(str)
+        self.recognizers.append(["none"])
+        for model in glob.glob("*.model"):
+            print model
+            self.recognizers.append([model])
+        for model in glob.glob("*.cmodel"):
+            print model
+            self.recognizers.append([model])
+        self.recognizer = self.wtree.get_widget("recognizer")
+        self.recognizer.set_model(self.recognizers)
+        self.recognizer.set_text_column(0)
+        self.recognizer.set_active(0)
+
+        self.langmods = gtk.ListStore(str)
+        self.langmods.append(["none"])
+        for model in glob.glob("*.fst"):
+            print model
+            self.langmods.append([model])
+        self.langmod = self.wtree.get_widget("langmod")
+        self.langmod.set_model(self.langmods)
+        self.langmod.set_text_column(0)
+        self.langmod.set_active(0)
+        
+        self.last_recognizer = None
+        self.last_langmod = None
+        self.window.show_all()
+    def setupTreeView(self):
+        headers = ["Errs","Last","Delta","Line","Output","True","File"]
+        types = ["text","text","text","pixbuf","text","text","text"]
+        for i in range(len(headers)):
+            print i,headers[i],types[i]
+            if types[i]=="pixbuf":
+                renderer = gtk.CellRendererPixbuf()
+                col = gtk.TreeViewColumn(headers[i],renderer,pixbuf=i)
+                col.pack_start(renderer)
+            else:
+                renderer = gtk.CellRendererText()
+                col = gtk.TreeViewColumn(headers[i],renderer,text=i)
+                col.pack_start(renderer)
+            col.set_sort_column_id(i)
+            self.linelist.append_column(col)
+        self.linelist.show()
+    def addImages(self,images):
+        """Set the store for the target class."""
+        for image in images:
+            pixbuf = gtk.gdk.pixbuf_new_from_file(image)
+            w = pixbuf.get_width()
+            h = pixbuf.get_height()
+            scale = max(w/500.0,h/20.0)
+            if scale>1:
+                pixbuf = pixbuf.scale_simple(int(w/scale),int(h/scale),gtk.gdk.INTERP_BILINEAR)
+            gt = ""
+            gtfile = re.sub(r'\.png$',".gt.txt",image)
+            if os.path.exists(gtfile): gt = readfile(gtfile)
+            row = ["","","",pixbuf,"",gt,image]
+            self.lines.append(row)
+        print row
+        self.linelist.set_model(self.lines)
+    def recognizeAll(self):
+        linerec = ocropy.load_linerec(self.recognizer.get_active_text())
+        print "loaded",linerec
+        lmodel_name = self.langmod.get_active_text()
+        lmodel = None
+        if lmodel_name!="none":
+            lmodel = ocropy.make_OcroFST()
+            lmodel.load(lmodel_name)
+        print "loaded",lmodel
+        print len(self.lines),"lines"
+        for i in range(len(self.lines)):
+            file = self.lines[i][6]
+            print file
+            fst = ocropy.make_OcroFST()
+            image = ocropy.bytearray()
+            ocropy.read_image_gray(image,file)
+            linerec.recognizeLine(fst,image)
+            s = ocropy.ustrg()
+            if lmodel is not None:
+                cost = ocropy.beam_search(s,fst,lmodel,1000)
+            else:
+                fst.bestpath(s)
+            result = ocropy.ustrg_as_string(s)
+            gt = self.lines[i][5]
+            if gt!="" and gt is not None:
+                gtustrg = ocropy.ustrg()
+                gtustrg.assign(gt)
+                err = ocropy.edit_distance(s,gtustrg,1.0,1.0,1.0)
+                self.lines[i][0] = err
+                if self.lines[i][1]!="":
+                    self.lines[i][2] = float(self.lines[i][0])-float(self.lines[i][1])
+            print result
+            self.lines[i][4] = result
+            gtk_yield()
+    def record(self,*args):
+        for i in range(len(self.lines)):
+            self.lines[i][1] = self.lines[i][0]
+            
+    def recognizer_update(self,*args):
+        pass
+    def langmod_update(self,*args):
+        pass
+    def run_recognizer(self,*args):
+        print "run_recognizer_activate",args
+        recognizer = self.recognizer.get_active_text()
+        langmod = self.langmod.get_active_text()
+        if recognizer=="none": return
+        if recognizer==self.last_recognizer and \
+                langmod==self.last_langmod: return
+        self.recognizeAll()
+
+def main():
+    app = LineWindow()
+    app.addImages(args)
+    gtk.main()
+
+main()
