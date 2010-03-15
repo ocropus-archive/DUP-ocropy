@@ -89,13 +89,7 @@ def get_icon0(file,size=iconwidth):
 def compute_component_combolist(widget,kind=None,dflt=None):
     """Compute the combolist from the current charlist."""
     combolist = gtk.ListStore(str)
-    componentlist = ocropy.ComponentList()
-    select = 0
-    for i in range(componentlist.length()):
-        n = componentlist.name(i)
-        k = componentlist.kind(i)
-        print n,k
-        if kind is not None and kind!=k: continue
+    for n in ocropy.get_components(kind):
         if n==dflt: select = len(combolist)
         combolist.append([n])
     widget.set_model(combolist)

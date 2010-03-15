@@ -8,7 +8,20 @@ import iulib,ocropus
 component_registry = {}
 
 def register_constructor(name,f):
+    # FIXME check that components have name() etc.
     component_registry[name] = f
+
+def get_components(kind=None):
+    # FIXME add Python component registry here
+    componentlist = ocropus.ComponentList()
+    select = 0
+    result = []
+    for i in range(componentlist.length()):
+        n = componentlist.name(i)
+        k = componentlist.kind(i)
+        if kind is not None and kind!=k: continue
+        result.append(n)
+    return result
 
 def make_ICleanupGray(name):
     if component_registry.has_key(name):
