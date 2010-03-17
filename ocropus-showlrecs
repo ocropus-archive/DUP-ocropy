@@ -37,6 +37,7 @@ parser = OptionParser(usage="""
 
 Trains models based on a cluster database.
 """)
+parser.add_option("-s","--spaces",help="count spaces",action="store_true")
 parser.add_option("-v","--verbose",help="verbose",action="store_true")
 (options,args) = parser.parse_args()
 
@@ -46,6 +47,17 @@ lscale = 1.0
 def readfile(file):
     with open(file) as stream:
         return stream.read()
+
+
+def edit_distance(s,t,space=0):
+    if not space:
+        s = re.sub(r'\s+','',s)
+        t = re.sub(r'\s+','',t)
+    s_ = ocropy.ustrg()
+    s_.assign(s)
+    t_ = ocropy.ustrg()
+    t_.assign(t)
+    return ocropy.edit_distance(s_,t_)
 
 def gtk_yield():
     while gtk.events_pending():
@@ -131,8 +143,6 @@ def seg2pixbuf(rseg):
         colors[:,:,:] /= sqrt(sum(colors**2,axis=2)[:,:,newaxis])
         colors = 127.0*colors+1.0
         colors = array(colors,'B')
-        print colors.shape
-        # colors = array(127.0*colors+1.0,'B')
     else:
         colors = zeros((10,10,3),'B')
     rseg = gtk.gdk.pixbuf_new_from_array(colors,gtk.gdk.COLORSPACE_RGB,8)
@@ -250,9 +260,7 @@ class LineWindow:
             result = ocropy.ustrg_as_string(s)
             gt = self.lines[i][5]
             if gt!="" and gt is not None:
-                gtustrg = ocropy.ustrg()
-                gtustrg.assign(gt)
-                err = ocropy.edit_distance(s,gtustrg,1.0,1.0,1.0)
+                err = edit_distance(result,gt,space=options.spaces)
                 self.lines[i][0] = err
                 if self.lines[i][1]!="":
                     self.lines[i][2] = float(self.lines[i][0])-float(self.lines[i][1])
@@ -302,11 +310,9 @@ class LineWindow:
             self.detail("(load a language model for more details)")
         gt = row[5]
         if gt is not None and gt!="":
-            gtustrg = ocropy.ustrg()
-            gtustrg.assign(gt)
-            err = ocropy.edit_distance(s,gtustrg,1.0,1.0,1.0)
-            self.detail("ground truth: %s\n\n",gt)
-            self.detail("error: %f\n\n",err)
+            err = edit_distance(result,gt,space=options.spaces)
+            self.detail("ground truth: %s\n\n"%gt)
+            self.detail("error: %f\n\n"%err)
         gtk_yield()
         self.detail("\n")
         self.detail("\nraw segmentation\n")
