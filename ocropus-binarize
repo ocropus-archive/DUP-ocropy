@@ -2,6 +2,8 @@
 
 # imgr
 
+import signal
+signal.signal(signal.SIGINT,lambda *args:sys.exit(1))
 from pylab import *
 import sys,os,re,ocropy,optparse
 from ocropy import N,NI
@@ -22,15 +24,9 @@ options,args = parser.parse_args()
 if options.threshold>0:
     options.low = options.threshold
     options.high = options.threshold
-if options.Display:
-    options.display = 1
-    import matplotlib 
-    matplotlib.use('GTK') 
-    import gtk
-    def gtk_yield():
-        while gtk.events_pending():
-           gtk.main_iteration(False)
-    ion()
+
+if options.Display: options.display = 1
+ion()
 
 def binarize(input,k_hi=0.4,k_lo=0.05,w=40):
     # convert it to grayscale and normalize the range
@@ -81,7 +77,9 @@ for arg in args:
     if options.display: 
         clf()
         imshow(bin,cmap=cm.gray)
-        if options.Display: draw(); gtk_yield()
-        else: show()
+        draw()
+        if not options.Display: 
+            print "hit ENTER to continue"
+            raw_input()
     base,_ = ocropy.allsplitext(arg)
     imsave(base+".bin.png",bin)

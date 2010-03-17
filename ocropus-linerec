@@ -3,15 +3,6 @@
 import sys,os,re,glob
 import ocropy
 from ocropy import N,NI
-
-import matplotlib
-matplotlib.use('GTK')
-import pygtk,gtk,gtk.glade,gobject
-pygtk.require("2.0")
-from matplotlib import patches,pyplot
-from matplotlib.figure import Figure 
-from matplotlib.axes import Subplot 
-from matplotlib.backends.backend_gtk import FigureCanvasGTK, NavigationToolbar
 from pylab import *
 
 from optparse import OptionParser
@@ -28,15 +19,8 @@ parser.add_option("-d","--display",help="display result",action="store_true")
 parser.add_option("-D","--Display",help="display continuously",action="store_true")
 (options,args) = parser.parse_args()
 
-if options.Display:
-    options.display = 1
-    import matplotlib 
-    matplotlib.use('GTK') 
-    import gtk
-    def gtk_yield():
-        while gtk.events_pending():
-           gtk.main_iteration(False)
-    ion()
+if options.Display: options.display = 1
+if options.display: ion()
 
 linerec = ocropy.load_IRecognizeLine(options.linerec)
 lmodel = ocropy.make_OcroFST()
@@ -65,8 +49,7 @@ for line in args:
         for i in range(1,bboxes.length()):
             axis.text(bboxes.at(i).x0,h-bboxes.at(i).y0-1,s[i-1],
                       color="red",weight="bold",fontsize=14,alpha=0.3)
-        if options.Display:
-            draw(); gtk_yield();
-            waitforbuttonpress()
-        else:
-            show()
+        draw()
+        if not options.Display:
+            print "hit ENTER to continue"
+            raw_input()

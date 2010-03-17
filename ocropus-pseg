@@ -1,15 +1,9 @@
 #!/usr/bin/python
 
+import signal
+signal.signal(signal.SIGINT,lambda *args:sys.exit(1))
 import sys,os,re,optparse,shutil
-
-import matplotlib
-matplotlib.use('GTK')
-import pygtk,gtk,gtk.glade,gobject
-pygtk.require("2.0")
 from matplotlib import patches
-from matplotlib.figure import Figure 
-from matplotlib.axes import Subplot 
-from matplotlib.backends.backend_gtk import FigureCanvasGTK, NavigationToolbar
 from pylab import *
 
 from scipy.ndimage import measurements
@@ -17,8 +11,6 @@ from scipy.misc import imsave
 from PIL import Image
 import ocropy
 from ocropy import N,NI
-
-
 
 parser = optparse.OptionParser()
 parser.add_option("-g","--gray",action="store_true",
@@ -35,12 +27,11 @@ parser.add_option("-P","--preproc",default="StandardPreprocessing",
                   help="which preprocessing component to use")
 options,args = parser.parse_args()
 
-figure = matplotlib.pyplot.figure(figsize=(15,25),dpi=72)
-axis = figure.add_subplot(111)
-
 preproc = ocropy.make_IBinarize(options.preproc)
 segmenter = ocropy.make_ISegmentPage(options.segmenter)
 
+if options.Display: options.display = 1
+if options.display: ion()
 
 for arg in args:
     print "# loading",arg
@@ -80,6 +71,7 @@ for arg in args:
     os.mkdir(base)
     print "# writing",regions.length(),"lines"
     if options.display:
+        axis = subplot(111)
         axis.imshow(NI(page_bin),cmap=cm.gray)
     line = ocropy.bytearray()
     for i in range(1,regions.length()):
@@ -100,5 +92,7 @@ for arg in args:
             regions.extract_masked(line,page_bin,i,0,255,options.pad)
             ocropy.write_image_gray("%s/%06x.png"%(base,regions.id(i)),line)
     if options.display:
-        figure.show()
-        show()
+        draw()
+        if not options.Display:
+            print "hit ENTER to continue"
+            raw_input()
