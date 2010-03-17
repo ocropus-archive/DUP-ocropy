@@ -21,6 +21,8 @@ from ocropy import N,NI
 
 
 parser = optparse.OptionParser()
+parser.add_option("-g","--gray",action="store_true",
+                  help="output grayscale images + binary masks")
 parser.add_option("-p","--pad",default=1,type=int,
                   help="pad lines by this amount")
 parser.add_option("-d","--display",action="store_true",
@@ -88,11 +90,15 @@ for arg in args:
             y1 = regions.y1(i)
             p = patches.Rectangle((x0,h-y1-1),x1-x0,y1-y0,edgecolor="red",fill=0)
             axis.add_patch(p)
-        regions.extract(line,page_gray,i,options.pad)
-        ocropy.write_image_gray("%s/%06x.png"%(base,regions.id(i)),line)
-        regions.extract_masked(line,page_bin,i,0,255,options.pad)
-        # same as inverse of regions.mask(line,i,0)
-        ocropy.write_image_gray("%s/%06x.bin.png"%(base,regions.id(i)),line)
+        if options.gray:
+            regions.extract(line,page_gray,i,options.pad)
+            ocropy.write_image_gray("%s/%06x.png"%(base,regions.id(i)),line)
+            regions.extract_masked(line,page_bin,i,0,255,options.pad)
+            # same as inverse of regions.mask(line,i,0)
+            ocropy.write_image_gray("%s/%06x.bin.png"%(base,regions.id(i)),line)
+        else:
+            regions.extract_masked(line,page_bin,i,0,255,options.pad)
+            ocropy.write_image_gray("%s/%06x.png"%(base,regions.id(i)),line)
     if options.display:
         figure.show()
         show()

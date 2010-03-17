@@ -41,6 +41,7 @@ parser.add_option("-v","--verbose",help="verbose",action="store_true")
 (options,args) = parser.parse_args()
 
 iconwidth = 200
+lscale = 1.0
 
 def readfile(file):
     with open(file) as stream:
@@ -112,9 +113,37 @@ def float_sort(model,x,y,col):
     if float(x)>float(y): return 1
     return 0    
 
+def line_image(file):
+    base,ext = ocropy.allsplitext(file)
+    s = base+".bin.png"
+    if os.path.exists(s): return s
+    return file
+
+def seg2pixbuf(rseg):
+    rseg = NI(rseg)
+    print rseg.shape
+    w,h = rseg.shape
+    if 1:
+        colors = zeros((w,h,3))
+        colors[:,:,0] = sin(rseg)
+        colors[:,:,1] = sin(9.3*rseg)
+        colors[:,:,2] = sin(11.4*rseg)
+        colors[:,:,:] /= sqrt(sum(colors**2,axis=2)[:,:,newaxis])
+        colors = 127.0*colors+1.0
+        colors = array(colors,'B')
+        print colors.shape
+        # colors = array(127.0*colors+1.0,'B')
+    else:
+        colors = zeros((10,10,3),'B')
+    rseg = gtk.gdk.pixbuf_new_from_array(colors,gtk.gdk.COLORSPACE_RGB,8)
+    return rseg
+
 class LineWindow: 
     def __init__(self): 
         self.file = None
+        self.lmodel = None
+        self.linerec = None
+        
         gladefile = "ocropus-showlrecs.glade" 
         self.windowname = "linerecs" 
         self.wtree = gtk.glade.XML(gladefile,self.windowname) 
@@ -139,27 +168,36 @@ class LineWindow:
 
         self.recognizers = gtk.ListStore(str)
         self.recognizers.append(["none"])
+        active = 0
+        index = 0
         for model in glob.glob("*.model"):
-            print model
             self.recognizers.append([model])
+            if "default" in model:
+                print model
+                active = index
+            index += 1
         for model in glob.glob("*.cmodel"):
-            print model
             self.recognizers.append([model])
         self.recognizer = self.wtree.get_widget("recognizer")
         self.recognizer.set_model(self.recognizers)
         self.recognizer.set_text_column(0)
-        self.recognizer.set_active(0)
+        self.recognizer.set_active(active)
 
+        active = 0
+        index = 0
         self.langmods = gtk.ListStore(str)
         self.langmods.append(["none"])
         for model in glob.glob("*.fst"):
-            print model
             self.langmods.append([model])
+            if "default" in model:
+                print model
+                active = index
+            index += 1
         self.langmod = self.wtree.get_widget("langmod")
         self.langmod.set_model(self.langmods)
         self.langmod.set_text_column(0)
-        self.langmod.set_active(0)
-        
+        self.langmod.set_active(active)
+
         self.last_recognizer = None
         self.last_langmod = None
         self.window.show_all()
@@ -167,7 +205,6 @@ class LineWindow:
         headers = ["Errs","Last","Delta","Line","Output","True","File"]
         types = ["text","text","text","pixbuf","text","text","text"]
         for i in range(len(headers)):
-            print i,headers[i],types[i]
             if types[i]=="pixbuf":
                 renderer = gtk.CellRendererPixbuf()
                 col = gtk.TreeViewColumn(headers[i],renderer,pixbuf=i)
@@ -182,7 +219,7 @@ class LineWindow:
     def addImages(self,images):
         """Set the store for the target class."""
         for image in images:
-            pixbuf = gtk.gdk.pixbuf_new_from_file(image)
+            pixbuf = gtk.gdk.pixbuf_new_from_file(line_image(image))
             w = pixbuf.get_width()
             h = pixbuf.get_height()
             scale = max(w/500.0,h/20.0)
@@ -196,25 +233,18 @@ class LineWindow:
         print row
         self.linelist.set_model(self.lines)
     def recognizeAll(self):
-        linerec = ocropy.load_linerec(self.recognizer.get_active_text())
-        print "loaded",linerec
-        lmodel_name = self.langmod.get_active_text()
-        lmodel = None
-        if lmodel_name!="none":
-            lmodel = ocropy.make_OcroFST()
-            lmodel.load(lmodel_name)
-        print "loaded",lmodel
+        if self.linerec is None: return
         print len(self.lines),"lines"
         for i in range(len(self.lines)):
             file = self.lines[i][6]
             print file
             fst = ocropy.make_OcroFST()
             image = ocropy.bytearray()
-            ocropy.read_image_gray(image,file)
-            linerec.recognizeLine(fst,image)
+            ocropy.read_image_gray(image,line_image(file))
+            self.linerec.recognizeLine(fst,image)
             s = ocropy.ustrg()
-            if lmodel is not None:
-                cost = ocropy.beam_search(s,fst,lmodel,1000)
+            if self.lmodel is not None:
+                cost = ocropy.beam_search(s,fst,self.lmodel,1000)
             else:
                 fst.bestpath(s)
             result = ocropy.ustrg_as_string(s)
@@ -235,30 +265,92 @@ class LineWindow:
     def detail(self,*args):
         for arg in args:
             self.buffer.insert(self.buffer.get_end_iter(),arg)
-    def detail_pixbuf(self,arg):
-        self.buffer.insert_pixbuf(self.buffer.get_end_iter(),arg)
+    def detail_pixbuf(self,pixbuf,scale=1.0):
+        if scale!=1.0:
+            w = pixbuf.get_width()
+            h = pixbuf.get_height()
+            pixbuf = pixbuf.scale_simple(int(w*scale),int(h*scale),
+                                         gtk.gdk.INTERP_BILINEAR)
+        self.buffer.insert_pixbuf(self.buffer.get_end_iter(),pixbuf)
     def linelist_row(self,view,index,column):
         self.buffer = gtk.TextBuffer()
         self.details.set_buffer(self.buffer)
+        if self.linerec is None:
+            self.detail("(You need to load a recognizer first.)")
+            return
         row = self.lines[index]
         file = row[6]
+        base,_ = ocropy.allsplitext(file)
         self.detail(file+"\n\n")
-        self.detail_pixbuf(gtk.gdk.pixbuf_new_from_file(file))
+        self.detail_pixbuf(gtk.gdk.pixbuf_new_from_file(line_image(file)),lscale)
         self.detail("\n\n")
-        self.detail("output: \n")
-        self.detail("ground truth: \n")
-        self.detail("error: \n")
+        image = ocropy.bytearray()
+        ocropy.read_image_gray(image,line_image(file))
+        fst = ocropy.make_OcroFST()
+        rseg = ocropy.intarray()
+        self.linerec.recognizeLine(rseg,fst,image)
+        s = ocropy.ustrg()
+        fst.bestpath(s)
+        result = ocropy.ustrg_as_string(s)
+        self.detail("raw output: %s\n\n"%result)
+        if self.lmodel is not None:
+            cost = ocropy.beam_search(s,fst,self.lmodel,1000)
+            result = ocropy.ustrg_as_string(s)
+            self.detail("cost: %f\n\n"%cost)
+            self.detail("output: %s\n\n"%result)
+        else:
+            self.detail("(load a language model for more details)")
+        gt = row[5]
+        if gt is not None and gt!="":
+            gtustrg = ocropy.ustrg()
+            gtustrg.assign(gt)
+            err = ocropy.edit_distance(s,gtustrg,1.0,1.0,1.0)
+            self.detail("ground truth: %s\n\n",gt)
+            self.detail("error: %f\n\n",err)
+        gtk_yield()
         self.detail("\n")
         self.detail("\nraw segmentation\n")
+        colors = seg2pixbuf(rseg)
+        self.detail_pixbuf(colors,lscale)
         self.detail("\n")
-        self.detail("\naligned segmentation\n")
-        self.detail("\n")
-        self.detail("\nper-character results\n")
-        self.detail("\n")
+        if self.lmodel is not None:
+            self.detail("\naligned segmentation\n")
+            result,cseg,costs = ocropy.compute_alignment(fst,rseg,self.lmodel)
+            colors = seg2pixbuf(cseg)
+            self.detail_pixbuf(colors,lscale)
+            self.detail("\n")
+            self.detail("\nper-character results\n")
+            grouper = ocropy.make_IGrouper("SimpleGrouper")
+            grouper.pset("maxrange",1)
+            grouper.pset("maxdist",1)
+            ocropy.make_line_segmentation_black(cseg)
+            ocropy.renumber_labels(cseg,1)
+            nospace = re.sub(r'\s+','',result)
+            grouper.setSegmentation(cseg)
+            for i in range(grouper.length()):
+                raw = ocropy.bytearray()
+                mask = ocropy.bytearray()
+                grouper.extractWithMask(raw,mask,image,i,1)
+                img = 1.0-NI(mask)/255.0
+                self.detail_pixbuf(numpy2pixbuf(img))
+                self.detail(" [%s]   "%nospace[i])
+                if (i+1)%10==0: self.detail("\n")
+            self.detail("\n")
+        else:
+            self.detail("(load a language model for per-character alignments)")
     def recognizer_update(self,*args):
-        pass
+        file = self.recognizer.get_active_text()
+        if file!="none":
+            self.linerec = ocropy.load_linerec(file)
+        print "loaded",self.linerec
     def langmod_update(self,*args):
-        pass
+        lmodel_name = self.langmod.get_active_text()
+        lmodel = None
+        if lmodel_name!="none":
+            lmodel = ocropy.make_OcroFST()
+            lmodel.load(lmodel_name)
+        self.lmodel = lmodel
+        print "loaded",self.lmodel
     def run_recognizer(self,*args):
         print "run_recognizer_activate",args
         recognizer = self.recognizer.get_active_text()

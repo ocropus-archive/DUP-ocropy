@@ -1,12 +1,13 @@
 #!/usr/bin/python
 
+# imgr
+
 from pylab import *
 import sys,os,re,ocropy,optparse
 from ocropy import N,NI
 from scipy.ndimage import measurements
 from scipy.misc import imsave
 from PIL import Image
-
 
 parser = optparse.OptionParser()
 parser.add_option("-d","--display",help="display result",action="store_true")
