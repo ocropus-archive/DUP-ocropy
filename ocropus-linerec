@@ -50,6 +50,7 @@ for line in args:
             axis.text(bboxes.at(i).x0,h-bboxes.at(i).y0-1,s[i-1],
                       color="red",weight="bold",fontsize=14,alpha=0.3)
         draw()
-        if not options.Display:
-            print "hit ENTER to continue"
-            raw_input()
+        if not options.Display: 
+            raw_input("hit ENTER to continue")
+        else:
+            ginput(1,timeout=1)

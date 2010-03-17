@@ -4,6 +4,7 @@
 
 import signal
 signal.signal(signal.SIGINT,lambda *args:sys.exit(1))
+import ocropy.gtkyield
 from pylab import *
 import sys,os,re,ocropy,optparse
 from ocropy import N,NI
@@ -26,7 +27,7 @@ if options.threshold>0:
     options.high = options.threshold
 
 if options.Display: options.display = 1
-ion()
+if options.display: ion(); show()
 
 def binarize(input,k_hi=0.4,k_lo=0.05,w=40):
     # convert it to grayscale and normalize the range
@@ -79,7 +80,8 @@ for arg in args:
         imshow(bin,cmap=cm.gray)
         draw()
         if not options.Display: 
-            print "hit ENTER to continue"
-            raw_input()
+            raw_input("hit ENTER to continue")
+        else:
+            ginput(1,timeout=1)
     base,_ = ocropy.allsplitext(arg)
     imsave(base+".bin.png",bin)

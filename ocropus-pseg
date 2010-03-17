@@ -71,6 +71,7 @@ for arg in args:
     os.mkdir(base)
     print "# writing",regions.length(),"lines"
     if options.display:
+        clf()
         axis = subplot(111)
         axis.imshow(NI(page_bin),cmap=cm.gray)
     line = ocropy.bytearray()
@@ -91,8 +92,11 @@ for arg in args:
         else:
             regions.extract_masked(line,page_bin,i,0,255,options.pad)
             ocropy.write_image_gray("%s/%06x.png"%(base,regions.id(i)),line)
+    ocropy.make_page_segmentation_white(page_seg)
+    ocropy.write_image_packed(base+".pseg.png",page_seg)
     if options.display:
         draw()
-        if not options.Display:
-            print "hit ENTER to continue"
-            raw_input()
+        if not options.Display: 
+            raw_input("hit ENTER to continue")
+        else:
+            ginput(1,timeout=1)
