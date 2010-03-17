@@ -143,7 +143,7 @@ def cseg_chars(files,suffix="gt",segmenter=None,grouper=None,has_gt=1,verbose=0)
             print "FAILED",sys.exc_info()[0]
             continue
 
-def chars_no_gt(files):
+def chars_no_gt(files,segmenter=default_segmenter,grouper=default_grouper):
     for file in files:
         print "# loading",file
         image = iulib.bytearray()

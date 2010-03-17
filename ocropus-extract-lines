@@ -1,0 +1,52 @@
+#!/usr/bin/python
+
+import matplotlib
+matplotlib.rcParams["interactive"] = 1
+matplotlib.use('TkAgg') # Qt4Agg
+from pylab import *
+
+import sys,os,re,glob
+import ocropy
+from ocropy import NI
+
+ion()
+hold(False)
+
+from optparse import OptionParser
+prefix = "/usr/local/share/ocropus/models/"
+parser = OptionParser(usage="""
+%prog [options] image.png ...
+
+Recognize pages using built-in OCRopus components.  This first
+uses the page cleaner, then the page segmenter, then the line
+recognizers, and finally the language model.
+""")
+parser.add_option("-C","--clean",help="page cleaner",default="StandardPreprocessing")
+parser.add_option("-P","--pseg",help="line segmenter",default="SegmentPageByRAST")
+parser.add_option("-m","--linerec",help="linerec model",default=prefix+"default.model")
+parser.add_option("-l","--langmod",help="langmod",default=prefix+"default.fst")
+parser.add_option("-v","--verbose",help="verbose",action="store_true")
+parser.add_option("-D","--display",help="display progress as images",action="store_true")
+parser.add_option("-x","--hocr",help="output XHTML+hOCR",action="store_true")
+parser.add_option("-p","--plain",help="output plain text",action="store_true")
+(options,args) = parser.parse_args()
+
+preproc = ocropy.make_IBinarize(options.clean)
+segmenter = ocropy.make_ISegmentPage(options.pseg)
+
+pageno = 0
+for pagefile in args:
+    pageno += 1
+    page_gray = ocropy.bytearray()
+    ocropy.read_image_gray(page_gray,pagefile)
+    page_bin = ocropy.bytearray()
+    preproc.binarize(page_bin,page_gray)
+    page_seg = ocropy.intarray()
+    segmenter.segment(page_seg,page_bin)
+    regions = ocropy.RegionExtractor()
+    regions.setPageLines(page_seg)
+    print "#",pagefile,"lines:",regions.length()
+    for i in range(1,regions.length()):
+        line = ocropy.bytearray()
+        regions.extract(line,page_bin,i,1) # might use page_gray
+        if options.display: clf(); imshow(NI(line)); gray(); draw()

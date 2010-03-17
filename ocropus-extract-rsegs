@@ -1,0 +1,72 @@
+#!/usr/bin/python
+import code,pickle,sys,os,signal,re
+import ocropy
+from ocropy import dbtables
+from ocropy import N,NI
+from pylab import *
+from optparse import OptionParser
+
+signal.signal(signal.SIGINT,lambda s,f:sys.exit(1))
+
+parser = OptionParser()
+parser.add_option("-o","--output",help="output file",default="chars.db")
+parser.add_option("-d","--display",help="display characters")
+parser.add_option("-v","--verbose",help="verbose output")
+parser.add_option("-r","--raw",help="output unsegmented",action="store_true",default=True)
+parser.add_option("-a","--maxage",help="output missegmented",default=10000000,type="int")
+parser.add_option("-s","--segmenter",help="segmenter",default="SegmentLineByCCS")
+(options,args) = parser.parse_args()
+
+segmenter = ocropy.make_ISegmentLine(options.segmenter)
+
+try:
+    segmenter.pset("swidth",0)
+    segmenter.pset("sheight",30)
+except:
+    pass
+
+grouper = ocropy.make_IGrouper("SimpleGrouper")
+grouper.pset("maxrange",1)
+grouper.pset("maxdist",1)
+
+table = dbtables.Table(options.output,"chars")
+table.converter("image",dbtables.SmallImage())
+table.create(image="blob",count="integer",cls="text",classes="text",key="text")
+
+ion()
+show()
+
+def chars(files):
+    for file in files:
+        print "# loading",file
+        image = ocropy.bytearray()
+        ocropy.read_image_gray(image,file)
+        segmentation = ocropy.intarray()
+        segmenter.charseg(segmentation,image)
+        ocropy.make_line_segmentation_black(segmentation)
+        ocropy.renumber_labels(segmentation,1)
+        grouper.setSegmentation(segmentation)
+        ocropy.sub(255,image)
+        for i in range(grouper.length()):
+            cls = None
+            raw = ocropy.bytearray()
+            mask = ocropy.bytearray()
+            grouper.extractWithMask(raw,mask,image,i,1)
+            yield raw,mask,cls
+
+total = 0
+for raw,mask,cls in chars(args):
+    clf()
+    raw = NI(raw)
+    if options.display:
+        clf(); gray(); imshow(raw); draw()
+    if raw.shape[0]>255 or raw.shape[1]>255: continue
+    raw = raw/float(amax(raw))
+    # key = re.sub(r'^.*/(\d\d\d\d/)','\\1',file)
+    # key = re.sub(r'\.png$','',key)
+    key = None
+    if options.verbose:
+        print key,cls,raw.shape
+    table.set(image=raw,cls="_")
+    total += 1
+    if total%10000==0: table.commit()

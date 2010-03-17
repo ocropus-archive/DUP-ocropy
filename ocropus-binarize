@@ -1,0 +1,86 @@
+#!/usr/bin/python
+
+from pylab import *
+import sys,os,re,ocropy,optparse
+from ocropy import N,NI
+from scipy.ndimage import measurements
+from scipy.misc import imsave
+from PIL import Image
+
+
+parser = optparse.OptionParser()
+parser.add_option("-d","--display",help="display result",action="store_true")
+parser.add_option("-D","--Display",help="display continuously",action="store_true")
+parser.add_option("-T","--threshold",help="threshold (simple Sauvola if set)",default=-1,type=float)
+parser.add_option("-L","--low",help="low threshold",default=0.1,type=float)
+parser.add_option("-H","--high",help="high threshold",default=0.4,type=float)
+parser.add_option("-W","--width",help="width parameter",default=40,type=float)
+options,args = parser.parse_args()
+
+
+if options.threshold>0:
+    options.low = options.threshold
+    options.high = options.threshold
+if options.Display:
+    options.display = 1
+    import matplotlib 
+    matplotlib.use('GTK') 
+    import gtk
+    def gtk_yield():
+        while gtk.events_pending():
+           gtk.main_iteration(False)
+    ion()
+
+def binarize(input,k_hi=0.4,k_lo=0.05,w=40):
+    # convert it to grayscale and normalize the range
+    if len(input.shape)==3: input = input[:,:,1]
+    input = array(255.0*input/amax(input),'B')
+    # call the Sauvola binarizer with the high and low thersholds
+    threshold = ocropy.make_IBinarize("BinarizeBySauvola")
+    threshold.pset("w",w)
+    w,h = input.shape
+    image = ocropy.bytearray(w,h)
+    ocropy.narray_of_numpy(image,input)
+    image_hi = ocropy.bytearray()
+    image_lo = ocropy.bytearray()
+    assert w>100 and h>100
+    threshold.pset("k",k_hi)
+    threshold.binarize(image_hi,image)
+    ocropy.sub(255,image_hi)
+    threshold.pset("k",k_lo)
+    hi = zeros((w,h),'i')
+    ocropy.numpy_of_narray(hi,image_hi)
+    # if the low threshold is greater than the high threshold,
+    # only perform the high threshold
+    if k_lo>=k_hi: 
+        return amax(hi)-hi
+    threshold.binarize(image_lo,image)
+    ocropy.sub(255,image_lo)
+    lo = zeros((w,h),'i')
+    ocropy.numpy_of_narray(lo,image_lo)
+    lo,_ = measurements.label(lo)
+    # compute the list of good labels
+    good = unique(lo.ravel()[hi.ravel()!=0])
+    all = unique(lo.ravel())
+    noise = setdiff1d(all,good)
+    # remove all the noise pixels
+    slices = measurements.find_objects(lo)
+    for i in noise:
+        a = lo[slices[i-1]]
+        a[a==i] = 0
+    lo = (lo==0)
+    return lo
+
+for arg in args:
+    print "# binarizing",arg
+    image = Image.open(arg)
+    image = array(image)
+    print "#",image.shape,amin(image),amax(image)
+    bin = binarize(image,options.high,options.low,options.width)
+    if options.display: 
+        clf()
+        imshow(bin,cmap=cm.gray)
+        if options.Display: draw(); gtk_yield()
+        else: show()
+    base,_ = ocropy.allsplitext(arg)
+    imsave(base+".bin.png",bin)

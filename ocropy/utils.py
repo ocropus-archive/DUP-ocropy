@@ -169,3 +169,10 @@ def write_text(file,s):
     with open(file,"w") as stream:
         stream.write(s)
 
+def allsplitext(path):
+    """Split all the pathname extensions, so that "a/b.c.d" -> "a/b", ".c.d" """
+    match = re.search(r'((.*/)*[^.]*)([^/]*)',path)
+    if not match:
+        return path,""
+    else:
+        return match.group(1),match.group(3)
