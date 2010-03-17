@@ -90,6 +90,7 @@ for arg in args:
             # same as inverse of regions.mask(line,i,0)
             ocropy.write_image_gray("%s/%06x.bin.png"%(base,regions.id(i)),line)
         else:
+            print regions
             regions.extract_masked(line,page_bin,i,0,255,options.pad)
             ocropy.write_image_gray("%s/%06x.png"%(base,regions.id(i)),line)
     ocropy.make_page_segmentation_white(page_seg)
