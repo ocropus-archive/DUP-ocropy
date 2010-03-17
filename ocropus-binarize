@@ -13,6 +13,7 @@ from scipy.misc import imsave
 from PIL import Image
 
 parser = optparse.OptionParser()
+parser.add_option("-o","--output",help="output directory",default="book")
 parser.add_option("-d","--display",help="display result",action="store_true")
 parser.add_option("-D","--Display",help="display continuously",action="store_true")
 parser.add_option("-T","--threshold",help="threshold (simple Sauvola if set)",default=-1,type=float)
@@ -35,13 +36,22 @@ binarizer.command("binarizer_pset","width",str(options.width))
 if options.Display: options.display = 1
 if options.display: ion(); show()
 
+if os.path.exists(options.output):
+    print options.output,"already exists; please remove"
+    os.exit(0)
+
+os.mkdir(options.output)
+
+count = 1
+
 for arg in args:
     print "# loading",arg
     image = ocropy.bytearray()
     ocropy.read_image_gray(image,arg)
     bin = ocropy.bytearray()
+    gray = ocropy.bytearray()
     try:
-        binarizer.binarize(bin,image)
+        binarizer.binarize(bin,gray,image)
     except:
         print "# binarizer failed; skipping",arg
         continue
@@ -53,5 +63,8 @@ for arg in args:
             raw_input("hit ENTER to continue")
         else:
             ginput(1,timeout=1)
-    base,_ = ocropy.allsplitext(arg)
-    ocropy.write_image_gray(base+".bin.png",bin)
+    dest = "%s/%04d" % (options.output,count)
+    print "# writing",dest
+    ocropy.write_image_gray(dest+".png",gray)
+    ocropy.write_image_gray(dest+".bin.png",bin)
+    count += 1
