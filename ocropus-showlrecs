@@ -133,7 +133,6 @@ def line_image(file):
 
 def seg2pixbuf(rseg):
     rseg = NI(rseg)
-    print rseg.shape
     w,h = rseg.shape
     if 1:
         colors = zeros((w,h,3))
@@ -178,20 +177,17 @@ class LineWindow:
 
         self.recognizers = gtk.ListStore(str)
         self.recognizers.append(["none"])
-        active = 0
-        index = 0
         for model in glob.glob("*.model"):
             self.recognizers.append([model])
-            if "default" in model:
-                print model
-                active = index
-            index += 1
         for model in glob.glob("*.cmodel"):
             self.recognizers.append([model])
         self.recognizer = self.wtree.get_widget("recognizer")
         self.recognizer.set_model(self.recognizers)
         self.recognizer.set_text_column(0)
-        self.recognizer.set_active(active)
+        for i in range(len(self.recognizers)):
+            if self.recognizers[i][0]=="default.model":
+                self.recognizer.set_active(i)
+                break
 
         active = 0
         index = 0
@@ -199,14 +195,13 @@ class LineWindow:
         self.langmods.append(["none"])
         for model in glob.glob("*.fst"):
             self.langmods.append([model])
-            if "default" in model:
-                print model
-                active = index
-            index += 1
         self.langmod = self.wtree.get_widget("langmod")
         self.langmod.set_model(self.langmods)
         self.langmod.set_text_column(0)
-        self.langmod.set_active(active)
+        for i in range(len(self.langmods)):
+            if self.langmods[i][0]=="default.fst":
+                self.langmod.set_active(i)
+                break
 
         self.last_recognizer = None
         self.last_langmod = None
@@ -339,7 +334,10 @@ class LineWindow:
                 grouper.extractWithMask(raw,mask,image,i,1)
                 img = 1.0-NI(mask)/255.0
                 self.detail_pixbuf(numpy2pixbuf(img))
-                self.detail(" [%s]   "%nospace[i])
+                if i>=len(nospace):
+                    self.detail(" *error*   ")
+                else:
+                    self.detail(" [%s]   "%nospace[i])
                 if (i+1)%10==0: self.detail("\n")
             self.detail("\n")
         else:
