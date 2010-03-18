@@ -102,7 +102,7 @@ def compute_component_combolist(widget,kind=None,dflt=None):
 class GraphWindow: 
     def __init__(self): 
         self.file = None
-        gladefile = "ocropus-showpsegs.glade" 
+        gladefile = ocropy.findfile("ocropus-showpsegs.glade")
         self.windowname = "pagesegs" 
         self.wtree = gtk.glade.XML(gladefile, self.windowname) 
         self.window = self.wtree.get_widget(self.windowname)

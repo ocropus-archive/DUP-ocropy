@@ -149,13 +149,25 @@ def seg2pixbuf(rseg):
     rseg = gtk.gdk.pixbuf_new_from_array(colors,gtk.gdk.COLORSPACE_RGB,8)
     return rseg
 
+def make_fst(s):
+    fst = ocropy.make_OcroFST()
+    start = fst.newState()
+    fst.setStart(start)
+    for i in range(len(s)):
+        c = ord(s[i])
+        node = fst.newState()
+        fst.addTransition(start,node,c,0.0,c)
+        start = node
+    fst.setAccept(start)
+    return fst
+
 class LineWindow: 
     def __init__(self): 
         self.file = None
         self.lmodel = None
         self.linerec = None
         
-        gladefile = "ocropus-showlrecs.glade" 
+        gladefile = ocropy.findfile("ocropus-showlrecs.glade")
         self.windowname = "linerecs" 
         self.wtree = gtk.glade.XML(gladefile,self.windowname) 
         self.window = self.wtree.get_widget(self.windowname)
@@ -169,10 +181,13 @@ class LineWindow:
             }
         self.wtree.signal_autoconnect(dic)
         self.linelist = self.wtree.get_widget("linelist")
-        self.lines = gtk.ListStore(str,str,str,gtk.gdk.Pixbuf,str,str,str)
+        self.lines = gtk.ListStore(str,str,str,gtk.gdk.Pixbuf,str,str,str,str,str,str)
         self.lines.set_sort_func(0,float_sort,0)
         self.lines.set_sort_func(1,float_sort,1)
         self.lines.set_sort_func(2,float_sort,2)
+        self.lines.set_sort_func(7,float_sort,7)
+        self.lines.set_sort_func(8,float_sort,8)
+        self.lines.set_sort_func(9,float_sort,9)
         self.linelist.set_model(self.lines)
         self.setupTreeView()
         self.details = self.wtree.get_widget("details")
@@ -209,8 +224,8 @@ class LineWindow:
         self.last_langmod = None
         self.window.show_all()
     def setupTreeView(self):
-        headers = ["Errs","Last","Delta","Line","Output","True","File"]
-        types = ["text","text","text","pixbuf","text","text","text"]
+        headers = ["Errs","Last","Delta","Line","Output","True","File","Cost","GT-Cost","LM-Cost"]
+        types = ["text","text","text","pixbuf","text","text","text","text","text","text"]
         for i in range(len(headers)):
             if types[i]=="pixbuf":
                 renderer = gtk.CellRendererPixbuf()
@@ -235,7 +250,7 @@ class LineWindow:
             gt = ""
             gtfile = re.sub(r'\.png$',".gt.txt",image)
             if os.path.exists(gtfile): gt = readfile(gtfile)
-            row = ["","","",pixbuf,"",gt,image]
+            row = ["","","",pixbuf,"",gt,image,"","",""]
             self.lines.append(row)
         print row
         self.linelist.set_model(self.lines)
@@ -254,6 +269,7 @@ class LineWindow:
             s = ocropy.ustrg()
             if self.lmodel is not None:
                 cost = ocropy.beam_search(s,fst,self.lmodel,1000)
+                self.lines[i][7] = cost
             else:
                 fst.bestpath(s)
             result = ocropy.ustrg_as_string(s)
@@ -263,6 +279,14 @@ class LineWindow:
                 self.lines[i][0] = err
                 if self.lines[i][1]!="":
                     self.lines[i][2] = float(self.lines[i][0])-float(self.lines[i][1])
+                # ground truth cost
+                gt_fst = make_fst(gt)
+                cost2 = ocropy.beam_search(s,fst,gt_fst,100000)
+                self.lines[i][8] = cost2
+                # language model cost
+                if self.lmodel is not None:
+                    cost3 = ocropy.beam_search(s,gt_fst,self.lmodel,100000)
+                    self.lines[i][9] = cost3
             print result
             self.lines[i][4] = result
             gtk_yield()
@@ -301,7 +325,7 @@ class LineWindow:
         result = ocropy.ustrg_as_string(s)
         self.detail("raw output: %s\n\n"%result)
         if self.lmodel is not None:
-            cost = ocropy.beam_search(s,fst,self.lmodel,1000)
+            cost = ocropy.beam_search(s,fst,self.lmodel,100000)
             result = ocropy.ustrg_as_string(s)
             self.detail("cost: %f\n\n"%cost)
             self.detail("output: %s\n\n"%result)
@@ -312,6 +336,13 @@ class LineWindow:
             err = edit_distance(result,gt,space=options.spaces)
             self.detail("ground truth: %s\n\n"%gt)
             self.detail("error: %f\n\n"%err)
+            fst2 = make_fst(gt)
+            cost2 = ocropy.beam_search(s,fst,fst2,100000)
+            self.detail("gt cost: %f\n\n"%cost2)
+        if gt is not None and self.lmodel is not None:
+            fst3 = make_fst(gt)
+            cost3 = ocropy.beam_search(s,fst3,self.lmodel,100000)
+            self.detail("lmodel cost: %f\n\n"%cost3)
         gtk_yield()
         self.detail("\n")
         self.detail("\nraw segmentation\n")
