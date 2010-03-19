@@ -37,7 +37,7 @@ from matplotlib.backends.backend_gtk import NavigationToolbar2GTK as NavigationT
 parser = OptionParser(usage="""
 %prog [options] [input.db]
 
-Trains models based on a cluster database.
+Interactively explore line recognition and line recognition errors.
 """)
 parser.add_option("-s","--spaces",help="count spaces",action="store_true")
 parser.add_option("-v","--verbose",help="verbose",action="store_true")

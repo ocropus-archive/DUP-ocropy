@@ -6,4 +6,4 @@ from utils import *
 from simplerec import CmodelLineRecognizer
 from ocropus import *
 from iulib import *
-
+from quickcheck import *

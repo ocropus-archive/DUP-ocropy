@@ -5,6 +5,7 @@ signal.signal(signal.SIGINT,lambda *args:sys.exit(1))
 import sys,os,re,optparse,shutil
 from matplotlib import patches
 from pylab import *
+from scipy.stats.stats import trim1
 
 from scipy.ndimage import measurements
 from scipy.misc import imsave
@@ -12,7 +13,26 @@ from PIL import Image
 import ocropy
 from ocropy import N,NI
 
-parser = optparse.OptionParser()
+parser = optparse.OptionParser(usage="""
+%prog [options] image1.png image2.png ...
+
+Usually, you would use an argument pattern like: book/????/??????.png
+
+Computes page segmentations and extracts text lines.
+For each input image image.png, it generates:
+
+* image.pseg.png -- page segmentation
+* image/010001.png -- gray scale text line image column 1, line 1
+* image/010001.bin.png -- bineary text line image column 1, line 1
+
+Use the -d or -D argument to verify that the layout analysis is working
+correctly.
+
+If image.bin.png exists, it uses it.  If not, it uses built-in
+preprocessing and generates and writes its own binary version.
+(The original gray scale image is, however, not altered, so it
+may be rotated relative to the binary image.)
+""")
 parser.add_option("-g","--gray",action="store_true",
                   help="output grayscale images + binary masks")
 parser.add_option("-p","--pad",default=1,type=int,
@@ -25,7 +45,10 @@ parser.add_option("-S","--segmenter",default="SegmentPageByRAST",
                   help="which segmentation component to use")
 parser.add_option("-P","--preproc",default="StandardPreprocessing",
                   help="which preprocessing component to use")
+parser.add_option("-r","--dpi",default=300,type=int,
+                  help="resolution of input image in DPI")
 options,args = parser.parse_args()
+
 
 preproc = ocropy.make_IBinarize(options.preproc)
 segmenter = ocropy.make_ISegmentPage(options.segmenter)
@@ -34,21 +57,25 @@ if options.Display: options.display = 1
 if options.display: ion()
 
 for arg in args:
-    print "# loading",arg
+    print
+    print "===",arg,"==="
+    print
     base,_ = ocropy.allsplitext(arg)
-    page_gray = ocropy.bytearray()
-    ocropy.read_image_gray(page_gray,arg)
-    w,h = [page_gray.dim(i) for i in [0,1]]
+    image = ocropy.bytearray()
+    ocropy.read_image_gray(image,arg)
+    w,h = [image.dim(i) for i in [0,1]]
 
     # get a binary image, either saved on disk or through
     # preprocessing
     page_bin = ocropy.bytearray()
     if os.path.exists(base+".bin.png"):
         print "# loading",base+".bin.png"
+        page_gray = image
         ocropy.read_image_gray(page_bin,base+".bin.png")
     else:
         print "# binarizing"
-        preproc.binarize(page_bin,page_gray)
+        page_gray = ocropy.bytearray()
+        preproc.binarize(page_bin,page_gray,image)
         ocropy.write_image_gray(base+".bin.png",page_bin)
 
     # get a text/image segmentation if available
@@ -60,6 +87,8 @@ for arg in args:
         page_ti.resize(w,h)
         page_ti.fill(0)
 
+    # FIXME remove images here
+
     print "# segmenting"
     page_seg = ocropy.intarray()
     segmenter.segment(page_seg,page_bin)
@@ -69,11 +98,13 @@ for arg in args:
         print "# removing",base
         shutil.rmtree(base)
     os.mkdir(base)
+
     print "# writing",regions.length(),"lines"
     if options.display:
         clf()
         axis = subplot(111)
         axis.imshow(NI(page_bin),cmap=cm.gray)
+
     line = ocropy.bytearray()
     for i in range(1,regions.length()):
         if options.display:

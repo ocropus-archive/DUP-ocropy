@@ -4,7 +4,6 @@
 
 import signal
 signal.signal(signal.SIGINT,lambda *args:sys.exit(1))
-import ocropy.gtkyield
 from pylab import *
 import sys,os,re,ocropy,optparse
 from ocropy import N,NI
@@ -12,14 +11,34 @@ from scipy.ndimage import measurements
 from scipy.misc import imsave
 from PIL import Image
 
-parser = optparse.OptionParser()
+parser = optparse.OptionParser(usage="""
+%prog -o dir [options] image1 image2 ...
+
+Performs preprocessing on each of the images on the command line and stores
+the resulting output in a directory with "book structure".  That is, the
+input pages will be stored in dir/0001.png dir/0001.bin.png dir/0002.png
+dir/0002.bin.png etc.  dir/0001.png contains the deskewed grayscale image,
+while dir/0001.bin.png contains the binarized version.
+
+Preprocessing uses hysteresis thresholding; you control it mainly through the
+-L and -H arguments, which take values between 0 and 1:
+
+* large parts of characters are missing: decrease -H
+* there is too much noise in the image: increase -H
+* characters are too thin or broken up: increase -L
+* characters are too thick or touching: decrease -L
+""")
 parser.add_option("-o","--output",help="output directory",default="book")
+parser.add_option("-O","--Output",help="output image.png to image.bin.png (in place)",action="store_true")
 parser.add_option("-d","--display",help="display result",action="store_true")
 parser.add_option("-D","--Display",help="display continuously",action="store_true")
 parser.add_option("-T","--threshold",help="threshold (simple Sauvola if set)",default=-1,type=float)
 parser.add_option("-L","--low",help="low threshold",default=0.1,type=float)
 parser.add_option("-H","--high",help="high threshold",default=0.4,type=float)
 parser.add_option("-W","--width",help="width parameter",default=40,type=float)
+parser.add_option("-r","--dpi",help="resolution (DPI)",default=300,type=float)
+parser.add_option("-S","--silent",action="store_true",
+                  help="disable warnings")
 options,args = parser.parse_args()
 
 if options.threshold>0:
@@ -35,19 +54,27 @@ binarizer.command("binarizer_pset","width",str(options.width))
 
 if options.Display: options.display = 1
 if options.display: ion(); show()
-
-if os.path.exists(options.output):
-    print options.output,"already exists; please remove"
-    os.exit(0)
-
-os.mkdir(options.output)
+if options.Output:
+    options.output = None
+if not options.Output and os.path.exists(options.output):
+    print "%s: already exists; please remove"%options.output
+    sys.exit(0)
+if not options.Output:
+    os.mkdir(options.output)
 
 count = 1
 
 for arg in args:
-    print "# loading",arg
+    print
+    print "===",arg,"==="
+    print
     image = ocropy.bytearray()
     ocropy.read_image_gray(image,arg)
+    if options.display: 
+        clf()
+        imshow(NI(image),cmap=cm.gray)
+        draw()
+        ginput(1,timeout=1)
     bin = ocropy.bytearray()
     gray = ocropy.bytearray()
     try:
@@ -63,8 +90,15 @@ for arg in args:
             raw_input("hit ENTER to continue")
         else:
             ginput(1,timeout=1)
-    dest = "%s/%04d" % (options.output,count)
-    print "# writing",dest
-    ocropy.write_image_gray(dest+".png",gray)
-    ocropy.write_image_gray(dest+".bin.png",bin)
+    if not options.silent:
+        ocropy.quick_check_page_components(bin,dpi=options.dpi)
+    if options.Output:
+        dest,_ = ocropy.allsplitext(arg)
+        print "# writing",dest
+        ocropy.write_image_gray(dest+".bin.png",bin)
+    else:
+        dest = "%s/%04d" % (options.output,count)
+        print "# writing",dest
+        ocropy.write_image_gray(dest+".png",gray)
+        ocropy.write_image_gray(dest+".bin.png",bin)
     count += 1

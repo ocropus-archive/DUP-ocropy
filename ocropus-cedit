@@ -195,8 +195,8 @@ def cmd_similar(*args):
         selected = [grid[i][2].image for i in cluster_viewer.get_selected_items()]
         dists = [set_dist(x[2].image,selected) for x in grid]
     else:
-        selected = [ocromisc.stdsize(grid[i][2].image) for i in cluster_viewer.get_selected_items()]
-        dists = [set_dist(ocromisc.stdsize(x[2].image),selected) for x in grid]
+        selected = [ocropy.stdsize(grid[i][2].image) for i in cluster_viewer.get_selected_items()]
+        dists = [set_dist(ocropy.stdsize(x[2].image),selected) for x in grid]
     index = array(argsort(dists))
     index = [int(i) for i in index]
     grid.reorder(index)

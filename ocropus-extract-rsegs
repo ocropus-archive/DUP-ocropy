@@ -40,13 +40,15 @@ def chars(files):
     for file in files:
         print "# loading",file
         image = ocropy.bytearray()
-        ocropy.read_image_gray(image,file)
+        binfile = re.sub(r'.png','.bin.png',file)
+        ocropy.read_image_gray(image,binfile)
         segmentation = ocropy.intarray()
         segmenter.charseg(segmentation,image)
         ocropy.make_line_segmentation_black(segmentation)
         ocropy.renumber_labels(segmentation,1)
         grouper.setSegmentation(segmentation)
         ocropy.sub(255,image)
+        print grouper.length()
         for i in range(grouper.length()):
             cls = None
             raw = ocropy.bytearray()
@@ -61,12 +63,9 @@ for raw,mask,cls in chars(args):
     if options.display:
         clf(); gray(); imshow(raw); draw()
     if raw.shape[0]>255 or raw.shape[1]>255: continue
-    raw = raw/float(amax(raw))
-    # key = re.sub(r'^.*/(\d\d\d\d/)','\\1',file)
-    # key = re.sub(r'\.png$','',key)
-    key = None
-    if options.verbose:
-        print key,cls,raw.shape
+    raw = array(255*raw/float(amax(raw)),'B')
     table.set(image=raw,cls="_")
     total += 1
     if total%10000==0: table.commit()
+
+table.commit()
