@@ -42,10 +42,22 @@ for line in args:
     ocropy.read_image_gray(image,line)
     fst = ocropy.make_OcroFST()
     rseg = ocropy.intarray()
-    linerec.recognizeLine(rseg,fst,image)
+
+    try:
+        linerec.recognizeLine(rseg,fst,image)
+    except:
+        print "# recognition failed"
+        continue
+
     s = ocropy.ustrg()
     cost = ocropy.beam_search(s,fst,lmodel,1000)
-    print "%6.2f\t%3d\t%s"%(cost,s.length(),ocropy.ustrg_as_string(s))
+    result = ocropy.ustrg_as_string(s)
+    print "%6.2f\t%3d\t%s"%(cost,s.length(),result)
+    base,_ = ocropy.allsplitext(line)
+
+    with open(base+".txt","w") as stream: stream.write(result)
+    fst.save(base+".fst")
+
     if options.display:
         clf()
         axis = subplot(111)

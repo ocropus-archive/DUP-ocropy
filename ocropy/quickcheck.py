@@ -84,7 +84,7 @@ def quick_check_page_components(image,dpi=200,min_pt=9,max_pt=18):
             print "[note] unusually low mean aspect ratio"
             print "[note] this may be due to touching characters (threshold too low)"
             print "[note] and cause OCR to give poor results"
-        elif a_mean>1.35:
+        elif a_mean>1.4:
             print "[note] unusually high mean aspect ratio"
             print "[note] this may be due to broken characters (threshold too high)"
             print "[note] and cause OCR to give poor results"
