@@ -2,7 +2,7 @@
 
 import sys,os,re,glob
 import ocropy
-from ocropy import N,NI
+from ocropy import N,NI,plotutils
 from pylab import *
 
 from optparse import OptionParser
@@ -61,18 +61,7 @@ for line in args:
     if options.display:
         clf()
         axis = subplot(111)
-        axis.imshow(NI(image),cmap=cm.gray)
-        result,cseg,costs = ocropy.compute_alignment(fst,rseg,lmodel)
-        ocropy.make_line_segmentation_black(cseg)
-        ocropy.renumber_labels(cseg,1)
-        bboxes = ocropy.rectarray()
-        ocropy.bounding_boxes(bboxes,cseg)
-        s = re.sub(r'\s+','',result)
-        h = image.dim(1)
-        for i in range(1,bboxes.length()):
-            axis.text(bboxes.at(i).x0,h-bboxes.at(i).y0-1,s[i-1],
-                      color="red",weight="bold",fontsize=14,alpha=0.3)
-        draw()
+        plotutils.draw_linerec(image,fst,rseg,lmodel,axis)
         if not options.Display: 
             raw_input("hit ENTER to continue")
         else:

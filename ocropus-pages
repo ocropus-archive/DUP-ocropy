@@ -7,7 +7,7 @@ from pylab import *
 
 import sys,os,re,glob
 import ocropy
-from ocropy import NI
+from ocropy import NI,plotutils
 
 ion()
 hold(False)
@@ -26,10 +26,16 @@ parser.add_option("-P","--pseg",help="line segmenter",default="SegmentPageByRAST
 parser.add_option("-m","--linerec",help="linerec model",default=prefix+"default.model")
 parser.add_option("-l","--langmod",help="langmod",default=prefix+"default.fst")
 parser.add_option("-v","--verbose",help="verbose",action="store_true")
-parser.add_option("-D","--display",help="display progress as images",action="store_true")
 parser.add_option("-x","--hocr",help="output XHTML+hOCR",action="store_true")
 parser.add_option("-p","--plain",help="output plain text",action="store_true")
+parser.add_option("-r","--dpi",help="resolution in dpi",default=200,type=int)
+parser.add_option("-S","--silent",action="store_true",help="disable warnings")
+parser.add_option("-d","--display",help="display result",action="store_true")
+parser.add_option("-D","--Display",help="display continuously",action="store_true")
 (options,args) = parser.parse_args()
+
+if options.Display: options.display = 1
+if options.display: ion()
 
 preproc = ocropy.make_IBinarize(options.clean)
 segmenter = ocropy.make_ISegmentPage(options.pseg)
@@ -57,16 +63,33 @@ footer = """
 if options.hocr: print header
 
 pageno = 0
-for pagefile in args:
+for page_gray,pagefile in ocropy.page_iterator(args):
+
     pageno += 1
     if options.hocr: # add: bbox, ppageno
-        print "<div class='ocr_page' id='page_%d' ppageno='%d' image='%s'>"%(pageno,pageno,pagefile)
-    page_gray = ocropy.bytearray()
-    ocropy.read_image_gray(page_gray,pagefile)
+        print "<div class='ocr_page' id='page_%d' ppageno='%d' image='%s'>"% \
+            (pageno,pageno,pagefile)
+
     page_bin = ocropy.bytearray()
     preproc.binarize(page_bin,page_gray)
+
+    if not options.silent:
+        ocropy.quick_check_page_components(page_bin,dpi=options.dpi)
+
     page_seg = ocropy.intarray()
     segmenter.segment(page_seg,page_bin)
+
+    if options.display: 
+        clf()
+        axis = subplot(111)
+        axis.imshow(NI(page_bin),cmap=cm.gray)
+        plotutils.draw_pseg(page_seg,axis)
+        draw()
+        if not options.Display: 
+            raw_input("hit ENTER to continue")
+        else:
+            ginput(1,timeout=1)
+
     regions = ocropy.RegionExtractor()
     regions.setPageLines(page_seg)
     print "#",pagefile,"lines:",regions.length()
@@ -74,20 +97,29 @@ for pagefile in args:
         line = ocropy.bytearray()
         regions.extract(line,page_bin,i,1) # might use page_gray
         fst = ocropy.make_OcroFST()
-        if options.display: clf(); imshow(NI(line)); gray(); draw()
+        rseg = ocropy.intarray()
         try:
-            linerec.recognizeLine(fst,line)
+            linerec.recognizeLine(rseg,fst,line)
         except:
             continue
         s = ocropy.ustrg()
-        cost = ocropy.beam_search(s,fst,lmodel,1000)
+        cost = ocropy.beam_search(s,fst,lmodel,100000)
         if options.hocr:
             print "<span class='ocr_line' bbox='%d %d %d %d'>%s</span>"%\
-                (regions.x0(i),regions.y0(i),regions.x1(i),regions.y1(i),ocropy.ustrg_as_string(s))
+                (regions.x0(i),regions.y0(i),regions.x1(i),regions.y1(i),\
+                 ocropy.ustrg_as_string(s))
         elif options.plain:
             print ocropy.ustrg_as_string(s)
         else:
             print "%6.2f\t%3d\t%s"%(cost,s.length(),ocropy.ustrg_as_string(s))
+        if options.display:
+            clf()
+            axis = subplot(111)
+            plotutils.draw_linerec(line,fst,rseg,lmodel,axis)
+            if not options.Display: 
+                raw_input("hit ENTER to continue")
+            else:
+                ginput(1,timeout=1)
     if options.hocr:
         print "</div>"
 

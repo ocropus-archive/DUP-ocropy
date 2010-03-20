@@ -176,3 +176,19 @@ def allsplitext(path):
         return path,""
     else:
         return match.group(1),match.group(3)
+
+def page_iterator(files):
+    for file in files:
+        _,ext = os.path.splitext(file)
+        if ext.lower()==".tif" or ext.lower()==".tiff":
+            tiff = iulib.Tiff(file,"r")
+            for i in range(tiff.numPages()):
+                image = iulib.bytearray()
+                tiff.getPage(image,i,True)
+                yield image,"%s[%d]"%(file,i)
+        else:
+            image = iulib.bytearray()
+            iulib.read_image_gray(image,file)
+            yield image,file
+
+    

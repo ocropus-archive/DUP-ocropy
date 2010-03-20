@@ -62,24 +62,9 @@ if not options.Output and os.path.exists(options.output):
 if not options.Output:
     os.mkdir(options.output)
 
-
-def page_iterator(files):
-    for file in files:
-        _,ext = os.path.splitext(file)
-        if ext.lower()==".tif" or ext.lower()==".tiff":
-            tiff = ocropy.Tiff(file,"r")
-            for i in range(tiff.numPages()):
-                image = ocropy.bytearray()
-                tiff.getPage(image,i,True)
-                yield image,"%s[%d]"%(file,i)
-        else:
-            image = ocropy.bytearray()
-            ocropy.read_image_gray(image,file)
-            yield image,file
-
 count = 1
 
-for image,arg in page_iterator(args):
+for image,arg in ocropy.page_iterator(args):
     print
     print "===",arg,"==="
     print

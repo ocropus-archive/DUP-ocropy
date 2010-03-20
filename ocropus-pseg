@@ -11,7 +11,7 @@ from scipy.ndimage import measurements
 from scipy.misc import imsave
 from PIL import Image
 import ocropy
-from ocropy import N,NI
+from ocropy import N,NI,plotutils
 
 parser = optparse.OptionParser(usage="""
 %prog [options] image1.png image2.png ...
@@ -104,16 +104,10 @@ for arg in args:
         clf()
         axis = subplot(111)
         axis.imshow(NI(page_bin),cmap=cm.gray)
+        plotutils.draw_pseg(page_seg,axis)
 
     line = ocropy.bytearray()
     for i in range(1,regions.length()):
-        if options.display:
-            x0 = regions.x0(i)
-            y0 = regions.y0(i)
-            x1 = regions.x1(i)
-            y1 = regions.y1(i)
-            p = patches.Rectangle((x0,h-y1-1),x1-x0,y1-y0,edgecolor="red",fill=0)
-            axis.add_patch(p)
         if options.gray:
             regions.extract(line,page_gray,i,options.pad)
             ocropy.write_image_gray("%s/%06x.png"%(base,regions.id(i)),line)
