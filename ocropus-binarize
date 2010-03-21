@@ -37,8 +37,7 @@ parser.add_option("-L","--low",help="low threshold",default=0.1,type=float)
 parser.add_option("-H","--high",help="high threshold",default=0.4,type=float)
 parser.add_option("-W","--width",help="width parameter",default=40,type=float)
 parser.add_option("-r","--dpi",help="resolution (DPI)",default=300,type=float)
-parser.add_option("-S","--silent",action="store_true",
-                  help="disable warnings")
+parser.add_option("-q","--silent",action="store_true",help="disable warnings")
 options,args = parser.parse_args()
 
 if options.threshold>0:
@@ -89,7 +88,9 @@ for image,arg in ocropy.page_iterator(args):
         else:
             ginput(1,timeout=1)
     if not options.silent:
-        ocropy.quick_check_page_components(bin,dpi=options.dpi)
+        if ocropy.quick_check_page_components(bin,dpi=options.dpi)<0.5:
+            print "# skipping page"
+            continue
     if options.Output:
         dest,_ = ocropy.allsplitext(arg)
         print "# writing",dest

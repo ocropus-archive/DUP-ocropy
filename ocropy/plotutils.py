@@ -31,5 +31,6 @@ def draw_linerec(image,fst,rseg,lmodel,axis=None):
         x0,y0,x1,y1 = (r.x0,r.y0,r.x1,r.y1)
         p = patches.Rectangle((x0,h-y1-1),x1-x0,y1-y0,edgecolor=(0.0,0.0,1.0,0.5),fill=0)
         axis.add_patch(p)
-        axis.text(x0,h-y0-1,s[i-1],color="red",weight="bold",fontsize=14)
+        if i>0 and i-1<len(s):
+            axis.text(x0,h-y0-1,s[i-1],color="red",weight="bold",fontsize=14)
     draw()

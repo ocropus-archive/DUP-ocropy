@@ -12,6 +12,10 @@ from ocropy import NI,plotutils
 ion()
 hold(False)
 
+def alert(*args):
+    sys.stderr.write(" ".join([str(x) for x in args]))
+    sys.stderr.write("\n")
+
 from optparse import OptionParser
 prefix = "/usr/local/share/ocropus/models/"
 parser = OptionParser(usage="""
@@ -74,7 +78,8 @@ for page_gray,pagefile in ocropy.page_iterator(args):
     preproc.binarize(page_bin,page_gray)
 
     if not options.silent:
-        ocropy.quick_check_page_components(page_bin,dpi=options.dpi)
+        if ocropy.quick_check_page_components(page_bin,dpi=options.dpi)<0.5:
+            continue
 
     page_seg = ocropy.intarray()
     segmenter.segment(page_seg,page_bin)
@@ -92,12 +97,20 @@ for page_gray,pagefile in ocropy.page_iterator(args):
 
     regions = ocropy.RegionExtractor()
     regions.setPageLines(page_seg)
-    print "#",pagefile,"lines:",regions.length()
+    if regions.length()>100:
+        alert("# too many lines (%d), probably bad input; skipping"%regions.length())
+        continue
+    alert("#",pagefile,"lines:",regions.length())
     for i in range(1,regions.length()):
         line = ocropy.bytearray()
         regions.extract(line,page_bin,i,1) # might use page_gray
+        if options.display:
+            clf(); subplot(111); imshow(NI(line),cmap=cm.gray); ginput(1,timeout=1)
         fst = ocropy.make_OcroFST()
         rseg = ocropy.intarray()
+        if not options.silent:
+            if ocropy.quick_check_line_components(line,dpi=options.dpi)<0.5:
+                continue
         try:
             linerec.recognizeLine(rseg,fst,line)
         except:

@@ -47,6 +47,8 @@ parser.add_option("-P","--preproc",default="StandardPreprocessing",
                   help="which preprocessing component to use")
 parser.add_option("-r","--dpi",default=300,type=int,
                   help="resolution of input image in DPI")
+parser.add_option("-q","--silent",action="store_true",
+                  help="disable warnings")
 options,args = parser.parse_args()
 
 
@@ -108,14 +110,15 @@ for arg in args:
 
     line = ocropy.bytearray()
     for i in range(1,regions.length()):
+        regions.extract_masked(line,page_bin,i,0,255,options.pad)
+        if not options.silent:
+            if ocropy.quick_check_line_components(line,dpi=options.dpi)<0.5:
+                continue
         if options.gray:
+            ocropy.write_image_gray("%s/%06x.bin.png"%(base,regions.id(i)),line)
             regions.extract(line,page_gray,i,options.pad)
             ocropy.write_image_gray("%s/%06x.png"%(base,regions.id(i)),line)
-            regions.extract_masked(line,page_bin,i,0,255,options.pad)
-            # same as inverse of regions.mask(line,i,0)
-            ocropy.write_image_gray("%s/%06x.bin.png"%(base,regions.id(i)),line)
         else:
-            regions.extract_masked(line,page_bin,i,0,255,options.pad)
             ocropy.write_image_gray("%s/%06x.png"%(base,regions.id(i)),line)
     try:
         ocropy.make_page_segmentation_white(page_seg)

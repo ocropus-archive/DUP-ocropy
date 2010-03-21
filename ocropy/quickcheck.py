@@ -5,24 +5,27 @@ from pylab import *
 from scipy.stats.stats import trim1
 from scipy.ndimage import measurements
 from scipy.misc import imsave
+from utils import NI,N
 
-def quick_check_page_components(image,dpi=200,min_pt=9,max_pt=18):
-    """Check whether the given page image roughly conforms to the kinds of
-    inputs that OCRopus accepts."""
+def alert(*args):
+    sys.stderr.write(" ".join([str(x) for x in args]))
+    sys.stderr.write("\n")
 
+class Record:
+    def __init__(self,**kw):
+        for k in kw.keys():
+            self.__dict__[k] = kw[k]
+
+def cc_statistics(image,dpi,min_pt,max_pt,verbose=0):
     w = image.dim(0)
     h = image.dim(1)
-
-    ## currently don't deal with very low or very high resolution images
-    assert dpi>=200 and dpi<=600,\
-        "[error] resolution should be between 200 dpi and 600 dpi"
 
     ## this is called for checking page images; page images should have
     ## a minimum and maximum size (no blocks, text lines, or newspaper spreads)
     if w<3*dpi or w>10*dpi:
-        print "[warning] image width %g in (%d px, %d dpi)"%(w/dpi,w,dpi)
+        alert("[warning] image width %g in (%d px, %d dpi)"%(w/dpi,w,dpi))
     elif h<3*dpi or h>10*dpi:
-        print "[warning] image height %g in (%d px, %d dpi)"%(h/dpi,h,dpi)
+        alert("[warning] image height %g in (%d px, %d dpi)"%(h/dpi,h,dpi))
 
     ## compute connected component widths and heights
     components = iulib.intarray()
@@ -40,7 +43,8 @@ def quick_check_page_components(image,dpi=200,min_pt=9,max_pt=18):
     ## maxmimum sized font; to compute this, we need to convert from
     ## font sizes in pt to pixel sizes, using the given dpi
     maxs = maximum(widths,heights)
-    min_px = (1.0/3.0) * min_pt*dpi/72.0
+    min_px_em = min_pt*dpi/72.0
+    min_px = (1.0/3.0) * min_px_em
     max_px = max_pt*dpi/72.0
 
     ## compute the total page area covered by bounding boxes of connected
@@ -60,12 +64,20 @@ def quick_check_page_components(image,dpi=200,min_pt=9,max_pt=18):
     ## normal boxes are those that are neither small nor large
     normal = ~(small|large)
 
-    ## print some information
-    print "# min",min_px,"max",max_px
+    ## absolute density of characters per square inch
     density = n*dpi**2*1.0/w/h
-    print "# normal",sum(normal),"small",sum(small),"large",sum(large)
-    print "# density",density
-    print "# covered",covered
+
+    ## relative density of characters per em
+    h_density = n/(w/min_px_em)
+
+    ## print some information
+    if verbose:
+        alert("# min",min_px,"max",max_px)
+        alert("# normal",sum(normal),"small",sum(small),"large",sum(large))
+        alert("# density",density)
+        alert("# h_density",h_density)
+        alert("# covered",covered)
+
 
     ## compute aspect ratio statistics; we're using a right-trimmed mean of
     ## biggish components; this means that we exclude characters like "-"
@@ -77,32 +89,97 @@ def quick_check_page_components(image,dpi=200,min_pt=9,max_pt=18):
     aspect = aspect[biggish]
     a_mean = mean(trim1(aspect,0.1,tail='right'))
 
-    ## print warning messages for unusually low or high aspect ratios
-    if len(aspect)>100:
-        print "# aspect mean",a_mean
-        if a_mean<1.0:
-            print "[note] unusually low mean aspect ratio"
-            print "[note] this may be due to touching characters (threshold too low)"
-            print "[note] and cause OCR to give poor results"
-        elif a_mean>1.4:
-            print "[note] unusually high mean aspect ratio"
-            print "[note] this may be due to broken characters (threshold too high)"
-            print "[note] and cause OCR to give poor results"
+    result = Record(
+        biggish = sum(biggish),
+        normal = sum(normal),
+        small = sum(small),
+        large = sum(large),
+        density = density,
+        h_density = h_density,
+        a_mean = a_mean,
+        covered=covered,
+    )
 
-    ## print warning messages related to noise and/or resolution
-    if covered<0.05 or density<8:
-        print "[note] page doesn't contain a lot of text"
-    elif sum(normal)<5*sum(small):
-        print "[warning] too many small components"
-        print "[warning] possible causes:"
-        print "[warning] - maybe text is too low resolution"
-        print "[warning] - maybe image was thresholded too high"
-        print "[warning] - maybe text image segmentation failed"
-        print "[warning] - maybe the image contains a lot of '.' or diacritics"
-        print "[warning] OCR may not work well on this page depending on the cause"
-        print "[warning] OCRopus does not recognize screen shots or camera captured text"
-    elif sum(large)>sum(normal):
-        print "[warning] too many large components"
-        print "[warning] your image may have too high resolution or too large a font size"
-        print "[warning] OCR will likely not work well"
+    return result
+
+
+def quick_check_page_components(image,dpi=200,min_pt=9,max_pt=18):
+    """Check whether the given page image roughly conforms to the kinds of
+    inputs that OCRopus accepts. Returns a value between 0 and 1, with 1 meaning
+    OK and 0 meaning definitely reject"""
+
+    status = 1.0
+
+    ## currently don't deal with very low or very high resolution images
+    assert dpi>=200 and dpi<=600,\
+        "[error] resolution should be between 200 dpi and 600 dpi"
+
+    p = cc_statistics(image,dpi,min_pt,max_pt,1)
+
+    ## alert(warning messages for unusually low or high aspect ratios)
+    if p.biggish>100:
+        alert("# aspect mean",p.a_mean)
+        if p.a_mean<1.0:
+            alert("[note] unusually low mean aspect ratio")
+            alert("[note] this may be due to touching characters (threshold too low)")
+            alert("[note] and cause OCR to give poor results")
+            status = min(status,0.7)
+        elif p.a_mean>1.4:
+            alert("[note] unusually high mean aspect ratio")
+            alert("[note] this may be due to broken characters (threshold too high)")
+            alert("[note] and cause OCR to give poor results")
+            status = min(status,0.7)
+
+    ## alert(warning messages related to noise and/or resolution)
+    if p.covered<0.05 or p.density<8:
+        alert("[note] page doesn't contain a lot of text")
+        status = min(status,0.9)
+    elif p.normal<5*p.small:
+        alert("[warning] too many small components")
+        alert("[warning] possible causes:")
+        alert("[warning] - maybe text is too low resolution")
+        alert("[warning] - maybe image was thresholded too high")
+        alert("[warning] - maybe text image segmentation failed")
+        alert("[warning] - maybe the image contains a lot of '.' or diacritics")
+        alert("[warning] OCR may not work well on this page depending on the cause")
+        alert("[warning] OCRopus does not recognize screen shots or camera captured text")
+        status = min(status,0.6)
+    elif p.large>p.normal:
+        alert("[warning] too many large components")
+        alert("[warning] your image may have too high resolution or too large a font size")
+        alert("[warning] OCR will likely not work well")
+        status = min(status,0.6)
+    return status
+
+def quick_check_line_components(image,dpi=200,min_pt=9,max_pt=18):
+    """Check whether the given line image roughly conforms to the kinds of
+    inputs that OCRopus accepts."""
+
+    status = 1.0
+
+    ## currently don't deal with very low or very high resolution images
+    assert dpi>=200 and dpi<=600,\
+        "[error] resolution should be between 200 dpi and 600 dpi"
+
+    p = cc_statistics(image,dpi,min_pt,max_pt,verbose=1)
+
+    if p.normal==0:
+        alert("[warning] no normal sized components found")
+        status = min(status,0.1)
+    if p.large>p.normal:
+        alert("[warning] components too large on average")
+        status = min(status,0.1)
+    if p.density>100:
+        alert("[warning] component density much too high (maybe halftone region?)")
+        status = min(status,0.1)
+    if p.h_density>2.0:
+        alert("[warning] component density much too high (maybe halftone region?)")
+        status = min(status,0.1)
+    if p.normal<2*p.small and p.normal>5:
+        alert("[warning] too many small components")
+        status = min(status,0.6)
+    if p.covered<0.3:
+        alert("[warning] line contains a lot of empty space")
+        status = min(status,0.9)
+    return status
 

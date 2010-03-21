@@ -138,7 +138,7 @@ def compute_alignment(lattice,rseg,lmodel):
     ins = iulib.intarray()
     outs = iulib.intarray()
     costs = iulib.floatarray()
-    ocropus.beam_search(v1,v2,ins,outs,costs,lattice,lmodel,1000)
+    ocropus.beam_search(v1,v2,ins,outs,costs,lattice,lmodel,100000)
 
     ## do the conversions
     result = intarray_as_string(outs)
