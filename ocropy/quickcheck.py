@@ -90,8 +90,8 @@ def quick_check_page_components(image,dpi=200,min_pt=9,max_pt=18):
             print "[note] and cause OCR to give poor results"
 
     ## print warning messages related to noise and/or resolution
-    if covered<0.07 or density<10:
-        print "[note] page is mostly empty"
+    if covered<0.05 or density<8:
+        print "[note] page doesn't contain a lot of text"
     elif sum(normal)<5*sum(small):
         print "[warning] too many small components"
         print "[warning] possible causes:"
