@@ -184,7 +184,7 @@ def page_iterator(files):
             tiff = iulib.Tiff(file,"r")
             for i in range(tiff.numPages()):
                 image = iulib.bytearray()
-                tiff.getPage(image,i,True)
+                tiff.getPageRaw(image,i,True)
                 yield image,"%s[%d]"%(file,i)
         else:
             image = iulib.bytearray()
