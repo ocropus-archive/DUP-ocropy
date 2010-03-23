@@ -23,23 +23,36 @@ parser.add_option("-c","--close",help="closing",type=int,default=0)
 parser.add_option("-o","--open",help="opening",type=int,default=2)
 options,args = parser.parse_args()
 
-def image_map_simple(image):
-    w,h = (image.dim(0),image.dim(1))
-    binarizer = ocropy.make_IBinarize("BinarizeBySauvola")
-    binarizer.pset("k",0.2)
-    binarizer.pset("w",200)
-    bin = ocropy.bytearray()
-    binarizer.binarize(bin,image)
-    ocropy.binary_invert(bin)
-    if options.open>0:
-        ocropy.binary_open_rect(bin,options.open,options.open)
-    if options.close>0:
-        ocropy.binary_close_rect(bin,options.close,options.close)
-    result = closure(bin,100,100)
-    result = closure(result,400,300)
-    result = closure(result,400,300)
-    # imshow(NI(bin)+NI(result),cmap=cm.gray); show()
-    return result
+class SimpleTISeg(ocropy.ITextImageClassification):
+    def __init__(self):
+        pass
+    def textImageMap(self,input):
+        w,h = (image.dim(0),image.dim(1))
+        binarizer = ocropy.make_IBinarize("BinarizeBySauvola")
+        binarizer.pset("k",0.2)
+        binarizer.pset("w",200)
+        bin = ocropy.bytearray()
+        binarizer.binarize(bin,image)
+        ocropy.binary_invert(bin)
+        if options.open>0:
+            ocropy.binary_open_rect(bin,options.open,options.open)
+        if options.close>0:
+            ocropy.binary_close_rect(bin,options.close,options.close)
+        result = closure(bin,100,100)
+        result = closure(result,400,300)
+        result = closure(result,400,300)
+        return result
+    def textImageProbabilities(self,rgb,input):
+        w,h = (image.dim(0),image.dim(1))
+        map = self.textImageMap(input)
+        rmap = ocropy.bytearray(w,h)
+        rmap.copy(map)
+        ocropy.sub(255,rmap)
+        zeros = ocropy.bytearray(w,h)
+        zeros.fill(0)
+        ocropy.pack_rgb(rgb,rmap,map,zeros)
+        # rgb.copy(map)
+        # ocropy.mul(rgb,256)
 
 def closure(temp,w_threshold=0,h_threshold=0):
     w,h = (temp.dim(0),temp.dim(1))
@@ -60,6 +73,8 @@ def closure(temp,w_threshold=0,h_threshold=0):
 if options.Display: options.display = 1
 if options.display: ion(); show()
 
+tisegmenter = SimpleTISeg()
+
 count = 1
 
 for arg in args:
@@ -70,15 +85,16 @@ for arg in args:
     image = ocropy.bytearray()
     ocropy.read_image_gray(image,arg)
 
-    result = image_map_simple(image)
+    result = ocropy.intarray()
+    tisegmenter.textImageProbabilities(result,image)
 
     if options.display: 
-        clf(); imshow(NI(image)*0.7+NI(result)+0.3,cmap=cm.gray); draw()
+        clf(); imshow(NI(result),cmap=cm.gray); draw()
         if not options.Display: 
             raw_input("hit ENTER to continue")
         else:
             ginput(1,timeout=1)
 
     base,_ = ocropy.allsplitext(arg)
-    ocropy.write_image_gray(base+".timap.png",result)
+    ocropy.write_image_packed(base+".tiseg.png",result)
     count += 1

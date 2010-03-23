@@ -173,7 +173,7 @@ def quick_check_line_components(image,dpi=200,min_pt=9,max_pt=18):
         alert("[warning] component density much too high (maybe halftone region?)")
         status = min(status,0.1)
     if p.h_density>2.0:
-        alert("[warning] component density much too high (maybe halftone region?)")
+        alert("[warning] horizontal component density much too high (maybe halftone region?)")
         status = min(status,0.1)
     if p.normal<2*p.small and p.normal>5:
         alert("[warning] too many small components")

@@ -32,6 +32,10 @@ If image.bin.png exists, it uses it.  If not, it uses built-in
 preprocessing and generates and writes its own binary version.
 (The original gray scale image is, however, not altered, so it
 may be rotated relative to the binary image.)
+
+If an image.tiseg.png file exists, it uses it to constrain the
+layout analysis (although some layout analysis methods may be
+ignoring the map).
 """)
 parser.add_option("-g","--gray",action="store_true",
                   help="output grayscale images + binary masks")
@@ -49,6 +53,8 @@ parser.add_option("-r","--dpi",default=300,type=int,
                   help="resolution of input image in DPI")
 parser.add_option("-q","--silent",action="store_true",
                   help="disable warnings")
+parser.add_option("-b","--blackout",action="store_false",default=True,
+                  help="use blackout for image regions (instead of passing rectangles)")
 options,args = parser.parse_args()
 
 
@@ -67,6 +73,9 @@ for arg in args:
     ocropy.read_image_gray(image,arg)
     w,h = [image.dim(i) for i in [0,1]]
 
+    if options.display:
+        clf(); imshow(NI(image),cmap=cm.gray); draw(); ginput(1,1)
+
     # get a binary image, either saved on disk or through
     # preprocessing
     page_bin = ocropy.bytearray()
@@ -82,18 +91,34 @@ for arg in args:
 
     # get a text/image segmentation if available
     page_ti = ocropy.intarray()
-    if os.path.exists(base+".ti.png"):
-        print "# loading",base+".ti.png"
-        ocropy.read_image_packed(page_ti,base+".ti.png")
-    else:
-        page_ti.resize(w,h)
-        page_ti.fill(0)
+    tirects = ocropy.rectarray()
+    if os.path.exists(base+".tiseg.png"):
+        print "# loading",base+".tiseg.png"
+        ocropy.read_image_packed(page_ti,base+".tiseg.png")
+        r = ocropy.bytearray()
+        g = ocropy.bytearray()
+        b = ocropy.bytearray()
+        ocropy.unpack_rgb(r,g,b,page_ti)
+        components = ocropy.intarray()
+        components.copy(g)
+        n = ocropy.label_components(components)
+        print "# number of image regions",n
+        ocropy.bounding_boxes(tirects,components)
 
-    # FIXME remove images here
+    if options.blackout:
+        for i in range(1,tirects.length()):
+            r = tirects.at(i)
+            ocropy.fill_rect(page_bin,r,0)
+
+    if options.display:
+        clf(); imshow(NI(page_bin),cmap=cm.gray); draw(); ginput(1,1)
 
     print "# segmenting"
     page_seg = ocropy.intarray()
-    segmenter.segment(page_seg,page_bin)
+    if options.blackout:
+        segmenter.segment(page_seg,page_bin)
+    else:
+        segmenter.segment(page_seg,page_bin,tirects)
     regions = ocropy.RegionExtractor()
     regions.setPageLines(page_seg)
     if os.path.exists(base):
