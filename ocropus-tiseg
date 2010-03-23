@@ -12,101 +12,73 @@ from scipy.misc import imsave
 from PIL import Image
 
 parser = optparse.OptionParser(usage="""
+%prog [options] page1.png page2.png ...
+
+Computes text/image segmentation of grayscale input images.
 """)
 parser.add_option("-d","--display",help="display result",action="store_true")
 parser.add_option("-D","--Display",help="display continuously",action="store_true")
 parser.add_option("-r","--dpi",help="resolution in DPI",type=float,default=200.0)
+parser.add_option("-c","--close",help="closing",type=int,default=0)
+parser.add_option("-o","--open",help="opening",type=int,default=2)
 options,args = parser.parse_args()
 
-min_px = (8.0*options.dpi/72.0) / 3.0
+def image_map_simple(image):
+    w,h = (image.dim(0),image.dim(1))
+    binarizer = ocropy.make_IBinarize("BinarizeBySauvola")
+    binarizer.pset("k",0.2)
+    binarizer.pset("w",200)
+    bin = ocropy.bytearray()
+    binarizer.binarize(bin,image)
+    ocropy.binary_invert(bin)
+    if options.open>0:
+        ocropy.binary_open_rect(bin,options.open,options.open)
+    if options.close>0:
+        ocropy.binary_close_rect(bin,options.close,options.close)
+    result = closure(bin,100,100)
+    result = closure(result,400,300)
+    result = closure(result,400,300)
+    # imshow(NI(bin)+NI(result),cmap=cm.gray); show()
+    return result
 
-binarizer = ocropy.make_IBinarize("BinarizeBySauvola")
+def closure(temp,w_threshold=0,h_threshold=0):
+    w,h = (temp.dim(0),temp.dim(1))
+    components = ocropy.intarray()
+    components.copy(temp)
+    n = ocropy.label_components(components)
+    boxes = ocropy.rectarray()
+    ocropy.bounding_boxes(boxes,components)
+    result = ocropy.bytearray()
+    result.resize(w,h)
+    result.fill(0)
+    for i in range(1,boxes.length()):
+        r = boxes.at(i)
+        if r.width()<w_threshold and r.height()<h_threshold: continue
+        ocropy.fill_rect(result,r,255)
+    return result
 
 if options.Display: options.display = 1
 if options.display: ion(); show()
 
 count = 1
 
-for image,arg in ocropy.page_iterator(args):
+for arg in args:
     print
     print "===",arg,"==="
     print
 
-    w,h = (image.dim(0),image.dim(1))
+    image = ocropy.bytearray()
+    ocropy.read_image_gray(image,arg)
+
+    result = image_map_simple(image)
 
     if options.display: 
-        clf(); imshow(NI(image),cmap=cm.gray); draw()
-        ginput(1,timeout=1)
-
-    bin = ocropy.bytearray()
-    gray = ocropy.bytearray()
-    temp = ocropy.bytearray()
-
-    result = ocropy.bytearray(image.dim(0),image.dim(1))
-    result.fill(0)
-
-    # binarize with a really low threshold
-
-    print "# finding rectangles"
-
-    binarizer.pset("k",0.05)
-    binarizer.pset("w",500)
-    binarizer.binarize(bin,gray,image)
-
-    temp.copy(bin)
-    ocropy.binary_invert(temp)
-    ocropy.binary_open_rect(temp,20,20)
-    ocropy.binary_close_rect(temp,30,30)
-    components = ocropy.intarray()
-    components.copy(temp)
-    n = ocropy.label_components(components)
-    # imshow(NI(components)); draw(); ginput(1)
-    boxes = ocropy.rectarray()
-    ocropy.bounding_boxes(boxes,components)
-    cover = zeros((w,h),'B')
-    for i in range(1,boxes.length()):
-        if boxes.at(i).width()<50 and boxes.at(i).height()<50: continue
-        x0,y0,x1,y1 = (boxes.at(i).x0,boxes.at(i).y0,boxes.at(i).x1,boxes.at(i).y1)
-        print x0,y0,x1,y1
-        cover[x0:x1,y0:y1] = 255
-    ocropy.narray_of_numpy(result,cover)
-
-    clf(); imshow(NI(result)); draw(); ginput(1)
-
-    # binarize with a normal threshold
-
-    print "# finding h/v lines"
-
-    binarizer.pset("k",0.40)
-    binarizer.pset("w",200)
-    binarizer.binarize(bin,gray,image)
-
-    # find extended horizontal lines
-
-    temp.copy(bin)
-    ocropy.binary_invert(temp)
-    ocropy.binary_dilate_rect(temp,3,7)
-    ocropy.binary_open_rect(temp,100,1)
-    ocropy.max(result,temp)
-
-    # find extended vertical lines
-
-    temp.copy(bin)
-    ocropy.binary_invert(temp)
-    ocropy.binary_dilate_rect(temp,7,3)
-    ocropy.binary_open_rect(temp,1,100)
-    ocropy.max(result,temp)
-
-    # find halftone regions
-
-    clf(); imshow(NI(result),cmap=cm.gray); draw(); ginput(1)
-    continue
-
-
-    if options.display: 
-        clf(); imshow(NI(bin),cmap=cm.gray); draw()
+        clf(); imshow(NI(image)*0.7+NI(result)+0.3,cmap=cm.gray); draw()
         if not options.Display: 
             raw_input("hit ENTER to continue")
         else:
             ginput(1,timeout=1)
+
+    base,_ = ocropy.allsplitext(arg)
+    ocropy.write_image_gray(base+".timap.png",result)
     count += 1
