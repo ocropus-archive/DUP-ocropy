@@ -6,17 +6,25 @@ import iulib,ocropus,sys,re
 ### interfaces.
 
 
-def make_component(name,interface):
+def make_component(spec,interface):
+    names = spec.split(":")
+    name = names[0]
     if "." in name:
         match = re.search(r'^([a-zA-Z0-9_.]+)\.([^.]+)$',name)
         assert match,"bad Python component name"
         module = match.group(1)
         element = match.group(2)
         exec "import %s; constructor=%s.%s"%(module,module,element)
-        return constructor()
+        result = constructor()
     else:
         exec "constructor = ocropus.make_%s"%interface
-        return constructor(name)
+        result = constructor(name)
+    for param in names[1:]:
+        k,v = param.split("=",1)
+        try: v = float(v)
+        except ValueError: pass
+        result.pset(k,v)
+    return result
 
 def make_ICleanupGray(name):
     return make_component(name,"ICleanupGray")
