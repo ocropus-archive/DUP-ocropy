@@ -45,6 +45,8 @@ parser.add_option("-L","--displaylines",help="display lines as well",action="sto
 
 if options.Display: options.display = 1
 if options.display: ion()
+if options.displaylines:
+    sys.stderr.write("[note] recognizer runs significantly slower with -L flag (line display)\n")
 
 preproc = ocropy.make_IBinarize(options.clean)
 segmenter = ocropy.make_ISegmentPage(options.pseg)
@@ -66,7 +68,7 @@ def blackout_images(image,ticlass):
     components = ocropy.intarray()
     components.copy(g)
     n = ocropy.label_components(components)
-    print "# number of image regions",n
+    print "[note] number of image regions",n
     tirects = ocropy.rectarray()
     ocropy.bounding_boxes(tirects,components)
     for i in range(1,tirects.length()):
@@ -125,19 +127,19 @@ for page_gray,pagefile in ocropy.page_iterator(args):
         if not options.Display: 
             raw_input("hit ENTER to continue")
         else:
-            ginput(1,timeout=1)
+            ginput(1,timeout=0.1)
 
     regions = ocropy.RegionExtractor()
     regions.setPageLines(page_seg)
     if regions.length()>100:
-        alert("# too many lines (%d), probably bad input; skipping"%regions.length())
+        alert("[error] too many lines (%d), probably bad input; skipping"%regions.length())
         continue
-    alert("#",pagefile,"lines:",regions.length())
+    alert("[note]",pagefile,"lines:",regions.length())
     for i in range(1,regions.length()):
         line = ocropy.bytearray()
         regions.extract(line,page_bin,i,1) # might use page_gray
         if options.display and options.displaylines:
-            clf(); subplot(111); imshow(NI(line),cmap=cm.gray); ginput(1,timeout=1)
+            clf(); subplot(111); imshow(NI(line),cmap=cm.gray); ginput(1,timeout=0.1)
         fst = ocropy.make_OcroFST()
         rseg = ocropy.intarray()
         if not options.silent:
@@ -164,7 +166,7 @@ for page_gray,pagefile in ocropy.page_iterator(args):
             if not options.Display: 
                 raw_input("hit ENTER to continue")
             else:
-                ginput(1,timeout=1)
+                ginput(1,timeout=0.1)
     if options.hocr:
         print "</div>"
 
