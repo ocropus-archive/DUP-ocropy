@@ -5,6 +5,9 @@ matplotlib.rcParams["interactive"] = 1
 matplotlib.use('TkAgg') # Qt4Agg
 from pylab import *
 
+import resource 
+resource.setrlimit(resource.RLIMIT_DATA,(2e9,2e9))
+
 import sys,os,re,glob
 import ocropy
 from ocropy import NI,plotutils,simpleti
@@ -92,8 +95,9 @@ if options.hocr: print header
 
 pageno = 0
 for page_gray,pagefile in ocropy.page_iterator(args):
-
     pageno += 1
+    sys.stderr.write("[note] *** %d %s ***\n"%(pageno,pagefile))
+
     if options.hocr: # add: bbox, ppageno
         print "<div class='ocr_page' id='page_%d' ppageno='%d' image='%s'>"% \
             (pageno,pageno,pagefile)

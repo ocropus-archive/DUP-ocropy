@@ -96,7 +96,7 @@ def cc_statistics(image,dpi,min_pt,max_pt,verbose=0):
     return result
 
 
-def quick_check_page_components(image,dpi=200,min_pt=9,max_pt=18,verbose=0):
+def quick_check_page_components(image,dpi=200,min_pt=9,max_pt=24,verbose=0):
     """Check whether the given page image roughly conforms to the kinds of
     inputs that OCRopus accepts. Returns a value between 0 and 1, with 1 meaning
     OK and 0 meaning definitely reject"""
@@ -125,7 +125,7 @@ def quick_check_page_components(image,dpi=200,min_pt=9,max_pt=18,verbose=0):
         if p.a_mean<1.0:
             alert("[note] unusually low mean aspect ratio (bad threshold?)")
             status = min(status,0.7)
-        elif p.a_mean>1.4:
+        elif p.a_mean>1.5:
             alert("[note] unusually high mean aspect ratio (bad threshold?)")
             status = min(status,0.7)
 
@@ -133,6 +133,9 @@ def quick_check_page_components(image,dpi=200,min_pt=9,max_pt=18,verbose=0):
     if p.covered<0.05 or p.density<8:
         alert("[note] page doesn't contain a lot of text")
         status = min(status,0.9)
+    elif p.small>10000:
+        alert("[warn] page has far too many small components (%d/%d/%d) (wrong resolution? bad threshold?)" % (p.small,p.normal,p.large))
+        status = min(status,0.3)
     elif p.normal<5*p.small:
         alert("[warn] page has too many small components (%d/%d/%d) (wrong resolution? bad threshold?)" % (p.small,p.normal,p.large))
         status = min(status,0.6)
@@ -141,7 +144,7 @@ def quick_check_page_components(image,dpi=200,min_pt=9,max_pt=18,verbose=0):
         status = min(status,0.6)
     return status
 
-def quick_check_line_components(image,dpi=200,min_pt=9,max_pt=18,verbose=0):
+def quick_check_line_components(image,dpi=200,min_pt=9,max_pt=24,verbose=0):
     """Check whether the given line image roughly conforms to the kinds of
     inputs that OCRopus accepts."""
 
@@ -159,10 +162,10 @@ def quick_check_line_components(image,dpi=200,min_pt=9,max_pt=18,verbose=0):
     if p.large>p.normal:
         alert("[warn] components too large on average (%d/%d/%d)" % (p.small,p.normal,p.large))
         status = min(status,0.1)
-    if p.density>100:
+    if p.density>200:
         alert("[warn] component density much too high (maybe halftone region?)")
         status = min(status,0.1)
-    if p.h_density>2.0:
+    if p.h_density>2.5:
         alert("[warn] horizontal component density much too high (maybe halftone region?)")
         status = min(status,0.1)
     if p.normal<2*p.small and p.normal>5:
