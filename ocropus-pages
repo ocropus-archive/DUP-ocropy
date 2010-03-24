@@ -143,7 +143,7 @@ for page_gray,pagefile in ocropy.page_iterator(args):
         except:
             continue
         s = ocropy.ustrg()
-        cost = ocropy.beam_search(s,fst,lmodel,100000)
+        cost = ocropy.beam_search(s,fst,lmodel,10000)
         if options.hocr:
             print "<span class='ocr_line' bbox='%d %d %d %d'>%s</span>"%\
                 (regions.x0(i),regions.y0(i),regions.x1(i),regions.y1(i),\

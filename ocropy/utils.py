@@ -177,21 +177,31 @@ def allsplitext(path):
     else:
         return match.group(1),match.group(3)
 
+from PIL import Image
+
 def page_iterator(files):
     for file in files:
         _,ext = os.path.splitext(file)
         if ext.lower()==".tif" or ext.lower()==".tiff":
-            tiff = iulib.Tiff(file,"r")
-            for i in range(tiff.numPages()):
-                image = iulib.bytearray()
-                try:
+            if 1:
+                tiff = iulib.Tiff(file,"r")
+                for i in range(tiff.numPages()):
+                    image = iulib.bytearray()
                     tiff.getPageRaw(image,i,True)
-                except:
-                    tiff.getPage(image,i,True)
-                yield image,"%s[%d]"%(file,i)
+                    # tiff.getPage(image,i,True)
+                    yield image,"%s[%d]"%(file,i)
+            else:
+                image = Image.open(file)
+                for i in range(10000):
+                    try:
+                        image.seek(i)
+                    except EOFError:
+                        break
+                    sys.stderr("# TIFF frame %d\n"%image.tell())
+                    frame = array(image)
+                    frame = ocropy.FI(frame)
+                    yield frame,"%s[%d]"%(file,i)
         else:
             image = iulib.bytearray()
             iulib.read_image_gray(image,file)
             yield image,file
-
-    

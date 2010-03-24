@@ -1,181 +1,105 @@
-import iulib,ocropus,sys
+import iulib,ocropus,sys,re
 
 ### For the most part, these just wrap the corresponding functions
 ### in ocropus.i.  But you should use the ocropy versions because
 ### they will get hooks for pure Python implementations of these
 ### interfaces.
 
-component_registry = {}
 
-def register_constructor(name,f):
-    # FIXME check that components have name() etc.
-    sys.stderr.write("# registering %s\n"%name)
-    component_registry[name] = f
-
-def get_components(kind=None):
-    # FIXME add Python component registry here
-    componentlist = ocropus.ComponentList()
-    select = 0
-    result = []
-    for i in range(componentlist.length()):
-        n = componentlist.name(i)
-        k = componentlist.kind(i)
-        if kind is not None and kind!=k: continue
-        result.append(n)
-    return result
+def make_component(name,interface):
+    if "." in name:
+        match = re.search(r'^([a-zA-Z0-9_.]+)\.([^.]+)$',name)
+        assert match,"bad Python component name"
+        module = match.group(1)
+        element = match.group(2)
+        exec "import %s; constructor=%s.%s"%(module,module,element)
+        return constructor()
+    else:
+        exec "constructor = ocropus.make_%s"%interface
+        return constructor(name)
 
 def make_ICleanupGray(name):
-    if component_registry.has_key(name):
-        result = component_registry[name]()
-    else:
-        result = ocropus.make_ICleanupGray(name)
-    assert result.interface() == "ICleanupGray"
-    return result
+    return make_component(name,"ICleanupGray")
 def make_ICleanupBinary(name):
-    if component_registry.has_key(name):
-        result = component_registry[name]()
-    else:
-        result = ocropus.make_ICleanupBinary(name)
-    assert result.interface() == "ICleanupBinary"
-    return result
+    return make_component(name,"ICleanupBinary")
 def make_ITextImageClassification(name):
-    print component_registry.keys()
-    if component_registry.has_key(name):
-        result = component_registry[name]()
-    else:
-        result = ocropus.make_ITextImageClassification(name)
-    assert result.interface() == "ITextImageClassification"
-    return result
+    return make_component(name,"ITextImageClassification")
 def make_IRecognizeLine(name):
-    if component_registry.has_key(name):
-        result = component_registry[name]()
-    else:
-        result = ocropus.make_IRecognizeLine(name)
-    assert result.interface() == "IRecognizeLine"
-    return result
+    return make_component(name,"IRecognizeLine")
 def make_IBinarize(name):
-    if component_registry.has_key(name):
-        result = component_registry[name]()
-    else:
-        result = ocropus.make_IBinarize(name)
-    assert result.interface() == "IBinarize"
-    return result
+    return make_component(name,"IBinarize")
 def make_ISegmentPage(name):
-    if component_registry.has_key(name):
-        result = component_registry[name]()
-    else:
-        result = ocropus.make_ISegmentPage(name)
-    assert result.interface() == "ISegmentPage"
-    return result
+    return make_component(name,"ISegmentPage")
 def make_ISegmentLine(name):
-    if component_registry.has_key(name):
-        result = component_registry[name]()
-    else:
-        result = ocropus.make_ISegmentLine(name)
-    assert result.interface() == "ISegmentLine"
-    return result
+    return make_component(name,"ISegmentLine")
 def make_IExtractor(name):
-    if component_registry.has_key(name):
-        result = component_registry[name]()
-    else:
-        result = ocropus.make_IExtractor(name)
-    assert result.interface() == "IExtractor"
-    return result
+    return make_component(name,"IExtractor")
 def make_IModel(name):
-    if component_registry.has_key(name):
-        result = component_registry[name]()
-    else:
-        result = ocropus.make_IModel(name)
-    assert result.interface() == "IModel"
-    return result
+    return make_component(name,"IModel")
 def make_IComponent(name):
-    if component_registry.has_key(name):
-        result = component_registry[name]()
-    else:
-        result = ocropus.make_IComponent(name)
-    assert result.interface() == "IComponent"
-    return result
+    return make_component(name,"IComponent")
 def make_IDataset(name):
-    if component_registry.has_key(name):
-        result = component_registry[name]()
-    else:
-        result = ocropus.make_IDataset(name)
-    assert result.interface() == "IDataset"
-    return result
+    return make_component(name,"IDataset")
 def make_IExtDataset(name):
-    if component_registry.has_key(name):
-        result = component_registry[name]()
-    else:
-        result = ocropus.make_IExtDataset(name)
-    assert result.interface() == "IExtDataset"
-    return result
+    return make_component(name,"IExtDataset")
 def make_IFeatureMap(name):
-    if component_registry.has_key(name):
-        result = component_registry[name]()
-    else:
-        result = ocropus.make_IFeatureMap(name)
-    assert result.interface() == "IFeatureMap"
-    return result
+    return make_component(name,"IFeatureMap")
 def make_IGrouper(name):
-    if component_registry.has_key(name):
-        result = component_registry[name]()
-    else:
-        result = ocropus.make_IGrouper(name)
-    assert result.interface() == "IGrouper"
-    return result
+    return make_component(name,"IGrouper")
 def make_IDistComp(name):
-    if component_registry.has_key(name):
-        result = component_registry[name]()
-    else:
-        result = ocropus.make_IDistComp(name)
-    assert result.interface() == "IDistComp"
-    return result
+    return make_component(name,"IDistComp")
 
 ### FIXME still need to figure out how to 
 ### handle loading/saving Python components
 
+def load_generic(file,interface):
+    if ".pymodel" in file:
+        with open(file,"rb") as stream:
+            result = cPickle.load(stream)
+        return result
+    else:
+        exec "loader = ocropus.load_%s"%interface
+        result = loader(file)
+        return result
+
 def load_ICleanupGray(file):
-    result = ocropus.load_ICleanupGray(file)
-    return result
+    return load_generic(file,"ICleanupGray")
 def load_ICleanupBinary(file):
-    result = ocropus.load_ICleanupBinary(file)
-    return result
+    return load_generic(file,"ICleanupBinary")
 def load_ITextImageClassification(file):
-    result = ocropus.load_ITextImageClassification(file)
-    return result
+    return load_generic(file,"ITextImageClassification")
 def load_IRecognizeLine(file):
-    result = ocropus.load_IRecognizeLine(file)
-    return result
+    return load_generic(file,"IRecognizeLine")
 def load_IBinarize(file):
-    result = ocropus.load_IBinarize(file)
-    return result
+    return load_generic(file,"IBinarize")
 def load_ISegmentPage(file):
-    result = ocropus.load_ISegmentPage(file)
-    return result
+    return load_generic(file,"ISegmentPage")
 def load_ISegmentLine(file):
-    result = ocropus.load_ISegmentLine(file)
-    return result
+    return load_generic(file,"ISegmentLine")
 def load_IExtractor(file):
-    result = ocropus.load_IExtractor(file)
-    return result
+    return load_generic(file,"IExtractor")
 def load_IModel(file):
-    result = ocropus.load_IModel(file)
-    return result
+    return load_generic(file,"IModel")
 def load_IComponent(file):
-    result = ocropus.load_IComponent(file)
-    return result
+    return load_generic(file,"IComponent")
 def load_IDataset(file):
-    result = ocropus.load_IDataset(file)
-    return result
+    return load_generic(file,"IDataset")
 def load_IFeatureMap(file):
-    result = ocropus.load_IFeatureMap(file)
-    return result
+    return load_generic(file,"IFeatureMap")
 def load_IGrouper(file):
-    result = ocropus.load_IGrouper(file)
-    return result
+    return load_generic(file,"IGrouper")
 def load_linerec(file):
-    result = ocropus.load_linerec(file)
-    return result
+    if ".pymodel" in file:
+        with open(file,"rb") as stream:
+            result = cPickle.load(stream)
+        return result
+    else:
+        result = ocropus.load_linerec(file)
+        return result
 
 def save_component(file,component):
-    ocropus.save_component(file,component)
+    if ".pymodel" in file:
+        with open(file,"wb") as stream:
+            cPickle.dump(stream)
+    else:
+        ocropus.save_component(file,component)
