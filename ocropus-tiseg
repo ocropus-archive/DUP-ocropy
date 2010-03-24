@@ -10,6 +10,7 @@ from ocropy import N,NI
 from scipy.ndimage import measurements
 from scipy.misc import imsave
 from PIL import Image
+import ocropy.tiseg
 
 parser = optparse.OptionParser(usage="""
 %prog [options] page1.png page2.png ...
@@ -23,57 +24,10 @@ parser.add_option("-c","--close",help="closing",type=int,default=0)
 parser.add_option("-o","--open",help="opening",type=int,default=2)
 options,args = parser.parse_args()
 
-class SimpleTISeg(ocropy.ITextImageClassification):
-    def __init__(self):
-        pass
-    def textImageMap(self,input):
-        w,h = (image.dim(0),image.dim(1))
-        binarizer = ocropy.make_IBinarize("BinarizeBySauvola")
-        binarizer.pset("k",0.2)
-        binarizer.pset("w",200)
-        bin = ocropy.bytearray()
-        binarizer.binarize(bin,image)
-        ocropy.binary_invert(bin)
-        if options.open>0:
-            ocropy.binary_open_rect(bin,options.open,options.open)
-        if options.close>0:
-            ocropy.binary_close_rect(bin,options.close,options.close)
-        result = closure(bin,100,100)
-        result = closure(result,400,300)
-        result = closure(result,400,300)
-        return result
-    def textImageProbabilities(self,rgb,input):
-        w,h = (image.dim(0),image.dim(1))
-        map = self.textImageMap(input)
-        rmap = ocropy.bytearray(w,h)
-        rmap.copy(map)
-        ocropy.sub(255,rmap)
-        zeros = ocropy.bytearray(w,h)
-        zeros.fill(0)
-        ocropy.pack_rgb(rgb,rmap,map,zeros)
-        # rgb.copy(map)
-        # ocropy.mul(rgb,256)
-
-def closure(temp,w_threshold=0,h_threshold=0):
-    w,h = (temp.dim(0),temp.dim(1))
-    components = ocropy.intarray()
-    components.copy(temp)
-    n = ocropy.label_components(components)
-    boxes = ocropy.rectarray()
-    ocropy.bounding_boxes(boxes,components)
-    result = ocropy.bytearray()
-    result.resize(w,h)
-    result.fill(0)
-    for i in range(1,boxes.length()):
-        r = boxes.at(i)
-        if r.width()<w_threshold and r.height()<h_threshold: continue
-        ocropy.fill_rect(result,r,255)
-    return result
-
 if options.Display: options.display = 1
 if options.display: ion(); show()
 
-tisegmenter = SimpleTISeg()
+tisegmenter = ocropy.make_ITextImageClassification("SimpleTIClassification")
 
 count = 1
 
@@ -86,7 +40,7 @@ for arg in args:
     ocropy.read_image_gray(image,arg)
 
     result = ocropy.intarray()
-    tisegmenter.textImageProbabilities(result,image)
+    tisegmenter.textImageProbabilities(result,image,options.open,options.close)
 
     if options.display: 
         clf(); imshow(NI(result),cmap=cm.gray); draw()

@@ -7,7 +7,7 @@ from pylab import *
 
 import sys,os,re,glob
 import ocropy
-from ocropy import NI,plotutils
+from ocropy import NI,plotutils,simpleti
 
 ion()
 hold(False)
@@ -27,6 +27,7 @@ recognizers, and finally the language model.
 """)
 parser.add_option("-C","--clean",help="page cleaner",default="StandardPreprocessing")
 parser.add_option("-P","--pseg",help="line segmenter",default="SegmentPageByRAST")
+parser.add_option("-T","--ticlass",help="text image segmenter",default=None)
 parser.add_option("-m","--linerec",help="linerec model",default=prefix+"default.model")
 parser.add_option("-l","--langmod",help="langmod",default=prefix+"default.fst")
 parser.add_option("-v","--verbose",help="verbose",action="store_true")
@@ -47,6 +48,29 @@ segmenter = ocropy.make_ISegmentPage(options.pseg)
 linerec = ocropy.load_linerec(options.linerec)
 lmodel = ocropy.make_OcroFST()
 lmodel.load(options.langmod)
+ticlass = None
+if options.ticlass is not None:
+    ticlass = ocropy.make_ITextImageClassification(options.ticlass)
+
+def blackout_images(image,ticlass):
+    rgb = ocropy.intarray()
+    ticlass.textImageProbabilities(rgb,image)
+    r = ocropy.bytearray()
+    g = ocropy.bytearray()
+    b = ocropy.bytearray()
+    ocropy.unpack_rgb(r,g,b,rgb)
+    components = ocropy.intarray()
+    components.copy(g)
+    n = ocropy.label_components(components)
+    print "# number of image regions",n
+    tirects = ocropy.rectarray()
+    ocropy.bounding_boxes(tirects,components)
+    for i in range(1,tirects.length()):
+        r = tirects.at(i)
+        ocropy.fill_rect(image,r,0)
+        r.pad_by(-5,-5)
+        ocropy.fill_rect(image,r,255)
+        
 
 header = """
 <?xml version="1.0" encoding="UTF-8"?>
@@ -80,6 +104,9 @@ for page_gray,pagefile in ocropy.page_iterator(args):
     if not options.silent:
         if ocropy.quick_check_page_components(page_bin,dpi=options.dpi)<0.5:
             continue
+
+    if ticlass is not None:
+        blackout_images(page_bin,ticlass)
 
     page_seg = ocropy.intarray()
     segmenter.segment(page_seg,page_bin)

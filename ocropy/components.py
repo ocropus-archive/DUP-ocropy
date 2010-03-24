@@ -1,4 +1,4 @@
-import iulib,ocropus
+import iulib,ocropus,sys
 
 ### For the most part, these just wrap the corresponding functions
 ### in ocropus.i.  But you should use the ocropy versions because
@@ -9,6 +9,7 @@ component_registry = {}
 
 def register_constructor(name,f):
     # FIXME check that components have name() etc.
+    sys.stderr.write("# registering %s\n"%name)
     component_registry[name] = f
 
 def get_components(kind=None):
@@ -38,6 +39,7 @@ def make_ICleanupBinary(name):
     assert result.interface() == "ICleanupBinary"
     return result
 def make_ITextImageClassification(name):
+    print component_registry.keys()
     if component_registry.has_key(name):
         result = component_registry[name]()
     else:
