@@ -40,6 +40,7 @@ parser.add_option("-r","--dpi",help="resolution in dpi",default=200,type=int)
 parser.add_option("-S","--silent",action="store_true",help="disable warnings")
 parser.add_option("-d","--display",help="display result",action="store_true")
 parser.add_option("-D","--Display",help="display continuously",action="store_true")
+parser.add_option("-L","--displaylines",help="display lines as well",action="store_true")
 (options,args) = parser.parse_args()
 
 if options.Display: options.display = 1
@@ -135,7 +136,7 @@ for page_gray,pagefile in ocropy.page_iterator(args):
     for i in range(1,regions.length()):
         line = ocropy.bytearray()
         regions.extract(line,page_bin,i,1) # might use page_gray
-        if options.display:
+        if options.display and options.displaylines:
             clf(); subplot(111); imshow(NI(line),cmap=cm.gray); ginput(1,timeout=1)
         fst = ocropy.make_OcroFST()
         rseg = ocropy.intarray()
@@ -156,7 +157,7 @@ for page_gray,pagefile in ocropy.page_iterator(args):
             print ocropy.ustrg_as_string(s)
         else:
             print "%6.2f\t%3d\t%s"%(cost,s.length(),ocropy.ustrg_as_string(s))
-        if options.display:
+        if options.display and options.displaylines:
             clf()
             axis = subplot(111)
             plotutils.draw_linerec(line,fst,rseg,lmodel,axis)

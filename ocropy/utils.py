@@ -183,6 +183,8 @@ def page_iterator(files):
     for file in files:
         _,ext = os.path.splitext(file)
         if ext.lower()==".tif" or ext.lower()==".tiff":
+            if os.path.getsize(file)>2e9:
+                raise IOError("TIFF file is greater than 2G")
             if 1:
                 tiff = iulib.Tiff(file,"r")
                 for i in range(tiff.numPages()):
