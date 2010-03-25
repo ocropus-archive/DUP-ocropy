@@ -14,8 +14,8 @@ parser = OptionParser(usage="""
 
 Trains models based on a cluster database.
 """)
-parser.add_option("-m","--model",help="IModel name",default="")
-parser.add_option("-r","--reject",help="train reject as well",action="store_true")
+parser.add_option("-m","--model",help="IModel name",default="latin")
+parser.add_option("-r","--reject",help="disable reject",action="store_false",default=True)
 parser.add_option("-u","--unlabeled",help="treat unlabeled ('_') as reject",action="store_true")
 parser.add_option("-1","--single",help="train only single chars",action="store_true")
 parser.add_option("-v","--verbose",help="verbose",action="store_true")
@@ -28,12 +28,6 @@ if len(args)!=2:
 
 db = args[0] # "unlv-clusters-0684.db"
 output = args[1]
-
-if options.model=="":
-    if options.reject:
-        options.model = "latin"
-    else:
-        options.model = "mlp"
 
 print "loading..."
 table = dbtables.ClusterTable(db)

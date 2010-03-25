@@ -113,8 +113,8 @@ for imagefile in args:
         print "costs",sum(costs),mean(costs),amax(costs),median(costs)
         print "result",result
         ## output the aligned segmentations
-        ocropy.write_segmentation(prefix+".rseg.gt.png",rseg)
-        ocropy.write_segmentation(prefix+".cseg.gt.png",cseg)
+        ocropy.write_line_segmentation(prefix+".rseg.gt.png",rseg)
+        ocropy.write_line_segmentation(prefix+".cseg.gt.png",cseg)
         ocropy.write_text(prefix+".gt.txt",result)
 
     print

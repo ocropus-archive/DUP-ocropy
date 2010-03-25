@@ -40,28 +40,20 @@ lmodel.load(options.langmod)
 for line in args:
     image = ocropy.bytearray()
     ocropy.read_image_gray(image,line)
-    fst = ocropy.make_OcroFST()
-    rseg = ocropy.intarray()
-
-    try:
-        linerec.recognizeLine(rseg,fst,image)
-    except:
-        print "# recognition failed"
-        continue
-
-    s = ocropy.ustrg()
-    cost = ocropy.beam_search(s,fst,lmodel,1000)
-    result = ocropy.ustrg_as_string(s)
-    print "%6.2f\t%3d\t%s"%(cost,s.length(),result)
+    l = ocropy.recognize_and_align(image,linerec,lmodel)
+    print "%6.2f\t%3d\t%s"%(l.cost,len(l.output),l.output)
     base,_ = ocropy.allsplitext(line)
 
-    with open(base+".txt","w") as stream: stream.write(result)
-    fst.save(base+".fst")
+    with open(base+".txt","w") as stream:
+        stream.write(l.output)
+    l.lattice.save(base+".fst")
+    ocropy.write_line_segmentation(base+".rseg.png",l.rseg)
+    ocropy.write_line_segmentation(base+".cseg.png",l.rseg)
 
     if options.display:
         clf()
         axis = subplot(111)
-        plotutils.draw_linerec(image,fst,rseg,lmodel,axis)
+        plotutils.draw_aligned(l,axis)
         if not options.Display: 
             raw_input("hit ENTER to continue")
         else:

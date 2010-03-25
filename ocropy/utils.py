@@ -2,6 +2,11 @@ import sys,os,re,glob,math,glob,signal
 import iulib,ocropus
 from pylab import *
 
+class Record:
+    def __init__(self,**kw):
+        for k in kw.keys():
+            self.__dict__[k] = kw[k]
+
 def findfile(name):
     """Find some OCRopus-related resource by looking in a bunch off standard places.
     (This needs to be integrated better with setup.py and the build system.)"""
@@ -125,12 +130,18 @@ def rseg_map(inputs):
             map[j] = count
     return map
 
-def compute_alignment(lattice,rseg,lmodel):
-    """Given a lattice produced by a recognizer, a raw segmentation,
-    and a language model, computes the best solution, the cseg, and
-    the corresponding costs.  These are returned as Python data structures.
-    The recognition lattice needs to have rseg's segment numbers as inputs
-    (pairs of 16 bit numbers); SimpleGrouper produces such lattices."""
+def recognize_and_align(image,linerec,lmodel,beam=10000):
+    """Perform line recognition with the given line recognizer and
+    language model.  Outputs an object containing the result (as a
+    Python string), the costs, the rseg, the cseg, the lattice and the
+    total cost.  The recognition lattice needs to have rseg's segment
+    numbers as inputs (pairs of 16 bit numbers); SimpleGrouper
+    produces such lattices."""
+
+    ## run the recognizer
+    lattice = ocropus.make_OcroFST()
+    rseg = iulib.intarray()
+    linerec.recognizeLine(rseg,lattice,image)
 
     ## perform the beam search through the lattice and the model
     v1 = iulib.intarray()
@@ -138,7 +149,7 @@ def compute_alignment(lattice,rseg,lmodel):
     ins = iulib.intarray()
     outs = iulib.intarray()
     costs = iulib.floatarray()
-    ocropus.beam_search(v1,v2,ins,outs,costs,lattice,lmodel,100000)
+    ocropus.beam_search(v1,v2,ins,outs,costs,lattice,lmodel,beam)
 
     ## do the conversions
     result = intarray_as_string(outs)
@@ -152,12 +163,56 @@ def compute_alignment(lattice,rseg,lmodel):
             cseg.put1d(i,int(rmap[rseg.at1d(i)]))
     except IndexError:
         raise "renumbering failed"
-    return (result,cseg,N(costs))
 
-    prefix = re.sub(r'\.[^/]*$','',imagefile)
+    ## return everything we computed
+    return Record(image=image,
+                  output=result,
+                  raw=outs,
+                  costs=costs,
+                  rseg=rseg,
+                  cseg=cseg,
+                  lattice=lattice,
+                  cost=iulib.sum(costs))
 
-def write_segmentation(file,seg_):
-    """Write the segmentation to the output file, changing black
+def compute_alignment(lattice,rseg,lmodel,beam=10000):
+    """Given a lattice produced by a recognizer, a raw segmentation,
+    and a language model, computes the best solution, the cseg, and
+    the corresponding costs.  These are returned as Python data structures.
+    The recognition lattice needs to have rseg's segment numbers as inputs
+    (pairs of 16 bit numbers); SimpleGrouper produces such lattices."""
+
+    ## perform the beam search through the lattice and the model
+    v1 = iulib.intarray()
+    v2 = iulib.intarray()
+    ins = iulib.intarray()
+    outs = iulib.intarray()
+    costs = iulib.floatarray()
+    ocropus.beam_search(v1,v2,ins,outs,costs,lattice,lmodel,beam)
+
+    ## do the conversions
+    result = intarray_as_string(outs)
+
+    ## compute the cseg
+    rmap = rseg_map(ins)
+    cseg = iulib.intarray()
+    cseg.copy(rseg)
+    try:
+        for i in range(cseg.length()):
+            cseg.put1d(i,int(rmap[rseg.at1d(i)]))
+    except IndexError:
+        raise "renumbering failed"
+
+    ## return everything we computed
+    return Record(output=result,
+                  raw=outs,
+                  costs=costs,
+                  rseg=rseg,
+                  cseg=cseg,
+                  lattice=lattice,
+                  cost=iulib.sum(costs))
+
+def write_line_segmentation(file,seg_):
+    """Write the line segmentation to the output file, changing black
     background to write."""
     seg = iulib.intarray()
     seg.copy(seg_)

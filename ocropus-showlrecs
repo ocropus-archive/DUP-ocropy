@@ -351,7 +351,10 @@ class LineWindow:
         self.detail("\n")
         if self.lmodel is not None:
             self.detail("\naligned segmentation\n")
-            result,cseg,costs = ocropy.compute_alignment(fst,rseg,self.lmodel)
+            l = ocropy.compute_alignment(fst,rseg,self.lmodel)
+            result = l.output
+            cseg = l.cseg
+            costs = l.costs
             colors = seg2pixbuf(cseg)
             self.detail_pixbuf(colors,lscale)
             self.detail("\n")

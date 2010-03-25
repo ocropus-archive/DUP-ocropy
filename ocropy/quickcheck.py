@@ -5,16 +5,11 @@ from pylab import *
 from scipy.stats.stats import trim1
 from scipy.ndimage import measurements
 from scipy.misc import imsave
-from utils import NI,N
+from utils import NI,N,Record
 
 def alert(*args):
     sys.stderr.write(" ".join([str(x) for x in args]))
     sys.stderr.write("\n")
-
-class Record:
-    def __init__(self,**kw):
-        for k in kw.keys():
-            self.__dict__[k] = kw[k]
 
 def cc_statistics(image,dpi,min_pt,max_pt,verbose=0):
     w = image.dim(0)

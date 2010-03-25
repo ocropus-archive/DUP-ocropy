@@ -34,3 +34,24 @@ def draw_linerec(image,fst,rseg,lmodel,axis=None):
         if i>0 and i-1<len(s):
             axis.text(x0,h-y0-1,s[i-1],color="red",weight="bold",fontsize=14)
     draw()
+
+def draw_aligned(result,axis=None):
+    if axis is None:
+        axis = subplot(111)
+    axis.imshow(NI(result.image),cmap=cm.gray)
+    cseg = result.cseg
+    ocropy.make_line_segmentation_black(cseg)
+    ocropy.renumber_labels(cseg,1)
+    bboxes = ocropy.rectarray()
+    ocropy.bounding_boxes(bboxes,cseg)
+    s = re.sub(r'\s+','',result.output)
+    h = result.image.dim(1)
+    for i in range(1,bboxes.length()):
+        r = bboxes.at(i)
+        x0,y0,x1,y1 = (r.x0,r.y0,r.x1,r.y1)
+        p = patches.Rectangle((x0,h-y1-1),x1-x0,y1-y0,edgecolor=(0.0,0.0,1.0,0.5),fill=0)
+        axis.add_patch(p)
+        if i>0 and i-1<len(s):
+            axis.text(x0,h-y0-1,s[i-1],color="red",weight="bold",fontsize=14)
+    draw()
+
