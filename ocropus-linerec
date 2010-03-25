@@ -2,7 +2,7 @@
 
 import sys,os,re,glob
 import ocropy
-from ocropy import N,NI,plotutils
+from ocropy import N,NI,plotutils,fstutils
 from pylab import *
 
 from optparse import OptionParser
@@ -17,6 +17,8 @@ It produces the following output files:
 
 * image.fst -- recognition lattice
 * image.txt -- recognized output, combining the language model and recognition lattice
+* image.rseg.png -- raw segmentation
+* image.cseg.png -- aligned segmentation
 
 You can get a quick idea of how recognition is working by using the -d or -D arguments.
 """)
@@ -26,6 +28,8 @@ parser.add_option("-w","--lweight",help="language model weight",default=1.0,type
 parser.add_option("-v","--verbose",help="verbose",action="store_true")
 parser.add_option("-d","--display",help="display result",action="store_true")
 parser.add_option("-D","--Display",help="display continuously",action="store_true")
+parser.add_option("-S","--suffix",help="suffix for writing results (e.g., '.gt')",default="")
+parser.add_option("-x","--gtextension",help="extension used for ground truth (ex: .txt, .gt.txt, .fst,...)",default=None)
 (options,args) = parser.parse_args()
 
 assert options.lweight==1.0,"other language model weights not implemented yet"
@@ -34,22 +38,58 @@ if options.Display: options.display = 1
 if options.display: ion()
 
 linerec = ocropy.load_IRecognizeLine(options.linerec)
-lmodel = ocropy.make_OcroFST()
-lmodel.load(options.langmod)
+default_lmodel = ocropy.make_OcroFST()
+default_lmodel.load(options.langmod)
+default_lmodel_path = options.langmod
+
+def read_lmodel(file):
+    if file[-4:]==".fst":
+        result = ocropy.make_OcroFST()
+        result.load(file)
+        return result
+    else:
+        result = fstutils.load_text_file_as_fst(file)
+        return result
 
 for line in args:
+    base,allext = ocropy.allsplitext(line)
+    _,ext = os.path.splitext(line)
+
+    ## if the file is a language model, load it
+    if ext==".fst" or ext==".txt":
+        default_lmodel_path = line
+        default_lmodel = read_lmodel(line)
+        continue
+        
+    ## if we can find a specific language model for it then perform alignment
+    lmodel = default_lmodel
+    if options.gtextension is not None:
+        path = base+options.gtextension
+        if os.path.exists(path):
+            if options.verbose: print "# using ",path
+            lmodel = read_lmodel(path)
+        else:
+            if options.verbose: print "# ground truth missing",path
+            continue
+    else:
+        if options.verbose: print "# using",default_lmodel_path
+
+    ## recognize the image with the given line recognizer and language model
     image = ocropy.bytearray()
     ocropy.read_image_gray(image,line)
     l = ocropy.recognize_and_align(image,linerec,lmodel)
     print "%6.2f\t%3d\t%s"%(l.cost,len(l.output),l.output)
     base,_ = ocropy.allsplitext(line)
 
-    with open(base+".txt","w") as stream:
+    ## write the resulting files to disk
+    with open(base+options.suffix+".txt","w") as stream:
         stream.write(l.output)
-    l.lattice.save(base+".fst")
-    ocropy.write_line_segmentation(base+".rseg.png",l.rseg)
-    ocropy.write_line_segmentation(base+".cseg.png",l.rseg)
+    l.lattice.save(base+options.suffix+".fst")
+    ocropy.write_line_segmentation(base+".rseg"+options.suffix+".png",l.rseg)
+    if l.cseg is not None:
+        ocropy.write_line_segmentation(base+".cseg"+options.suffix+".png",l.cseg)
 
+    ## display if requested
     if options.display:
         clf()
         axis = subplot(111)

@@ -136,7 +136,8 @@ def recognize_and_align(image,linerec,lmodel,beam=10000):
     Python string), the costs, the rseg, the cseg, the lattice and the
     total cost.  The recognition lattice needs to have rseg's segment
     numbers as inputs (pairs of 16 bit numbers); SimpleGrouper
-    produces such lattices."""
+    produces such lattices.  cseg==None means that the connected
+    component renumbering failed for some reason."""
 
     ## run the recognizer
     lattice = ocropus.make_OcroFST()
@@ -156,13 +157,15 @@ def recognize_and_align(image,linerec,lmodel,beam=10000):
 
     ## compute the cseg
     rmap = rseg_map(ins)
-    cseg = iulib.intarray()
-    cseg.copy(rseg)
-    try:
-        for i in range(cseg.length()):
-            cseg.put1d(i,int(rmap[rseg.at1d(i)]))
-    except IndexError:
-        raise "renumbering failed"
+    cseg = None
+    if len(rmap)>1:
+        cseg = iulib.intarray()
+        cseg.copy(rseg)
+        try:
+            for i in range(cseg.length()):
+                cseg.put1d(i,int(rmap[rseg.at1d(i)]))
+        except IndexError:
+            raise Exception("renumbering failed")
 
     ## return everything we computed
     return Record(image=image,
@@ -194,13 +197,15 @@ def compute_alignment(lattice,rseg,lmodel,beam=10000):
 
     ## compute the cseg
     rmap = rseg_map(ins)
-    cseg = iulib.intarray()
-    cseg.copy(rseg)
-    try:
-        for i in range(cseg.length()):
-            cseg.put1d(i,int(rmap[rseg.at1d(i)]))
-    except IndexError:
-        raise "renumbering failed"
+    cseg = None
+    if len(rmap)>1:
+        cseg = iulib.intarray()
+        cseg.copy(rseg)
+        try:
+            for i in range(cseg.length()):
+                cseg.put1d(i,int(rmap[rseg.at1d(i)]))
+        except IndexError:
+            raise Exception("renumbering failed")
 
     ## return everything we computed
     return Record(output=result,
