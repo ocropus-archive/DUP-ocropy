@@ -539,7 +539,7 @@ class ArrayMixins:
     def threshold(self,t):
         """Threshold this image with the given threshold."""
         ocropus.binarize_with_threshold(self,t)
-    def copyRectangle(x,y,src,x0,y0,x1,y1):
+    def copyRectangle(self,x,y,src,x0,y0,x1,y1):
         """Copy the given source rectangle from the source image
         to this image at position x,y."""
         iulib.copy_rect(self,x,y,src,x0,y0,x1,y1)
