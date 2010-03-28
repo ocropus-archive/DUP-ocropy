@@ -64,6 +64,12 @@ class ArrayMixins:
     def numpy(self):
         """Convert an narray to a numpy array."""
         return iulib.numpy(self)
+    def of(self,image):
+        """Assign a numpy array to this narray; returns self.
+        Use like floatarray().F(numpy_array)."""
+        a = iulib.floatarray()
+        iulib.narray_of_numpy(self,image)
+        return self
     def byte(self):
         """Return a bytearray version of the current array.
         May either share or copy."""
@@ -82,23 +88,13 @@ class ArrayMixins:
         result = floatarray()
         result.copy(self)
         return result
-
-    def N(self):
-        """Convert an narray to a numpy array."""
-        return iulib.numpy(self)
-    def NI(self):
+    def numpyI(self):
         """Convert an narray to a numpy array, accounting for
-        different coordinate conventions."""
+        different coordinate conventions in images."""
         return transpose(N(self))[::-1,...]
-    def F(self):
+    def ofI(self,image):
         """Assign a numpy array to this narray; returns self.
-        Use like floatarray().F(numpy_array)."""
-        a = iulib.floatarray()
-        iulib.narray_of_numpy(self,image)
-        return self
-    def FI(self):
-        """Assign a numpy array to this narray; returns self.
-        Accounts for different coordinate conventions.
+        Accounts for different coordinate conventions in images.
         Use like floatarray().FI(numpy_array)."""
         iulib.narray_of_numpy(self,transpose(image[::-1,...]))
         return self
