@@ -174,21 +174,22 @@ class Table:
         # print "#",cmd,values
         cur.execute(cmd,values)
         self.con.commit()
+        return cur.lastrowid
     def delete(self,**kw):
         self.del_hash(kw)
     def get(self,**kw):
         return self.get_hash(kw)
     def set(self,**kw):
-        self.put_hash(kw)
+        return self.put_hash(kw)
     def put(self,x,commit=1):
         if type(x)==dict:
-            self.put_hash(x,commit=commit)
+            return self.put_hash(x,commit=commit)
         elif type(x)==list:
-            for object in x:
-                self.put(object,commit=0)
+            result = [self.put(object,commit=0) for object in x]
             if commit: self.con.commit()
+            return result
         else:
-            self.put_hash(x.__dict__,commit=commit)
+            return self.put_hash(x.__dict__,commit=commit)
 
 class ClusterTable(Table):
     def __init__(self,con,factory=Row):

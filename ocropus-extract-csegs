@@ -20,6 +20,7 @@ parser.add_option("-a","--maxage",help="output missegmented",default=10000000,ty
 
 parser.add_option("-D","--display",help="display chars",action="store_true")
 parser.add_option("-v","--verbose",help="verbose output",action="store_true")
+parser.add_option("-S","--nosource",help="do not record source info",action="store_true")
 
 (options,args) = parser.parse_args()
 
@@ -36,7 +37,7 @@ if os.path.exists(options.output):
 
 table = dbtables.Table(options.output,"chars")
 table.converter("image",dbtables.SmallImage())
-table.create(image="blob",count="integer",cls="text",classes="text",key="text")
+table.create(image="blob",cls="text",file="text",segid="integer",bbox="text")
 
 total = 0
 for file in args:
@@ -49,7 +50,10 @@ for file in args:
         continue
     if options.verbose:
         print file,len(segments),len(text)
-    for raw,mask,cls in items:
+    for x in items:
+        raw = x.raw
+        mask = x.mask
+        cls = x.cls
         segments.append(raw)
         if options.display:
             clf(); gray(); imshow(ocrobook.NI(raw)); draw()
@@ -69,7 +73,13 @@ for file in args:
         key = re.sub(r'\.png$','',key)
         if options.verbose:
             print key,cls,raw.shape
-        table.set(image=raw,cls=cls,count=1,classes=None,key=file)
+        if options.nosource:
+            id = table.set(image=raw,cls=cls)
+        else:
+            r = x.bbox
+            id = table.set(image=raw,cls=cls,
+                           file=file,
+                           bbox="%d %d %d %d"%(r.x0,r.y0,r.x1,r.y1))
         total+=1
         if total%10000==0:
             print total,"chars"

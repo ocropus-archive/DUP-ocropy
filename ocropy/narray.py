@@ -1,6 +1,5 @@
-import sys,os,re,glob,math,glob,signal
+import sys,os,re,glob,math,glob,signal,numpy
 import iulib,ocropus
-
 
 # TODO:
 # -- buffer operations
@@ -50,15 +49,8 @@ class ArrayMixins:
         return iulib.refcount(self)
     def init(self,l):
         return self.F(array(l))
-    def __str__(self):
-        l = []
-        for i in range(min(5,self.length())):
-            l.append(self.at(i))
-        suffix = ""
-        if self.length()>5: suffix = "..."
-        result = "narray(%s %s%s)"%(self.dims(),l,suffix)
     def prt(self):
-        print self.N()
+        print self.numpy()
     
     # conversions
     def numpy(self):
@@ -91,12 +83,12 @@ class ArrayMixins:
     def numpyI(self):
         """Convert an narray to a numpy array, accounting for
         different coordinate conventions in images."""
-        return transpose(N(self))[::-1,...]
+        return numpy.transpose(self.numpy())[::-1,...]
     def ofI(self,image):
         """Assign a numpy array to this narray; returns self.
         Accounts for different coordinate conventions in images.
         Use like floatarray().FI(numpy_array)."""
-        iulib.narray_of_numpy(self,transpose(image[::-1,...]))
+        iulib.narray_of_numpy(self,numpy.transpose(image[::-1,...]))
         return self
 
     # misc operators
@@ -160,42 +152,55 @@ class ArrayMixins:
     def __iadd__(self,other):
         """Assignment operator (+=, -=, ...)."""
         iulib.add(self,other)
+        return self
     def __isub__(self,other):
         """Assignment operator (+=, -=, ...)."""
         iulib.sub(self,other)
+        return self
     def __imul__(self,other):
         """Assignment operator (+=, -=, ...)."""
         iulib.mul(self,other)
+        return self
     def __idiv__(self,other):
         """Assignment operator (+=, -=, ...)."""
         iulib.div(self,other)
+        return self
     def __itruediv__(self,other):
         """Assignment operator (+=, -=, ...)."""
         iulib.div(self,other)
+        return self
     def __ipow__(self,other):
         """Assignment operator (+=, -=, ...)."""
         iulib.pow(self,other)
+        return self
     def __imod__(self,other):
         """Assignment operator (+=, -=, ...)."""
         iulib.div(self,other)
+        return self
     def __ifloordiv__(self,other):
         """Assignment operator (+=, -=, ...)."""
         iulib.div(self,other)
+        return self
     def __ilshift(self,other):
         """Assignment operator (+=, -=, ...)."""
         iulib.bit_lshift(self,other)
+        return self
     def __irshift(self,other):
         """Assignment operator (+=, -=, ...)."""
         iulib.bit_rshift(self,other)
+        return self
     def __iand__(self,other):
         """Assignment operator (+=, -=, ...)."""
         iulib.bit_and(self,other)
+        return self
     def __ior__(self,other):
         """Assignment operator (+=, -=, ...)."""
         iulib.bit_or(self,other)
+        return self
     def __ixor__(self,other):
         """Assignment operator (+=, -=, ...)."""
         iulib.bit_xor(self,other)
+        return self
 
     # infix versions implemented in terms of assignment
     def __add__(self,other):
@@ -292,48 +297,48 @@ class ArrayMixins:
         iulib.invert(result)
         return result
 
-    def log(self):
+    def log_(self):
         """Compute log in-place."""
         iulib.log(self)
-    def exp(self):
+    def exp_(self):
         """Compute exp in-place."""
         iulib.exp(self)
-    def sin(self):
+    def sin_(self):
         """Compute sin in-place."""
         iulib.sin(self)
-    def cos(self):
+    def cos_(self):
         """Compute cos in-place."""
         iulib.cos(self)
 
-    def Log(self):
+    def log(self):
         """Compute log and return it."""
         result = self.duplicate()
         result.log()
         return result
-    def Exp(self):
+    def exp(self):
         """Compute exp and return it."""
         result = self.duplicate()
         result.exp()
         return result
-    def Sin(self):
+    def sin(self):
         """Compute sin and return it."""
         result = self.duplicate()
         result.sin()
         return result
-    def Cos(self):
+    def cos(self):
         """Compute cos and return it."""
         result = self.duplicate()
         result.cos()
         return result
     
     # min/max and related
-    def greater(self,q,x,y):
+    def greater_(self,q,x,y):
         """Where self is bigger than q, assign x in-place, otherwise y."""
         iulib.greater(self,q,x,y)
-    def less(self,q,x,y):
+    def less_(self,q,x,y):
         """Where self is less than q, assign x in-place, otherwise y."""
         iulib.less(self,q,x,y)
-    def min(self,other=None):
+    def min_(self,other=None):
         """With no argument, returns the min of the array.
         With one argument, computes the min of this array
         with the other array in-place."""
@@ -341,7 +346,7 @@ class ArrayMixins:
             return iulib.min(self)
         else:
             iulib.min(self,other)
-    def max(self,other=None):
+    def max_(self,other=None):
         """With no argument, returns the max of the array.
         With one argument, computes the max of this array
         with the other array in-place."""
@@ -350,19 +355,19 @@ class ArrayMixins:
         else:
             iulib.max(self,other)
 
-    def Greater(self,q,x,y):
+    def greater(self,q,x,y):
         """Where self is bigger than q, assign x, otherwise y;
         returns a new array."""
         result = self.duplicate()
         iulib.greater(result,q,x,y)
         return result
-    def Less(self,q,x,y):
+    def less(self,q,x,y):
         """Where self is less than q, assign x, otherwise y;
         returns a new array."""
         result = self.duplicate()
         iulib.less(result,q,x,y)
         return result
-    def Min(self,other=None):
+    def min(self,other=None):
         """With no argument, returns the min of the array.
         With one argument, computes the min of this array
         with the other array and returns it."""
@@ -372,7 +377,7 @@ class ArrayMixins:
             result = self.duplicate()
             iulib.min(result,other)
             return result
-    def Max(self,other=None):
+    def max(self,other=None):
         """With no argument, returns the max of the array.
         With one argument, computes the max of this array
         with the other array and returns it."""
@@ -528,7 +533,7 @@ class ArrayMixins:
         self.move(temp)
     def transpose(self):
         """Transpose this image."""
-        iulib.tranpose(self)
+        iulib.transpose(self)
     def replaceValues(old,new):
         """Replace the old value with the new value in this image."""
         iulib.replace_values(self,old,new)

@@ -3,7 +3,9 @@
 
 import sys,os,re,glob,math,glob
 import iulib,ocropus
+import traceback
 from pylab import *
+from utils import Record
 
 default_segmenter = ocropus.make_ISegmentLine(os.getenv("segmenter") or "DpSegmenter")
 default_grouper = ocropus.make_IGrouper("SimpleGrouper")
@@ -138,9 +140,11 @@ def cseg_chars(files,suffix="gt",segmenter=None,grouper=None,has_gt=1,verbose=0)
                 grouper.extractWithMask(raw,mask,image,i,1)
                 # print "component",i,N(segments),amax(N(raw)),raw.dim(0),raw.dim(1)
                 # imshow(NI(raw)); gray(); show()
-                yield raw,mask,cls
+                yield Record(raw=raw,mask=mask,cls=cls,index=i,
+                             bbox=grouper.boundingBox(i))
         except:
             print "FAILED",sys.exc_info()[0]
+            print traceback.format_exc()
             continue
 
 def chars_no_gt(files,segmenter=default_segmenter,grouper=default_grouper):
