@@ -144,6 +144,7 @@ for arg in args:
             regions.extract(line,page_gray,i,options.pad)
             ocropy.write_image_gray("%s/%06x.png"%(base,regions.id(i)),line)
         else:
+            ocropy.write_image_gray("%s/%06x.bin.png"%(base,regions.id(i)),line)
             ocropy.write_image_gray("%s/%06x.png"%(base,regions.id(i)),line)
     try:
         ocropy.make_page_segmentation_white(page_seg)

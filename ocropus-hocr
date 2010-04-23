@@ -39,6 +39,8 @@ header = """
 <head>
 <title>OCR Results</title>
 <meta name="Description" content="OCRopus Output" />
+<meta name="ocr-system" content="ocropus-0.4" />
+<meta name="ocr-capabilities" content="ocr_line ocr_page" />
 </head>
 <body>
 """

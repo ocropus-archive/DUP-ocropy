@@ -5,7 +5,7 @@ from pylab import *
 from optparse import OptionParser
 
 parser = OptionParser("""
-usage: %prog [options] clusters.db
+usage: %prog [options] clusters.db out.db
 
 """)
 

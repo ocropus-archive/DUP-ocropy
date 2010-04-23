@@ -192,11 +192,11 @@ class Table:
             return self.put_hash(x.__dict__,commit=commit)
 
 class ClusterTable(Table):
-    def __init__(self,con,factory=Row):
-        Table.__init__(self,con,"clusters",factory=factory)
+    def __init__(self,con,factory=Row,name="clusters"):
+        Table.__init__(self,con,name,factory=factory)
         self.converter("image",SmallImage())
 class CharTable(Table):
-    def __init__(self,con,factory=Row):
-        Table.__init__(self,con,"clusters",factory=factory)
+    def __init__(self,con,factory=Row,name="chars"):
+        Table.__init__(self,con,name,factory=factory)
         self.converter("image",RLEImage())
     
