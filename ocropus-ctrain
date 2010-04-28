@@ -13,6 +13,15 @@ parser = OptionParser(usage="""
 %prog [options] input.db output.model
 
 Trains models based on a cluster database.
+
+For faster speed and better memory usage, use the "-b" option, which buffers
+samples in a 1bpp buffer (only binary input patterns).
+
+You can choose different kinds of feature extractors with the -E flag.  
+Some possible values are: scaledfe (raw grayscale image rescaled to a target size) 
+and biggestcc (biggest connected component only, otherwise treated like scaledfe).
+You can find additional components by running "ocropus components" and looking for
+implementors of IExtractor.
 """)
 parser.add_option("-m","--model",help="IModel name",default="latin")
 parser.add_option("-b","--bits",help="buffer training data with 1 bpp",action="store_true")
@@ -40,7 +49,7 @@ ion()
 classifier = ocropy.make_IModel(options.model)
 classifier.setExtractor(options.extractor)
 if options.bits:
-    classifier.pset("extractor",ocropy.make_IDataset("bitdataset"))
+    classifier.pset("cds","bitdataset")
 ocropy.dinit(512,512)
 
 print "training..."

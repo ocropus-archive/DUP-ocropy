@@ -37,8 +37,7 @@ for image,arg in ocropy.page_iterator(args):
     axis = subplot(111)
     axis.imshow(NI(bin),cmap=cm.gray)
 
-    costs = ocropy.floatarray()
-    costs.makelike(image)
+    costs = ocropy.floatarray(image.dim(0),image.dim(1))
     costs.fill(0.0)
 
     char = ocropy.floatarray()
