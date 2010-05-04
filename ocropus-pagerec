@@ -16,6 +16,8 @@ options,args = parser.parse_args()
 binarizer = ocropy.make_IBinarize("StandardPreprocessing")
 model = ocropy.load_IModel("isolated-big.cmodel")
 
+sizes = {}
+
 for image,arg in ocropy.page_iterator(args):
 
     w = image.dim(0)
@@ -63,6 +65,10 @@ for image,arg in ocropy.page_iterator(args):
             remaining = classifications[:]
             remaining.remove(("~",reject_p))
             cls,p = remaining[0]
+
+            cat = ocropy.size_category(cls)
+            sizes[cat] = sizes.get(cat,[])+[rh]
+
             if cls in """.:;,"'Il|[]()\\/-~i""": continue
 
             print r.x0,r.y0,r.x1,r.y1,cls
