@@ -15,7 +15,8 @@ def add_line(fst,s):
         if c>=32 and c<128:
             pass
         else:
-            print "skipping %d"%c
+            # print "skipping %d"%c
+            raise Exception("bad character %d in '%s'"%(c,s))
             continue
         nstate = fst.AddState()
         if s[i]==" ":
@@ -47,4 +48,5 @@ def lines_of_file(file):
         yield line
 
 def load_text_file_as_fst(file):
-    return make_line_fst(lines_of_file(file))
+    lines = lines_of_file(file)
+    return make_line_fst(lines)

@@ -1,6 +1,6 @@
 import sys,os,re,glob,math,glob,signal
 import iulib,ocropus
-from components import *
+import components
 from utils import N,NI,F,FI
 from scipy.ndimage import interpolation
 from pylab import *
@@ -21,8 +21,8 @@ class CmodelLineRecognizer:
     def __init__(self,cmodel=None,segmenter="DpSegmenter"):
         self.debug = 0
         self.best = 10
-        self.segmenter = make_ISegmentLine(segmenter)
-        self.grouper = make_IGrouper("SimpleGrouper")
+        self.segmenter = components.make_ISegmentLine(segmenter)
+        self.grouper = components.make_IGrouper("SimpleGrouper")
         self.grouper.pset("maxdist",5)
         self.cmodel = cmodel
 
@@ -60,6 +60,7 @@ class CmodelLineRecognizer:
             self.grouper.setClass(i,ocropus.L_RHO,raw.dim(0))
 
             ## compute the classifier output for this character
+            # print self.cmodel.info()
             outputs = self.cmodel.coutputs(FI(char))
             outputs = [(x[0],-log(x[1])) for x in outputs]
             

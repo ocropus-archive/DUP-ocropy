@@ -14,7 +14,7 @@ parser.add_option("-d","--display",help="display characters")
 parser.add_option("-v","--verbose",help="verbose output")
 parser.add_option("-r","--raw",help="output unsegmented",action="store_true",default=True)
 parser.add_option("-a","--maxage",help="output missegmented",default=10000000,type="int")
-parser.add_option("-s","--segmenter",help="segmenter",default="SegmentLineByCCS")
+parser.add_option("-s","--segmenter",help="segmenter",default="SegmentLineByGCCS")
 (options,args) = parser.parse_args()
 
 segmenter = ocropy.make_ISegmentLine(options.segmenter)
@@ -41,9 +41,16 @@ def chars(files):
         print "# loading",file
         image = ocropy.bytearray()
         binfile = re.sub(r'.png','.bin.png',file)
-        ocropy.read_image_gray(image,binfile)
+        if os.path.exists(binfile):
+            ocropy.read_image_gray(image,binfile)
+        else:
+            ocropy.read_image_gray(image,file)
         segmentation = ocropy.intarray()
-        segmenter.charseg(segmentation,image)
+        try:
+            segmenter.charseg(segmentation,image)
+        except:
+            print "# segmentation failed"
+            continue
         ocropy.make_line_segmentation_black(segmentation)
         ocropy.renumber_labels(segmentation,1)
         grouper.setSegmentation(segmentation)

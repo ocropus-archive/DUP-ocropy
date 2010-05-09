@@ -37,7 +37,8 @@ assert options.lweight==1.0,"other language model weights not implemented yet"
 if options.Display: options.display = 1
 if options.display: ion()
 
-linerec = ocropy.load_IRecognizeLine(options.linerec)
+# linerec = ocropy.load_IRecognizeLine(options.linerec)
+linerec = ocropy.load_linerec(options.linerec)
 default_lmodel = ocropy.make_OcroFST()
 default_lmodel.load(options.langmod)
 default_lmodel_path = options.langmod

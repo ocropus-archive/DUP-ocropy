@@ -1,5 +1,5 @@
 import sys,os,re,glob,math,glob,signal
-import iulib,ocropus
+import iulib,ocropus,narray
 from pylab import *
 
 class Record:
@@ -185,11 +185,11 @@ def compute_alignment(lattice,rseg,lmodel,beam=10000):
     (pairs of 16 bit numbers); SimpleGrouper produces such lattices."""
 
     ## perform the beam search through the lattice and the model
-    v1 = iulib.intarray()
-    v2 = iulib.intarray()
-    ins = iulib.intarray()
-    outs = iulib.intarray()
-    costs = iulib.floatarray()
+    v1 = narray.intarray()
+    v2 = narray.intarray()
+    ins = narray.intarray()
+    outs = narray.intarray()
+    costs = narray.floatarray()
     ocropus.beam_search(v1,v2,ins,outs,costs,lattice,lmodel,beam)
 
     ## do the conversions
@@ -199,7 +199,7 @@ def compute_alignment(lattice,rseg,lmodel,beam=10000):
     rmap = rseg_map(ins)
     cseg = None
     if len(rmap)>1:
-        cseg = iulib.intarray()
+        cseg = narray.intarray()
         cseg.copy(rseg)
         try:
             for i in range(cseg.length()):
@@ -214,7 +214,7 @@ def compute_alignment(lattice,rseg,lmodel,beam=10000):
                   rseg=rseg,
                   cseg=cseg,
                   lattice=lattice,
-                  cost=iulib.sum(costs))
+                  cost=costs.sum())
 
 def write_line_segmentation(file,seg_):
     """Write the line segmentation to the output file, changing black

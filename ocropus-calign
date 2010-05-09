@@ -73,8 +73,12 @@ def read_lmodel(file):
         result.load(imagefile)
         return result
     else:
-        result = fstutils.load_text_file_as_fst(imagefile)
+        result = fstutils.load_text_file_as_fst(file)
         return result
+
+if options.display:
+    ion()
+    show()
     
 for imagefile in args:
     prefix = re.sub(r'\.[^/]*$','',imagefile)
@@ -89,6 +93,8 @@ for imagefile in args:
     print "load\t",imagefile
     image = ocropy.bytearray()
     ocropy.read_image_gray(image,imagefile)
+    if options.display:
+        clf(); gray(); imshow(NI(image)); draw()
 
     ## perform line recognition, yielding a recognition lattice
     lattice = ocropy.make_OcroFST()
@@ -106,10 +112,16 @@ for imagefile in args:
     lmodel = default_lmodel
     if options.gtextension is not None:
         base = re.sub(r'\.[^/]*$','',imagefile)
-        lmodel = read_lmodel(base+options.gtextension)
+        gtname = base+options.gtextension
+        print "gt",gtname
+        lmodel = read_lmodel(gtname)
 
     if lmodel is not None:
-        result,cseg,costs = ocropy.compute_alignment(lattice,rseg,lmodel)
+        r = ocropy.compute_alignment(lattice,rseg,lmodel)
+        result = r.output
+        cseg = r.cseg
+        costs = r.costs.numpy()
+        # print costs
         print "costs",sum(costs),mean(costs),amax(costs),median(costs)
         print "result",result
         ## output the aligned segmentations

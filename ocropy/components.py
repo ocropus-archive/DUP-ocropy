@@ -1,4 +1,5 @@
 import iulib,ocropus,sys,re
+from simplerec import CmodelLineRecognizer
 
 ### For the most part, these just wrap the corresponding functions
 ### in ocropus.i.  But you should use the ocropy versions because
@@ -112,6 +113,11 @@ def load_linerec(file):
     if ".pymodel" in file:
         with open(file,"rb") as stream:
             result = cPickle.load(stream)
+        return result
+    elif ".cmodel" in file:
+        cmodel = load_IModel(file)
+        result = CmodelLineRecognizer(cmodel=cmodel)
+        # print "# cmodel",cmodel,"result",result
         return result
     else:
         result = ocropus.load_linerec(file)
