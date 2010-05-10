@@ -16,7 +16,7 @@ def add_line(fst,s):
             pass
         else:
             # print "skipping %d"%c
-            raise Exception("bad character %d in '%s'"%(c,s))
+            raise Exception("bad character %d in '%s' (%s)"%(c,s,type(s)))
             continue
         nstate = fst.AddState()
         if s[i]==" ":
@@ -30,7 +30,14 @@ def add_line(fst,s):
 
 def make_line_fst(lines):
     fst = Fst()
-    for line in lines: add_line(fst,line)
+    count = 0
+    for line in lines:
+        count += 1
+        try:
+            add_line(fst,line)
+        except:
+            print "on line",count
+            raise
     det = Fst()
     openfst.Determinize(fst,det)
     openfst.Minimize(det)
@@ -45,7 +52,7 @@ def lines_of_file(file):
     for line in open(file).readlines():
         if line[-1]=="\n": line = line[:-1]
         if line=="": continue
-        yield line
+        yield unicode(line,"utf-8")
 
 def load_text_file_as_fst(file):
     lines = lines_of_file(file)

@@ -37,7 +37,7 @@ if os.path.exists(options.output):
 
 table = dbtables.Table(options.output,"chars")
 table.converter("image",dbtables.SmallImage())
-table.create(image="blob",cls="text",file="text",segid="integer",bbox="text")
+table.create(image="blob",cls="text",file="text",segid="integer",bbox="text",count="integer",classes="text")
 
 total = 0
 for file in args:
@@ -74,10 +74,10 @@ for file in args:
         if options.verbose:
             print key,cls,raw.shape
         if options.nosource:
-            id = table.set(image=raw,cls=cls)
+            id = table.set(image=raw,cls=cls,count=1)
         else:
             r = x.bbox
-            id = table.set(image=raw,cls=cls,
+            id = table.set(image=raw,cls=cls,count=1,
                            file=file,
                            bbox="%d %d %d %d"%(r.x0,r.y0,r.x1,r.y1))
         total+=1

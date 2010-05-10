@@ -54,6 +54,10 @@ if len(args)==0:
 
 assert options.precomp is None,"precomp not implemented yet"
 
+def error(*args):
+    message = " ".join(args)
+    print "ERROR:",message
+
 segmenter = ocropy.make_ISegmentLine(options.segmenter)
 grouper = ocropy.make_IGrouper("SimpleGrouper")
 grouper.pset("maxdist",options.maxdist) # use 5 to handle "/''
@@ -99,7 +103,11 @@ for imagefile in args:
     ## perform line recognition, yielding a recognition lattice
     lattice = ocropy.make_OcroFST()
     rseg = ocropy.intarray()
-    linerec.recognizeLineSeg(lattice,rseg,image)
+    try:
+        linerec.recognizeLineSeg(lattice,rseg,image)
+    except:
+        error(imagefile,"recognition failed")
+        continue
     lattice.save("_lattice.fst")
 
     ## compute and output the raw best path
@@ -114,19 +122,31 @@ for imagefile in args:
         base = re.sub(r'\.[^/]*$','',imagefile)
         gtname = base+options.gtextension
         print "gt",gtname
-        lmodel = read_lmodel(gtname)
+        if not os.path.exists(gtname):
+            error(gtname,"not found")
+            continue
+        try:
+            lmodel = read_lmodel(gtname)
+        except:
+            error(gtname,"failed to load")
+            continue
 
     if lmodel is not None:
-        r = ocropy.compute_alignment(lattice,rseg,lmodel)
-        result = r.output
-        cseg = r.cseg
-        costs = r.costs.numpy()
-        # print costs
-        print "costs",sum(costs),mean(costs),amax(costs),median(costs)
-        print "result",result
-        ## output the aligned segmentations
-        ocropy.write_line_segmentation(prefix+".rseg.gt.png",rseg)
-        ocropy.write_line_segmentation(prefix+".cseg.gt.png",cseg)
-        ocropy.write_text(prefix+".gt.txt",result)
+        try:
+            r = ocropy.compute_alignment(lattice,rseg,lmodel)
+            result = r.output
+            cseg = r.cseg
+            costs = r.costs.numpy()
+            # print costs
+            print "costs",sum(costs),mean(costs),amax(costs),median(costs)
+            print "result",result
+            if sum(costs)>1000.0: raise Exception("total cost too high")
+            ## output the aligned segmentations
+            ocropy.write_line_segmentation(prefix+".rseg.gt.png",rseg)
+            ocropy.write_line_segmentation(prefix+".cseg.gt.png",cseg)
+            if options.gtextension is None:
+                ocropy.write_text(prefix+".gt.txt",result)
+        except:
+            error("language model failed")
 
     print

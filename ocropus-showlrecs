@@ -319,7 +319,7 @@ class LineWindow:
         ocropy.read_image_gray(image,line_image(file))
         fst = ocropy.make_OcroFST()
         rseg = ocropy.intarray()
-        self.linerec.recognizeLine(rseg,fst,image)
+        self.linerec.recognizeLineSeg(fst,rseg,image)
         s = ocropy.ustrg()
         fst.bestpath(s)
         result = ocropy.ustrg_as_string(s)
