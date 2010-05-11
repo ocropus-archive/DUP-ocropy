@@ -179,17 +179,6 @@ def set_dist(x,s):
 
 ### toolbar commands
 
-def cmd_freq(*args):
-    """Sort by frequency."""
-    global grid,cluster_viewer
-    assert type(grid)==gtk.ListStore
-    dists = [x[2].count for x in grid]
-    index = array(argsort(-array(dists)))
-    index = [int(i) for i in index]
-    grid.reorder(index)
-    cluster_viewer.unselect_all()
-    cluster_viewer.scroll_to_path(1,1.0,0.0,0.0)
-
 def cmd_similar(*args):
     """Sort by similarity to the selected item."""
     global grid,cluster_viewer
@@ -207,6 +196,101 @@ def cmd_similar(*args):
     cluster_viewer.scroll_to_path(1,1,0,0)
     return 1
 
+# sorting
+
+def sort_menu_populate(cmd):
+    menu = gtk.Menu()
+    group = None
+    activated = 0
+    for sort in ["count","width","height","aspect","area","components","holes","endpoints","junctions"]:
+        item = gtk.RadioMenuItem(group=group,label=sort)
+        group = item
+        item.connect("toggled",cmd,sort)
+        menu.append(item)
+    if not activated: 
+        item.activate() # activate the last one if there is no default
+    return menu
+
+def cmd_sel_sort(item,which):
+    global sort_style
+    if item.get_active():
+        print "sort style",item,which
+        sort_style = which
+
+ocropy.dinit(512,512)
+
+def charprop(image,kind):
+    bimage = ocropy.narray(255*image,'B')
+    # ocropy.sub(255,bimage)
+    if kind=="holes":
+        result = ocropy.hole_counts(bimage,1.0)
+    elif kind=="components":
+        result = ocropy.component_counts(bimage,1.0)
+    elif kind=="junctions":
+        result = ocropy.junction_counts(bimage,1.0)
+    elif kind=="endpoints":
+        result = ocropy.endpoints_counts(bimage,1.0)
+    else:
+        raise Exception("unknown charprop")
+    print image.shape,kind,result
+    return result
+        
+def cmd_sort(*args):
+    global grid,cluster_viewer,sort_style
+    assert type(grid)==gtk.ListStore
+    if sort_style=="width":
+        dists = [x[2].image.shape[1] for x in grid]
+    elif sort_style=="height":
+        dists = [x[2].image.shape[0] for x in grid]
+    elif sort_style=="aspect":
+        dists = [x[2].image.shape[1]*1.0/(0.0001+x[2].image.shape[0]) for x in grid]
+    elif sort_style=="area":
+        dists = [prod(x[2].image.shape) for x in grid]
+    elif sort_style=="components":
+        dists = [charprop(x[2].image,"components") for x in grid]
+    elif sort_style=="holes":
+        dists = [charprop(x[2].image,"holes") for x in grid]
+    elif sort_style=="endpoints":
+        dists = [charprop(x[2].image,"endpoints") for x in grid]
+    elif sort_style=="junctions":
+        dists = [charprop(x[2].image,"junctions") for x in grid]
+    else:
+        dists = [-x[2].count for x in grid]
+    index = array(argsort(array(dists)))
+    index = [int(i) for i in index]
+    grid.reorder(index)
+    cluster_viewer.unselect_all()
+    cluster_viewer.scroll_to_path(1,1.0,0.0,0.0)
+
+# classifying
+
+def classifier_menu(cmd):
+    menu = gtk.Menu()
+    group = None
+    activated = 0
+    models = glob.glob("*.cmodel")
+    try:
+        modeldir = ocropy.finddir("models")
+        models += glob.glob(modeldir+"/*.cmodel")
+    except IOError:
+        pass
+    for model in models:
+        item = gtk.RadioMenuItem(group=group,label=model)
+        if "default" in model:
+            item.activate()
+            activated = 1
+        group = item
+        item.connect("toggled",cmd,model)
+        menu.append(item)
+    if not activated: 
+        item.activate() # activate the last one if there is no default
+    return menu
+
+def cmd_sel_class(item,which):
+    if item.get_active():
+        print "activated class",item,which
+        load_classifier(which)
+
 classifier = None
 
 def load_classifier(which=options.model):
@@ -222,10 +306,7 @@ def load_classifier(which=options.model):
 
 load_classifier()
 
-def cmd_sel_class(item,which):
-    if item.get_active():
-        print "activated class",item,which
-        load_classifier(which)
+# confidence 
 
 confidence = None
 
@@ -380,43 +461,28 @@ def on_iconview1_key_press_event(widget,event):
         return 1
     return 0
 
-
-
-
-def classifier_menu(cmd):
-    menu = gtk.Menu()
-    group = None
-    activated = 0
-    models = glob.glob("*.cmodel")
-    try:
-        modeldir = ocropy.finddir("models")
-        models += glob.glob(modeldir+"/*.cmodel")
-    except IOError:
-        pass
-    for model in models:
-        item = gtk.RadioMenuItem(group=group,label=model)
-        if "default" in model:
-            item.activate()
-            activated = 1
-        group = item
-        item.connect("toggled",cmd,model)
-        menu.append(item)
-    if not activated: 
-        item.activate() # activate the last one if there is no default
-    return menu
-
 def build_toolbar():
     global toolbar
     toolbar = main_widget_tree.get_widget("toolbar")
     toolbar.set_style(gtk.TOOLBAR_BOTH)
-    button = gtk.ToolButton(label="Freq")
-    button.connect("clicked",cmd_freq)
-    toolbar.insert(button,-1)
     button = gtk.ToolButton(label="Similar")
     button.connect("clicked",cmd_similar)
     toolbar.insert(button,-1)
     
-    # create a classify button
+    # button = gtk.ToolButton(label="Freq")
+    # button.connect("clicked",cmd_freq)
+    # toolbar.insert(button,-1)
+
+    # sort selector
+    sort_button = gtk.MenuToolButton(None,"Sort")
+    sort_menu = sort_menu_populate(cmd_sel_sort)
+    sort_button.set_menu(sort_menu)
+    sort_menu.show_all()
+    sort_button.show_all()
+    sort_button.connect("clicked",cmd_sort)
+    toolbar.insert(sort_button,-1)
+
+    # classify selector
     classify_button = gtk.MenuToolButton(None,"Classify")
     classify_menu = classifier_menu(cmd_sel_class)
     classify_button.set_menu(classify_menu)
@@ -425,6 +491,7 @@ def build_toolbar():
     classify_button.connect("clicked",cmd_nn)
     toolbar.insert(classify_button,-1)
 
+    # confidence selector
     conf_button = gtk.MenuToolButton(None,"Confidence")
     conf_menu = classifier_menu(cmd_sel_conf)
     conf_button.set_menu(conf_menu)
