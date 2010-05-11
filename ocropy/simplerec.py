@@ -18,9 +18,10 @@ def show_segmentation(rseg):
     raw_input()
 
 class CmodelLineRecognizer:
-    def __init__(self,cmodel=None,segmenter="DpSegmenter"):
+    def __init__(self,cmodel=None,segmenter="DpSegmenter",best=10,maxcost=10.0):
         self.debug = 0
         self.best = 10
+        self.maxcost = 10.0
         self.segmenter = components.make_ISegmentLine(segmenter)
         self.grouper = components.make_IGrouper("SimpleGrouper")
         self.grouper.pset("maxdist",5)
@@ -70,7 +71,7 @@ class CmodelLineRecognizer:
             for cls,cost in outputs[:self.best]:
                 if cls=="~": continue
                 s.assign(cls)
-                self.grouper.setClass(i,s,cost)
+                self.grouper.setClass(i,s,min(cost,self.maxcost))
                 self.grouper.setSpaceCost(i,0.5,0.0)
 
         self.grouper.getLattice(lattice)
