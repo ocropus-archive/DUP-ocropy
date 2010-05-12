@@ -23,6 +23,7 @@ from pylab import *
 import gnome
 import ocropy
 from ocropy import NI
+from ocropy import fstutils
 from matplotlib import patches
 import scipy
 
@@ -210,6 +211,8 @@ class LineWindow:
         index = 0
         self.langmods = gtk.ListStore(str)
         self.langmods.append(["none"])
+        self.langmods.append(["*.txt"])
+        self.langmods.append(["*.gt.txt"])
         for model in glob.glob("*.fst"):
             self.langmods.append([model])
         self.langmod = self.wtree.get_widget("langmod")
@@ -270,6 +273,12 @@ class LineWindow:
             if self.lmodel is not None:
                 cost = ocropy.beam_search(s,fst,self.lmodel,1000)
                 self.lines[i][7] = cost
+            elif type(self.lmodel)==str:
+                gt = re.sub(r'\.[^/]*$',self.lmodel[1:],file)
+                print "loading",gt
+                gtfst = fstutils.load_text_file_as_fst(gt)
+                cost = ocropy.beam_search(s,fst,self.lmodel,1000)
+                self.lines[i][7] = cost
             else:
                 fst.bestpath(s)
             result = ocropy.ustrg_as_string(s)
@@ -324,14 +333,21 @@ class LineWindow:
         fst.bestpath(s)
         result = ocropy.ustrg_as_string(s)
         self.detail("raw output: %s\n\n"%result)
-        if self.lmodel is not None:
-            cost = ocropy.beam_search(s,fst,self.lmodel,100000)
+        gt = row[5]
+        lmodel = None
+        if type(self.lmodel)==str:
+            gtfile = re.sub(r'\.[^/]*$',self.lmodel[1:],file)
+            lmodel = fstutils.load_text_file_as_fst(gtfile)
+            print "loaded",gt,"as",lmodel
+        elif self.lmodel is not None:
+            lmodel = self.lmodel
+        if lmodel is not None:
+            cost = ocropy.beam_search(s,fst,lmodel,10000)
             result = ocropy.ustrg_as_string(s)
             self.detail("cost: %f\n\n"%cost)
             self.detail("output: %s\n\n"%result)
         else:
-            self.detail("(load a language model for more details)")
-        gt = row[5]
+            self.detail("(load a language model for more details)\n")
         if gt is not None and gt!="":
             err = edit_distance(result,gt,space=options.spaces)
             self.detail("ground truth: %s\n\n"%gt)
@@ -341,7 +357,7 @@ class LineWindow:
             self.detail("gt cost: %f\n\n"%cost2)
         if gt is not None and self.lmodel is not None:
             fst3 = make_fst(gt)
-            cost3 = ocropy.beam_search(s,fst3,self.lmodel,100000)
+            cost3 = ocropy.beam_search(s,fst3,lmodel,100000)
             self.detail("lmodel cost: %f\n\n"%cost3)
         gtk_yield()
         self.detail("\n")
@@ -349,9 +365,9 @@ class LineWindow:
         colors = seg2pixbuf(rseg)
         self.detail_pixbuf(colors,lscale)
         self.detail("\n")
-        if self.lmodel is not None:
+        if lmodel is not None:
             self.detail("\naligned segmentation\n")
-            l = ocropy.compute_alignment(fst,rseg,self.lmodel)
+            l = ocropy.compute_alignment(fst,rseg,lmodel)
             result = l.output
             cseg = l.cseg
             costs = l.costs
@@ -388,7 +404,9 @@ class LineWindow:
     def langmod_update(self,*args):
         lmodel_name = self.langmod.get_active_text()
         lmodel = None
-        if lmodel_name!="none":
+        if lmodel_name[0]=="*":
+            lmodel = lmodel_name
+        elif lmodel_name!="none":
             lmodel = ocropy.make_OcroFST()
             lmodel.load(lmodel_name)
         self.lmodel = lmodel

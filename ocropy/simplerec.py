@@ -29,7 +29,7 @@ class CmodelLineRecognizer:
 
     def recognizeLine(self,lattice,image):
         rseg = iulib.intarray()
-        return recognizeLineSeg(self,lattice,rseg,image)
+        return self.recognizeLineSeg(lattice,rseg,image)
 
     def recognizeLineSeg(self,lattice,rseg,image):
         """Recognize a line.
