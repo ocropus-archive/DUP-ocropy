@@ -19,7 +19,18 @@ def show_segmentation(rseg):
     raw_input()
 
 class CmodelLineRecognizer:
-    def __init__(self,cmodel=None,segmenter="DpSegmenter",best=10,maxcost=10.0,minheight=0.5):
+    def __init__(self,cmodel=None,segmenter="DpSegmenter",best=10,
+                 maxcost=10.0,reject_cost=100.0,minheight_letters=0.5):
+        """Initialize a line recognizer that works from character models.
+        The character shape model is given at initialization and needs to conform to
+        the IModel interface.  The segmenter needs to support ISegmentLine.
+        The best parameter determines how many of the top outputs from the classifier
+        are used in the construction of the lattice.  The maxcost parameter is
+        the maximum cost that will be assigned to a transiation in the lattice.
+        The reject_cost is a cost above which a character won't get added to the lattice
+        at all.  The minheight_letter threshold is the minimum height of a
+        component (expressed as fraction of the medium segment height) in
+        order to be added as a letter to the lattice."""
         self.debug = 0
         self.segmenter = components.make_ISegmentLine(segmenter)
         self.grouper = components.make_IGrouper("SimpleGrouper")
@@ -28,9 +39,12 @@ class CmodelLineRecognizer:
         self.cmodel = cmodel
         self.best = best
         self.maxcost = maxcost
-        self.min_height = minheight
+        self.reject_cost = reject_cost
+        self.min_height = minheight_letters
+        self.rho_scale = 1.0
 
     def recognizeLine(self,lattice,image):
+        "Recognize a line, outputting a recognition lattice."""
         rseg = iulib.intarray()
         return self.recognizeLineSeg(lattice,rseg,image)
 
@@ -62,8 +76,11 @@ class CmodelLineRecognizer:
         mask = iulib.bytearray()
         self.chars = []
         for i in range(self.grouper.length()):
+            # get the bounding box for the character (used later)
             bbox = self.grouper.boundingBox(i)
             aspect = bbox.height()*1.0/bbox.width()
+
+            # extract the character image (and optionally display it)
             self.grouper.extractWithMask(raw,mask,image,i,1)
             char = NI(raw)
             char = char / float(amax(char))
@@ -71,10 +88,13 @@ class CmodelLineRecognizer:
                 imshow(char)
                 raw_input()
 
-            ## add a skip transition with the pixel width as cost
-            self.grouper.setClass(i,ocropus.L_RHO,raw.dim(0))
+            # Add a skip transition with the pixel width as cost.
+            # This ensures that the lattice is at least connected.
+            # Note that for typical character widths, this is going
+            # to be much larger than any per-charcter cost.
+            self.grouper.setClass(i,ocropus.L_RHO,self.rho_scale*raw.dim(0))
 
-            ## compute the classifier output for this character
+            # compute the classifier output for this character
             # print self.cmodel.info()
             outputs = self.cmodel.coutputs(FI(char))
             outputs = [(x[0],-log(x[1])) for x in outputs]
@@ -96,7 +116,9 @@ class CmodelLineRecognizer:
                 category = unicodedata.category(ucls[0])
                 if bbox.height()<self.min_height*mheight and category[0]=="L":
                     # add an empty transition to allow skipping junk
-                    # self.grouper.setClass(i,"",1.0) # this may not work yet
+                    # (commented out right now because I'm not sure whether
+                    # the grouper can handle it; FIXME)
+                    # self.grouper.setClass(i,"",1.0)
                     continue
 
                 # for anything else, just add the classified character to the grouper
@@ -104,7 +126,10 @@ class CmodelLineRecognizer:
                 self.grouper.setClass(i,s,min(cost,self.maxcost))
                 self.grouper.setSpaceCost(i,0.5,0.0)
 
+        # extract the recognition lattice from the grouper
         self.grouper.getLattice(lattice)
+
+        # return the raw segmentation as a result
         return rseg
 
     def startTraining(self,type="adaptation"):
