@@ -276,13 +276,13 @@ class LineWindow:
             ocropy.read_image_gray(image,line_image(file))
             self.linerec.recognizeLine(fst,image)
             s = ocropy.ustrg()
-            if self.lmodel is not None:
-                cost = ocropy.beam_search(s,fst,self.lmodel,1000)
-                self.lines[i][7] = cost
-            elif type(self.lmodel)==str:
+            if type(self.lmodel) is str:
                 gt = re.sub(r'\.[^/]*$',self.lmodel[1:],file)
                 print "loading",gt
                 gtfst = fstutils.load_text_file_as_fst(gt)
+                cost = ocropy.beam_search(s,fst,self.lmodel,1000)
+                self.lines[i][7] = cost
+            elif self.lmodel is not None:
                 cost = ocropy.beam_search(s,fst,self.lmodel,1000)
                 self.lines[i][7] = cost
             else:
@@ -336,7 +336,7 @@ class LineWindow:
         ocropy.read_image_gray(image,line_image(file))
         fst = ocropy.make_OcroFST()
         rseg = ocropy.intarray()
-        self.linerec.recognizeLineSeg(fst,rseg,image)
+        self.linerec.recognizeLineSeg(fst,rseg,image,keep=1)
         s = ocropy.ustrg()
         fst.bestpath(s)
         result = ocropy.ustrg_as_string(s)
@@ -406,6 +406,18 @@ class LineWindow:
             self.detail("\n")
         else:
             self.detail("(load a language model for per-character alignments)")
+        self.detail("\n")
+        self.detail("=====================\n")
+        self.detail("per character results\n")
+        self.detail("=====================\n")
+        self.detail("\n")
+        for c in self.linerec.chars:
+            self.detail("%3d   "%c.index)
+            self.detail_pixbuf(numpy2pixbuf(amax(c.image)-c.image))
+            self.detail("\t\t")
+            for s,v in c.outputs:
+                self.detail("%-3s %.2f   "%(s,v))
+            self.detail("\n")
     def recognizer_update(self,*args):
         file = self.recognizer.get_active_text()
         if file!="none":

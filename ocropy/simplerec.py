@@ -1,7 +1,7 @@
 import sys,os,re,glob,math,glob,signal
 import iulib,ocropus
 import components
-from utils import N,NI,F,FI
+from utils import N,NI,F,FI,Record
 from scipy.ndimage import interpolation
 from pylab import *
 
@@ -36,7 +36,7 @@ class CmodelLineRecognizer:
         rseg = iulib.intarray()
         return self.recognizeLineSeg(lattice,rseg,image)
 
-    def recognizeLineSeg(self,lattice,rseg,image):
+    def recognizeLineSeg(self,lattice,rseg,image,keep=0):
         """Recognize a line.
         lattice: result of recognition
         rseg: intarray where the raw segmentation will be put
@@ -62,6 +62,7 @@ class CmodelLineRecognizer:
         segs = iulib.intarray()
         raw = iulib.bytearray()
         mask = iulib.bytearray()
+        self.chars = []
         for i in range(self.grouper.length()):
             bbox = self.grouper.boundingBox(i)
             if bbox.height()<self.min_height*mheight: continue
@@ -82,6 +83,8 @@ class CmodelLineRecognizer:
             # print self.cmodel.info()
             outputs = self.cmodel.coutputs(FI(char))
             outputs = [(x[0],-log(x[1])) for x in outputs]
+            if keep:
+                self.chars.append(Record(index=i,image=char,outputs=outputs))
             
             ## add the top classes to the lattice
             outputs.sort(key=lambda x:x[1])
