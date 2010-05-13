@@ -40,8 +40,9 @@ parser = OptionParser(usage="""
 
 Interactively explore line recognition and line recognition errors.
 """)
-parser.add_option("-s","--spaces",help="count spaces",action="store_true")
 parser.add_option("-v","--verbose",help="verbose",action="store_true")
+parser.add_option("-s","--spaces",help="count spaces",action="store_true")
+parser.add_option("-c","--case",help="case sensitive",action="store_true")
 parser.add_option("-B","--nbest",help="nbest chars",default=10,type="int")
 parser.add_option("-M","--maxccost",help="maxcost for characters in recognizer",default=10.0,type="float")
 (options,args) = parser.parse_args()
@@ -54,8 +55,11 @@ def readfile(file):
         return stream.read()
 
 
-def edit_distance(s,t,space=0):
-    if not space:
+def edit_distance(s,t,use_space=0,case_sensitive=0):
+    if not case_sensitive:
+        s = s.upper()
+        t = t.upper()
+    if not use_space:
         s = re.sub(r'\s+','',s)
         t = re.sub(r'\s+','',t)
     s_ = ocropy.ustrg()
@@ -286,7 +290,9 @@ class LineWindow:
             result = ocropy.ustrg_as_string(s)
             gt = self.lines[i][5]
             if gt!="" and gt is not None:
-                err = edit_distance(result,gt,space=options.spaces)
+                err = edit_distance(result,gt,
+                                    use_space=options.spaces,
+                                    case_sensitive=options.case)
                 self.lines[i][0] = err
                 if self.lines[i][1]!="":
                     self.lines[i][2] = float(self.lines[i][0])-float(self.lines[i][1])
@@ -351,7 +357,9 @@ class LineWindow:
         else:
             self.detail("(load a language model for more details)\n")
         if gt is not None and gt!="":
-            err = edit_distance(result,gt,space=options.spaces)
+            err = edit_distance(result,gt,
+                                use_space=options.spaces,
+                                case_sensitive=options.case)
             self.detail("ground truth: %s\n\n"%gt)
             self.detail("error: %f\n\n"%err)
             fst2 = make_fst(gt)
