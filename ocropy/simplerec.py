@@ -1,22 +1,11 @@
 import sys,os,re,glob,math,glob,signal
 import iulib,ocropus
 import components
-from utils import N,NI,F,FI,Record
+from utils import N,NI,F,FI,Record,show_segmentation
 from scipy.ndimage import interpolation
 from pylab import *
 import unicodedata
-
-def show_segmentation(rseg):
-    temp = iulib.numpy(rseg,type='B')
-    temp[temp==255] = 0
-    temp = transpose(temp)[::-1,:]
-    temp2 = 1 + (temp % 10)
-    temp2[temp==0] = 0
-    temp = temp2
-    print temp.shape,temp.dtype
-    temp = temp/float(amax(temp))
-    imshow(temp,cmap=cm.spectral); draw()
-    raw_input()
+import pickle
 
 class CmodelLineRecognizer:
     def __init__(self,cmodel=None,segmenter="DpSegmenter",best=10,
@@ -61,7 +50,7 @@ class CmodelLineRecognizer:
         iulib.renumber_labels(rseg,1)
         self.grouper.setSegmentation(rseg)
 
-        ## compute the median segment height
+        # compute the median segment height
         heights = []
         for i in range(self.grouper.length()):
             bbox = self.grouper.boundingBox(i)
@@ -69,12 +58,19 @@ class CmodelLineRecognizer:
         mheight = median(array(heights))
         print "mheight",mheight
 
-        ## now iterate through the characters
+        # invert the input image (make a copy first)
+        old = image; image = iulib.bytearray(); image.copy(old)
         iulib.sub(255,image)
+
+        # allocate working arrays
         segs = iulib.intarray()
         raw = iulib.bytearray()
         mask = iulib.bytearray()
+
+        # this holds the list of recognized characters if keep!=0
         self.chars = []
+        
+        # now iterate through the characters
         for i in range(self.grouper.length()):
             # get the bounding box for the character (used later)
             bbox = self.grouper.boundingBox(i)
@@ -133,18 +129,24 @@ class CmodelLineRecognizer:
         return rseg
 
     def startTraining(self,type="adaptation"):
-        pass
+        raise Exception("unimplemented")
     def finishTraining(self):
-        pass
+        raise Exception("unimplemented")
     def addTrainingLine(self,image,transcription):
-        pass
+        raise Exception("unimplemented")
     def addTrainingLine(self,segmentation,image,transcription):
-        pass
+        raise Exception("unimplemented")
     def align(self,chars,seg,costs,image,transcription):
-        pass
+        raise Exception("unimplemented")
     def epoch(self,n):
-        pass
+        raise Exception("unimplemented")
     def save(self,file):
-        pass
+        assert ".pymodel" in file
+        with open(file,"w") as stream:
+            pickle.dump(self,stream)
     def load(self,file):
-        pass
+        assert ".pymodel" in file
+        with open(file,"r") as stream:
+            obj = pickle.load(self,stream)
+        for k,v in obj.__dict__:
+            self.__dict__[k] = v

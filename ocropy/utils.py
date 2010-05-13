@@ -269,3 +269,19 @@ def page_iterator(files):
             image = iulib.bytearray()
             iulib.read_image_gray(image,file)
             yield image,file
+
+def show_segmentation(rseg):
+    """Shows a line or page segmentation using Matplotlib's imshow.
+    The argument should be an narray."""
+    temp = iulib.numpy(rseg,type='B')
+    temp[temp==255] = 0
+    temp = transpose(temp)[::-1,:]
+    temp2 = 1 + (temp % 10)
+    temp2[temp==0] = 0
+    temp = temp2
+    print temp.shape,temp.dtype
+    temp = temp/float(amax(temp))
+    imshow(temp,cmap=cm.spectral); draw()
+    raw_input()
+
+            
