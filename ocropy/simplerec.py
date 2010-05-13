@@ -18,14 +18,19 @@ def show_segmentation(rseg):
     raw_input()
 
 class CmodelLineRecognizer:
-    def __init__(self,cmodel=None,segmenter="DpSegmenter",best=10,maxcost=10.0):
+    def __init__(self,cmodel=None,segmenter="DpSegmenter",best=10,maxcost=10.0,
+                 minheight=0.5,minaspect=0.5,maxaspect=20.0):
         self.debug = 0
-        self.best = 10
-        self.maxcost = 10.0
         self.segmenter = components.make_ISegmentLine(segmenter)
         self.grouper = components.make_IGrouper("SimpleGrouper")
-        self.grouper.pset("maxdist",5)
+        # self.grouper.pset("maxdist",5)
+        # self.grouper.pset("maxrange",5)
         self.cmodel = cmodel
+        self.best = best
+        self.maxcost = maxcost
+        self.min_height = minheight
+        self.min_aspect = minaspect
+        self.max_aspect = maxaspect
 
     def recognizeLine(self,lattice,image):
         rseg = iulib.intarray()
@@ -44,12 +49,25 @@ class CmodelLineRecognizer:
         iulib.renumber_labels(rseg,1)
         self.grouper.setSegmentation(rseg)
 
+        ## compute the median segment height
+        heights = []
+        for i in range(self.grouper.length()):
+            bbox = self.grouper.boundingBox(i)
+            heights.append(bbox.height())
+        mheight = median(array(heights))
+        print "mheight",mheight
+
         ## now iterate through the characters
         iulib.sub(255,image)
         segs = iulib.intarray()
         raw = iulib.bytearray()
         mask = iulib.bytearray()
         for i in range(self.grouper.length()):
+            bbox = self.grouper.boundingBox(i)
+            if bbox.height()<self.min_height*mheight: continue
+            aspect = bbox.height()*1.0/bbox.width()
+            if aspect<self.min_aspect: continue
+            if aspect>self.max_aspect: continue
             self.grouper.extractWithMask(raw,mask,image,i,1)
             char = NI(raw)
             char = char / float(amax(char))

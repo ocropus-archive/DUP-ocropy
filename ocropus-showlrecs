@@ -42,6 +42,8 @@ Interactively explore line recognition and line recognition errors.
 """)
 parser.add_option("-s","--spaces",help="count spaces",action="store_true")
 parser.add_option("-v","--verbose",help="verbose",action="store_true")
+parser.add_option("-B","--nbest",help="nbest chars",default=10,type="int")
+parser.add_option("-M","--maxccost",help="maxcost for characters in recognizer",default=10.0,type="float")
 (options,args) = parser.parse_args()
 
 iconwidth = 200
@@ -399,7 +401,13 @@ class LineWindow:
     def recognizer_update(self,*args):
         file = self.recognizer.get_active_text()
         if file!="none":
-            self.linerec = ocropy.load_linerec(file)
+            if ".cmodel" in file:
+                cmodel = ocropy.load_IModel(file)
+                self.linerec = ocropy.CmodelLineRecognizer(cmodel=cmodel,
+                                                           best=options.nbest,
+                                                           maxcost=options.maxccost)
+            else:
+                self.linerec = ocropy.load_linerec(file)
         print "loaded",self.linerec
     def langmod_update(self,*args):
         lmodel_name = self.langmod.get_active_text()

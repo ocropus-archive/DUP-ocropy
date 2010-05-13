@@ -94,6 +94,8 @@ def cseg_chars(files,suffix="gt",segmenter=None,grouper=None,has_gt=1,verbose=0)
             # load segmentation ground truth
             cseg_file = base+".cseg"+suffix+".png"
             cseg = iulib.intarray()
+            if not os.path.exists(cseg_file):
+                raise IOError(cseg_file)
             iulib.read_image_packed(cseg,cseg_file)
             ocropus.make_line_segmentation_black(cseg)
             # load text
@@ -142,6 +144,8 @@ def cseg_chars(files,suffix="gt",segmenter=None,grouper=None,has_gt=1,verbose=0)
                 # imshow(NI(raw)); gray(); show()
                 yield Record(raw=raw,mask=mask,cls=cls,index=i,
                              bbox=grouper.boundingBox(i))
+        except IOError,e:
+            raise e
         except:
             print "FAILED",sys.exc_info()[0]
             print traceback.format_exc()

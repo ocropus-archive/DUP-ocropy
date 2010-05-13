@@ -3,7 +3,7 @@
 import sys,os,re,glob,math,glob,signal
 from optparse import OptionParser
 from pylab import *
-from scipy.ndimage import interpolation
+from scipy.ndimage import interpolation,filters
 import ocropy
 from ocropy import dbtables
 from ocropy import N,NI,F,FI
@@ -31,6 +31,9 @@ parser.add_option("-u","--unlabeled",help="treat unlabeled ('_') as reject",acti
 parser.add_option("-1","--single",help="train only single chars",action="store_true")
 parser.add_option("-v","--verbose",help="verbose",action="store_true")
 parser.add_option("-E","--extractor",help="feature extractor",default="scaledfe")
+parser.add_option("-N","--nvariants",help="number of variants to generate",default=0,type="int")
+parser.add_option("-D","--distortion",help="maximum distortion",default=0.2,type="float")
+parser.add_option("-d","--debug",help="debug display",action="store_true")
 (options,args) = parser.parse_args()
 
 if len(args)!=2:
@@ -52,13 +55,40 @@ if options.bits:
     classifier.pset("cds","bitdataset")
 ocropy.dinit(512,512)
 
+def pad(image,dx,dy,bgval=None):
+    if bgval is None: bgval = amin(image)
+    h,w = image.shape
+    result = zeros((h+2*dx,w+2*dy))
+    result[:,:] = bgval
+    result[dx:-dx,dy:-dy] = image
+    return result
+
+def distort(nimage,sx,sy,sigma=10.0,debug=0):
+    if debug: clf(); gray()
+    image = NI(nimage)
+    h0,w0 = image.shape
+    my = sy*h0
+    mx = sx*w0
+    image = pad(image,int(my+1),int(mx+1))
+    if debug: subplot(141); imshow(image)
+    h,w = image.shape
+    dy = filters.gaussian_filter(rand(*image.shape)-0.5,sigma)
+    dy *= my/amax(abs(dy))
+    dx = filters.gaussian_filter(rand(*image.shape)-0.5,sigma)
+    dx *= mx/amax(abs(dx))
+    if debug: subplot(142); imshow(dy.copy())
+    if debug: subplot(143); imshow(dx.copy())
+    dy += arange(h)[:,newaxis]
+    dx += arange(w)[newaxis,:]
+    distorted = interpolation.map_coordinates(image,array([dy,dx]),order=1)
+    if debug: subplot(144); imshow(distorted); draw(); raw_input()
+    return FI(distorted)
+
 print "training..."
 # clusters = list(clusters)
 # print len(clusters)
 count = 0
 for cluster in clusters:
-    count += 1
-    if count%10000==0: print count
     cls = cluster.cls
     if cls is None: continue
     if len(cls)==0: continue
@@ -69,6 +99,13 @@ for cluster in clusters:
     if cls=="_": continue
     image = FI(cluster.image/255.0)
     classifier.cadd(image,cls)
+    count += 1
+    for i in range(options.nvariants):
+        sx = options.distortion
+        sy = options.distortion
+        classifier.cadd(distort(image,sx,sy,debug=options.debug),cls)
+        count += 1
+    if count%10000==0: print count
 
 classifier.updateModel()
 classifier.info()

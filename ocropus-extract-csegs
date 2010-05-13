@@ -39,12 +39,19 @@ table = dbtables.Table(options.output,"chars")
 table.converter("image",dbtables.SmallImage())
 table.create(image="blob",cls="text",file="text",segid="integer",bbox="text",count="integer",classes="text")
 
+ntried = 0
+nfiles = 0
 total = 0
 for file in args:
     segments = []
     text = ""
+    ntried += 1
     try:
         items = list(ocrobook.cseg_chars(file,verbose=options.verbose))
+        nfiles += 1
+    except IOError:
+        print "# cseg for",file,"not found (got %d of %d files)"%(nfiles,ntried)
+        continue
     except:
         print "#",file,"failed"
         continue
@@ -84,3 +91,6 @@ for file in args:
         if total%10000==0:
             print total,"chars"
             table.commit()
+
+table.commit()
+print total,"chars"
