@@ -4,6 +4,7 @@ import components
 from utils import N,NI,F,FI,Record
 from scipy.ndimage import interpolation
 from pylab import *
+import unicodedata
 
 def show_segmentation(rseg):
     temp = iulib.numpy(rseg,type='B')
@@ -18,8 +19,7 @@ def show_segmentation(rseg):
     raw_input()
 
 class CmodelLineRecognizer:
-    def __init__(self,cmodel=None,segmenter="DpSegmenter",best=10,maxcost=10.0,
-                 minheight=0.5,minaspect=0.5,maxaspect=20.0):
+    def __init__(self,cmodel=None,segmenter="DpSegmenter",best=10,maxcost=10.0,minheight=0.5):
         self.debug = 0
         self.segmenter = components.make_ISegmentLine(segmenter)
         self.grouper = components.make_IGrouper("SimpleGrouper")
@@ -29,8 +29,6 @@ class CmodelLineRecognizer:
         self.best = best
         self.maxcost = maxcost
         self.min_height = minheight
-        self.min_aspect = minaspect
-        self.max_aspect = maxaspect
 
     def recognizeLine(self,lattice,image):
         rseg = iulib.intarray()
@@ -65,10 +63,7 @@ class CmodelLineRecognizer:
         self.chars = []
         for i in range(self.grouper.length()):
             bbox = self.grouper.boundingBox(i)
-            if bbox.height()<self.min_height*mheight: continue
             aspect = bbox.height()*1.0/bbox.width()
-            if aspect<self.min_aspect: continue
-            if aspect>self.max_aspect: continue
             self.grouper.extractWithMask(raw,mask,image,i,1)
             char = NI(raw)
             char = char / float(amax(char))
@@ -86,11 +81,25 @@ class CmodelLineRecognizer:
             if keep:
                 self.chars.append(Record(index=i,image=char,outputs=outputs))
             
-            ## add the top classes to the lattice
+            # add the top classes to the lattice
             outputs.sort(key=lambda x:x[1])
             s = iulib.ustrg()
             for cls,cost in outputs[:self.best]:
+                # don't add the reject class (written as "~")
                 if cls=="~": continue
+
+                # letters are never small, so we skip small bounding boxes that
+                # are categorized as letters; this is an ugly special case, but
+                # it is quite common
+                ucls = cls
+                if type(cls)==str: ucls = unicode(cls,"utf-8")
+                category = unicodedata.category(ucls[0])
+                if bbox.height()<self.min_height*mheight and category[0]=="L":
+                    # add an empty transition to allow skipping junk
+                    # self.grouper.setClass(i,"",1.0) # this may not work yet
+                    continue
+
+                # for anything else, just add the classified character to the grouper
                 s.assign(cls)
                 self.grouper.setClass(i,s,min(cost,self.maxcost))
                 self.grouper.setSpaceCost(i,0.5,0.0)
