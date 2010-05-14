@@ -56,7 +56,7 @@ class CmodelLineRecognizer:
             bbox = self.grouper.boundingBox(i)
             heights.append(bbox.height())
         mheight = median(array(heights))
-        print "mheight",mheight
+        self.mheight = mheight
 
         # invert the input image (make a copy first)
         old = image; image = iulib.bytearray(); image.copy(old)
@@ -120,6 +120,7 @@ class CmodelLineRecognizer:
                 # for anything else, just add the classified character to the grouper
                 s.assign(cls)
                 self.grouper.setClass(i,s,min(cost,self.maxcost))
+                # FIXME better space handling
                 self.grouper.setSpaceCost(i,0.5,0.0)
 
         # extract the recognition lattice from the grouper

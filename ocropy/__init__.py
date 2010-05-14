@@ -1,3 +1,5 @@
+# Kind of hackish way of exposing the modules and symbols from the various submodules.
+
 __all__ = ["dbtables","binnednn","ocrobook","simplerec","simpleti"]
 from ocropus import *
 from iulib import *
@@ -8,4 +10,6 @@ from lang import *
 from utils import *
 from simplerec import CmodelLineRecognizer
 from quickcheck import *
+from hocr import *
+from alignment import *
 from iulib import narray,numpy

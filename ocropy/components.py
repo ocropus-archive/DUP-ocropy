@@ -8,6 +8,18 @@ from simplerec import CmodelLineRecognizer
 
 
 def make_component(spec,interface):
+    """Instantiate an OCRopus component.  This takes care of both the C++ and
+    Python components.  It also allows initialization parameters to be passed
+    to components.  There are three basic forms.
+
+    SomePackage.SomeClass(x,y,z) calls a Python constructor with the given arguments.
+
+    SomePackage.SomeClass:param=value:param=value instantiates a Python class with
+    no arguments, then sets parameters to values using the pset method.
+
+    SomeClass:param=value:param=value instantiates a C++ class with no arguments,
+    then sets parameters to values using the pset method.
+    """
     names = spec.split(":")
     name = names[0]
     # components of the form a.b(c) are assumet to be constructors
@@ -27,8 +39,9 @@ def make_component(spec,interface):
         element = match.group(2)
         exec "import %s; constructor=%s.%s"%(module,module,element)
         result = constructor()
-    # anything else is assumet to be a native code constructors
-    # accessible via the iulib component system
+    # components of the form name:c=d (no dot in the component name)
+    # are assumed to be C++ components; the parameters are set
+    # via pset
     else:
         exec "constructor = ocropus.make_%s"%interface
         result = constructor(name)

@@ -12,6 +12,7 @@ from scipy.misc import imsave
 from PIL import Image
 import ocropy
 from ocropy import N,NI
+from ocropy import hocr
 
 parser = optparse.OptionParser(usage="""
 %prog [options] book/????.png
@@ -31,31 +32,13 @@ parser.add_option("-b","--breaks",action="store_true",
                   help="output line breaks")
 options,args = parser.parse_args()
 
-header = """
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" 
-    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"> 
-<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
-<head>
-<title>OCR Results</title>
-<meta name="Description" content="OCRopus Output" />
-<meta name="ocr-system" content="ocropus-0.4" />
-<meta name="ocr-capabilities" content="ocr_line ocr_page" />
-</head>
-<body>
-"""
-footer = """
-</body>
-</html>
-"""
-
 def E(*args):
     sys.stderr.write(" ".join(args))
     sys.stderr.write("\n")
 def P(*args):
     print "".join(args)
 
-P(header)
+P(hocr.header())
 
 for arg in args:
     base,_ = ocropy.allsplitext(arg)
@@ -89,4 +72,4 @@ for arg in args:
     finally:
         P("</div>")
 
-P(footer)
+P(hocr.footer())
