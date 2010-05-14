@@ -9,11 +9,18 @@ class Record:
 
 def findfile(name):
     """Find some OCRopus-related resource by looking in a bunch off standard places.
-    (This needs to be integrated better with setup.py and the build system.)"""
+    (FIXME: The implementation is pretty adhoc for now.
+    This needs to be integrated better with setup.py and the build system.)"""
     local = "/usr/local/share/ocropus/"
     path = name
     if os.path.exists(path) and os.path.isfile(path): return path
     path = local+name
+    if os.path.exists(path) and os.path.isfile(path): return path
+    path = local+"/gui/"+name
+    if os.path.exists(path) and os.path.isfile(path): return path
+    path = local+"/models/"+name
+    if os.path.exists(path) and os.path.isfile(path): return path
+    path = local+"/words/"+name
     if os.path.exists(path) and os.path.isfile(path): return path
     _,tail = os.path.split(name)
     path = tail

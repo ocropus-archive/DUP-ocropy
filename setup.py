@@ -16,5 +16,5 @@ setup (name = 'ocropy',
        data_files=[('/usr/local/share/ocropus/models',
                     ["2m2-reject.cmodel","multi3.cmodel"]),
                    ('/usr/local/share/ocropus/gui',
-                    ["ocropus-cedit.glade"])],
+                    glob.glob("*.glade"))],
        )
