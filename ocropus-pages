@@ -36,6 +36,7 @@ parser.add_option("-P","--pseg",help="line segmenter",default="SegmentPageByRAST
 parser.add_option("-T","--ticlass",help="text image segmenter",default=None)
 parser.add_option("-m","--linerec",help="linerec model",default=prefix+"default.model")
 parser.add_option("-l","--langmod",help="langmod",default=prefix+"default.fst")
+parser.add_option("-w","--lweight",help="weight for the language model",type="float",default=1.0)
 parser.add_option("-v","--verbose",help="verbose",action="store_true")
 parser.add_option("-x","--hocr",help="output XHTML+hOCR",action="store_true")
 parser.add_option("-p","--plain",help="output plain text",action="store_true")
@@ -46,6 +47,13 @@ parser.add_option("-D","--Display",help="display continuously",action="store_tru
 parser.add_option("-L","--displaylines",help="display lines as well",action="store_true")
 parser.add_option("-B","--beam",help="size of beam search",type="int",default=1000)
 (options,args) = parser.parse_args()
+
+if len(args)==0:
+    parser.print_help()
+    sys.exit(0)
+
+# FIXME add language model weights
+assert options.lweight==1.0,"other language model weights not implemented yet"
 
 if options.Display: options.display = 1
 if options.display: ion()
@@ -66,6 +74,7 @@ segmenter = ocropy.make_ISegmentPage(options.pseg)
 # line recognizer, a C++ character recognizer, or a pickled Python line
 # recognizer respectively.
 linerec = ocropy.load_linerec(options.linerec)
+alert("[note]","line recognizer:",linerec)
 
 # The language model, loaded from disk.
 lmodel = ocropy.make_OcroFST()

@@ -123,15 +123,45 @@ def load_IFeatureMap(file):
 def load_IGrouper(file):
     return load_generic(file,"IGrouper")
 def load_linerec(file):
+    """Loads a line recognizer.  This handles a bunch of special cases
+    due to the way OCRopus has evolved.  In the long term, .pymodel is the
+    preferred format.
+
+    For files ending in .pymodel, just unpickles the contents of the file.
+
+    For files ending in .cmodel, loads the character model using load_IModel
+    (it has to be a C++ character classifier), and then instantiates a
+    CmodelLineRecognizer with the cmodel as an argument.  Additional parameters
+    can be passed as in my.cmodel:best=5.  The line recognizer used can be
+    overridden as in my.cmodel:class=MyLineRecognizer:best=17.
+
+    For anything else, uses native load_linerec (which has its own special cases)."""
+
     if ".pymodel" in file:
         with open(file,"rb") as stream:
             result = cPickle.load(stream)
         return result
+
     elif ".cmodel" in file:
-        cmodel = load_IModel(file)
-        result = CmodelLineRecognizer(cmodel=cmodel)
+        names = file.split(":")
+        cmodel = load_IModel(names[0])
+        options = {}
+        for param in names[1:]:
+            k,v = param.split("=",1)
+            try: v = int(v)
+            except ValueError:
+                try: v = float(v)
+                except ValueError: pass
+            options[k] = v
+        # print options
+        constructor = CmodelLineRecognizer
+        if options.has_key("class"):
+            constructor = eval(options["class"])
+            del options["class"]
+        result = constructor(cmodel=cmodel,**options)
         # print "# cmodel",cmodel,"result",result
         return result
+
     else:
         result = ocropus.load_linerec(file)
         return result
