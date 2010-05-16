@@ -10,56 +10,45 @@ from ocropy import N,NI,F,FI
 signal.signal(signal.SIGINT,lambda *args:sys.exit(1))
 
 parser = OptionParser(usage="""
-%prog [options] input.db output.model
+%prog [options] input.db output.cmodel
 
 Trains models based on a cluster database.
 
 For faster speed and better memory usage, use the "-b" option, which buffers
-samples in a 1bpp buffer (only binary input patterns).
+samples in a 1bpp buffer (only binary input patterns); however, this only works
+with binary inputs and feature extractors that generate (approximately) binary
+data.  For example, it works for binary character images and ScaledExtractor, but not
+if you use grayscale character images or StandardExtractor.
+
+If you have lots of training data, try "-E ScaledExtractor -b", for handwriting
+recognition, "-E StandardExtractor" is a better choice.
 
 You can choose different kinds of feature extractors with the -E flag.  
-Some possible values are: scaledfe (raw grayscale image rescaled to a target size) 
-and biggestcc (biggest connected component only, otherwise treated like scaledfe).
+Some possible values are: ScaledExtractor (raw grayscale image rescaled to a target size) 
+and BiggestCcExtractor (biggest connected component only, otherwise treated like scaledfe).
 You can find additional components by running "ocropus components" and looking for
 implementors of IExtractor.
 """)
+
 parser.add_option("-m","--model",help="IModel name",default="latin")
 parser.add_option("-b","--bits",help="buffer training data with 1 bpp",action="store_true")
 parser.add_option("-t","--table",help="database table to use for training",default="chars")
-parser.add_option("-r","--reject",help="disable reject",action="store_false",default=True)
+parser.add_option("-r","--noreject",help="disable reject class",action="store_true",default=False)
 parser.add_option("-u","--unlabeled",help="treat unlabeled ('_') as reject",action="store_true")
 parser.add_option("-n","--limit",help="limit training to n samples",default=999999999,type="int")
 parser.add_option("-1","--single",help="train only single chars",action="store_true")
 parser.add_option("-v","--verbose",help="verbose",action="store_true")
-# parser.add_option("-E","--extractor",help="feature extractor",default="scaledfe")
 parser.add_option("-E","--extractor",help="feature extractor",default="StandardExtractor")
 parser.add_option("-N","--nvariants",help="number of variants to generate",default=0,type="int")
 parser.add_option("-D","--distortion",help="maximum distortion",default=0.2,type="float")
 parser.add_option("-d","--display",help="debug display",action="store_true")
 (options,args) = parser.parse_args()
 
-if len(args)!=2:
-    parser.print_help()
-    sys.exit(0)
-
-db = args[0] # "unlv-clusters-0684.db"
-output = args[1]
-
-print "loading..."
-table = dbtables.ClusterTable(db,name=options.table)
-clusters = table.get()
-
-if options.display:
-    ion()
-    show()
-
-classifier = ocropy.make_IModel(options.model)
-classifier.setExtractor(options.extractor)
-if options.bits:
-    classifier.pset("cds","bitdataset")
-ocropy.dinit(512,512)
+# some utility functions we're going to need later
 
 def pad(image,dx,dy,bgval=None):
+    """Pad an image by the given amounts in the x and y directions.
+    If bgval is not given, the minimum of the input image is used."""
     if bgval is None: bgval = amin(image)
     h,w = image.shape
     result = zeros((h+2*dx,w+2*dy))
@@ -67,29 +56,79 @@ def pad(image,dx,dy,bgval=None):
     result[dx:-dx,dy:-dy] = image
     return result
 
-def distort(nimage,sx,sy,sigma=10.0,debug=0):
-    if debug: clf(); gray()
+def distort(nimage,sx,sy,sigma=10.0):
+    """Distort the image by generating smoothed noise for the
+    x and y displacement vectors.  The displacement amounts sx and
+    sy are in terms of fractions of the image width and height.
+    Image should be an narray."""
     image = NI(nimage)
     h0,w0 = image.shape
     my = sy*h0
     mx = sx*w0
     image = pad(image,int(my+1),int(mx+1))
-    if debug: subplot(141); imshow(image)
     h,w = image.shape
     dy = filters.gaussian_filter(rand(*image.shape)-0.5,sigma)
     dy *= my/amax(abs(dy))
     dx = filters.gaussian_filter(rand(*image.shape)-0.5,sigma)
     dx *= mx/amax(abs(dx))
-    if debug: subplot(142); imshow(dy.copy())
-    if debug: subplot(143); imshow(dx.copy())
     dy += arange(h)[:,newaxis]
     dx += arange(w)[newaxis,:]
     distorted = interpolation.map_coordinates(image,array([dy,dx]),order=1)
-    if debug: subplot(144); imshow(distorted); draw(); raw_input()
     return FI(distorted)
 
+# start command line processing
+
+if len(args)!=2:
+    parser.print_help()
+    sys.exit(0)
+
+# unlabeled-as-reject implies that we train reject classes
+
+if options.unlabeled: options.noreject = False
+
+# the two arguments, a database name and an output file
+
+db = args[0]
+output = args[1]
+
+if os.path.exists(output):
+    print output,"already exists"
+    sys.exit(1)
+
+if not ".cmodel" in output:
+    print "output",output,"should end in .cmodel"
+    sys.exit(1)
+
+# create a Python window if requested
+
+if options.display:
+    ion()
+    show()
+
+# initialize the C++ debugging graphics (just in case it's needed for
+# debugging the native code feature extractors)
+
+ocropy.dinit(512,512)
+
+print "loading database"
+
+table = dbtables.ClusterTable(db,name=options.table)
+clusters = table.get()
+
+print "making classifier"
+
+classifier = ocropy.make_IModel(options.model)
+classifier.setExtractor(options.extractor)
+if options.bits:
+    classifier.pset("cds","bitdataset")
+
+# little utility function for displaying character training progress window
+
 fig = 0
+
 def show_char(image):
+    """Display the character in a grid, wrapping around every now and then.
+    Used for showing progress in loading the training characters."""
     global fig
     r = 4
     if fig%r**2==0: clf(); gray()
@@ -101,25 +140,49 @@ def show_char(image):
     ginput(1,timeout=0.1)
 
 print "training..."
-# clusters = list(clusters)
-# print len(clusters)
+
 count = 0
 nchar = 0
+skip0 = 0
+skip3 = 0
+nreject = 0
+
 for cluster in clusters:
     if nchar%10000==0: print nchar,count
+
+    # check whether we already have enough characters
     if count>options.limit: break
+
+    # FIXME this needs to be made unicode-capable
     cls = cluster.cls
-    if cls is None: continue
-    if len(cls)==0: continue
-    if len(cls)>3: continue
+    if cls is None: cls = "_"
+    # empty strings have no class at all, so we skip them
+    if len(cls)==0:
+        skip0 += 1
+        continue
+    # can't train transcriptions longer than three characters
+    if len(cls)>3:
+        skip3 += 1
+        continue
+    # if the user requested only single character training, skip multi-character transcriptions
     if options.single and len(cls)>1: continue
+    # if the user requested it, treat unlabeled samples ("_") as reject classes
     if options.unlabeled and cls=="_": cls = "~"
-    if not options.reject and cls=="~": continue
+    # if the user didn't want reject training, skip all reject classes
+    if options.noreject and cls=="~": continue
+    # skip any remaining unlabeled samples
     if cls=="_": continue
+
+    if cls=="~": nreject += 1
+
+    # add the image to the classifier
     image = FI(cluster.image/255.0)
     if options.display and nchar%1000==0: show_char(image)
     classifier.cadd(image,cls)
     count += 1
+
+    # if the user requested automatically generated variants,
+    # generate them and add them to the classifier as well
     for i in range(options.nvariants):
         if count>options.limit: break
         sx = options.distortion
@@ -130,7 +193,24 @@ for cluster in clusters:
         count += 1
     nchar += 1
 
+# now perform the actual training
+# (usually, this is AutoMLP, a multi-threaded, long-running stochastic
+# gradient descent training for a multi-layer perceptron)
+    
+print "starting classifier training"
 classifier.updateModel()
-classifier.info()
-classifier.getExtractor().info()
+
+# save the resulting model
+
+print "saving",output
 ocropy.save_component(output,classifier)
+
+# provide some feedback about the training process
+
+if options.verbose:
+    classifier.info()
+    classifier.getExtractor().info()
+
+print "trained",count,"variants representing",nchar,"training characters"
+if skip0>0: print "skipped",skip0,"zero-length transcriptions"
+if skip3>0: print "skipped",skip3,"transcriptions that were more than three characters long"
