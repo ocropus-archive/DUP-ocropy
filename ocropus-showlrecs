@@ -36,7 +36,7 @@ from matplotlib.backends.backend_gtk import NavigationToolbar2GTK as NavigationT
 #from matplotlib.backends.backend_gtkagg import NavigationToolbar2GTKAgg as NavigationToolbar
 
 parser = OptionParser(usage="""
-%prog [options] [input.db]
+%prog [options] line1.png line2.png ...
 
 Interactively explore line recognition and line recognition errors.
 """)
@@ -46,6 +46,10 @@ parser.add_option("-c","--case",help="case sensitive",action="store_true")
 parser.add_option("-B","--nbest",help="nbest chars",default=10,type="int")
 parser.add_option("-M","--maxccost",help="maxcost for characters in recognizer",default=10.0,type="float")
 (options,args) = parser.parse_args()
+
+if len(args)<1:
+    parser.print_help()
+    sys.exit(0)
 
 iconwidth = 200
 lscale = 1.0

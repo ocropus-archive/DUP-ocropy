@@ -28,6 +28,10 @@ Some possible values are: ScaledExtractor (raw grayscale image rescaled to a tar
 and BiggestCcExtractor (biggest connected component only, otherwise treated like scaledfe).
 You can find additional components by running "ocropus components" and looking for
 implementors of IExtractor.
+
+Common parameters for the model are:
+
+-m AutoMlpClassifier:miters=8:rounds=8:nensemble=4
 """)
 
 parser.add_option("-m","--model",help="IModel name",default="latin")
@@ -74,6 +78,7 @@ def distort(nimage,sx,sy,sigma=10.0):
     dy += arange(h)[:,newaxis]
     dx += arange(w)[newaxis,:]
     distorted = interpolation.map_coordinates(image,array([dy,dx]),order=1)
+    # print amax(abs(dy)),amax(abs(dx)),amax(abs(distorted-image))
     return FI(distorted)
 
 # start command line processing
@@ -126,15 +131,16 @@ if options.bits:
 
 fig = 0
 
-def show_char(image):
+def show_char(image,cls):
     """Display the character in a grid, wrapping around every now and then.
     Used for showing progress in loading the training characters."""
     global fig
+    image = ocropy.NI(image)
     r = 4
     if fig%r**2==0: clf(); gray()
     subplot(r,r,fig%r**2+1)
     fig += 1
-    imshow(cluster.image/255.0)
+    imshow(image/255.0)
     text(3,3,str(cls),color="red",fontsize=14)
     draw()
     ginput(1,timeout=0.1)
@@ -177,7 +183,7 @@ for cluster in clusters:
 
     # add the image to the classifier
     image = FI(cluster.image/255.0)
-    if options.display and nchar%1000==0: show_char(image)
+    if options.display and nchar%1000==0: show_char(image,cls)
     classifier.cadd(image,cls)
     count += 1
 
@@ -188,8 +194,8 @@ for cluster in clusters:
         sx = options.distortion
         sy = options.distortion
         distorted = distort(image,sx,sy)
+        if options.display and nchar%1000==0: show_char(distorted,cls)
         classifier.cadd(distorted,cls)
-        if options.display and nchar%1000==0: show_char(ocropy.NI(distorted))
         count += 1
     nchar += 1
 

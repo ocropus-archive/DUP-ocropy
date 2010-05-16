@@ -40,6 +40,10 @@ parser.add_option("-r","--dpi",help="resolution (DPI)",default=300,type=float)
 parser.add_option("-q","--silent",action="store_true",help="disable warnings")
 options,args = parser.parse_args()
 
+if len(args)<1:
+    parser.print_help()
+    sys.exit(0)
+
 if options.threshold>0:
     options.low = options.threshold
     options.high = options.threshold

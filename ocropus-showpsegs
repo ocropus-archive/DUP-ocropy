@@ -40,6 +40,10 @@ Trains models based on a cluster database.
 parser.add_option("-v","--verbose",help="verbose",action="store_true")
 (options,args) = parser.parse_args()
 
+if len(args)<1:
+    parser.print_help()
+    sys.exit(0)
+
 iconwidth = 200
 
 def gtk_yield():
