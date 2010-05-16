@@ -28,13 +28,14 @@ parser.add_option("-b","--bits",help="buffer training data with 1 bpp",action="s
 parser.add_option("-t","--table",help="database table to use for training",default="chars")
 parser.add_option("-r","--reject",help="disable reject",action="store_false",default=True)
 parser.add_option("-u","--unlabeled",help="treat unlabeled ('_') as reject",action="store_true")
+parser.add_option("-n","--limit",help="limit training to n samples",default=999999999,type="int")
 parser.add_option("-1","--single",help="train only single chars",action="store_true")
 parser.add_option("-v","--verbose",help="verbose",action="store_true")
 # parser.add_option("-E","--extractor",help="feature extractor",default="scaledfe")
 parser.add_option("-E","--extractor",help="feature extractor",default="StandardExtractor")
 parser.add_option("-N","--nvariants",help="number of variants to generate",default=0,type="int")
 parser.add_option("-D","--distortion",help="maximum distortion",default=0.2,type="float")
-parser.add_option("-d","--debug",help="debug display",action="store_true")
+parser.add_option("-d","--display",help="debug display",action="store_true")
 (options,args) = parser.parse_args()
 
 if len(args)!=2:
@@ -48,7 +49,9 @@ print "loading..."
 table = dbtables.ClusterTable(db,name=options.table)
 clusters = table.get()
 
-ion()
+if options.display:
+    ion()
+    show()
 
 classifier = ocropy.make_IModel(options.model)
 classifier.setExtractor(options.extractor)
@@ -85,11 +88,26 @@ def distort(nimage,sx,sy,sigma=10.0,debug=0):
     if debug: subplot(144); imshow(distorted); draw(); raw_input()
     return FI(distorted)
 
+fig = 0
+def show_char(image):
+    global fig
+    r = 4
+    if fig%r**2==0: clf(); gray()
+    subplot(r,r,fig%r**2+1)
+    fig += 1
+    imshow(cluster.image/255.0)
+    text(3,3,str(cls),color="red",fontsize=14)
+    draw()
+    ginput(1,timeout=0.1)
+
 print "training..."
 # clusters = list(clusters)
 # print len(clusters)
 count = 0
+nchar = 0
 for cluster in clusters:
+    if nchar%10000==0: print nchar,count
+    if count>options.limit: break
     cls = cluster.cls
     if cls is None: continue
     if len(cls)==0: continue
@@ -99,14 +117,18 @@ for cluster in clusters:
     if not options.reject and cls=="~": continue
     if cls=="_": continue
     image = FI(cluster.image/255.0)
+    if options.display and nchar%1000==0: show_char(image)
     classifier.cadd(image,cls)
     count += 1
     for i in range(options.nvariants):
+        if count>options.limit: break
         sx = options.distortion
         sy = options.distortion
-        classifier.cadd(distort(image,sx,sy,debug=options.debug),cls)
+        distorted = distort(image,sx,sy)
+        classifier.cadd(distorted,cls)
+        if options.display and nchar%1000==0: show_char(ocropy.NI(distorted))
         count += 1
-    if count%10000==0: print count
+    nchar += 1
 
 classifier.updateModel()
 classifier.info()

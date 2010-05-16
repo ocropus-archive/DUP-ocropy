@@ -32,33 +32,49 @@ When alignment is performed, rseg.gt.png, cseg.gt.png,
 and gt.txt files are written.
 """)
 
+# these options control alignment
 parser.add_option("-m","--model",help="model file",default="unlv.model")
 parser.add_option("-s","--segmenter",help="segmenter",default="DpSegmenter")
 parser.add_option("-l","--langmod",help="language model",default=None)
-
-parser.add_option("-p","--precomp",help="precompose extra transducer",default=None)
-parser.add_option("-v","--verbose",help="verbose",action="store_true")
-parser.add_option("-b","--best",help="# best chars to add to FST",type="int",default=10)
-parser.add_option("-C","--maxccost",help="maximum per-character cost",type="float",default=10.0)
+parser.add_option("-C","--maxccost",help="maximum per-character cost added to lattice",type="float",default=10.0)
 parser.add_option("-N","--nbest",help="use nbest classifier outputs only",type="float",default=10)
-parser.add_option("-t","--cthreshold",help="avg per character threshold",type="float",default=7.0)
-parser.add_option("-T","--gthreshold",help="max total threshold",type="float",default=200.0)
-parser.add_option("-d","--display",help="verbose",action="store_true")
-parser.add_option("-M","--maxcost",help="maxcost for transition",type="float",default=5.0)
 parser.add_option("-D","--maxdist",help="maxdist for grouper",type="int",default=5)
-parser.add_option("-A","--noambigs",help="don't use ambiguous classes",action="store_true")
+# this can be used to allow for ambiguous characters in alignment
+parser.add_option("-p","--precomp",help="precompose extra transducer",default=None)
+# parser.add_option("-A","--noambigs",help="don't use ambiguous classes",action="store_true")
+
+# file handling
+parser.add_option("-S","--suffix",help="suffix for writing rseg/cseg files",default="gt")
+parser.add_option("-O","--overwrite",help="overwrite rseg/cseg files",action="store_true")
 parser.add_option("-x","--gtextension",help="extension used for ground truth (ex: .txt, .gt.txt, .fst,...)",default=None)
+
+# rejection of alignments
+parser.add_option("-t","--cthreshold",help="reject if average character cost is worse than this",type="float",default=7.0)
+parser.add_option("-T","--gthreshold",help="reject if total line cost is worse than this",type="float",default=200.0)
+# NB: the following option is not effective if -C is less than the given value
+parser.add_option("-B","--badthreshold",help="reject if any character cost is worse than this",type="float",default=30.0)
+
+# debugging
+parser.add_option("-d","--display",help="verbose",action="store_true")
+parser.add_option("-v","--verbose",help="verbose",action="store_true")
 (options,args) = parser.parse_args()
 
 if len(args)==0:
     parser.print_help()
     sys.exit(0)
 
+suffix = options.suffix
+if suffix!="" and suffix[0]!=".": suffix = "."+suffix
+
 assert options.precomp is None,"precomp not implemented yet"
 
 def error(*args):
     message = " ".join(args)
     print "ERROR:",message
+
+def die(*args):
+    error(*args)
+    sys.exit(1)
 
 segmenter = ocropy.make_ISegmentLine(options.segmenter)
 grouper = ocropy.make_IGrouper("SimpleGrouper")
@@ -150,6 +166,8 @@ for imagefile in args:
             # print costs
             print "costs",sum(costs),mean(costs),amax(costs),median(costs)
             print "result",result
+
+            # compute various cost statistics and reject if they are too high
             tcost = sum(costs)
             if tcost>10000.0:
                 raise Exception("total cost too high")
@@ -158,9 +176,20 @@ for imagefile in args:
                 raise Exception("avg char cost %g greather than -t threshold %g"%(mcost,options.cthreshold))
             if tcost>options.gthreshold:
                 raise Exception("total cost %g greather than -T threshold %g"%(tcost,options.gthreshold))
-            ## output the aligned segmentations
-            ocropy.write_line_segmentation(prefix+".rseg.gt.png",rseg)
-            ocropy.write_line_segmentation(prefix+".cseg.gt.png",cseg)
+
+            # check whether the output file exists; that's usually an error (either
+            # the user left some previous outputs lying around, in which case we might
+            # get a mix of old and new aligned files, or it's precious ground truth
+            # that we shouldn't overwrite)
+            rseg_file = prefix+".rseg"+suffix+".png"
+            cseg_file = prefix+".cseg"+suffix+".png"
+            if not options.overwrite:
+                if os.path.exists(rseg_file): die(rseg_file,"already exists")
+                if os.path.exists(cseg_file): die(cseg_file,"already exists")
+
+            # output the aligned segmentations
+            ocropy.write_line_segmentation(rseg_file,rseg)
+            ocropy.write_line_segmentation(cseg_file,cseg)
             if options.gtextension is None:
                 ocropy.write_text(prefix+".gt.txt",result)
             goodlines += 1
