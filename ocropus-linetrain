@@ -1,0 +1,66 @@
+#!/usr/bin/python
+import code,pickle,sys,os,re
+from optparse import OptionParser
+from pylab import *
+import ocropy
+import traceback
+from ocropy import dbtables,binnednn,ocrobook,linerec
+
+parser = OptionParser("""
+usage: %prog [options] .../.../010001.png ...
+""")
+parser.add_option("-m","--model",help="model file for alignment",default=None)
+parser.add_option("-M","--newmodel",help="model class for training",default="latin")
+parser.add_option("-o","--output",help="output file",default="linerec.pymodel")
+
+(options,args) = parser.parse_args()
+
+if len(args)<1:
+    parser.print_help()
+    sys.exit(0)
+
+ion()
+show()
+
+if os.path.exists(options.output):
+    print options.output,"exists; please remove"
+    sys.exit(1)
+
+# instantiate the line recognizer
+recognizer = linerec.LineRecognizer()
+
+# load the line recognizer for alignment
+recognizer.load(options.model)
+
+# now start the per-character training
+recognizer.startTraining(model=options.newmodel)
+
+# add each of the individual lines
+for file in args:
+    print
+    print "###",file
+    print
+    image = ocropy.bytearray()
+    text_file = re.sub(r'\.png','.gt.txt',file)
+    if not os.path.exists(text_file):
+        print "no transcript"
+        continue
+    text = open(text_file,"r").read()
+    ocropy.read_image_gray(image,file)
+    try:
+        recognizer.addTrainingLine1(image,text)
+    except:
+        traceback.print_exc()
+        print "skipping"
+        continue
+
+print
+print "### finishing the training"
+print
+
+# finish training; this usually takes a long time
+recognizer.finishTraining()
+
+# finally, save the model to disk
+recognizer.save(options.output)
+

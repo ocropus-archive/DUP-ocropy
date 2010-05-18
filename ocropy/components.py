@@ -1,4 +1,4 @@
-import iulib,ocropus,sys,re
+import iulib,ocropus,sys,re,cPickle
 from simplerec import CmodelLineRecognizer
 
 ### For the most part, these just wrap the corresponding functions

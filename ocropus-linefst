@@ -1,0 +1,25 @@
+#!/usr/bin/python
+
+# make the clustering class-specific
+
+import sys,os,re,glob,math,glob,signal
+from scipy.ndimage import interpolation
+from pylab import *
+from optparse import OptionParser
+import ocropy
+from ocropy import fstutils
+from ocropy import N,NI,F,FI
+
+signal.signal(signal.SIGINT,lambda *args:sys.exit(1))
+
+# ocropy.dinit(512,512,1)
+
+parser = OptionParser("""
+usage: %prog text.txt langmod.fst
+
+""")
+
+(options,args) = parser.parse_args()
+
+lmodel = fstutils.load_text_file_as_fst(args[0])
+lmodel.save(args[1])

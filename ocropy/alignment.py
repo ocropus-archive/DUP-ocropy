@@ -26,7 +26,7 @@ def rseg_map(inputs):
             map[j] = count
     return map
 
-def recognize_and_align(image,linerec,lmodel,beam=10000):
+def recognize_and_align(image,linerec,lmodel,beam=1000):
     """Perform line recognition with the given line recognizer and
     language model.  Outputs an object containing the result (as a
     Python string), the costs, the rseg, the cseg, the lattice and the
@@ -38,7 +38,7 @@ def recognize_and_align(image,linerec,lmodel,beam=10000):
     # run the recognizer
     lattice = ocropus.make_OcroFST()
     rseg = iulib.intarray()
-    linerec.recognizeLineSeg(lattic,rseg,image)
+    linerec.recognizeLineSeg(lattice,rseg,image)
 
     # perform the beam search through the lattice and the model
     v1 = iulib.intarray()

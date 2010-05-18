@@ -1,6 +1,6 @@
 # Kind of hackish way of exposing the modules and symbols from the various submodules.
 
-__all__ = ["dbtables","binnednn","ocrobook","simplerec","simpleti"]
+__all__ = ["dbtables","binnednn","ocrobook","simplerec","simpleti","linerec"]
 from ocropus import *
 from iulib import *
 from narray import *

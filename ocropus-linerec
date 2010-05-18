@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-import sys,os,re,glob
+import sys,os,re,glob,cPickle
 import ocropy
 from ocropy import N,NI,plotutils,fstutils
 from pylab import *
@@ -53,6 +53,7 @@ if options.display: ion()
 # C++ recognizers, character recognizers, and Python line recognizers, depending
 # on extension (.model, .cmodel, .pymodel)
 linerec = ocropy.load_linerec(options.linerec)
+if options.verbose: linerec.info()
 
 # Load the default language model (can be overridden on the command line.).
 default_lmodel = ocropy.make_OcroFST()
