@@ -9,6 +9,7 @@ from improc import *
 from lang import *
 from utils import *
 from simplerec import CmodelLineRecognizer
+# from linerec import LineRecognizer
 from quickcheck import *
 from hocr import *
 from alignment import *

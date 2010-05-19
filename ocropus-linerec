@@ -1,9 +1,11 @@
 #!/usr/bin/python
 
-import sys,os,re,glob,cPickle
+import sys,os,re,glob,cPickle,signal
 import ocropy
-from ocropy import N,NI,plotutils,fstutils
+from ocropy import N,NI,plotutils,fstutils,linerec
 from pylab import *
+
+signal.signal(signal.SIGINT,lambda *args:sys.exit(1))
 
 from optparse import OptionParser
 prefix = "/usr/local/share/ocropus/models/"
@@ -37,7 +39,14 @@ parser.add_option("-d","--display",help="display result",action="store_true")
 parser.add_option("-D","--Display",help="display continuously",action="store_true")
 parser.add_option("-S","--suffix",help="suffix for writing results (e.g., '.gt')",default="")
 parser.add_option("-x","--gtextension",help="extension used for ground truth (ex: .txt, .gt.txt, .fst,...)",default=None)
+parser.add_option("-F","--filelist",help="list of input files",default=None)
+
 (options,args) = parser.parse_args()
+
+if options.filelist is not None:
+    assert len(args)==0
+    args = open(options.filelist).readlines()
+    args = [s[:-1] for s in args]
 
 if len(args)==0:
     parser.print_help()
@@ -52,7 +61,11 @@ if options.display: ion()
 # Load the line recognizer; this uses the library function that can handle
 # C++ recognizers, character recognizers, and Python line recognizers, depending
 # on extension (.model, .cmodel, .pymodel)
-linerec = ocropy.load_linerec(options.linerec)
+if ".cmodel" in options.linerec:
+    linerec = linerec.LineRecognizer()
+    linerec.load(options.linerec)
+else:
+    linerec = ocropy.load_linerec(options.linerec)
 if options.verbose: linerec.info()
 
 # Load the default language model (can be overridden on the command line.).

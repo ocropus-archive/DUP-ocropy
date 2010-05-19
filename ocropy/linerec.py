@@ -2,7 +2,7 @@ import sys,os,re,glob,math,glob,signal,cPickle
 import iulib,ocropus
 import components
 from utils import N,NI,F,FI,Record,show_segmentation
-from scipy.ndimage import interpolation
+from scipy.ndimage import interpolation,morphology,measurements
 from pylab import *
 import unicodedata
 import pickle
@@ -28,9 +28,102 @@ class RejectException(Exception):
     def __init__(self,*args,**kw):
         super.__init__(*args,**kw)
 
+# size classes of characters; note that "ij" are not here
+
+class_x = "acemnorsuvwxz"
+class_A = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZbdfhklt"
+class_g = "gpqy"
+
+# unambiguous size classes (e.g., "p" and "P" are too similar for
+# unambiguous size determination)
+
+class_xu = "aemnru"
+class_Au = "023456789ABDEFGHKLMNQRTYbdfhkt"
+class_gu = "gqy"
+
+def guess_xheight_from_candidates(self,candidates):
+    # for Latin script, use some information about character
+    # classes
+    heights = []
+    for c in candidates:
+        cls = c.outputs[0].cls
+        if cls=="~": continue
+        if cls in class_x: heights.append(c.bbox.height())
+        elif cls in class_A: heights.append(c.bbox.height()/1.5)
+        elif cls in class_g: heights.append(c.bbox.height()/1.5)
+    if len(heights)>2:
+        return median(heights)
+    # fallback
+    return median([c.bbox.height() for c in candidates if c.cls!="~"])
+
+class SimpleLineModel:
+    def __init__(self):
+        pass
+    def linecosts(self,candidates,image):
+        """Given a list of character recognition candidates and their
+        classifications, and an image of the corresponding text line,
+        adjust the costs of the candidates to account for their position
+        on the textline."""
+        pass
+
+class SimpleSpaceModel:
+    def __init__(self):
+        self.nonspace_cost = 4.0
+        self.space_cost = 4.0
+        self.aspect_threshold = 2.0
+        self.maxrange = 30
+    def spacecosts(self,candidates,image):
+        """Given a list of character recognition candidates and their
+        classifications, and an image of the corresponding text line,
+        compute a list of pairs of costs for putting/not putting a space
+        after each of the candidate characters.
+
+        The basic idea behind this simple algorithm is to try larger
+        and larger horizontal closing operations until most of the components
+        start having a "wide" aspect ratio; that's when characters have merged
+        into words.  The remaining whitespace should be spaces.
+
+        This is just a simple stopgap measure; it will be replaced with
+        trainable space modeling."""
+
+        w = image.dim(0)
+        h = image.dim(1)
+        image = ocropy.NI(image)
+        image = 1*(image>0.5*(amin(image)+amax(image)))
+        for r in range(0,self.maxrange):
+            if r>0: closed = morphology.binary_closing(image,iterations=r)
+            else: closed = image
+            labeled,n = measurements.label(closed)
+            objects = measurements.find_objects(labeled)
+            aspects = []
+            for i in range(len(objects)):
+                s = objects[i]
+                aspect = (s[1].stop-s[1].start)*1.0/(s[0].stop-s[0].start)
+                aspects.append(aspect)
+            maspect = median(aspects)
+            if maspect>=self.aspect_threshold:
+                break
+
+        # close with a little bit of extra space
+        closed = morphology.binary_closing(image,iterations=r+1)
+
+        # compute the remaining aps
+        gaps = (0==sum(closed,axis=0))
+        morphology.binary_dilation(gaps,iterations=3)
+
+        # every character box that ends near a cap gets a space appended
+        result = []
+        for c in candidates:
+            if gaps[c.bbox.x1]:
+                result.append((0.0,self.nonspace_cost))
+            else:
+                result.append((self.space_cost,0.0))
+
+        return result
+
 class LineRecognizer: # can't inherit -- breaks save/load (ocropus.IRecognizeLine):
-    def __init__(self,cmodel=None,segmenter="DpSegmenter",best=10,
-                 maxcost=10.0,reject_cost=100.0,minheight_letters=0.5):
+    def __init__(self,cmodel=None,segmenter="DpSegmenter",best=None,
+                 maxcost=None,reject_cost=None,minheight_letters=None):
         """Initialize a line recognizer that works from character models.
         The character shape model is given at initialization and needs to conform to
         the IModel interface.  The segmenter needs to support ISegmentLine.
@@ -41,13 +134,13 @@ class LineRecognizer: # can't inherit -- breaks save/load (ocropus.IRecognizeLin
         at all.  The minheight_letter threshold is the minimum height of a
         component (expressed as fraction of the medium segment height) in
         order to be added as a letter to the lattice."""
-        print "[Python LineRecognizer]"
+
         self.set_defaults()
         self.cmodel = cmodel
-        self.best = best
-        self.maxcost = maxcost
-        self.reject_cost = reject_cost
-        self.min_height = minheight_letters
+        if best is not None: self.best = best
+        if maxcost is not None: self.maxcost = maxcost
+        if reject_cost is not None: self.reject_cost = reject_cost
+        if minheight_letters is not None: self.min_height = minheight_letters
 
     def set_defaults(self):
         self.debug = 0
@@ -56,10 +149,12 @@ class LineRecognizer: # can't inherit -- breaks save/load (ocropus.IRecognizeLin
         self.cmodel = None
         self.best = 10
         self.maxcost = 10.0
-        self.reject_cost = 100.0
+        self.reject_cost = 10.0
         self.min_height = 0.5
         self.rho_scale = 1.0
         self.maxoverlap = 0.8
+        self.spacemodel = SimpleSpaceModel()
+        self.linemodel = SimpleLineModel()
 
     def info(self):
         for k in sorted(self.__dict__.keys()):
@@ -71,7 +166,7 @@ class LineRecognizer: # can't inherit -- breaks save/load (ocropus.IRecognizeLin
         rseg = iulib.intarray()
         return self.recognizeLineSeg(lattice,rseg,image)
 
-    def recognizeLineSeg(self,lattice,rseg,image,keep=0):
+    def recognizeLineSeg(self,lattice,rseg,image):
         """Recognize a line.
         lattice: result of recognition
         rseg: intarray where the raw segmentation will be put
@@ -101,10 +196,8 @@ class LineRecognizer: # can't inherit -- breaks save/load (ocropus.IRecognizeLin
         raw = iulib.bytearray()
         mask = iulib.bytearray()
 
-        # this holds the list of recognized characters if keep!=0
-        self.chars = []
-        
-        # now iterate through the characters
+        # now iterate through the characters and collect candidates
+        candidates = []
         for i in range(self.grouper.length()):
             # get the bounding box for the character (used later)
             bbox = self.grouper.boundingBox(i)
@@ -118,18 +211,31 @@ class LineRecognizer: # can't inherit -- breaks save/load (ocropus.IRecognizeLin
                 imshow(char)
                 raw_input()
 
+            # compute the classifier output for this character
+            # print self.cmodel.info()
+            outputs = self.cmodel.coutputs(FI(char))
+            outputs = [(x[0],-log(x[1])) for x in outputs]
+            candidates.append(Record(index=i,image=char,raw=raw,outputs=outputs,bbox=bbox))
+
+        self.chars = candidates
+
+        # update the per-character costs based on a text line model
+        self.linemodel.linecosts(candidates,image)
+
+        # compute a list of space costs for each candidate character
+        spacecosts = self.spacemodel.spacecosts(candidates,image)
+        
+        for c in candidates:
+            i = c.index
+            raw = c.raw
+            char = c.image
+            outputs = c.outputs
+
             # Add a skip transition with the pixel width as cost.
             # This ensures that the lattice is at least connected.
             # Note that for typical character widths, this is going
             # to be much larger than any per-charcter cost.
             self.grouper.setClass(i,ocropus.L_RHO,self.rho_scale*raw.dim(0))
-
-            # compute the classifier output for this character
-            # print self.cmodel.info()
-            outputs = self.cmodel.coutputs(FI(char))
-            outputs = [(x[0],-log(x[1])) for x in outputs]
-            if keep:
-                self.chars.append(Record(index=i,image=char,outputs=outputs))
             
             # add the top classes to the lattice
             outputs.sort(key=lambda x:x[1])
@@ -137,6 +243,9 @@ class LineRecognizer: # can't inherit -- breaks save/load (ocropus.IRecognizeLin
             for cls,cost in outputs[:self.best]:
                 # don't add the reject class (written as "~")
                 if cls=="~": continue
+
+                # don't add anything with a cost higher than the reject cost
+                if cost>self.reject_cost: continue
 
                 # letters are never small, so we skip small bounding boxes that
                 # are categorized as letters; this is an ugly special case, but
@@ -154,8 +263,9 @@ class LineRecognizer: # can't inherit -- breaks save/load (ocropus.IRecognizeLin
                 # for anything else, just add the classified character to the grouper
                 s.assign(cls)
                 self.grouper.setClass(i,s,min(cost,self.maxcost))
-                # FIXME better space handling
-                self.grouper.setSpaceCost(i,0.5,0.0)
+
+                # add the computed space costs to the grouper as well
+                self.grouper.setSpaceCost(i,spacecosts[i][0],spacecosts[i][1])
 
         # extract the recognition lattice from the grouper
         self.grouper.getLattice(lattice)

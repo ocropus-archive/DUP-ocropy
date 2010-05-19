@@ -37,7 +37,7 @@ class CmodelLineRecognizer:
         rseg = iulib.intarray()
         return self.recognizeLineSeg(lattice,rseg,image)
 
-    def recognizeLineSeg(self,lattice,rseg,image,keep=0):
+    def recognizeLineSeg(self,lattice,rseg,image):
         """Recognize a line.
         lattice: result of recognition
         rseg: intarray where the raw segmentation will be put
@@ -94,8 +94,7 @@ class CmodelLineRecognizer:
             # print self.cmodel.info()
             outputs = self.cmodel.coutputs(FI(char))
             outputs = [(x[0],-log(x[1])) for x in outputs]
-            if keep:
-                self.chars.append(Record(index=i,image=char,outputs=outputs))
+            self.chars.append(Record(index=i,image=char,outputs=outputs))
             
             # add the top classes to the lattice
             outputs.sort(key=lambda x:x[1])

@@ -23,7 +23,7 @@ from pylab import *
 import gnome
 import ocropy
 from ocropy import NI
-from ocropy import fstutils
+from ocropy import fstutils,linerec
 from matplotlib import patches
 import scipy
 
@@ -41,10 +41,12 @@ parser = OptionParser(usage="""
 Interactively explore line recognition and line recognition errors.
 """)
 parser.add_option("-v","--verbose",help="verbose",action="store_true")
+parser.add_option("-L","--linerecognizer",help="class used for wrapping .cmodels; ocropy.CmodelLineRecognizer or linerec.LineRecognizer",default="linerec.LineRecognizer")
 parser.add_option("-s","--spaces",help="count spaces",action="store_true")
 parser.add_option("-c","--case",help="case sensitive",action="store_true")
 parser.add_option("-B","--nbest",help="nbest chars",default=10,type="int")
 parser.add_option("-M","--maxccost",help="maxcost for characters in recognizer",default=10.0,type="float")
+parser.add_option("-b","--beam",help="beam width",default=1000,type="int")
 (options,args) = parser.parse_args()
 
 if len(args)<1:
@@ -205,9 +207,13 @@ class LineWindow:
 
         self.recognizers = gtk.ListStore(str)
         self.recognizers.append(["none"])
-        for model in glob.glob("*.model"):
+        models = glob.glob("*.model")
+        models.sort()
+        for model in models:
             self.recognizers.append([model])
-        for model in glob.glob("*.cmodel"):
+        models = glob.glob("*.cmodel")
+        models.sort()
+        for model in models:
             self.recognizers.append([model])
         self.recognizer = self.wtree.get_widget("recognizer")
         self.recognizer.set_model(self.recognizers)
@@ -284,10 +290,10 @@ class LineWindow:
                 gt = re.sub(r'\.[^/]*$',self.lmodel[1:],file)
                 print "loading",gt
                 gtfst = fstutils.load_text_file_as_fst(gt)
-                cost = ocropy.beam_search(s,fst,self.lmodel,1000)
+                cost = ocropy.beam_search(s,fst,self.lmodel,options.beam)
                 self.lines[i][7] = cost
             elif self.lmodel is not None:
-                cost = ocropy.beam_search(s,fst,self.lmodel,1000)
+                cost = ocropy.beam_search(s,fst,self.lmodel,options.beam)
                 self.lines[i][7] = cost
             else:
                 fst.bestpath(s)
@@ -302,11 +308,11 @@ class LineWindow:
                     self.lines[i][2] = float(self.lines[i][0])-float(self.lines[i][1])
                 # ground truth cost
                 gt_fst = make_fst(gt)
-                cost2 = ocropy.beam_search(s,fst,gt_fst,100000)
+                cost2 = ocropy.beam_search(s,fst,gt_fst,options.beam)
                 self.lines[i][8] = cost2
                 # language model cost
                 if self.lmodel is not None:
-                    cost3 = ocropy.beam_search(s,gt_fst,self.lmodel,100000)
+                    cost3 = ocropy.beam_search(s,gt_fst,self.lmodel,options.beam)
                     self.lines[i][9] = cost3
             print result
             self.lines[i][4] = result
@@ -336,11 +342,12 @@ class LineWindow:
         self.detail(file+"\n\n")
         self.detail_pixbuf(gtk.gdk.pixbuf_new_from_file(line_image(file)),lscale)
         self.detail("\n\n")
+        print "# recognizing line"
         image = ocropy.bytearray()
         ocropy.read_image_gray(image,line_image(file))
         fst = ocropy.make_OcroFST()
         rseg = ocropy.intarray()
-        self.linerec.recognizeLineSeg(fst,rseg,image,keep=1)
+        self.linerec.recognizeLineSeg(fst,rseg,image)
         s = ocropy.ustrg()
         fst.bestpath(s)
         result = ocropy.ustrg_as_string(s)
@@ -354,24 +361,26 @@ class LineWindow:
         elif self.lmodel is not None:
             lmodel = self.lmodel
         if lmodel is not None:
-            cost = ocropy.beam_search(s,fst,lmodel,10000)
+            print "# beam search, width:",options.beam
+            cost = ocropy.beam_search(s,fst,lmodel,options.beam)
             result = ocropy.ustrg_as_string(s)
             self.detail("cost: %f\n\n"%cost)
             self.detail("output: %s\n\n"%result)
         else:
             self.detail("(load a language model for more details)\n")
         if gt is not None and gt!="":
+            print "# edit distance"
             err = edit_distance(result,gt,
                                 use_space=options.spaces,
                                 case_sensitive=options.case)
             self.detail("ground truth: %s\n\n"%gt)
             self.detail("error: %f\n\n"%err)
             fst2 = make_fst(gt)
-            cost2 = ocropy.beam_search(s,fst,fst2,100000)
+            cost2 = ocropy.beam_search(s,fst,fst2,options.beam)
             self.detail("gt cost: %f\n\n"%cost2)
         if gt is not None and self.lmodel is not None:
             fst3 = make_fst(gt)
-            cost3 = ocropy.beam_search(s,fst3,lmodel,100000)
+            cost3 = ocropy.beam_search(s,fst3,lmodel,options.beam)
             self.detail("lmodel cost: %f\n\n"%cost3)
         gtk_yield()
         self.detail("\n")
@@ -380,6 +389,7 @@ class LineWindow:
         self.detail_pixbuf(colors,lscale)
         self.detail("\n")
         if lmodel is not None:
+            print "# alignment"
             self.detail("\naligned segmentation\n")
             l = ocropy.compute_alignment(fst,rseg,lmodel)
             result = l.output
@@ -410,26 +420,29 @@ class LineWindow:
             self.detail("\n")
         else:
             self.detail("(load a language model for per-character alignments)")
-        self.detail("\n")
-        self.detail("=====================\n")
-        self.detail("per character results\n")
-        self.detail("=====================\n")
-        self.detail("\n")
-        for c in self.linerec.chars:
-            self.detail("%3d   "%c.index)
-            self.detail_pixbuf(numpy2pixbuf(amax(c.image)-c.image))
-            self.detail("\t\t")
-            for s,v in c.outputs:
-                self.detail("%-3s %.2f   "%(s,v))
+        if hasattr(self.linerec,"chars"):
+            print "# per char output"
             self.detail("\n")
+            self.detail("=====================\n")
+            self.detail("per character results\n")
+            self.detail("=====================\n")
+            self.detail("\n")
+            for c in self.linerec.chars:
+                self.detail("%3d   "%c.index)
+                self.detail_pixbuf(numpy2pixbuf(amax(c.image)-c.image))
+                self.detail("\t\t")
+                for s,v in c.outputs:
+                    self.detail("%-3s %.2f   "%(s,v))
+                self.detail("\n")
     def recognizer_update(self,*args):
         file = self.recognizer.get_active_text()
         if file!="none":
             if ".cmodel" in file:
                 cmodel = ocropy.load_IModel(file)
-                self.linerec = ocropy.CmodelLineRecognizer(cmodel=cmodel,
-                                                           best=options.nbest,
-                                                           maxcost=options.maxccost)
+                constructor = eval(options.linerecognizer)
+                self.linerec = constructor(cmodel=cmodel,
+                                           best=options.nbest,
+                                           maxcost=options.maxccost)
             else:
                 self.linerec = ocropy.load_linerec(file)
         print "loaded",self.linerec

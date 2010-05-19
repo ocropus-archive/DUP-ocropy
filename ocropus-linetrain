@@ -12,8 +12,14 @@ usage: %prog [options] .../.../010001.png ...
 parser.add_option("-m","--model",help="model file for alignment",default=None)
 parser.add_option("-M","--newmodel",help="model class for training",default="latin")
 parser.add_option("-o","--output",help="output file",default="linerec.pymodel")
+parser.add_option("-F","--filelist",help="list of input files",default=None)
 
 (options,args) = parser.parse_args()
+
+if options.filelist is not None:
+    assert len(args)==0
+    args = open(options.filelist).readlines()
+    args = [s[:-1] for s in args]
 
 if len(args)<1:
     parser.print_help()
