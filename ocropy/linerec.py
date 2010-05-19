@@ -69,7 +69,7 @@ class SimpleLineModel:
 class SimpleSpaceModel:
     def __init__(self):
         self.nonspace_cost = 4.0
-        self.space_cost = 4.0
+        self.space_cost = 9999.0
         self.aspect_threshold = 2.0
         self.maxrange = 30
     def spacecosts(self,candidates,image):
@@ -148,7 +148,7 @@ class LineRecognizer: # can't inherit -- breaks save/load (ocropus.IRecognizeLin
         self.grouper = components.make_IGrouper("SimpleGrouper")
         self.cmodel = None
         self.best = 10
-        self.maxcost = 10.0
+        self.maxcost = 30.0
         self.reject_cost = 10.0
         self.min_height = 0.5
         self.rho_scale = 1.0
@@ -246,19 +246,6 @@ class LineRecognizer: # can't inherit -- breaks save/load (ocropus.IRecognizeLin
 
                 # don't add anything with a cost higher than the reject cost
                 if cost>self.reject_cost: continue
-
-                # letters are never small, so we skip small bounding boxes that
-                # are categorized as letters; this is an ugly special case, but
-                # it is quite common
-                ucls = cls
-                if type(cls)==str: ucls = unicode(cls,"utf-8")
-                category = unicodedata.category(ucls[0])
-                if bbox.height()<self.min_height*mheight and category[0]=="L":
-                    # add an empty transition to allow skipping junk
-                    # (commented out right now because I'm not sure whether
-                    # the grouper can handle it; FIXME)
-                    # self.grouper.setClass(i,"",1.0)
-                    continue
 
                 # for anything else, just add the classified character to the grouper
                 s.assign(cls)

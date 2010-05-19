@@ -391,7 +391,7 @@ class LineWindow:
         if lmodel is not None:
             print "# alignment"
             self.detail("\naligned segmentation\n")
-            l = ocropy.compute_alignment(fst,rseg,lmodel)
+            l = ocropy.compute_alignment(fst,rseg,lmodel,beam=options.beam)
             result = l.output
             cseg = l.cseg
             costs = l.costs
