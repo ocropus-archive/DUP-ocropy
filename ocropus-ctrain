@@ -154,7 +154,6 @@ skip3 = 0
 nreject = 0
 
 for cluster in clusters:
-    if nchar%10000==0: print nchar,count
 
     # check whether we already have enough characters
     if count>options.limit: break
@@ -198,6 +197,7 @@ for cluster in clusters:
         classifier.cadd(distorted,cls)
         count += 1
     nchar += 1
+    if nchar%10000==0: print "training",nchar,count
 
 # now perform the actual training
 # (usually, this is AutoMLP, a multi-threaded, long-running stochastic
