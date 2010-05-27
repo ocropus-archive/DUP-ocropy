@@ -22,6 +22,7 @@ def center_maxsize(image,r):
     """Center the image and fit it into an r x r output image.
     If the input is larger in any dimension than r, it is
     scaled down."""
+    from pylab import amin,amax,array,zeros
     assert amin(image)>=0 and amax(image)<=1
     image = array(image,'f')
     w,h = image.shape
