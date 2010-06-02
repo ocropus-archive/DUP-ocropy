@@ -10,6 +10,7 @@ from pylab import *
 import ocropy
 from ocropy import N,NI,F,FI
 from ocropy import dbtables
+import sqlite3
 
 def TODO():
     print """
@@ -100,16 +101,17 @@ def numpy2pixbuf(a,limit=40):
 print "opening table"
 file = "clusters.db"
 if len(args)>0: file = args[0]
+if not os.path.exists(file):
+    print file,"not found"
+    sys.exit(1)
 if options.table is None:
-    if not os.path.exists(file):
-        print file,"not found"
-        sys.exit(1)
-    try: table = dbtables.Table(file,"chars")
-    except: table = dbtables.Table(file,"chars")
-    table.converter("image",dbtables.SmallImage())
-else:
-    table = dbtables.Table(file,options.table)
-    table.converter("image",dbtables.SmallImage())
+    db = sqlite3.connect(file)
+    cur = db.cursor()
+    names = cur.execute("select name from sqlite_master where type='table'")
+    options.table = list(names)[0][0]
+    print "defaulting to table",options.table
+table = dbtables.Table(file,options.table)
+table.converter("image",dbtables.SmallImage())
 print "done"
 
 def get_clusters(cls):

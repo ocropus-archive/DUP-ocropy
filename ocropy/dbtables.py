@@ -86,6 +86,7 @@ class Table:
         self.converters = {}
         self.columns = None
         self.factory = factory
+        self.verbose = 0
         cur = self.con.cursor()
         cur.execute("pragma synchronous=off")
     def converter(self,cname,conv):
@@ -97,7 +98,7 @@ class Table:
         if cols==[]:
             # table doesn't exist, so create it
             cmd = "create table "+self.tname+" (id integer primary key"
-            print "###",cmd
+            if self.verbose: print "#",cmd
             for k,v in kw.items():
                 cmd += ", %s %s"%(k,v)
             cmd += ")"
@@ -133,7 +134,7 @@ class Table:
         for row in cur.execute(cmd,values):
             yield row
         self.con.commit()
-    def get_hash(self,kw):
+    def get_hash(self,kw,random_=0,limit_=None):
         cur = self.con.cursor()
         cmd = "select * from "+self.tname+" where id>=0"
         values = []
@@ -142,7 +143,11 @@ class Table:
             conv = self.converters.get(k,None)
             if conv is not None: v = conv.pickle(v)
             values += [v]
-        # print "#",cmd,values
+        if random_:
+            cmd += " order by random()"
+        if limit_ is not None:
+            cmd += " limit %d"%limit_
+        if self.verbose: print "#",cmd,values
         for row in cur.execute(cmd,values):
             result = self.factory()
             for k in row.keys():
@@ -171,14 +176,22 @@ class Table:
             conv = self.converters.get(k,None)
             if conv is not None: v = conv.pickle(v)
             values += [v]
-        # print "#",cmd,values
+        if self.verbose: print "#",cmd,values
         cur.execute(cmd,values)
         self.con.commit()
         return cur.lastrowid
     def delete(self,**kw):
         self.del_hash(kw)
     def get(self,**kw):
-        return self.get_hash(kw)
+        random_ = 0
+        if "random_" in kw:
+            random_ = int(kw["random_"])
+            del kw["random_"]
+        limit_ = 100000000
+        if "limit_" in kw:
+            limit_ = int(kw["limit_"])
+            del kw["limit_"]
+        return self.get_hash(kw,random_=random_,limit_=limit_)
     def set(self,**kw):
         return self.put_hash(kw)
     def put(self,x,commit=1):

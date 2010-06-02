@@ -1,34 +1,72 @@
-#!/usr/bin/env python
-
-import pygtk
-pygtk.require("2.0") 
-import gobject,gtk,gtk.glade
-import binnednn,dbtables
-import sys,pickle,os,glob
-import scipy
-from optparse import OptionParser
+#!/usr/bin/python
+import code,pickle,sys,os,re,ocropy
+from ocropy import dbtables,binnednn,improc
 from pylab import *
-import ocromisc
-from ocromisc import IsolatedCharacterClassifier
+from optparse import OptionParser
+import ocrofast
+import traceback
+import sqlite3
 
-parser = OptionParser(usage="""
-%prog [options] [input.db]
+parser = OptionParser("""
+usage: %prog [options] database.db ...
 
-Trains models based on a cluster database.
 """)
-parser.add_option("-t","--table",help="which table to edit",default="clusters")
+
+parser.add_option("-f","--full",help="full class counts",action="store_true")
 (options,args) = parser.parse_args()
 
-file = args[0]
-db = dbtables.Database(file)
+if len(args)<1:
+    parser.print_help()
+    sys.exit(0)
 
-for name in list(db.query("select name from sqlite_master where type='table'")):
-    name = name[0]
-    print file,name
-    total = int(list(db.query("select count(id) from %s"%name))[0][0])
-    print "   total         %.4g"%total
-    unclassified = int(list(db.query("select count(id) from %s where cls='_'"%name))[0][0])
-    print "   unclassified  %.4g"%unclassified
-    reject = int(list(db.query("select count(id) from %s where cls='~'"%name))[0][0])
-    print "   reject        %.4g"%reject
-    print "   chars         %.4g"%(total-unclassified-reject,)
+for dbfile in args:
+    db = sqlite3.connect(dbfile)
+    cur = db.cursor()
+    names = cur.execute("select name from sqlite_master where type='table'")
+    tables = [row[0] for row in names]
+
+    for table in tables:
+        sql = cur.execute("select sql from sqlite_master where type='table' and name='%s'"%(table))
+        print
+        print "===",dbfile,":",table,"==="
+        print
+        print list(sql)[0][0]
+        counts = cur.execute("select cls,count(*) from %s group by cls order by cls"%(table))
+        if options.full:
+            print
+            for count in counts:
+                print "%6s\t%6d"%("[%s]"%count[0],count[1])
+        else:
+            print
+            empty = 0
+            space = 0
+            control = 0
+            reject = 0
+            unlabeled = 0
+            upper = 0
+            lower = 0
+            digit = 0
+            nonascii = 0
+            multi = 0
+            for count in counts:
+                cls,n = count
+                if cls is None or len(cls)<1: empty += n
+                elif len(cls)>1: multi += n
+                elif cls==" ": space += n
+                elif cls=="_": unlabeled += n
+                elif cls=="~": reject += n
+                elif ord(cls)<32: control += n
+                elif re.match('[a-z]',cls): lower += n
+                elif re.match('[A-Z]',cls): upper += n
+                elif re.match('[0-9]',cls): digit += n
+                elif ord(cls[0])>=128: nonascii += n
+            print "empty",empty
+            print "space",space
+            print "control",control
+            print "reject",reject
+            print "unlabeled",unlabeled
+            print "upper",upper
+            print "lower",lower
+            print "digit",digit
+            print "nonascii",nonascii
+            print "multi",multi

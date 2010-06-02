@@ -23,16 +23,27 @@ class RecognizeLineSample:
 
 class ModelSample:
     def add(self,image,c):
-        pass
+        """Train with integer classes.  This is the methods implemented by the C version of IModel."""
+        assert type(c)==int
+        raise Exception("unimplemented")
     def outputs(self,ov,image):
-        pass
+        """Train with integer classes.  This is the methods implemented by the C version of IModel."""
+        raise Exception("unimplemented")
     def train(self,dataset):
-        pass
+        """Train with integer datasets.  This is the methods implemented by the C version of IModel."""
+        raise Exception("unimplemented")
     def cadd(self,image,c):
-        pass
-    def coutputs(self,ov,image):
-        pass
-    def ctrain(self,dataset):
-        pass
+        """Add a training sample.  The class should be a string."""
+        assert type(c)==str
+        raise Exception("unimplemented")
+    def coutputs(self,image):
+        """Compute the outputs for the given input image.  The result is
+        a list of (cls,probability) tuples. (NB: that's probability, not cost.)"""
+        raise Exception("unimplemented")
     def updateModel(self):
-        pass
+        """Update the model after adding some training scamples with
+        add or cadd."""
+        raise Exception("unimplemented")
+    def ctrain(self,dataset):
+        """Train on a dataset."""
+        raise Exception("unimplemented")
