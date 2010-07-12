@@ -26,7 +26,7 @@ def rseg_map(inputs):
             map[j] = count
     return map
 
-def recognize_and_align(image,linerec,lmodel,beam=1000):
+def recognize_and_align(image,linerec,lmodel,beam=1000,nocseg=0):
     """Perform line recognition with the given line recognizer and
     language model.  Outputs an object containing the result (as a
     Python string), the costs, the rseg, the cseg, the lattice and the
@@ -52,16 +52,19 @@ def recognize_and_align(image,linerec,lmodel,beam=1000):
     result = intarray_as_string(outs)
 
     # compute the cseg
-    rmap = rseg_map(ins)
-    cseg = None
-    if len(rmap)>1:
-        cseg = iulib.intarray()
-        cseg.copy(rseg)
-        try:
-            for i in range(cseg.length()):
-                cseg.put1d(i,int(rmap[rseg.at1d(i)]))
-        except IndexError:
-            raise Exception("renumbering failed")
+    if not nocseg:
+        rmap = rseg_map(ins)
+        cseg = None
+        if len(rmap)>1:
+            cseg = iulib.intarray()
+            cseg.copy(rseg)
+            try:
+                for i in range(cseg.length()):
+                    cseg.put1d(i,int(rmap[rseg.at1d(i)]))
+            except IndexError:
+                raise Exception("renumbering failed")
+    else:
+        cseg = None
 
     # return everything we computed
     return Record(image=image,
