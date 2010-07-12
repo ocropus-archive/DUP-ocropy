@@ -134,7 +134,8 @@ for imagefile in args:
         error(imagefile,"recognition failed")
         traceback.print_exc()
         continue
-    lattice.save("_lattice.fst")
+    # lattice.save("_lattice.fst")
+    lattice.save(prefix+suffix+".fst")
 
     ## compute and output the raw best path
     s = ocropy.ustrg()
