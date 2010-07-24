@@ -3,7 +3,6 @@ import code,pickle,sys,os,re,ocropy
 from ocropy import dbtables,binnednn,improc
 from pylab import *
 from optparse import OptionParser
-import ocrofast
 import traceback
 import sqlite3
 

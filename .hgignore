@@ -11,8 +11,6 @@ syntax: glob
 *.pyc
 *.png
 *.jpg
-#*
-*#
 [0-9]
 _*
 book

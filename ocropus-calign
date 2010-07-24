@@ -55,7 +55,8 @@ parser.add_option("-T","--gthreshold",help="reject if total line cost is worse t
 parser.add_option("-B","--badthreshold",help="reject if any character cost is worse than this",type="float",default=30.0)
 
 # debugging
-parser.add_option("-d","--display",help="verbose",action="store_true")
+parser.add_option("-d","--display",help="display progress",action="store_true")
+parser.add_option("-w","--wait",help="wait after each line",action="store_true")
 parser.add_option("-v","--verbose",help="verbose",action="store_true")
 (options,args) = parser.parse_args()
 
@@ -195,6 +196,9 @@ for imagefile in args:
             goodlines += 1
         except Exception,e:
             print e
-
     print "[",goodlines,nlines,goodlines*100.0/nlines,"]"
     print
+
+    if options.wait:
+        raw_input()
+

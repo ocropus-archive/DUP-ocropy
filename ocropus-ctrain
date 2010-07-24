@@ -10,7 +10,7 @@ from ocropy import N,NI,F,FI
 signal.signal(signal.SIGINT,lambda *args:sys.exit(1))
 
 parser = OptionParser(usage="""
-%prog [options] input.db output.cmodel
+%prog [options] -o output.cmodel input.db ...
 
 Trains models based on a cluster database.
 
@@ -34,6 +34,7 @@ Common parameters for the model are:
 -m AutoMlpClassifier:miters=8:rounds=8:nensemble=4
 """)
 
+parser.add_option("-o","--output",help="output model name",default=None)
 parser.add_option("-m","--model",help="IModel name",default="latin")
 parser.add_option("-b","--bits",help="buffer training data with 1 bpp",action="store_true")
 parser.add_option("-t","--table",help="database table to use for training",default="chars")
@@ -91,10 +92,14 @@ if len(args)!=2:
 
 if options.unlabeled: options.noreject = False
 
-# the two arguments, a database name and an output file
+if len(args)<1:
+    print "must specify at least one character database as argument"
+    sys.exit(1)
 
-db = args[0]
-output = args[1]
+output = options.output
+if output is None:
+    print "please specify output with -o argument"
+    sys.exit(1)
 
 if os.path.exists(output):
     print output,"already exists"
@@ -114,11 +119,6 @@ if options.display:
 # debugging the native code feature extractors)
 
 ocropy.dinit(512,512)
-
-print "loading database"
-
-table = dbtables.ClusterTable(db,name=options.table)
-clusters = table.get()
 
 print "making classifier"
 
@@ -153,7 +153,15 @@ skip0 = 0
 skip3 = 0
 nreject = 0
 
-for cluster in clusters:
+def iterate_dbs(args):
+    for db in args:
+        print "===",db,"==="
+        table = dbtables.ClusterTable(db,name=options.table)
+        clusters = table.get()
+        for cluster in clusters:
+            yield cluster
+
+for cluster in iterate_dbs(args):
 
     # check whether we already have enough characters
     if count>options.limit: break
