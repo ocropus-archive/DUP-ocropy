@@ -216,8 +216,6 @@ for arg in args:
         continue
     jobs += [(arg,lmodel)]
 
-print jobs
-        
 if options.parallel<2:
     for job in jobs:
         align1(arg)
