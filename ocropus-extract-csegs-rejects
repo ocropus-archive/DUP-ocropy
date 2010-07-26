@@ -154,7 +154,7 @@ for file in args:
         items = chars + nonchars
     else:
         items = chars
-        for c in chars: print c.cls
+        # for c in chars: print c.cls
     if options.verbose:
         print file,len(segments),len(text)
     for x in items:

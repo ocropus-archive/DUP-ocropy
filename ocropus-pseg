@@ -7,6 +7,8 @@ from matplotlib import patches
 from pylab import *
 from scipy.stats.stats import trim1
 
+from multiprocessing import Pool
+from ocropy.utils import number_of_processors
 from scipy.ndimage import measurements
 from scipy.misc import imsave
 from PIL import Image
@@ -55,6 +57,8 @@ parser.add_option("-q","--silent",action="store_true",
                   help="disable warnings")
 parser.add_option("-b","--blackout",action="store_false",default=True,
                   help="use blackout for image regions (instead of passing rectangles)")
+parser.add_option("-Q","--parallel",type=int,default=number_of_processors(),
+                  help="number of parallel processes to use")
 options,args = parser.parse_args()
 
 
@@ -64,10 +68,8 @@ segmenter = ocropy.make_ISegmentPage(options.segmenter)
 if options.Display: options.display = 1
 if options.display: ion()
 
-for arg in args:
-    print
-    print "===",arg,"==="
-    print
+def process_arg(arg):
+    print "===",arg
     base,_ = ocropy.allsplitext(arg)
     image = ocropy.bytearray()
     ocropy.read_image_gray(image,arg)
@@ -158,3 +160,11 @@ for arg in args:
             raw_input("hit ENTER to continue")
         else:
             ginput(1,timeout=1)
+
+if options.parallel<2:
+    for arg in args:
+        process_arg(arg)
+else:
+    pool = Pool(processes=options.parallel)
+    jobs = args
+    result = pool.map(process_arg,jobs)

@@ -7,6 +7,12 @@ class Record:
         for k in kw.keys():
             self.__dict__[k] = kw[k]
 
+def number_of_processors():
+    try:
+        return int(os.popen("cat /proc/cpuinfo  | grep 'processor.*:' | wc -l").read())
+    except:
+        return 1
+
 def findfile(name):
     """Find some OCRopus-related resource by looking in a bunch off standard places.
     (FIXME: The implementation is pretty adhoc for now.

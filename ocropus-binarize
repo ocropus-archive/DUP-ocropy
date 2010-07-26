@@ -2,11 +2,13 @@
 
 # imgr
 
+from multiprocessing import Pool
 import signal
 signal.signal(signal.SIGINT,lambda *args:sys.exit(1))
 from pylab import *
 import sys,os,re,ocropy,optparse
 from ocropy import N,NI
+from ocropy.utils import number_of_processors
 from scipy.ndimage import measurements
 from scipy.misc import imsave
 from PIL import Image
@@ -33,11 +35,12 @@ parser.add_option("-O","--Output",help="output image.png to image.bin.png (in pl
 parser.add_option("-d","--display",help="display result",action="store_true")
 parser.add_option("-D","--Display",help="display continuously",action="store_true")
 parser.add_option("-T","--threshold",help="threshold (simple Sauvola if set)",default=-1,type=float)
-parser.add_option("-L","--low",help="low threshold",default=0.1,type=float)
-parser.add_option("-H","--high",help="high threshold",default=0.4,type=float)
-parser.add_option("-W","--width",help="width parameter",default=40,type=float)
-parser.add_option("-r","--dpi",help="resolution (DPI)",default=300,type=float)
+parser.add_option("-L","--low",help="low threshold (0.1)",default=0.1,type=float)
+parser.add_option("-H","--high",help="high threshold (0.4)",default=0.4,type=float)
+parser.add_option("-W","--width",help="width parameter (40)",default=40,type=float)
+parser.add_option("-r","--dpi",help="resolution (DPI) (300)",default=300,type=float)
 parser.add_option("-q","--silent",action="store_true",help="disable warnings")
+parser.add_option("-P","--parallel",type=int,default=number_of_processors(),help="number of parallel processes to use")
 options,args = parser.parse_args()
 
 if len(args)<1:
@@ -65,12 +68,7 @@ if not options.Output and os.path.exists(options.output):
 if not options.Output:
     os.mkdir(options.output)
 
-count = 1
-
-for image,arg in ocropy.page_iterator(args):
-    print
-    print "===",arg,"==="
-    print
+def process_image(image,arg,count):
     if options.display: 
         clf()
         imshow(NI(image),cmap=cm.gray)
@@ -82,7 +80,7 @@ for image,arg in ocropy.page_iterator(args):
         binarizer.binarize(bin,gray,image)
     except:
         print "# binarizer failed; skipping",arg
-        continue
+        return 0
     if options.display: 
         clf()
         imshow(NI(bin),cmap=cm.gray)
@@ -94,7 +92,7 @@ for image,arg in ocropy.page_iterator(args):
     if not options.silent:
         if ocropy.quick_check_page_components(bin,dpi=options.dpi)<0.5:
             print "# skipping page"
-            continue
+            return 0
     if options.Output:
         dest,_ = ocropy.allsplitext(arg)
         print "# writing",dest
@@ -104,4 +102,24 @@ for image,arg in ocropy.page_iterator(args):
         print "# writing",dest
         ocropy.write_image_gray(dest+".png",gray)
         ocropy.write_image_gray(dest+".bin.png",bin)
-    count += 1
+
+def process1(t):
+    arg,count = t
+    n = 0
+    for image,arg in ocropy.page_iterator([arg]):
+        assert n<2,"no multipage files with parallel processing; use -P 0"
+        print "===",arg,count,image.dim(0),image.dim(1)
+        process_image(image,arg,count)
+        n += 1
+
+if options.parallel<2:
+    count = 0
+    for image,arg in ocropy.page_iterator(args):
+        print "===",arg,count,image.dim(0),image.dim(1)
+        count += 1
+        process_image(image,arg,count)
+else:
+    pool = Pool(processes=options.parallel)
+    jobs = []
+    for i in range(len(args)): jobs += [(args[i],i+1)]
+    result = pool.map(process1,jobs)
