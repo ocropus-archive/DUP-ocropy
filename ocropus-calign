@@ -9,6 +9,8 @@ from optparse import OptionParser
 import ocropy
 from ocropy import fstutils
 from ocropy import N,NI,F,FI
+from multiprocessing import Pool
+from ocropy.utils import number_of_processors
 
 signal.signal(signal.SIGINT,lambda *args:sys.exit(1))
 
@@ -58,6 +60,7 @@ parser.add_option("-B","--badthreshold",help="reject if any character cost is wo
 parser.add_option("-d","--display",help="display progress",action="store_true")
 parser.add_option("-w","--wait",help="wait after each line",action="store_true")
 parser.add_option("-v","--verbose",help="verbose",action="store_true")
+parser.add_option("-Q","--parallel",type=int,default=number_of_processors(),help="number of parallel processes to use")
 (options,args) = parser.parse_args()
 
 if len(args)==0:
@@ -91,6 +94,7 @@ linerec = ocropy.CmodelLineRecognizer(cmodel=cmodel,
                                       maxcost=options.maxccost)
 
 
+default_lmodel_name = None
 default_lmodel = None
 
 def read_lmodel(file):
@@ -109,16 +113,15 @@ if options.display:
 nlines = 0
 goodlines = 0
 
-for imagefile in args:
+def align1(t):
+    global default_lmodel_name,default_lmodel,nlines,goodlines
+    imagefile,lname = t
+    if lname!=default_lmodel_name:
+        default_lmodel_name = lname
+        default_lmodel = read_lmodel(lname)
     nlines += 1
     prefix = re.sub(r'\.[^/]*$','',imagefile)
 
-    ## if the file is a language model, load it
-    if imagefile[-4:]==".fst" or imagefile[-4:]==".txt":
-        assert options.gtextension is None,"either specify gtextension or language model"
-        default_lmodel = read_lmodel(imagefile)
-        continue
-        
     ## load the line image
     print "load\t",imagefile
     image = ocropy.bytearray()
@@ -134,7 +137,7 @@ for imagefile in args:
     except:
         error(imagefile,"recognition failed")
         traceback.print_exc()
-        continue
+        return 0
     # lattice.save("_lattice.fst")
     lattice.save(prefix+suffix+".fst")
 
@@ -152,12 +155,12 @@ for imagefile in args:
         print "gt",gtname
         if not os.path.exists(gtname):
             error(gtname,"not found")
-            continue
+            return 0
         try:
             lmodel = read_lmodel(gtname)
         except:
             error(gtname,"failed to load")
-            continue
+            return 0
 
     if lmodel is not None:
         try:
@@ -202,4 +205,22 @@ for imagefile in args:
 
     if options.wait:
         raw_input()
+    return 1
 
+jobs = []
+lmodel = None
+for arg in args:
+    if arg[-4:]==".fst" or arg[-4:]==".txt":
+        assert options.gtextension is None,"either specify gtextension or language model"
+        lmodel = arg
+        continue
+    jobs += [(arg,lmodel)]
+
+print jobs
+        
+if options.parallel<2:
+    for job in jobs:
+        align1(arg)
+else:
+    pool = Pool(processes=options.parallel)
+    result = pool.map(align1,jobs)
