@@ -16,6 +16,23 @@ signal.signal(signal.SIGINT,lambda *args:sys.exit(1))
 
 # ocropy.dinit(512,512,1)
 
+class Log:
+    def __init__(self):
+        self.lines = []
+    def __del__(self):
+        self.output()
+    def log(self,*args):
+        args = [str(x) for x in args]
+        self.lines.append(" ".join(args))
+    def error(self,*args):
+        self.log("ERROR",*args)
+    def output(self):
+        if len(self.lines)>0:
+            print "\n".join(self.lines)
+            self.lines = []
+    def __call__(self,*args):
+        self.log(*args)
+
 parser = OptionParser("""
 usage: %prog [options] [text.txt langmod.fst image.png ...]
 
@@ -114,6 +131,8 @@ nlines = 0
 goodlines = 0
 
 def align1(t):
+    log = Log()
+    log("[[[")
     global default_lmodel_name,default_lmodel,nlines,goodlines
     imagefile,lname = t
     if lname!=default_lmodel_name:
@@ -123,7 +142,7 @@ def align1(t):
     prefix = re.sub(r'\.[^/]*$','',imagefile)
 
     ## load the line image
-    print "load\t",imagefile
+    log("load\t",imagefile)
     image = ocropy.bytearray()
     ocropy.read_image_gray(image,imagefile)
     if options.display:
@@ -135,8 +154,8 @@ def align1(t):
     try:
         linerec.recognizeLineSeg(lattice,rseg,image)
     except:
-        error(imagefile,"recognition failed")
-        traceback.print_exc()
+        log.error(imagefile,"recognition failed")
+        # traceback.print_exc()
         return 0
     # lattice.save("_lattice.fst")
     lattice.save(prefix+suffix+".fst")
@@ -145,21 +164,21 @@ def align1(t):
     s = ocropy.ustrg()
     lattice.bestpath(s)
     cost = 0.0
-    print "lraw %6.2f\t%3d\t%s"%(cost,s.length(),ocropy.ustrg_as_string(s))
+    log("lraw %6.2f\t%3d\t%s"%(cost,s.length(),ocropy.ustrg_as_string(s)))
 
     ## if we can find a language model for it then perform alignment
     lmodel = default_lmodel
     if options.gtextension is not None:
         base = re.sub(r'\.[^/]*$','',imagefile)
         gtname = base+options.gtextension
-        print "gt",gtname
+        log("gt",gtname)
         if not os.path.exists(gtname):
-            error(gtname,"not found")
+            log.error(gtname,"not found")
             return 0
         try:
             lmodel = read_lmodel(gtname)
         except:
-            error(gtname,"failed to load")
+            log.error(gtname,"failed to load")
             return 0
 
     if lmodel is not None:
@@ -169,8 +188,8 @@ def align1(t):
             cseg = r.cseg
             costs = r.costs.numpy()
             # print costs
-            print "costs",sum(costs),mean(costs),amax(costs),median(costs)
-            print "result",result
+            log("costs",sum(costs),mean(costs),amax(costs),median(costs))
+            log("result",result)
 
             # compute various cost statistics and reject if they are too high
             tcost = sum(costs)
@@ -199,12 +218,12 @@ def align1(t):
                 ocropy.write_text(prefix+".gt.txt",result)
             goodlines += 1
         except Exception,e:
-            print e
-    print "[",goodlines,nlines,goodlines*100.0/nlines,"]"
-    print
-
+            log(str(e))
+    log("[",goodlines,nlines,goodlines*100.0/nlines,"]")
     if options.wait:
         raw_input()
+    log("]]]")
+    log.output()
     return 1
 
 jobs = []
