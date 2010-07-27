@@ -20,7 +20,8 @@ parser.add_option("-a","--maxage",help="output missegmented",default=10000000,ty
 
 parser.add_option("-D","--display",help="display chars",action="store_true")
 parser.add_option("-v","--verbose",help="verbose output",action="store_true")
-parser.add_option("-S","--nosource",help="do not record source info",action="store_true")
+parser.add_option("-N","--nosource",help="do not record source info",action="store_true")
+parser.add_option("-S","--segmenter",help="segmenter",default="DpSegmenter")
 
 (options,args) = parser.parse_args()
 
@@ -39,6 +40,10 @@ table = dbtables.Table(options.output,"chars")
 table.converter("image",dbtables.SmallImage())
 table.create(image="blob",cls="text",file="text",segid="integer",bbox="text",count="integer",classes="text")
 
+segmenter = None
+if options.segmenter!="none":
+    segmenter = ocropy.make_ISegmentLine(options.segmenter)
+
 ntried = 0
 nfiles = 0
 total = 0
@@ -47,7 +52,7 @@ for file in args:
     text = ""
     ntried += 1
     try:
-        items = list(ocrobook.cseg_chars(file,verbose=options.verbose))
+        items = list(ocrobook.cseg_chars(file,verbose=options.verbose,segmenter=segmenter))
         nfiles += 1
     except IOError:
         print "# cseg for",file,"not found (got %d of %d files)"%(nfiles,ntried)
