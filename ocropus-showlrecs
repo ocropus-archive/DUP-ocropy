@@ -41,12 +41,14 @@ parser = OptionParser(usage="""
 Interactively explore line recognition and line recognition errors.
 """)
 parser.add_option("-v","--verbose",help="verbose",action="store_true")
-parser.add_option("-L","--linerecognizer",help="class used for wrapping .cmodels; ocropy.CmodelLineRecognizer or linerec.LineRecognizer",default="linerec.LineRecognizer")
 parser.add_option("-s","--spaces",help="count spaces",action="store_true")
 parser.add_option("-c","--case",help="case sensitive",action="store_true")
 parser.add_option("-B","--nbest",help="nbest chars",default=10,type="int")
 parser.add_option("-M","--maxccost",help="maxcost for characters in recognizer",default=10.0,type="float")
 parser.add_option("-b","--beam",help="beam width",default=1000,type="int")
+parser.add_option("-R","--recognizer",help="line model",default=None)
+parser.add_option("-L","--langmod",help="language model",default=None)
+parser.add_option("-C","--linerecognizer",help="class used for wrapping .cmodels; ocropy.CmodelLineRecognizer or linerec.LineRecognizer",default="linerec.LineRecognizer")
 (options,args) = parser.parse_args()
 
 if len(args)<1:
@@ -436,6 +438,8 @@ class LineWindow:
                 self.detail("\n")
     def recognizer_update(self,*args):
         file = self.recognizer.get_active_text()
+        self.recognizer_load(file)
+    def recognizer_load(self,file):
         if file!="none":
             if ".cmodel" in file:
                 cmodel = ocropy.load_IModel(file)
@@ -445,9 +449,12 @@ class LineWindow:
                                            maxcost=options.maxccost)
             else:
                 self.linerec = ocropy.load_linerec(file)
+        # self.linerec.debug = 1
         print "loaded",self.linerec
     def langmod_update(self,*args):
         lmodel_name = self.langmod.get_active_text()
+        self.langmod_load(lmodel_name)
+    def langmod_load(self,lmodel_name):
         lmodel = None
         if lmodel_name[0]=="*":
             lmodel = lmodel_name
@@ -465,9 +472,16 @@ class LineWindow:
                 langmod==self.last_langmod: return
         self.recognizeAll()
 
+
 def main():
     app = LineWindow()
     app.addImages(args)
+    if options.langmod is not None:
+        app.langmod_load(options.langmod)
+        app.langmod.append_text(options.langmod)
+    if options.recognizer is not None:
+        app.recognizer_load(options.recognizer)
+        app.recognizer.append_text(options.recognizer)
     gtk.main()
 
 main()

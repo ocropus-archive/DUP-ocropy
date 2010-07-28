@@ -57,6 +57,8 @@ parser.add_option("-q","--silent",action="store_true",
                   help="disable warnings")
 parser.add_option("-b","--blackout",action="store_false",default=True,
                   help="use blackout for image regions (instead of passing rectangles)")
+parser.add_option("-R","--descender",type=float,default=-1,
+                  help="maximum descender")
 parser.add_option("-Q","--parallel",type=int,default=number_of_processors(),
                   help="number of parallel processes to use")
 options,args = parser.parse_args()
@@ -64,6 +66,8 @@ options,args = parser.parse_args()
 
 preproc = ocropy.make_IBinarize(options.preproc)
 segmenter = ocropy.make_ISegmentPage(options.segmenter)
+if options.descender>0:
+    segmenter.pset("max_descender",options.descender)
 
 if options.Display: options.display = 1
 if options.display: ion()

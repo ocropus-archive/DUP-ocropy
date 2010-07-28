@@ -367,11 +367,17 @@ def cmd_nn(*args):
     global grid,cluster_viewer
     assert type(grid)==gtk.ListStore
     count = 0
-    for i in cluster_viewer.get_selected_items():
+    images = []
+    selected = list(cluster_viewer.get_selected_items())
+    for i in selected:
         row = grid[i]
         pat = row[2]
         image = FI(pat.image)
-        outputs = classifier.coutputs(image)
+        images.append(image)
+    results = ocropy.omp_classify(classifier,images)
+    for k in range(len(selected)):
+        i = selected[k]
+        outputs = results[k]
         outputs = [(x[0],-log(x[1])) for x in outputs]
         outputs.sort(key=lambda x:x[1])
         if len(outputs)<1:
@@ -396,10 +402,19 @@ def cmd_class(*args):
     assert type(grid)==gtk.ListStore
     cluster_viewer.unselect_all()
     dists = []
-    for i in range(len(grid)):
+    n = len(grid)
+    print "parallel classifier",n
+    omp = ocropy.OmpClassifier()
+    omp.setClassifier(confidence)
+    omp.resize(n)
+    inputs = []
+    for i in range(n):
         row = grid[i]
         image = FI(row[2].image)
-        outputs = confidence.coutputs(image)
+        inputs.append(image)
+    results = ocropy.omp_classify(confidence,inputs)
+    for i in range(n):
+        outputs = results[i]
         outputs = [(x[0],-log(x[1])) for x in outputs]
         outputs.sort(key=lambda x:x[1])
         if len(outputs)<1: continue

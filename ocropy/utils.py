@@ -13,6 +13,22 @@ def number_of_processors():
     except:
         return 1
 
+def omp_classify(model,inputs):
+    omp = ocropus.OmpClassifier()
+    omp.setClassifier(model)
+    n = len(inputs)
+    omp.resize(n)
+    for i in range(n):
+        omp.input(inputs[i],i)
+    omp.classify()
+    result = []
+    for i in range(n):
+        outputs = ocropus.OutputVector()
+        omp.output(outputs,i)
+        outputs = model.outputs2coutputs(outputs)
+        result.append(outputs)
+    return result
+
 def findfile(name):
     """Find some OCRopus-related resource by looking in a bunch off standard places.
     (FIXME: The implementation is pretty adhoc for now.

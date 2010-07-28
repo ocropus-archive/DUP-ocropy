@@ -145,6 +145,8 @@ class LineRecognizer: # can't inherit -- breaks save/load (ocropus.IRecognizeLin
     def set_defaults(self):
         self.debug = 0
         self.segmenter = components.make_ISegmentLine("DpSegmenter")
+        # self.segmenter.pset("debug","dpsegmenter.png")
+        # self.segmenter.pset("fix_diacritics",0)
         self.grouper = components.make_IGrouper("SimpleGrouper")
         self.cmodel = None
         self.best = 10
@@ -175,7 +177,9 @@ class LineRecognizer: # can't inherit -- breaks save/load (ocropus.IRecognizeLin
         ## compute the raw segmentation
         self.segmenter.charseg(rseg,image)
         ocropus.make_line_segmentation_black(rseg)
-        if self.debug: show_segmentation(rseg)
+        if self.debug: 
+            ion(); show()
+            show_segmentation(rseg)
         iulib.renumber_labels(rseg,1)
         self.grouper.setSegmentation(rseg)
 
