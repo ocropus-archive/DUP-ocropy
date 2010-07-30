@@ -404,9 +404,6 @@ def cmd_class(*args):
     dists = []
     n = len(grid)
     print "parallel classifier",n
-    omp = ocropy.OmpClassifier()
-    omp.setClassifier(confidence)
-    omp.resize(n)
     inputs = []
     for i in range(n):
         row = grid[i]

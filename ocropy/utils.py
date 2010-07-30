@@ -14,7 +14,7 @@ def number_of_processors():
         return 1
 
 def omp_classify(model,inputs):
-    omp = ocropus.OmpClassifier()
+    omp = ocropus.make_OmpClassifier()
     omp.setClassifier(model)
     n = len(inputs)
     omp.resize(n)
