@@ -3,6 +3,8 @@ import iulib,ocropus
 import components
 from utils import N,NI,F,FI,Record,show_segmentation
 from scipy.ndimage import interpolation,morphology,measurements
+import scipy
+import scipy.stats
 from pylab import *
 import unicodedata
 import pickle
@@ -41,6 +43,29 @@ class_xu = "aemnru"
 class_Au = "023456789ABDEFGHKLMNQRTYbdfhkt"
 class_gu = "gqy"
 
+# confusions
+
+# character pairs only distinguished by location
+loc_confusions = [
+    ["'",","],
+    ["p","P"],
+    ]
+
+# character pairs only distinguished by size
+size_confusions = [
+    ["c","C"],
+    ["o","O"],
+    ["s","S"],
+    ["u","U"],
+    ["v","V"],
+    ["w","W"],
+    ["x","X"],
+    ["z","Z"],
+    ]
+
+# characters that are smaller than x-height
+small_height = [".",",","'",'"',"-"]
+
 def guess_xheight_from_candidates(self,candidates):
     # for Latin script, use some information about character
     # classes
@@ -56,15 +81,96 @@ def guess_xheight_from_candidates(self,candidates):
     # fallback
     return median([c.bbox.height() for c in candidates if c.cls!="~"])
 
+def estimate_xheight(candidates):
+    short = []
+    tall = []
+    for x in candidates:
+        x0,y0,x1,y1 = x.bbox.tuple()
+        aspect = (y1-y0)*1.0/(x1-x0)
+        if aspect<0.7:
+            continue
+        elif aspect<1.1:
+            short.append(y1-y0)
+        else:
+            tall.append(y1-y0)
+    if len(short)>4:
+        scale = median(short)
+    elif len(tall)>4:
+        scale = median(tall)/1.4
+    else:
+        scale = None
+    return scale
+
+def ncost(x,params):
+    m,v = params
+    v *= 1.5
+    c = -log(scipy.stats.norm(loc=m,scale=v).pdf(x))
+    c = max(0.0,min(c,2.0))
+    return c
+def bestcost(x):
+    return min([y[1] for y in x.outputs])
+
 class SimpleLineModel:
     def __init__(self):
         pass
-    def linecosts(self,candidates,image):
+    def load(self,file):
+        self.aspects = {}
+        self.widths = {}
+        self.heights = {}
+        self.ys = {}
+        table = {"a":self.aspects,"w":self.widths,"h":self.heights,"y":self.ys}
+        with open(file,"r") as stream:
+            for line in stream.readlines():
+                line = line[:-1]
+                which,char,count,mean,var = line.split()
+                table[which][char] = (float(mean),float(var))
+    def linecosts(self,candidates,image,cseg_guess=None,transcript_guess=None):
         """Given a list of character recognition candidates and their
         classifications, and an image of the corresponding text line,
         adjust the costs of the candidates to account for their position
         on the textline."""
-        pass
+        threshold = scipy.stats.scoreatpercentile([bestcost(x) for x in candidates],per=25)
+        print "threshold",threshold
+        best = [x for x in candidates if bestcost(x)<threshold]
+        if len(best)<4: best = candidates
+        base = median([x.bbox.y0 for x in best])
+        scale = estimate_xheight(best)
+        print "base",base,"scale",scale
+        for x in candidates:
+            x0,y0,x1,y1 = x.bbox.tuple()
+            aspect = (y1-y0)*1.0/(x1-x0)
+            costs = {}
+            for cls,cost in x.outputs:
+                costs[cls] = cost
+            for a in costs:
+                if a=="~": continue
+                ac = ncost(aspect,self.aspects[a])
+                if costs[a]<2 and ac>1.0:
+                    print "adjusting",a,costs[a],ac,"aspect"
+                costs[cls] += ac
+            for a,b in loc_confusions:
+                if abs(costs[a]-costs[b])>1.0: continue
+                ac = ncost((y0-base)/scale,self.ys[a])
+                bc = ncost((y0-base)/scale,self.ys[b])
+                if costs[a]<10:
+                    print "adjusting",a,b,costs[a],costs[b],"loc"
+                if ac<bc: costs[b] += 2.0
+                else: costs[a] += 2.0
+            for a,b in size_confusions:
+                if abs(costs[a]-costs[b])>1.0: continue
+                ac = ncost((y1-y0)/scale,self.heights[a])
+                bc = ncost((y1-y0)/scale,self.heights[b])
+                if costs[a]<10:
+                    print "adjusting",a,b,costs[a],costs[b],"size"
+                if ac<bc: costs[b] += 2.0
+                else: costs[a] += 2.0
+            for a in small_height:
+                ac = ncost((y1-y0)/scale,self.heights[a])
+                if ac<1.0: continue
+                if costs[a]<10:
+                    print "penalizing",a,costs[a],ac,"small"
+                costs[a] += ac
+            x.outputs = [(cls,cost) for cls,cost in costs.items()]
 
 class SimpleSpaceModel:
     def __init__(self):
@@ -121,7 +227,8 @@ class SimpleSpaceModel:
 
         return result
 
-class LineRecognizer: # can't inherit -- breaks save/load (ocropus.IRecognizeLine):
+class LineRecognizer:
+    # can't derive from IRecognizeLine -- breaks save/load (ocropus.IRecognizeLine)
     def __init__(self,cmodel=None,segmenter="DpSegmenter",best=None,
                  maxcost=None,reject_cost=None,minheight_letters=None):
         """Initialize a line recognizer that works from character models.
@@ -156,7 +263,7 @@ class LineRecognizer: # can't inherit -- breaks save/load (ocropus.IRecognizeLin
         self.rho_scale = 1.0
         self.maxoverlap = 0.8
         self.spacemodel = SimpleSpaceModel()
-        self.linemodel = SimpleLineModel()
+        self.linemodel = None
 
     def info(self):
         for k in sorted(self.__dict__.keys()):
@@ -174,12 +281,26 @@ class LineRecognizer: # can't inherit -- breaks save/load (ocropus.IRecognizeLin
         rseg: intarray where the raw segmentation will be put
         image: line image to be recognized"""
 
+        if self.debug: print "starting"
+
+        ## increase segmentation scale for large lines
+        h = image.dim(1)
+        s = max(2.0,h/15.0)
+        if s>2.0: print "segmentation scale",s
+        self.segmenter.pset("cost_smooth",s)
+
         ## compute the raw segmentation
+        if self.debug: print "segmenting"
         self.segmenter.charseg(rseg,image)
+        if self.debug: print "done"
         ocropus.make_line_segmentation_black(rseg)
-        if self.debug: 
-            ion(); show()
+        if self.debug:
+            print "here"
+            clf()
+            subplot(4,1,1)
             show_segmentation(rseg)
+            draw()
+            print "there"
         iulib.renumber_labels(rseg,1)
         self.grouper.setSegmentation(rseg)
 
@@ -212,7 +333,12 @@ class LineRecognizer: # can't inherit -- breaks save/load (ocropus.IRecognizeLin
             char = NI(raw)
             char = char / float(amax(char))
             if self.debug:
-                imshow(char)
+                subplot(4,1,2)
+                print i,(bbox.x0,bbox.y0,bbox.x1,bbox.y1)
+                cla()
+                imshow(char,cmap=cm.gray)
+                draw()
+                print "hit RETURN to continue"
                 raw_input()
 
             # compute the classifier output for this character
@@ -224,7 +350,8 @@ class LineRecognizer: # can't inherit -- breaks save/load (ocropus.IRecognizeLin
         self.chars = candidates
 
         # update the per-character costs based on a text line model
-        self.linemodel.linecosts(candidates,image)
+        if self.linemodel is not None:
+            self.linemodel.linecosts(candidates,image)
 
         # compute a list of space costs for each candidate character
         spacecosts = self.spacemodel.spacecosts(candidates,image)
@@ -349,6 +476,9 @@ class LineRecognizer: # can't inherit -- breaks save/load (ocropus.IRecognizeLin
             self.new_model.cadd(floatimage(c.raw),c.cls)
         for c in nonchars:
             self.new_model.cadd(floatimage(c.raw),"~")
+
+        self.chars = chars
+        self.nonchars = nonchars
         print "#chars",len(chars),"#nonchars",len(nonchars)
 
     def align(self,chars,cseg,costs,image,transcription):
@@ -385,12 +515,20 @@ class LineRecognizer: # can't inherit -- breaks save/load (ocropus.IRecognizeLin
         """Load a line recognizer.  This handles both a .cmodel and a .pymodel
         file."""
         self.set_defaults()
-        if ".pymodel" in file:
-            with open(file,"r") as stream:
-                obj = pickle.load(self,stream)
-            for k,v in obj.__dict__:
-                self.__dict__[k] = v
-        elif ".cmodel" in file:
-            self.cmodel = ocropy.load_IModel(file)
+        if "+" in file:
+            files = file.split("+")
         else:
-            raise Exception("unknown extension")
+            files = [file]
+        for file in files:
+            if ".pymodel" in file:
+                with open(file,"r") as stream:
+                    obj = pickle.load(self,stream)
+                for k,v in obj.__dict__:
+                    self.__dict__[k] = v
+            elif ".cmodel" in file:
+                self.cmodel = ocropy.load_IModel(file)
+            elif ".csize" in file:
+                self.linemodel = SimpleLineModel()
+                self.linemodel.load(file)
+            else:
+                raise Exception("unknown extension")

@@ -55,5 +55,5 @@ def lines_of_file(file):
         yield unicode(line,"utf-8")
 
 def load_text_file_as_fst(file):
-    lines = lines_of_file(file)
+    lines = list(lines_of_file(file))
     return make_line_fst(lines)

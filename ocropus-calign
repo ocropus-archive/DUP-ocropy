@@ -9,6 +9,7 @@ from optparse import OptionParser
 import ocropy
 from ocropy import fstutils
 from ocropy import N,NI,F,FI
+import ocropy.linerec
 from multiprocessing import Pool
 from ocropy.utils import number_of_processors
 
@@ -61,6 +62,7 @@ parser.add_option("-D","--maxdist",help="maxdist for grouper",type="int",default
 # this can be used to allow for ambiguous characters in alignment
 parser.add_option("-p","--precomp",help="precompose extra transducer",default=None)
 # parser.add_option("-A","--noambigs",help="don't use ambiguous classes",action="store_true")
+parser.add_option("-M","--linemodel",help="character size model",default=None)
 
 # file handling
 parser.add_option("-S","--suffix",help="suffix for writing rseg/cseg files",default="gt")
@@ -105,10 +107,14 @@ ion()
 
 print "loading",options.model
 
-cmodel = ocropy.load_IModel(options.model)
-linerec = ocropy.CmodelLineRecognizer(cmodel=cmodel,
-                                      best=options.nbest,
-                                      maxcost=options.maxccost)
+if 0:
+    cmodel = ocropy.load_IModel(options.model)
+    linerec = ocropy.CmodelLineRecognizer(cmodel=cmodel,
+                                          best=options.nbest,
+                                          maxcost=options.maxccost)
+else:
+    linerec = ocropy.linerec.LineRecognizer()
+    linerec.load(options.model)
 
 
 default_lmodel_name = None
@@ -134,6 +140,7 @@ def align1(t):
     log = Log()
     log("[[[")
     global default_lmodel_name,default_lmodel,nlines,goodlines
+    print "***",t
     imagefile,lname = t
     if lname!=default_lmodel_name:
         default_lmodel_name = lname
@@ -155,7 +162,7 @@ def align1(t):
         linerec.recognizeLineSeg(lattice,rseg,image)
     except:
         log.error(imagefile,"recognition failed")
-        # traceback.print_exc()
+        traceback.print_exc()
         return 0
     # lattice.save("_lattice.fst")
     lattice.save(prefix+suffix+".fst")
@@ -236,7 +243,7 @@ for arg in args:
     jobs += [(arg,lmodel)]
 
 if options.parallel<2:
-    for job in jobs:
+    for arg in jobs:
         align1(arg)
 else:
     pool = Pool(processes=options.parallel)

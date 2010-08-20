@@ -61,6 +61,10 @@ def load_gt(file):
         text = None
     return cseg,text
 
+class BadTranscript(Exception):
+    def __init__(self,*args):
+        Exception.__init__(self,*args)
+
 class NoException(Exception):
     pass
 
@@ -107,6 +111,8 @@ def cseg_chars(files,suffix="gt",segmenter=None,grouper=None,has_gt=1,verbose=0)
                     text = re.sub(r'\s+','',text)
                 utext = iulib.ustrg()
                 utext.assign(text) # FIXME should do UTF8 or u""
+                if utext.length()!=iulib.max(cseg):
+                    raise BadTranscript("mismatch transcript %d maxseg %d"%(utext.length(),iulib.max(cseg)))
                 if verbose:
                     print "#",utext.length(),iulib.max(cseg)
             # perform the segmentation

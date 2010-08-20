@@ -26,6 +26,7 @@ from ocropy import NI
 from ocropy import fstutils,linerec
 from matplotlib import patches
 import scipy
+import ocropus
 
 from matplotlib.backends.backend_gtk import FigureCanvasGTK as FigureCanvas
 from matplotlib.backends.backend_gtk import NavigationToolbar2GTK as NavigationToolbar
@@ -283,22 +284,29 @@ class LineWindow:
         for i in range(len(self.lines)):
             file = self.lines[i][6]
             print file
-            fst = ocropy.make_OcroFST()
             image = ocropy.bytearray()
             ocropy.read_image_gray(image,line_image(file))
+            fst = ocropy.make_OcroFST()
             self.linerec.recognizeLine(fst,image)
-            s = ocropy.ustrg()
+
+            lmodel = None
             if type(self.lmodel) is str:
                 gt = re.sub(r'\.[^/]*$',self.lmodel[1:],file)
-                print "loading",gt
-                gtfst = fstutils.load_text_file_as_fst(gt)
-                cost = ocropy.beam_search(s,fst,self.lmodel,options.beam)
-                self.lines[i][7] = cost
+                if os.path.exists(gt):
+                    print "loading",gt
+                    lmodel = fstutils.load_text_file_as_fst(gt)
+                print "done"
             elif self.lmodel is not None:
-                cost = ocropy.beam_search(s,fst,self.lmodel,options.beam)
+                lmodel = self.lmodel
+
+            s = ocropy.ustrg()
+            if lmodel is not None:
+                print "lmodel",lmodel
+                cost = ocropy.beam_search(s,fst,lmodel,options.beam)
                 self.lines[i][7] = cost
             else:
                 fst.bestpath(s)
+
             result = ocropy.ustrg_as_string(s)
             gt = self.lines[i][5]
             if gt!="" and gt is not None:
@@ -314,7 +322,7 @@ class LineWindow:
                 self.lines[i][8] = cost2
                 # language model cost
                 if self.lmodel is not None:
-                    cost3 = ocropy.beam_search(s,gt_fst,self.lmodel,options.beam)
+                    cost3 = ocropy.beam_search(s,gt_fst,lmodel,options.beam)
                     self.lines[i][9] = cost3
             print result
             self.lines[i][4] = result

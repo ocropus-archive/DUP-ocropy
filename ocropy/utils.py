@@ -199,7 +199,6 @@ def show_segmentation(rseg):
     temp = temp2
     print temp.shape,temp.dtype
     temp = temp/float(amax(temp))
-    imshow(temp,cmap=cm.spectral); draw()
-    raw_input()
+    imshow(temp,cmap=cm.spectral)
 
             

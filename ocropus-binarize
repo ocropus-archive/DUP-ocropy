@@ -41,6 +41,7 @@ parser.add_option("-W","--width",help="width parameter (40)",default=40,type=flo
 parser.add_option("-r","--dpi",help="resolution (DPI) (300)",default=300,type=float)
 parser.add_option("-q","--silent",action="store_true",help="disable warnings")
 parser.add_option("-P","--parallel",type=int,default=number_of_processors(),help="number of parallel processes to use")
+parser.add_option("-B","--binarizer",default="StandardPreprocessing")
 options,args = parser.parse_args()
 
 if len(args)<1:
@@ -51,12 +52,15 @@ if options.threshold>0:
     options.low = options.threshold
     options.high = options.threshold
 
-binarizer = ocropy.make_IBinarize("StandardPreprocessing")
-binarizer.pset("binarizer","BinarizeByHT")
-binarizer.reinit()
-binarizer.command("binarizer_pset","k0",str(options.low))
-binarizer.command("binarizer_pset","k1",str(options.high))
-binarizer.command("binarizer_pset","width",str(options.width))
+if options.binarizer=="StandardPreprocessing":
+    binarizer = ocropy.make_IBinarize("StandardPreprocessing")
+    binarizer.pset("binarizer","BinarizeByHT")
+    binarizer.reinit()
+    binarizer.command("binarizer_pset","k0",str(options.low))
+    binarizer.command("binarizer_pset","k1",str(options.high))
+    binarizer.command("binarizer_pset","width",str(options.width))
+else:
+    binarizer = ocropy.make_IBinarize(options.binarizer)
 
 if options.Display: options.display = 1
 if options.display: ion(); show()
