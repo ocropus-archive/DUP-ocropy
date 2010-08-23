@@ -10,6 +10,7 @@ import unicodedata
 import pickle
 import __init__ as ocropy
 import fstutils
+import utils
 
 def bestpath(lattice):
     s = ocropy.ustrg()
@@ -322,7 +323,7 @@ class LineRecognizer:
         mask = iulib.bytearray()
 
         # now iterate through the characters and collect candidates
-        candidates = []
+        inputs = []
         for i in range(self.grouper.length()):
             # get the bounding box for the character (used later)
             bbox = self.grouper.boundingBox(i)
@@ -340,13 +341,24 @@ class LineRecognizer:
                 draw()
                 print "hit RETURN to continue"
                 raw_input()
+            inputs.append(FI(char))
 
+        # classify the candidates (using multithreading, where available)
+        results = utils.omp_classify(self.cmodel,inputs)
+        
+        # now convert the classified outputs into a list of candidate records
+        candidates = []
+        for i in range(len(inputs)):
             # compute the classifier output for this character
             # print self.cmodel.info()
-            outputs = self.cmodel.coutputs(FI(char))
+            raw = inputs[i]
+            char = NI(raw)
+            bbox = self.grouper.boundingBox(i)
+            outputs = results[i]
             outputs = [(x[0],-log(x[1])) for x in outputs]
             candidates.append(Record(index=i,image=char,raw=raw,outputs=outputs,bbox=bbox))
 
+        # keep the characters around for debugging (used by ocropus-showlrecs)
         self.chars = candidates
 
         # update the per-character costs based on a text line model

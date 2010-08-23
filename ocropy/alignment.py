@@ -49,7 +49,9 @@ def recognize_and_align(image,linerec,lmodel,beam=1000,nocseg=0):
     ocropus.beam_search(v1,v2,ins,outs,costs,lattice,lmodel,beam)
 
     # do the conversions
-    result = intarray_as_string(outs)
+    print "OUTS",[outs[i] for i in range(outs.length())]
+    result = intarray_as_string(outs,skip0=0)
+    print "RSLT",result
 
     # compute the cseg
     if not nocseg:
@@ -76,7 +78,10 @@ def recognize_and_align(image,linerec,lmodel,beam=1000,nocseg=0):
                   lattice=lattice,
                   cost=iulib.sum(costs))
 
-def compute_alignment(lattice,rseg,lmodel,beam=10000):
+def as_intarray(a):
+    return array([a.at(i) for i in range(a.length())])
+
+def compute_alignment_old(lattice,rseg,lmodel,beam=10000):
     """Given a lattice produced by a recognizer, a raw segmentation,
     and a language model, computes the best solution, the cseg, and
     the corresponding costs.  These are returned as Python data structures.
@@ -109,6 +114,66 @@ def compute_alignment(lattice,rseg,lmodel,beam=10000):
     # return everything we computed
     return Record(output=result,
                   raw=outs,
+                  ins=as_intarray(ins),
+                  outs=as_intarray(outs),
+                  costs=costs,
+                  rseg=rseg,
+                  cseg=cseg,
+                  lattice=lattice,
+                  cost=costs.sum())
+
+
+def compute_alignment(lattice,rseg,lmodel,beam=10000):
+    """Given a lattice produced by a recognizer, a raw segmentation,
+    and a language model, computes the best solution, the cseg, and
+    the corresponding costs.  These are returned as Python data structures.
+    The recognition lattice needs to have rseg's segment numbers as inputs
+    (pairs of 16 bit numbers); SimpleGrouper produces such lattices."""
+
+    # perform the beam search through the lattice and the model
+    v1 = narray.intarray()
+    v2 = narray.intarray()
+    ins = narray.intarray()
+    outs = narray.intarray()
+    costs = narray.floatarray()
+    ocropus.beam_search(v1,v2,ins,outs,costs,lattice,lmodel,beam)
+
+    n = ins.length()
+    assert n==outs.length()
+
+    result = ""
+    segs = []
+    for i in range(n):
+        if outs.at(i)<=0: continue
+        start = ins.at(i)>>16
+        end = ins.at(i)&0xffff
+        result += chr(outs.at(i))
+        segs.append((start,end))
+
+    if len(segs)==0:
+        print "???",n,segs
+        cseg = None
+    else:
+        rmap = zeros(amax([s[1] for s in segs])+1,'i')
+        for i in range(len(segs)):
+            start,end = segs[i]
+            if end==0: continue
+            print i+1,start,end,"'%s'"%result[i]
+            rmap[start:end+1] = i+1
+
+        cseg = narray.intarray()
+        cseg.copy(rseg)
+        try:
+            for i in range(cseg.length()):
+                cseg.put1d(i,int(rmap[rseg.at1d(i)]))
+        except IndexError:
+            raise Exception("renumbering failed")
+
+    return Record(output=result,
+                  raw=outs,
+                  ins=as_intarray(ins),
+                  outs=as_intarray(outs),
+                  segs=segs,
                   costs=costs,
                   rseg=rseg,
                   cseg=cseg,

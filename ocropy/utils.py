@@ -126,8 +126,11 @@ def intarray_as_string(s,skip0=1):
         c = s.at(i)
         if c==ocropus.L_RHO:
             result += "~"
-        elif skip0 and c==0:
-            pass
+        elif c==0:
+            if skip0:
+                pass
+            else:
+                result += "_"
         elif c<0 or c>=256:
             result += "{%d}"%c
         else:

@@ -405,29 +405,28 @@ class LineWindow:
             result = l.output
             cseg = l.cseg
             costs = l.costs
-            colors = seg2pixbuf(cseg)
-            self.detail_pixbuf(colors,lscale)
-            self.detail("\n")
-            self.detail("\nper-character results\n")
-            grouper = ocropy.make_IGrouper("SimpleGrouper")
-            grouper.pset("maxrange",1)
-            grouper.pset("maxdist",1)
-            ocropy.make_line_segmentation_black(cseg)
-            ocropy.renumber_labels(cseg,1)
-            nospace = re.sub(r'\s+','',result)
-            grouper.setSegmentation(cseg)
-            for i in range(grouper.length()):
-                raw = ocropy.bytearray()
-                mask = ocropy.bytearray()
-                grouper.extractWithMask(raw,mask,image,i,1)
-                img = 1.0-NI(mask)/255.0
-                self.detail_pixbuf(numpy2pixbuf(img))
-                if i>=len(nospace):
-                    self.detail(" *error*   ")
-                else:
-                    self.detail(" [%s]   "%nospace[i])
-                if (i+1)%10==0: self.detail("\n")
-            self.detail("\n")
+            if cseg is None:
+                self.detail("(no cseg)\n")
+            else:
+                colors = seg2pixbuf(cseg)
+                self.detail_pixbuf(colors,lscale)
+                self.detail("\n")
+                self.detail("\nper-character results\n")
+                grouper = ocropy.make_IGrouper("SimpleGrouper")
+                grouper.pset("maxrange",1)
+                grouper.pset("maxdist",1)
+                ocropy.make_line_segmentation_black(cseg)
+                grouper.setSegmentation(cseg)
+                for i in range(grouper.length()):
+                    if result[i]==' ': continue
+                    raw = ocropy.bytearray()
+                    mask = ocropy.bytearray()
+                    grouper.extractWithMask(raw,mask,image,i,1)
+                    img = 1.0-NI(mask)/255.0
+                    self.detail_pixbuf(numpy2pixbuf(img))
+                    self.detail(" [%s]   "%result[i])
+                    if (i+1)%10==0: self.detail("\n")
+                self.detail("\n")
         else:
             self.detail("(load a language model for per-character alignments)")
         if hasattr(self.linerec,"chars"):
