@@ -7,6 +7,11 @@ from scipy import *
 from scipy.misc import imsave
 from pylab import *
 import pango,pangocairo
+from scipy.ndimage.filters import gaussian_filter
+from scipy.ndimage.morphology import distance_transform_edt,binary_erosion,binary_dilation
+from scipy.ndimage.interpolation import map_coordinates,zoom
+from scipy.stats.mstats import mquantiles
+
 
 facecache = {}
 
@@ -67,7 +72,7 @@ def pango_families():
         pcx = layout.get_context()
         return [f.get_name() for f in pcx.list_families()]
     
-def pango_render_string(s,spec=None,fontfile=None,size=None,bg=(0.0,0.0,0.0),fg=(0.9,0.9,0.9),pad=5,markup=1):
+def pango_render_string(s,spec=None,fontfile=None,size=None,bg=(0.0,0.0,0.0),fg=(0.9,0.9,0.9),pad=5,markup=1,scale=2.0,aspect=1.0):
     """Render a string using Cairo and the Pango text rendering interface.  Fonts can either be given
     as a fontfile or as a fontname.  Size should be in pixels (?).  You can specify a background and
     foreground color as RGB floating point triples. (Currently unimplemented.)"""
@@ -75,15 +80,15 @@ def pango_render_string(s,spec=None,fontfile=None,size=None,bg=(0.0,0.0,0.0),fg=
     face = None
     if fontfile is not None: raise Exception("can't load ttf file into Pango yet; use fontname")
     # make a guess at the size
-    w = max(100,int(size*len(s)))
-    h = max(100,int(size*1.5))
+    w = max(100,int(scale*size*len(s)))
+    h = max(100,int(scale*size*1.5))
     # possibly run through twice to make sure we get the right size buffer
     for round in range(2):
         surface = cairo.ImageSurface(cairo.FORMAT_ARGB32,w,h)
         cr = cairo.Context(surface)
         if spec is not None: fd = pango.FontDescription(spec)
         else: fd = pango.FontDescription()
-        if size is not None: fd.set_size(size*S)
+        if size is not None: fd.set_size(int(scale*size*S))
         pcr = pangocairo.CairoContext(cr)
         layout = pcr.create_layout()
         layout.set_font_description(fd)
@@ -112,27 +117,27 @@ def pango_render_string(s,spec=None,fontfile=None,size=None,bg=(0.0,0.0,0.0),fg=
     a.shape = (h,w,4)
     a = a[:th,:tw,:3]
     a = a[:,:,::-1]
+    a = zoom(a,(aspect/scale,1.0/scale/aspect,1.0))
     return a
 
-from scipy.ndimage.filters import gaussian_filter
-from scipy.ndimage.interpolation import map_coordinates
-from scipy.stats.mstats import mquantiles
-
-def gauss_degrade(image,change=0.05,sigma=0.0,sigma2=2.0,noise=0.02):
+def gauss_degrade(image,margin=1.0,change=None,noise=0.02,minmargin=0.5):
     if image.ndim==3: image = mean(image,axis=2)
-    lo,hi = amin(image),amax(image)
-    image = (image-lo)*1.0/(hi-lo)
-    pixels = sum(image<0.5)
-    startfrac = pixels*1.0/prod(image.shape)
-    smoothed = gaussian_filter(image,sigma)
-    smoothed += randn(*smoothed.shape)*noise
-    if sigma2>=0.0:
-        smoothed = gaussian_filter(smoothed,sigma2)
-    smoothed = (smoothed-amin(smoothed))/(amax(smoothed)-amin(smoothed))
-    threshold = mquantiles(smoothed,prob=[max(0.0,min(1.0,startfrac-change))])[0]
+    m = mean([amin(image),amax(image)])
+    image = 1*(image>m)
+    if margin<minmargin: return 1.0*image
+    pixels = sum(image)
+    if change is not None:
+        npixels = int((1.0+change)*pixels)
+    else:
+        edt = distance_transform_edt(image==0)
+        npixels = sum(edt<=(margin+1e-4))
+    r = int(max(1,2*margin+0.5))
+    mask = binary_dilation(image,iterations=r)-binary_erosion(image,iterations=r)
+    image += mask*randn(*image.shape)*noise*min(1.0,margin**2)
+    smoothed = gaussian_filter(1.0*image,margin)
+    frac = max(0.0,min(1.0,npixels*1.0/prod(image.shape)))
+    threshold = mquantiles(smoothed,prob=[1.0-frac])[0]
     result = (smoothed>threshold)
-    endfrac = sum(result<0.5)*1.0/prod(image.shape)
-    # print "fracs",startfrac,endfrac
     return 1.0*result
 
 def gauss_distort(images,maxdelta=2.0,sigma=10.0):
@@ -147,20 +152,19 @@ def gauss_distort(images,maxdelta=2.0,sigma=10.0):
     return [map_coordinates(image,deltas,order=1) for image in images]
 
 if __name__=="__main__":
-    print sorted(pango_families())
+    # print sorted(pango_families())
     ion()
     show()
     while 1:
-        s = 'ffi ff <span foreground="blue">f</span><span foreground="red">f</span> oo so st rn'
+        s = 'hello, world: ffi'
         image = pango_render_string(s,spec="Arial Black italic",size=48,pad=20)
-        #image = cairo_render_string("hello",fontname="Georgia",size=48,pad=20)
         image = average(image,axis=2)
-        subplot(211); imshow(image)
-        noise = gauss_distort([gauss_degrade(image,change=0.1,sigma2=2,noise=0.2)],maxdelta=4)[0]
-        print amin(noise),amax(noise)
-        gray()
-        subplot(212); imshow(noise)
-        draw()
+        for i in range(5):
+            noise = gauss_degrade(image,margin=i*0.5,noise=2.0)
+            print amin(noise),amax(noise)
+            gray()
+            subplot(5,1,i+1); imshow(noise)
+            draw()
         raw_input()
 
 if __name__=="x__main__":

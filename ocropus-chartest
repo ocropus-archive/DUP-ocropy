@@ -7,13 +7,13 @@ from ocropy import utils
 from pylab import *
 from ocropy.fgen import *
 
-file = "fonts6.cmodel"
+file = "chargen-test.cmodel"
 cmodel = ocropy.load_IModel(file)
 
 spec="Arial Black italic"
 testset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 n = len(testset)
-sizes = [24,28,30,32,34,36,40,48]
+sizes = [24,28,30,32,34]
 
 families = ['Andale Mono', 'Arial', 'Arial Black', 'Bitstream Charter', 'Century Schoolbook L', 'Comic Sans MS', 'Courier 10 Pitch', 'Courier New', 'DejaVu Sans', 'DejaVu Sans Mono', 'DejaVu Serif', 'FreeMono', 'FreeSans', 'FreeSerif', 'Purisa', 'TeXGyreAdventor', 'TeXGyreBonum', 'TeXGyreChorus', 'TeXGyreCursor', 'TeXGyreHeros', 'TeXGyreHerosCondensed', 'TeXGyrePagella', 'TeXGyreSchola', 'TeXGyreTermes', 'Times New Roman', 'Tlwg Typist', 'Tlwg Typo', 'TlwgMono', 'TlwgTypewriter', 'Trebuchet MS', 'URW Bookman L', 'URW Chancery L', 'URW Gothic L', 'URW Palladio L', 'UnDotum', 'VL Gothic', 'VL PGothic', 'Vemana2000', 'Verdana', 'cmmi10', 'cmr10']
 styles = [ '', ' italic', ' bold' ]
@@ -27,18 +27,22 @@ degrade=[
     (0.05,1.0,0.1,2.0),
     ]
 
+families = ['Andale Mono','Arial']
+degrade = [(0.0,0.0,0.0,0.0)]
+
+confusion = {}
 
 display = 0
 if display: ion(); show(); gray()
 for family in families:
     for style in styles:
-        errs = 0
-        total = 0
         for size in sizes:
             spec = family+style
             inputs = []
             for d in degrade:
                 change,sigma2,noise,maxdelta = d
+                errs = 0
+                total = 0
                 for i in range(n):
                     c = testset[i]
                     image = pango_render_string(c,spec=spec,size=size,pad=10)
@@ -57,5 +61,14 @@ for family in families:
                     best = outputs[0]
                     if testset[i]!=best[0]: errs += 1
                     total += 1
-        print "%5.2f %s (%d)"%(errs*100.0/total,spec,total)
-        sys.stdout.flush()
+                    p = (testset[i],best[0])
+                    if p in confusion: confusion[p] += 1
+                    else: confusion[p] = 1
+                print "%5.2f %s (%d)"%(errs*100.0/total,spec,total)
+                sys.stdout.flush()
+
+
+result = [(confusion[p],p[0],p[1]) for p in confusion if p[0]!=p[1]]
+result.sort()
+for p in result:
+    print "\t".join([str(x) for x in p])

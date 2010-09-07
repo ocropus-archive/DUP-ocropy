@@ -16,10 +16,32 @@ parser.add_option("-o","--output",help="output file",default="chars.db")
 parser.add_option("-D","--display",help="display chars",action="store_true")
 parser.add_option("-v","--verbose",help="verbose output",action="store_true")
 parser.add_option("-c","--classes",help="list of classes (one per line)",default=None)
-parser.add_option("-s","--sizes",help="list of sizes (Python expression)",default="range(18,38,2)")
+parser.add_option("-s","--sizes",help="list of sizes (Python expression)",default="range(20,36,2)")
 parser.add_option("-f","--specs",help="list of font specs",default=None)
-parser.add_option("-d","--degradations",help="list of degradation parameters",default=None)
+parser.add_option("-n","--nvariants",help="number of variants",default=4,type=int)
 (options,args) = parser.parse_args()
+
+class unif:
+    def __init__(self,lo,hi):
+        self.lo = lo
+        self.hi = hi
+    def __call__(self):
+        return rand()*(self.hi-self.lo)+self.lo
+class bn:
+    def __init__(self,m,s):
+        self.m = m
+        self.s = s
+    def __call__(self):
+        while 1:
+            x = randn()
+            if x>-2 and x<2: break
+        return x*self.s+self.m
+
+scale = unif(1.0,4.0)
+aspect = unif(0.8,1.2)
+margin = unif(0.0,2.0)
+noise = unif(0.0,0.2)
+maxdelta = unif(0.0,1.0)
 
 if options.classes is not None:
     testset = []
@@ -40,37 +62,13 @@ if options.specs is not None:
             line = line[:-1]
             specs.append(line)
 else:
-    families = ['Andale Mono', 'Arial', 'Arial Black', 'Bitstream Charter', 'Century Schoolbook L', 'Comic Sans MS',
-        'Courier 10 Pitch', 'Courier New', 'DejaVu Sans', 'DejaVu Sans Mono', 'DejaVu Serif', 'FreeMono', 'FreeSans', 
-        'FreeSerif', 'Purisa', 'TeXGyreAdventor', 'TeXGyreBonum', 'TeXGyreChorus', 'TeXGyreCursor', 'TeXGyreHeros', 
-        'TeXGyreHerosCondensed', 'TeXGyrePagella', 'TeXGyreSchola', 'TeXGyreTermes', 'Times New Roman', 'Tlwg Typist', 
-        'Tlwg Typo', 'TlwgMono', 'TlwgTypewriter', 'Trebuchet MS', 'URW Bookman L', 'URW Chancery L', 'URW Gothic L', 
-        'URW Palladio L', 'UnDotum', 'VL Gothic', 'VL PGothic', 'Vemana2000', 'Verdana', 'cmmi10', 'cmr10']
+    families = ['DejaVu Sans', 'DejaVu Sans Mono', 'DejaVu Serif', 'FreeMono', 'FreeSans', 'FreeSerif', 'cmr10']
     styles = [ '', ' italic', ' bold' ]
+    specs = []
     for family in families:
         for style in styles:
             specs.append(family+style)
-
-if options.degradations is not None:
-    degrade = []
-    with open(options.degradations,"r") as stream:
-        for line in stream.readlines():
-            line = line[:-1]
-            params = [float(s) for s in line.split()]
-            degrade.append(line)
-else:
-    degrade=[
-        # change, sigma2, noise, maxdelta
-        (0.0,0.0,0.0,0.0), 
-        (0.05,1.0,0.1,0.0),
-        (0.08,1.5,0.1,0.0),
-        (0.0,0.0,0.0,1.0), 
-        (0.05,1.0,0.1,1.0),
-        (0.08,1.5,0.1,1.0),
-        (0.0,0.0,0.0,2.0), 
-        (0.05,1.0,0.1,2.0),
-        (0.08,1.5,0.1,2.0),
-        ]
+    print specs
 
 if os.path.exists(options.output):
     print options.output,"exists; please remove"
@@ -83,20 +81,18 @@ table.create(image="blob",cls="text",file="text",segid="integer",bbox="text",cou
 if options.display: ion(); show(); gray()
 for spec in specs:
     total = 0
-    spec = family+style
-    print spec
+    print "loading",spec
     for size in sizes:
         inputs = []
-        for d in degrade:
-            change,sigma2,noise,maxdelta = d
+        for d in range(options.nvariants):
             for i in range(n):
                 c = testset[i]
-                image = pango_render_string(c,spec=spec,size=size,pad=10,markup=0)
+                image = pango_render_string(c,spec=spec,size=size,pad=10,markup=0,scale=scale(),aspect=aspect())
                 image = average(image,axis=2)
                 image = array(image,'f')
                 image /= amax(image)
-                if sigma2>0: image = gauss_degrade(image,change=change,sigma2=sigma2,noise=noise)
-                if maxdelta>0: image = gauss_distort([image],maxdelta=maxdelta)[0]
+                image = gauss_degrade(image,margin=margin(),noise=noise())
+                image = gauss_distort([image],maxdelta=maxdelta())[0]
                 raw = array(image*255,'B')
                 table.set(image=raw,cls=c,count=1)
                 total += 1
