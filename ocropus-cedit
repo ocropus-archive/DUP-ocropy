@@ -143,8 +143,6 @@ def compute_combolist():
         which = charlist.index(select)
         class_selector.set_active(which)
 
-max_store = 2000
-
 def set_store(target_cls,sortfun=None):
     """Set the store for the target class."""
     global grid
@@ -160,7 +158,7 @@ def set_store(target_cls,sortfun=None):
         row = [pixbuf,cluster.cls,cluster]
         grid.append(row)
         rownum += 1
-        if rownum>max_store: break
+        if rownum>options.batchsize: break
     cluster_viewer.set_model(grid)
     move_to(0)
 

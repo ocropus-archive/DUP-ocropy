@@ -157,8 +157,8 @@ def compute_alignment(lattice,rseg,lmodel,beam=10000):
         rmap = zeros(amax([s[1] for s in segs])+1,'i')
         for i in range(len(segs)):
             start,end = segs[i]
+            print i+1,start,end,"'%s'"%result[i],costs.at(i)
             if end==0: continue
-            print i+1,start,end,"'%s'"%result[i]
             rmap[start:end+1] = i+1
 
         cseg = narray.intarray()

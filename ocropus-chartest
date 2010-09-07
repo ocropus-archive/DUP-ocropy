@@ -1,0 +1,61 @@
+#!/usr/bin/python
+
+import sys,os,re,glob,math,glob,signal,cPickle
+import iulib,ocropus
+import ocropy
+from ocropy import utils
+from pylab import *
+from ocropy.fgen import *
+
+file = "fonts6.cmodel"
+cmodel = ocropy.load_IModel(file)
+
+spec="Arial Black italic"
+testset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+n = len(testset)
+sizes = [24,28,30,32,34,36,40,48]
+
+families = ['Andale Mono', 'Arial', 'Arial Black', 'Bitstream Charter', 'Century Schoolbook L', 'Comic Sans MS', 'Courier 10 Pitch', 'Courier New', 'DejaVu Sans', 'DejaVu Sans Mono', 'DejaVu Serif', 'FreeMono', 'FreeSans', 'FreeSerif', 'Purisa', 'TeXGyreAdventor', 'TeXGyreBonum', 'TeXGyreChorus', 'TeXGyreCursor', 'TeXGyreHeros', 'TeXGyreHerosCondensed', 'TeXGyrePagella', 'TeXGyreSchola', 'TeXGyreTermes', 'Times New Roman', 'Tlwg Typist', 'Tlwg Typo', 'TlwgMono', 'TlwgTypewriter', 'Trebuchet MS', 'URW Bookman L', 'URW Chancery L', 'URW Gothic L', 'URW Palladio L', 'UnDotum', 'VL Gothic', 'VL PGothic', 'Vemana2000', 'Verdana', 'cmmi10', 'cmr10']
+styles = [ '', ' italic', ' bold' ]
+# change, sigma2, noise, maxdelta
+degrade=[
+    (0.0,0.0,0.0,0.0), 
+    (0.05,1.0,0.1,0.0),
+    (0.0,0.0,0.0,1.0), 
+    (0.05,1.0,0.1,1.0),
+    (0.0,0.0,0.0,2.0), 
+    (0.05,1.0,0.1,2.0),
+    ]
+
+
+display = 0
+if display: ion(); show(); gray()
+for family in families:
+    for style in styles:
+        errs = 0
+        total = 0
+        for size in sizes:
+            spec = family+style
+            inputs = []
+            for d in degrade:
+                change,sigma2,noise,maxdelta = d
+                for i in range(n):
+                    c = testset[i]
+                    image = pango_render_string(c,spec=spec,size=size,pad=10)
+                    image = average(image,axis=2)
+                    image = array(image,'f')
+                    image /= amax(image)
+                    if sigma2>0: image = gauss_degrade(image,change=change,sigma2=sigma2,noise=noise)
+                    if maxdelta>0: image = gauss_distort([image],maxdelta=maxdelta)[0]
+                    if display: clf(); imshow(image); draw()
+                    inputs.append(ocropy.FI(array(image,'f')))
+                results = utils.omp_classify(cmodel,inputs)
+                for i in range(n):
+                    outputs = results[i]
+                    outputs = [(x[0],-log(x[1])) for x in outputs]
+                    outputs.sort(key=lambda x:x[1])
+                    best = outputs[0]
+                    if testset[i]!=best[0]: errs += 1
+                    total += 1
+        print "%5.2f %s (%d)"%(errs*100.0/total,spec,total)
+        sys.stdout.flush()

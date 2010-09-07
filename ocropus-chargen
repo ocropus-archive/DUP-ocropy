@@ -1,0 +1,104 @@
+#!/usr/bin/python
+
+import sys,os,re,glob,math,glob,signal,cPickle
+import iulib,ocropus
+import ocropy
+from ocropy import utils
+from pylab import *
+from ocropy.fgen import *
+from optparse import OptionParser
+from ocropy import dbtables
+
+parser = OptionParser("""
+usage: %prog [options] ...
+""")
+parser.add_option("-o","--output",help="output file",default="chars.db")
+parser.add_option("-D","--display",help="display chars",action="store_true")
+parser.add_option("-v","--verbose",help="verbose output",action="store_true")
+parser.add_option("-c","--classes",help="list of classes (one per line)",default=None)
+parser.add_option("-s","--sizes",help="list of sizes (Python expression)",default="range(18,38,2)")
+parser.add_option("-f","--specs",help="list of font specs",default=None)
+parser.add_option("-d","--degradations",help="list of degradation parameters",default=None)
+(options,args) = parser.parse_args()
+
+if options.classes is not None:
+    testset = []
+    with open(options.classes,"r") as stream:
+        for line in stream.readlines():
+            line = line[:-1]
+            testset.append(line)
+else:
+    testset = sorted(list(set([chr(c) for c in range(33,127)])-set(["~","_","#"])))
+n = len(testset)
+
+sizes = eval(options.sizes)
+
+if options.specs is not None:
+    specs = []
+    with open(options.specs,"r") as stream:
+        for line in stream.readlines():
+            line = line[:-1]
+            specs.append(line)
+else:
+    families = ['Andale Mono', 'Arial', 'Arial Black', 'Bitstream Charter', 'Century Schoolbook L', 'Comic Sans MS',
+        'Courier 10 Pitch', 'Courier New', 'DejaVu Sans', 'DejaVu Sans Mono', 'DejaVu Serif', 'FreeMono', 'FreeSans', 
+        'FreeSerif', 'Purisa', 'TeXGyreAdventor', 'TeXGyreBonum', 'TeXGyreChorus', 'TeXGyreCursor', 'TeXGyreHeros', 
+        'TeXGyreHerosCondensed', 'TeXGyrePagella', 'TeXGyreSchola', 'TeXGyreTermes', 'Times New Roman', 'Tlwg Typist', 
+        'Tlwg Typo', 'TlwgMono', 'TlwgTypewriter', 'Trebuchet MS', 'URW Bookman L', 'URW Chancery L', 'URW Gothic L', 
+        'URW Palladio L', 'UnDotum', 'VL Gothic', 'VL PGothic', 'Vemana2000', 'Verdana', 'cmmi10', 'cmr10']
+    styles = [ '', ' italic', ' bold' ]
+    for family in families:
+        for style in styles:
+            specs.append(family+style)
+
+if options.degradations is not None:
+    degrade = []
+    with open(options.degradations,"r") as stream:
+        for line in stream.readlines():
+            line = line[:-1]
+            params = [float(s) for s in line.split()]
+            degrade.append(line)
+else:
+    degrade=[
+        # change, sigma2, noise, maxdelta
+        (0.0,0.0,0.0,0.0), 
+        (0.05,1.0,0.1,0.0),
+        (0.08,1.5,0.1,0.0),
+        (0.0,0.0,0.0,1.0), 
+        (0.05,1.0,0.1,1.0),
+        (0.08,1.5,0.1,1.0),
+        (0.0,0.0,0.0,2.0), 
+        (0.05,1.0,0.1,2.0),
+        (0.08,1.5,0.1,2.0),
+        ]
+
+if os.path.exists(options.output):
+    print options.output,"exists; please remove"
+    sys.exit(1)
+
+table = dbtables.Table(options.output,"chars")
+table.converter("image",dbtables.SmallImage())
+table.create(image="blob",cls="text",file="text",segid="integer",bbox="text",count="integer",classes="text")
+
+if options.display: ion(); show(); gray()
+for spec in specs:
+    total = 0
+    spec = family+style
+    print spec
+    for size in sizes:
+        inputs = []
+        for d in degrade:
+            change,sigma2,noise,maxdelta = d
+            for i in range(n):
+                c = testset[i]
+                image = pango_render_string(c,spec=spec,size=size,pad=10,markup=0)
+                image = average(image,axis=2)
+                image = array(image,'f')
+                image /= amax(image)
+                if sigma2>0: image = gauss_degrade(image,change=change,sigma2=sigma2,noise=noise)
+                if maxdelta>0: image = gauss_distort([image],maxdelta=maxdelta)[0]
+                raw = array(image*255,'B')
+                table.set(image=raw,cls=c,count=1)
+                total += 1
+                if total%1000==0: table.commit()
+    sys.stdout.flush()

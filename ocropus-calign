@@ -123,7 +123,7 @@ default_lmodel = None
 def read_lmodel(file):
     if file[-4:]==".fst":
         result = ocropy.make_OcroFST()
-        result.load(imagefile)
+        result.load(file)
         return result
     else:
         result = fstutils.load_text_file_as_fst(file)
@@ -217,15 +217,19 @@ def align1(t):
             if not options.overwrite:
                 if os.path.exists(rseg_file): die(rseg_file,"already exists")
                 if os.path.exists(cseg_file): die(cseg_file,"already exists")
+                # don't bother checking for costs file
 
             # output the aligned segmentations
             ocropy.write_line_segmentation(rseg_file,rseg)
             ocropy.write_line_segmentation(cseg_file,cseg)
+            with open(prefix+".cseg"+suffix+".costs","w") as stream:
+                for i in range(len(costs)):
+                    stream.write("%d %g\n"%(i,costs[i]))
             if options.gtextension is None:
-                ocropy.write_text(prefix+".gt.txt",result)
+                ocropy.write_text(prefix+suffix+".txt",result)
             goodlines += 1
         except Exception,e:
-            log(str(e))
+            log(traceback.format_exc())
     log("[",goodlines,nlines,goodlines*100.0/nlines,"]")
     if options.wait:
         raw_input()
