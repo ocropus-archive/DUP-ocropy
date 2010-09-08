@@ -450,7 +450,9 @@ def on_iconview1_motion_notify_event(widget,event):
     return 0
 
 def on_iconview1_button_press_event(widget,event):
-    if event.button==1: return 0
+    if event.button==1: 
+        update_info()
+        return 0
     if event.button==2:
         item = widget.get_item_at_pos(event.x,event.y)
         if item is not None: 

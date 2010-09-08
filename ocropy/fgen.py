@@ -120,7 +120,7 @@ def pango_render_string(s,spec=None,fontfile=None,size=None,bg=(0.0,0.0,0.0),fg=
     a = zoom(a,(aspect/scale,1.0/scale/aspect,1.0))
     return a
 
-def gauss_degrade(image,margin=1.0,change=None,noise=0.02,minmargin=0.5):
+def gauss_degrade(image,margin=1.0,change=None,noise=0.02,minmargin=0.5,inner=1.0):
     if image.ndim==3: image = mean(image,axis=2)
     m = mean([amin(image),amax(image)])
     image = 1*(image>m)
@@ -132,7 +132,9 @@ def gauss_degrade(image,margin=1.0,change=None,noise=0.02,minmargin=0.5):
         edt = distance_transform_edt(image==0)
         npixels = sum(edt<=(margin+1e-4))
     r = int(max(1,2*margin+0.5))
-    mask = binary_dilation(image,iterations=r)-binary_erosion(image,iterations=r)
+    ri = int(margin+0.5-inner)
+    if ri<=0: mask = binary_dilation(image,iterations=r)-image
+    else: mask = binary_dilation(image,iterations=r)-binary_erosion(image,iterations=ri)
     image += mask*randn(*image.shape)*noise*min(1.0,margin**2)
     smoothed = gaussian_filter(1.0*image,margin)
     frac = max(0.0,min(1.0,npixels*1.0/prod(image.shape)))
@@ -156,15 +158,15 @@ if __name__=="__main__":
     ion()
     show()
     while 1:
-        s = 'hello, world: ffi'
-        image = pango_render_string(s,spec="Arial Black italic",size=48,pad=20)
+        image = pango_render_string("A",spec="Arial",size=24,pad=20,scale=4.0)
         image = average(image,axis=2)
-        for i in range(5):
-            noise = gauss_degrade(image,margin=i*0.5,noise=2.0)
-            print amin(noise),amax(noise)
-            gray()
-            subplot(5,1,i+1); imshow(noise)
-            draw()
+        for i in range(7):
+            for j in range(7):
+                noise = gauss_degrade(image,margin=(i-2)*0.5,noise=j*0.2)
+                noise = gauss_distort([noise],maxdelta=1.0)[0]
+                gray()
+                subplot(7,7,7*i+j+1); imshow(noise)
+                draw()
         raw_input()
 
 if __name__=="x__main__":

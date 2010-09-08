@@ -9,19 +9,6 @@ from ocropy.fgen import *
 from optparse import OptionParser
 from ocropy import dbtables
 
-parser = OptionParser("""
-usage: %prog [options] ...
-""")
-parser.add_option("-o","--output",help="output file",default="chars.db")
-parser.add_option("-D","--display",help="display chars",action="store_true")
-parser.add_option("-v","--verbose",help="verbose output",action="store_true")
-parser.add_option("-c","--classes",help="list of classes (one per line)",default=None)
-parser.add_option("-s","--sizes",help="list of sizes (Python expression)",default="range(20,36,2)")
-parser.add_option("-f","--specs",help="list of font specs",default=None)
-parser.add_option("-n","--nvariants",help="number of variants",default=4,type=int)
-parser.add_option("-Q","--parallel",help="number of parallel processes",default=4,type=int)
-(options,args) = parser.parse_args()
-
 class unif:
     def __init__(self,lo,hi):
         self.lo = lo
@@ -37,12 +24,36 @@ class bn:
             x = randn()
             if x>-2 and x<2: break
         return x*self.s+self.m
+class c:
+    def __init__(self,c):
+        self.c = c
+    def __call__(self):
+        return self.c
 
 scale = unif(1.0,4.0)
-aspect = unif(0.8,1.2)
+aspect = unif(0.9,1.1)
 margin = unif(0.0,2.0)
-noise = unif(0.0,0.2)
-maxdelta = unif(0.0,1.0)
+noise = unif(0.0,0.1)
+maxdelta = unif(0.0,2.0)
+inner = c(1.0)
+
+parser = OptionParser("""
+usage: %prog [options] ...
+""")
+parser.add_option("-o","--output",help="output file",default="chars.db")
+parser.add_option("-D","--display",help="display chars",action="store_true")
+parser.add_option("-R","--record",help="record parameter info in database",action="store_true")
+parser.add_option("-v","--verbose",help="verbose output",action="store_true")
+parser.add_option("-c","--classes",help="list of classes (one per line)",default=None)
+parser.add_option("-s","--sizes",help="list of sizes (Python expression)",default="range(26,36)")
+parser.add_option("-f","--specs",help="list of font specs",default=None)
+parser.add_option("-n","--nvariants",help="number of variants",default=4,type=int)
+parser.add_option("-Q","--parallel",help="number of parallel processes",default=4,type=int)
+parser.add_option("-e","--eval",help="evaluate expressions (for additional options)",default="None")
+parser.add_option("-i","--inner",help="inner offset for degradation (<1: some broken chars)",default=1,type=float)
+(options,args) = parser.parse_args()
+
+exec options.eval
 
 if options.classes is not None:
     testset = []
@@ -98,14 +109,24 @@ def process_arg(arg):
     for d in range(options.nvariants):
         for i in range(n):
             c = testset[i]
-            image = pango_render_string(c,spec=spec,size=size,pad=10,markup=0,scale=scale(),aspect=aspect())
+            scl = scale()
+            asp = aspect()
+            image = pango_render_string(c,spec=spec,size=size,pad=10,markup=0,scale=scl,aspect=asp)
             image = average(image,axis=2)
             image = array(image,'f')
             image /= amax(image)
-            image = gauss_degrade(image,margin=margin(),noise=noise())
-            image = gauss_distort([image],maxdelta=maxdelta())[0]
+            mrg = margin()
+            nse = noise()
+            inn = inner()
+            image = gauss_degrade(image,margin=mrg,noise=nse,inner=inn)
+            mdl = maxdelta()
+            image = gauss_distort([image],maxdelta=mdl)[0]
             raw = array(image*255,'B')
-            table.set(image=raw,cls=c,count=1)
+            if options.record:
+                css = "s%ds%.2fa%.2fm%.2fn%.2fm%.2fi%.2f"%(size,scl,asp,mrg,nse,mdl,inn)
+                table.set(image=raw,cls=c,count=1,classes=css)
+            else:
+                table.set(image=raw,cls=c,count=1)
             total += 1
             if total%1000==0: table.commit()
     table.commit()
