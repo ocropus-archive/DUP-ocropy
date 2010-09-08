@@ -83,6 +83,10 @@ else:
             specs.append(family+style)
     print specs
 
+# quick run-through to make sure all the fonts exist
+for spec in specs:
+    pango_render_string("hello",spec=spec,size=30,pad=10,markup=0)
+
 if os.path.exists(options.output):
     print options.output,"exists; please remove"
     sys.exit(1)

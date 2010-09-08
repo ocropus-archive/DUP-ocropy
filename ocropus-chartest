@@ -6,16 +6,29 @@ import ocropy
 from ocropy import utils
 from pylab import *
 from ocropy.fgen import *
+from optparse import OptionParser
 
-file = "chargen-test.cmodel"
-cmodel = ocropy.load_IModel(file)
+parser = OptionParser("""
+usage: %prog [options] ...
+""")
+(options,args) = parser.parse_args()
+cmodel = ocropy.load_IModel(args[0])
 
 spec="Arial Black italic"
 testset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 n = len(testset)
 sizes = [24,28,30,32,34]
 
-families = ['Andale Mono', 'Arial', 'Arial Black', 'Bitstream Charter', 'Century Schoolbook L', 'Comic Sans MS', 'Courier 10 Pitch', 'Courier New', 'DejaVu Sans', 'DejaVu Sans Mono', 'DejaVu Serif', 'FreeMono', 'FreeSans', 'FreeSerif', 'Purisa', 'TeXGyreAdventor', 'TeXGyreBonum', 'TeXGyreChorus', 'TeXGyreCursor', 'TeXGyreHeros', 'TeXGyreHerosCondensed', 'TeXGyrePagella', 'TeXGyreSchola', 'TeXGyreTermes', 'Times New Roman', 'Tlwg Typist', 'Tlwg Typo', 'TlwgMono', 'TlwgTypewriter', 'Trebuchet MS', 'URW Bookman L', 'URW Chancery L', 'URW Gothic L', 'URW Palladio L', 'UnDotum', 'VL Gothic', 'VL PGothic', 'Vemana2000', 'Verdana', 'cmmi10', 'cmr10']
+families = ['Andale Mono', 'Arial', 'Arial Black', 'Bitstream Charter', 
+    'Century Schoolbook L', 'Comic Sans MS', 'Courier 10 Pitch', 'Courier New',
+    'DejaVu Sans', 'DejaVu Sans Mono', 'DejaVu Serif', 'FreeMono', 
+    'FreeSans', 'FreeSerif', 'Purisa', 'TeXGyreAdventor', 'TeXGyreBonum', 
+    'TeXGyreChorus', 'TeXGyreCursor', 'TeXGyreHeros', 'TeXGyreHerosCondensed', 
+    'TeXGyrePagella', 'TeXGyreSchola', 'TeXGyreTermes', 'Times New Roman', 
+    'Tlwg Typist', 'Tlwg Typo', 'TlwgMono', 'TlwgTypewriter', 'Trebuchet MS', 
+    'URW Bookman L', 'URW Chancery L', 'URW Gothic L', 'URW Palladio L', 
+    'UnDotum', 'VL Gothic', 'VL PGothic', 'Vemana2000', 'Verdana', 
+    'cmmi10', 'cmr10']
 styles = [ '', ' italic', ' bold' ]
 # change, sigma2, noise, maxdelta
 degrade=[
