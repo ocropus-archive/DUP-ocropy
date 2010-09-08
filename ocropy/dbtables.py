@@ -68,11 +68,13 @@ class Database:
         self.factory = factory
         cur = self.con.cursor()
         cur.execute("pragma synchronous=off")
+        cur.close(); del cur
     def query(self,cmd,values=[],commit=0):
         cur = self.con.cursor()
         for row in cur.execute(cmd,values):
             yield row
         self.con.commit()
+        cur.close(); del cur
 
 class Table:
     def __init__(self,con,tname,factory=Row):
@@ -89,6 +91,7 @@ class Table:
         self.verbose = 0
         cur = self.con.cursor()
         cur.execute("pragma synchronous=off")
+        cur.close(); del cur
     def converter(self,cname,conv):
         self.converters[cname] = conv
     def create(self,ignore=1,**kw):
@@ -122,18 +125,24 @@ class Table:
             values += [v]
         cur.execute(cmd,values)
         if commit: self.con.commit()
+        cur.close(); del cur
     def commit(self):
         self.con.commit()
+    def close(self):
+        self.con.close(); del self.con
+        self.con = None
     def get_keys(self,which):
         cur = self.con.cursor()
         cmd = "select distinct(%s) from "%which+self.tname
         for row in cur.execute(cmd):
             yield row[0]
+        cur.close(); del cur
     def query(self,cmd,values=[],commit=0):
         cur = self.con.cursor()
         for row in cur.execute(cmd,values):
             yield row
         self.con.commit()
+        cur.close(); del cur
     def get_hash(self,kw,random_=0,limit_=None):
         cur = self.con.cursor()
         cmd = "select * from "+self.tname+" where id>=0"
@@ -157,6 +166,7 @@ class Table:
                     v = conv.unpickle(v)
                 setattr(result,k,v)
             yield result
+        cur.close(); del cur
     def put_hash(self,item,commit=1):
         assert len(item.keys())>0
         cur = self.con.cursor()
@@ -179,7 +189,9 @@ class Table:
         if self.verbose: print "#",cmd,values
         cur.execute(cmd,values)
         self.con.commit()
-        return cur.lastrowid
+        result = cur.lastrowid
+        cur.close(); del cur
+        return result
     def delete(self,**kw):
         self.del_hash(kw)
     def get(self,**kw):

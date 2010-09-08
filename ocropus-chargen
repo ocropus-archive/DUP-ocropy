@@ -19,6 +19,7 @@ parser.add_option("-c","--classes",help="list of classes (one per line)",default
 parser.add_option("-s","--sizes",help="list of sizes (Python expression)",default="range(20,36,2)")
 parser.add_option("-f","--specs",help="list of font specs",default=None)
 parser.add_option("-n","--nvariants",help="number of variants",default=4,type=int)
+parser.add_option("-Q","--parallel",help="number of parallel processes",default=4,type=int)
 (options,args) = parser.parse_args()
 
 class unif:
@@ -77,24 +78,41 @@ if os.path.exists(options.output):
 table = dbtables.Table(options.output,"chars")
 table.converter("image",dbtables.SmallImage())
 table.create(image="blob",cls="text",file="text",segid="integer",bbox="text",count="integer",classes="text")
+table.commit()
+del table
+table = None
 
 if options.display: ion(); show(); gray()
+jobs = []
 for spec in specs:
-    total = 0
-    print "loading",spec
     for size in sizes:
         inputs = []
-        for d in range(options.nvariants):
-            for i in range(n):
-                c = testset[i]
-                image = pango_render_string(c,spec=spec,size=size,pad=10,markup=0,scale=scale(),aspect=aspect())
-                image = average(image,axis=2)
-                image = array(image,'f')
-                image /= amax(image)
-                image = gauss_degrade(image,margin=margin(),noise=noise())
-                image = gauss_distort([image],maxdelta=maxdelta())[0]
-                raw = array(image*255,'B')
-                table.set(image=raw,cls=c,count=1)
-                total += 1
-                if total%1000==0: table.commit()
+        jobs.append((spec,size))
+
+def process_arg(arg):
+    table = dbtables.Table(options.output,"chars")
+    table.converter("image",dbtables.SmallImage())
+    spec,size = arg
+    print "loading",spec,size
+    total = 0
+    for d in range(options.nvariants):
+        for i in range(n):
+            c = testset[i]
+            image = pango_render_string(c,spec=spec,size=size,pad=10,markup=0,scale=scale(),aspect=aspect())
+            image = average(image,axis=2)
+            image = array(image,'f')
+            image /= amax(image)
+            image = gauss_degrade(image,margin=margin(),noise=noise())
+            image = gauss_distort([image],maxdelta=maxdelta())[0]
+            raw = array(image*255,'B')
+            table.set(image=raw,cls=c,count=1)
+            total += 1
+            if total%1000==0: table.commit()
+    table.commit()
     sys.stdout.flush()
+    return None
+
+from multiprocessing import Pool
+
+pool = Pool(processes=options.parallel)
+result = pool.map(process_arg,jobs)
