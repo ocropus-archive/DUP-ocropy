@@ -35,6 +35,7 @@ aspect = unif(0.9,1.1)
 margin = unif(0.0,2.0)
 noise = unif(0.0,0.1)
 maxdelta = unif(0.0,2.0)
+rotation = unif(-4.0,4.0) # in degrees
 inner = c(1.0)
 
 parser = OptionParser("""
@@ -111,7 +112,8 @@ def process_arg(arg):
             c = testset[i]
             scl = scale()
             asp = aspect()
-            image = pango_render_string(c,spec=spec,size=size,pad=10,markup=0,scale=scl,aspect=asp)
+            rot = rotation()
+            image = pango_render_string(c,spec=spec,size=size,pad=10,markup=0,scale=scl,aspect=asp,rotation=rot)
             image = average(image,axis=2)
             image = array(image,'f')
             image /= amax(image)
@@ -123,7 +125,7 @@ def process_arg(arg):
             image = gauss_distort([image],maxdelta=mdl)[0]
             raw = array(image*255,'B')
             if options.record:
-                css = "s%ds%.2fa%.2fm%.2fn%.2fm%.2fi%.2f"%(size,scl,asp,mrg,nse,mdl,inn)
+                css = "s%ds%.2fa%.2fm%.2fn%.2fm%.2fi%.2fr%.2f"%(size,scl,asp,mrg,nse,mdl,inn,rot)
                 table.set(image=raw,cls=c,count=1,classes=css)
             else:
                 table.set(image=raw,cls=c,count=1)

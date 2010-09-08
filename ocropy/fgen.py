@@ -9,7 +9,7 @@ from pylab import *
 import pango,pangocairo
 from scipy.ndimage.filters import gaussian_filter
 from scipy.ndimage.morphology import distance_transform_edt,binary_erosion,binary_dilation
-from scipy.ndimage.interpolation import map_coordinates,zoom
+from scipy.ndimage.interpolation import map_coordinates,zoom,rotate
 from scipy.stats.mstats import mquantiles
 
 
@@ -72,7 +72,8 @@ def pango_families():
         pcx = layout.get_context()
         return [f.get_name() for f in pcx.list_families()]
     
-def pango_render_string(s,spec=None,fontfile=None,size=None,bg=(0.0,0.0,0.0),fg=(0.9,0.9,0.9),pad=5,markup=1,scale=2.0,aspect=1.0):
+def pango_render_string(s,spec=None,fontfile=None,size=None,bg=(0.0,0.0,0.0),fg=(0.9,0.9,0.9),pad=5,
+                        markup=1,scale=2.0,aspect=1.0,rotation=0.0):
     """Render a string using Cairo and the Pango text rendering interface.  Fonts can either be given
     as a fontfile or as a fontname.  Size should be in pixels (?).  You can specify a background and
     foreground color as RGB floating point triples. (Currently unimplemented.)"""
@@ -117,7 +118,8 @@ def pango_render_string(s,spec=None,fontfile=None,size=None,bg=(0.0,0.0,0.0),fg=
     a.shape = (h,w,4)
     a = a[:th,:tw,:3]
     a = a[:,:,::-1]
-    a = zoom(a,(aspect/scale,1.0/scale/aspect,1.0))
+    if rotation!=0.0: a = rotate(a,rotation,order=1)
+    a = zoom(a,(aspect/scale,1.0/scale/aspect,1.0),order=1)
     return a
 
 def gauss_degrade(image,margin=1.0,change=None,noise=0.02,minmargin=0.5,inner=1.0):
