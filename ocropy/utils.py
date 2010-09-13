@@ -7,6 +7,36 @@ class Record:
         for k in kw.keys():
             self.__dict__[k] = kw[k]
 
+
+def pad_to(image,w,h):
+    """Symmetrically pad the image to the given width and height."""
+    iw,ih = image.shape
+    wd = int(w-iw)
+    assert wd>=0
+    w0 = wd/2
+    w1 = wd-w0
+    hd = int(h-ih)
+    assert hd>=0
+    h0 = hd/2
+    h1 = hd-h0
+    result = zeros((w,h))
+    result[w0:w0+iw,h0:h0+ih] = image
+    return result
+
+def pad_by(image,r):
+    """Symmetrically pad the image by the given amount"""
+    w,h = image.shape
+    result = zeros((w+2*r,h+2*r))
+    result[r:(w+r),r:(h+r)] = image
+    return result
+
+def pad_bin(char,r=10):
+    """Pad to the next bin size."""
+    w,h = char.shape
+    w = r*int((w+r-1)/r)
+    h = r*int((h+r-1)/r)
+    return pad_to(char,w,h)
+
 def number_of_processors():
     try:
         return int(os.popen("cat /proc/cpuinfo  | grep 'processor.*:' | wc -l").read())

@@ -123,7 +123,7 @@ def compute_alignment_old(lattice,rseg,lmodel,beam=10000):
                   cost=costs.sum())
 
 
-def compute_alignment(lattice,rseg,lmodel,beam=10000):
+def compute_alignment(lattice,rseg,lmodel,beam=10000,verbose=0):
     """Given a lattice produced by a recognizer, a raw segmentation,
     and a language model, computes the best solution, the cseg, and
     the corresponding costs.  These are returned as Python data structures.
@@ -157,7 +157,7 @@ def compute_alignment(lattice,rseg,lmodel,beam=10000):
         rmap = zeros(amax([s[1] for s in segs])+1,'i')
         for i in range(len(segs)):
             start,end = segs[i]
-            print i+1,start,end,"'%s'"%result[i],costs.at(i)
+            if verbose: print i+1,start,end,"'%s'"%result[i],costs.at(i)
             if end==0: continue
             rmap[start:end+1] = i+1
 

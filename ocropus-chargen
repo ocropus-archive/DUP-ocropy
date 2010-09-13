@@ -141,5 +141,12 @@ def process_arg(arg):
 
 from multiprocessing import Pool
 
-pool = Pool(processes=options.parallel)
-result = pool.map(process_arg,jobs)
+if options.parallel>1:
+    pool = Pool(processes=options.parallel)
+    result = pool.map(process_arg,jobs)
+else:
+    for arg in jobs:
+        process_arg(arg)
+
+import objgraph
+objgraph.show_most_common_types(limit=50)

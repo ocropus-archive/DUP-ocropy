@@ -253,6 +253,7 @@ class LineRecognizer:
     def set_defaults(self):
         self.debug = 0
         self.segmenter = components.make_ISegmentLine("DpSegmenter")
+        self.good_segmenter = components.make_ISegmentLine("SegmentLineByGCCS")
         # self.segmenter.pset("debug","dpsegmenter.png")
         # self.segmenter.pset("fix_diacritics",0)
         self.grouper = components.make_IGrouper("SimpleGrouper")
@@ -287,8 +288,10 @@ class LineRecognizer:
         ## increase segmentation scale for large lines
         h = image.dim(1)
         s = max(2.0,h/15.0)
-        if s>2.0: print "segmentation scale",s
-        self.segmenter.pset("cost_smooth",s)
+        try:
+            self.segmenter.pset("cost_smooth",s)
+            if s>2.0: print "segmentation scale",s
+        except: pass
 
         ## compute the raw segmentation
         if self.debug: print "segmenting"

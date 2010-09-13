@@ -1,0 +1,77 @@
+#!/usr/bin/python
+
+import sys,os,re,glob,math,glob,signal,cPickle
+import iulib,ocropus
+import ocropy
+from ocropy import utils
+from pylab import *
+from ocropy.fgen import *
+from optparse import OptionParser
+from ocropy import dbtables
+
+class unif:
+    def __init__(self,lo,hi):
+        self.lo = lo
+        self.hi = hi
+    def __call__(self):
+        return rand()*(self.hi-self.lo)+self.lo
+
+scale = unif(2.0,2.0)
+aspect = unif(0.9,1.1)
+margin = unif(0.0,1.0)
+noise = unif(0.0,0.2)
+maxdelta = unif(0.0,1.0)
+rotation = unif(-1.0,1.0) # in degrees
+inner = unif(1.0,1.0)
+testset = list("ABCDEFGHIJKLMNOPQRSTUVWXYZ")+[u"\u03c8",u"\u00d6","FF",u"\u30DD"]
+spec = "Arial"
+size = 30
+nvariants = 20
+display = 1
+
+def generate(nvariants):
+    for d in range(nvariants):
+        for i in range(len(testset)):
+            cls = testset[i]
+            image = pango_render_string(cls,spec=spec,size=size,pad=10,markup=0,
+                                        scale=scale(),aspect=aspect(),rotation=rotation())
+            image = average(array(image,'f'),axis=2)
+            image /= amax(image)
+            image = gauss_degrade(image,margin=margin(),noise=noise(),inner=inner())
+            mdl = maxdelta()
+            image = gauss_distort([image],maxdelta=mdl)[0]
+            yield image,cls
+
+# quick test of the character encoding in IModel
+model = ocropy.make_IModel("AutoMlpClassifier")
+assert model.chr(model.ord("A"))=="A"
+assert model.chr(model.ord("AA"))=="AA"
+assert model.chr(model.ord(u"\u00d6"))==u"\u00d6"
+assert model.chr(model.ord(u"\u03c8"))==u"\u03c8"
+assert model.chr(model.ord(u"\u30dd"))==u"\u30dd"
+
+models = []
+model = ocropy.make_IModel("AutoMlpClassifier")
+model.setExtractor("ScaledImageExtractor")
+models.append(model)
+
+for model in models:
+    print "===",model.name(),"==="
+    if display: ion(); show()
+    print "generating"
+    count = 0
+    for image,cls in generate(100):
+        if display and count<=36: subplot(6,6,count%36+1); imshow(image); draw()
+        model.cadd(ocropy.narray(image),cls)
+        count += 1
+    print "training"
+    model.updateModel()
+    print "testing"
+    errs = 0
+    for image,cls in generate(1):
+        result = sorted(model.coutputs(ocropy.narray(image)),key=lambda x:x[1],reverse=1)
+        pred = result[0][0]
+        # print cls,result[0]
+        if cls!=pred: errs += 1
+    if errs>0: print "ERRS",errs
+    else: print "OK"

@@ -190,6 +190,7 @@ class LineWindow:
         dic = {
             "on_window1_destroy" : gtk.main_quit,
             "on_recognizer_changed" : self.recognizer_update,
+            "on_segmenter_changed" : self.segmenter_update,
             "on_langmod_changed" : self.langmod_update,
             "on_run_recognizer_clicked" : self.run_recognizer,
             "on_record_clicked" : self.record,
@@ -224,6 +225,22 @@ class LineWindow:
         for i in range(len(self.recognizers)):
             if self.recognizers[i][0]=="default.model":
                 self.recognizer.set_active(i)
+                break
+
+        self.segmenters = gtk.ListStore(str)
+        cl = ocropy.ComponentList()
+        for i in range(cl.length()):
+            if cl.kind(i)!="ISegmentLine": continue
+            name = " "+cl.name(i); name = name[1:]
+            print name
+            self.segmenters.append([name])
+        print [self.segmenters[i][0] for i in range(len(self.segmenters))]
+        self.segmenter = self.wtree.get_widget("segmenter")
+        self.segmenter.set_model(self.segmenters)
+        self.segmenter.set_text_column(0)
+        for i in range(len(self.segmenters)):
+            if self.segmenters[i][0]=="CurvedCutWithCcSegmenter":
+                self.segmenter.set_active(i)
                 break
 
         active = 0
@@ -418,14 +435,17 @@ class LineWindow:
                 ocropy.make_line_segmentation_black(cseg)
                 grouper.setSegmentation(cseg)
                 for i in range(grouper.length()):
-                    if result[i]==' ': continue
-                    raw = ocropy.bytearray()
-                    mask = ocropy.bytearray()
-                    grouper.extractWithMask(raw,mask,image,i,1)
-                    img = 1.0-NI(mask)/255.0
-                    self.detail_pixbuf(numpy2pixbuf(img))
-                    self.detail(" [%s]   "%result[i])
-                    if (i+1)%10==0: self.detail("\n")
+                    try:
+                        if result[i]==' ': continue
+                        raw = ocropy.bytearray()
+                        mask = ocropy.bytearray()
+                        grouper.extractWithMask(raw,mask,image,i,1)
+                        img = 1.0-NI(mask)/255.0
+                        self.detail_pixbuf(numpy2pixbuf(img))
+                        self.detail(" [%s]   "%result[i])
+                        if (i+1)%10==0: self.detail("\n")
+                    except:
+                        self.detail(" [oops]   ")
                 self.detail("\n")
         else:
             self.detail("(load a language model for per-character alignments)")
@@ -446,6 +466,11 @@ class LineWindow:
     def recognizer_update(self,*args):
         file = self.recognizer.get_active_text()
         self.recognizer_load(file)
+    def segmenter_update(self,*args):
+        name = self.segmenter.get_active_text()
+        comp = ocropy.make_ISegmentLine(name)
+        self.linerec.segmenter = comp
+        print "set segmenter to",name,comp
     def recognizer_load(self,file):
         if file!="none":
             if ".cmodel" in file:
@@ -458,6 +483,7 @@ class LineWindow:
                 self.linerec = ocropy.load_linerec(file)
         # self.linerec.debug = 1
         print "loaded",self.linerec
+        self.segmenter_update()
     def langmod_update(self,*args):
         lmodel_name = self.langmod.get_active_text()
         self.langmod_load(lmodel_name)
