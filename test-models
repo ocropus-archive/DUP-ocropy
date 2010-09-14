@@ -8,6 +8,31 @@ from pylab import *
 from ocropy.fgen import *
 from optparse import OptionParser
 from ocropy import dbtables
+import gmmtree
+
+parser = OptionParser(usage="""
+%prog [model n]
+
+This is a "smoke test" for a set of classifiers.  It generates a few dozen images of 30 different
+characters (including umlaut, Greek, and Japanese) and then trains and tests each character
+classifier on those.  The tests should complete without crashing, and they should usually have
+zero errors ("OK"), although a small number of errors may be OK.
+
+If exactly two arguments are given, the first is used to construct the classifier (it may be
+an OCRopus component or a Python construction expression), and the second one is the number
+of training examples per class.
+""")
+parser.add_option("-D","--display",help="display continuously",action="store_true")
+options,args = parser.parse_args()
+assert len(args)==0 or len(args)==2
+
+if len(args)==2:
+    models = [(eval(args[0]),int(args[1]))]
+else:
+    models = []
+    models.append((gmmtree.GmmTree(),20))
+    models.append((gmmtree.GmmTree(),100))
+    models.append((ocropy.make_IModel("AutoMlpClassifier"),20))
 
 class unif:
     def __init__(self,lo,hi):
@@ -17,9 +42,9 @@ class unif:
         return rand()*(self.hi-self.lo)+self.lo
 
 scale = unif(2.0,2.0)
-aspect = unif(0.9,1.1)
+aspect = unif(0.95,1.05)
 margin = unif(0.0,1.0)
-noise = unif(0.0,0.2)
+noise = unif(0.0,0.1)
 maxdelta = unif(0.0,1.0)
 rotation = unif(-1.0,1.0) # in degrees
 inner = unif(1.0,1.0)
@@ -27,7 +52,7 @@ testset = list("ABCDEFGHIJKLMNOPQRSTUVWXYZ")+[u"\u03c8",u"\u00d6","FF",u"\u30DD"
 spec = "Arial"
 size = 30
 nvariants = 20
-display = 1
+display = options.display
 
 def generate(nvariants):
     for d in range(nvariants):
@@ -43,6 +68,7 @@ def generate(nvariants):
             yield image,cls
 
 # quick test of the character encoding in IModel
+# FIXME: move this to global functions
 model = ocropy.make_IModel("AutoMlpClassifier")
 assert model.chr(model.ord("A"))=="A"
 assert model.chr(model.ord("AA"))=="AA"
@@ -50,17 +76,13 @@ assert model.chr(model.ord(u"\u00d6"))==u"\u00d6"
 assert model.chr(model.ord(u"\u03c8"))==u"\u03c8"
 assert model.chr(model.ord(u"\u30dd"))==u"\u30dd"
 
-models = []
-model = ocropy.make_IModel("AutoMlpClassifier")
-model.setExtractor("ScaledImageExtractor")
-models.append(model)
-
-for model in models:
-    print "===",model.name(),"==="
+for model,nvariants in models:
+    print "===",model.name(),nvariants,"==="
+    model.setExtractor("ScaledImageExtractor")
     if display: ion(); show()
     print "generating"
     count = 0
-    for image,cls in generate(100):
+    for image,cls in generate(nvariants):
         if display and count<=36: subplot(6,6,count%36+1); imshow(image); draw()
         model.cadd(ocropy.narray(image),cls)
         count += 1
@@ -71,7 +93,8 @@ for model in models:
     for image,cls in generate(1):
         result = sorted(model.coutputs(ocropy.narray(image)),key=lambda x:x[1],reverse=1)
         pred = result[0][0]
-        # print cls,result[0]
-        if cls!=pred: errs += 1
+        if cls!=pred:
+            errs += 1
+            print "ERR",cls,result[:3]
     if errs>0: print "ERRS",errs
     else: print "OK"

@@ -1,5 +1,5 @@
 import sys,os,re,glob,math,glob,signal
-import iulib,ocropus,narray
+import iulib,ocropus,narray,numpy
 from pylab import *
 
 class Record:
@@ -7,6 +7,25 @@ class Record:
         for k in kw.keys():
             self.__dict__[k] = kw[k]
 
+def numpy_(image,flip=0):
+    if type(image)==numpy.ndarray: return image
+    if flip and image.rank()>1: return numpyI(image)
+    return iulib.numpy(image)
+
+def narray(image,flip=0):
+    if type(image)!=numpy.ndarray: return image
+    if flip and image.ndim: return narrayI(image)
+    return iulib.narray(image)
+
+def numpyI(image):
+    image = iulib.numpy(image)
+    image = image.transpose([1,0]+range(2,image.ndim))
+    return image[::-1,...]
+
+def narrayI(image):
+    image = image[::-1,...]
+    image = image.transpose([1,0]+range(2,image.ndim))
+    return iulib.narray(image)
 
 def pad_to(image,w,h):
     """Symmetrically pad the image to the given width and height."""
@@ -234,4 +253,3 @@ def show_segmentation(rseg):
     temp = temp/float(amax(temp))
     imshow(temp,cmap=cm.spectral)
 
-            
