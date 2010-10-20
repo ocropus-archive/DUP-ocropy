@@ -20,7 +20,7 @@ with binary inputs and feature extractors that generate (approximately) binary
 data.  For example, it works for binary character images and ScaledExtractor, but not
 if you use grayscale character images or StandardExtractor.
 
-If you have lots of training data, try "-E ScaledExtractor -b", for handwriting
+If you have lots of training data, try "-E ScaledFeatureExtractor -b", for handwriting
 recognition, "-E StandardExtractor" is a better choice.
 
 You can choose different kinds of feature extractors with the -E flag.  
@@ -99,8 +99,8 @@ if os.path.exists(output):
     print output,"already exists"
     sys.exit(1)
 
-if not ".cmodel" in output:
-    print "output",output,"should end in .cmodel"
+if not ".cmodel" in output and not ".pymodel" in output:
+    print "output",output,"should end in .cmodel or .pymodel"
     sys.exit(1)
 
 # create a Python window if requested

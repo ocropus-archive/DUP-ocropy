@@ -7,22 +7,24 @@ class Record:
         for k in kw.keys():
             self.__dict__[k] = kw[k]
 
-def numpy_(image,flip=0):
+def as_numpy(image,flip=0):
     if type(image)==numpy.ndarray: return image
-    if flip and image.rank()>1: return numpyI(image)
+    if flip and image.rank()>1: return as_numpyI(image)
     return iulib.numpy(image)
 
-def narray(image,flip=0):
+def as_narray(image,flip=0):
     if type(image)!=numpy.ndarray: return image
-    if flip and image.ndim: return narrayI(image)
+    if flip and image.ndim: return as_narrayI(image)
     return iulib.narray(image)
 
-def numpyI(image):
+def as_numpyI(image):
+    if type(image)==numpy.ndarray: return image
     image = iulib.numpy(image)
     image = image.transpose([1,0]+range(2,image.ndim))
     return image[::-1,...]
 
-def narrayI(image):
+def as_narrayI(image):
+    if type(image)!=numpy.ndarray: return image
     image = image[::-1,...]
     image = image.transpose([1,0]+range(2,image.ndim))
     return iulib.narray(image)
@@ -62,7 +64,15 @@ def number_of_processors():
     except:
         return 1
 
+def simple_classify(model,inputs):
+    result = []
+    for i in range(len(inputs)):
+        result.append(model.coutputs(inputs[i]))
+    return result
+
 def omp_classify(model,inputs):
+    if not "ocropus." in str(type(model)):
+        return simple_classify(model,inputs)
     omp = ocropus.make_OmpClassifier()
     omp.setClassifier(model)
     n = len(inputs)

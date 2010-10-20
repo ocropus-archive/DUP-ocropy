@@ -537,9 +537,12 @@ class LineRecognizer:
         for file in files:
             if ".pymodel" in file:
                 with open(file,"r") as stream:
-                    obj = pickle.load(self,stream)
-                for k,v in obj.__dict__:
-                    self.__dict__[k] = v
+                    obj = cPickle.load(stream)
+                if type(obj)==LineRecognizer:
+                    for k,v in obj.__dict__:
+                        self.__dict__[k] = v
+                else:
+                    self.cmodel = obj
             elif ".cmodel" in file:
                 self.cmodel = ocropy.load_IModel(file)
             elif ".csize" in file:

@@ -169,6 +169,6 @@ def load_linerec(file):
 def save_component(file,component):
     if ".pymodel" in file:
         with open(file,"wb") as stream:
-            cPickle.dump(stream)
+            cPickle.dump(component,stream)
     else:
         ocropus.save_component(file,component)

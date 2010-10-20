@@ -12,4 +12,3 @@ from simplerec import CmodelLineRecognizer
 from quickcheck import *
 from hocr import *
 from alignment import *
-from utils import numpy_ as numpy

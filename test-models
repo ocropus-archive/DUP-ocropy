@@ -9,6 +9,7 @@ from ocropy.fgen import *
 from optparse import OptionParser
 from ocropy import dbtables
 import gmmtree
+import rectifier
 
 parser = OptionParser(usage="""
 %prog [model n]
@@ -84,14 +85,14 @@ for model,nvariants in models:
     count = 0
     for image,cls in generate(nvariants):
         if display and count<=36: subplot(6,6,count%36+1); imshow(image); draw()
-        model.cadd(ocropy.narray(image),cls)
+        model.cadd(ocropy.as_narray(image),cls)
         count += 1
     print "training"
     model.updateModel()
     print "testing"
     errs = 0
     for image,cls in generate(1):
-        result = sorted(model.coutputs(ocropy.narray(image)),key=lambda x:x[1],reverse=1)
+        result = sorted(model.coutputs(ocropy.as_narray(image)),key=lambda x:x[1],reverse=1)
         pred = result[0][0]
         if cls!=pred:
             errs += 1
