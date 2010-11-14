@@ -1,0 +1,91 @@
+#!/usr/bin/python
+import code,pickle,sys,os,re,ocropy,cPickle
+from ocropy import dbtables,binnednn,improc
+from pylab import *
+from optparse import OptionParser
+from ocropy import       ocrofast,gmmtree
+import traceback
+
+parser = OptionParser("""
+usage: %prog [options] chars.db clusters.gmmtree
+
+""")
+
+parser.add_option("-D","--display",help="display chars",action="store_true")
+parser.add_option("-S","--reg",help="minimum value for sigma",type=float,default=0.001)
+parser.add_option("-t","--table",help="database table to use for clustering",default="chars")
+parser.add_option("-b","--branch",help="branch values",default="500 100")
+parser.add_option("-s","--split",help="split thresholds",default="100000 10000")
+parser.add_option("-v","--verbose",help="verbose output",action="store_true")
+parser.add_option("-n","--maxrecords",help="max number of images per class for clustering",type=int,
+                  default=1500000)
+parser.add_option("-M","--mincount",help="min number of elements in a cluster",type=int,default=3)
+parser.add_option("-F","--epsfactor",help="factor in estimating epsilon",type=float,default=1.5)
+parser.add_option("-N","--epsnest",help="# samples to use for estimating epsilon",type=int,default=2000)
+parser.add_option("-R","--norandom",help="don't randomize",action="store_true")
+parser.add_option("-r","--reject",help="also train reject classes",action="store_true")
+parser.add_option("-m","--multi",help="also train multi-character sequences",action="store_true")
+parser.add_option("-u","--unlabeled",help="also train unlabeled chars",action="store_true")
+
+(options,args) = parser.parse_args()
+
+options.branch = [int(s) for s in options.branch.split()]
+options.split = [int(s) for s in options.split.split()]
+
+if len(args)==0:
+    parser.print_help()
+    sys.exit(0)
+
+dbfile = args[0]
+output = args[1]
+
+table = dbtables.Table(dbfile,options.table,read_only=1)
+table.verbose = options.verbose
+table.converter("image",dbtables.SmallImage())
+table.open(image="blob",count="integer",cls="text",classes="text",key="text")
+
+if options.display:
+    ion()
+    show()
+    ginput(1,timeout=0.1)
+
+tree = gmmtree.GmmTree(branch=options.branch,ndata=options.split,mincount=options.mincount,reg=options.reg)
+tree.display = options.display
+
+r = 32
+print "loading rows"
+rows = table.get(random_=(not options.norandom))
+
+print "collecting data"
+count = 0
+data = []
+values = []
+for row in rows:
+    cls = row.cls
+    if cls is None: cls = "_"
+    if cls=="": cls = "_"
+    if not options.unlabeled and cls=="_": continue
+    if not options.reject and cls=="~": continue
+    if not options.multi and len(cls)!=1: continue
+    if count>options.maxrecords:
+        print "reached",count,"records"
+        break
+    if count%1000==0: print count
+    count += 1
+    image = array(row.image,'f')
+    image /= amax(image)
+    image = improc.center_maxsize(image,32)
+    data.append(image)
+    values.append(cls)
+
+data = array(data)
+print "data",data.shape
+data.shape = (len(data),prod(data.shape[1:]))
+values = array(values)
+print "data",data.shape
+
+tree = gmmtree.GmmTree()
+tree.build(data,values)
+
+with open(output,"wb") as stream:
+    cPickle.dump(tree,stream,2)

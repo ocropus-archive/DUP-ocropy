@@ -1,0 +1,148 @@
+#!/usr/bin/python
+import pygtk
+pygtk.require("2.0") 
+import gobject,gtk,gtk.glade
+import sys,pickle,os,glob
+import code,pickle,sys,os,re,ocropy,cPickle
+from ocropy import dbtables,binnednn,improc
+from pylab import *
+from optparse import OptionParser
+import traceback
+import cPickle
+from ocropy import ocrofast, gmmtree
+
+parser = OptionParser(usage="""
+%prog [options] -o output.cmodel input.db ...
+
+""")
+(options,args) = parser.parse_args()
+
+tree = cPickle.load(open(args[0]))
+
+def max_hist(h):
+    mv = -1
+    mk = None
+    for k,v in h.items():
+        if v>mv:
+            mv = v
+            mk = k
+    return (mk,mv)
+        
+def compute_classes(node,path=[],result={}):
+    if node.children is not None:
+        hist = {}
+        for i in range(len(node.children)):
+            h = compute_classes(node.children[i],path=path+[i],result=result)
+            for k,v in h.items():
+                if k in hist: hist[k] += v
+                else: hist[k] = v
+        result[tuple(path)] = max_hist(hist)
+        return hist
+    else:
+        hist = {}
+        for k in node.values:
+            if k in hist: hist[k] += 1
+            else: hist[k] = 1
+        result[tuple(path)] = max_hist(hist)
+        return hist
+
+classes = {}
+compute_classes(tree,result=classes)
+
+def numpy2pixbuf(a,limit=40):
+    """Convert a numpy array to a pixbuf."""
+    if a.ndim==2:
+        a = array([a,a,a]).transpose([1,2,0])
+    d = max(a.shape)
+    scaled = 0
+    if d>limit:
+        a = array(a,'f')
+        a = scipy.ndimage.interpolation.zoom(a,limit/float(d),order=1)
+        scaled = 1
+    data = zeros(a.shape,'B')
+    data[:,:,:] = a*255.0/amax(a)
+    if scaled:
+        data[:3,:3,:] = 0
+        data[:3,:3,1] = 255
+    return gtk.gdk.pixbuf_new_from_array(data,gtk.gdk.COLORSPACE_RGB,8)
+
+def set_store(path=[]):
+    """Set the store for the target class."""
+    global grid,current_path
+    current_path = path
+    grid = gtk.ListStore(gtk.gdk.Pixbuf, str, gobject.TYPE_PYOBJECT, gobject.TYPE_PYOBJECT)
+    node = tree.get_path(path)
+    if node.children is not None:
+        if len(node.rows)<1: return
+        r = int(sqrt(len(node.means[0])))
+        for i in range(node.means.shape[0]):
+            m = node.means[i].reshape(r,r)
+            v = node.sigmas[i].reshape(r,r)
+            pixbuf = numpy2pixbuf(array([m,m,v]).transpose([1,2,0]))
+            cl = classes[tuple(path+[i])]
+            grid.append([pixbuf,"[%d] %d\n%s"%(i,len(node.children[i].rows),cl),path+[i],cl[0]])
+    else:
+        r = int(sqrt(len(node.rows[0])))
+        for i in range(len(node.rows)):
+            pixbuf = numpy2pixbuf(node.rows[i].reshape(r,r))
+            grid.append([pixbuf,"[%d] %s"%(i,node.values[i]),None,node.values[i]])
+    index = array(argsort([row[3] for row in grid]))
+    index = [int(i) for i in index]
+    grid.reorder(index)
+    cluster_viewer.set_model(grid)
+
+def clusterview_item_activated(*args):
+    index = cluster_viewer.get_cursor()
+    if index is None: return
+    index = index[0][0]
+    row = grid[index]
+    if row[2] is None: return
+    set_store(row[2])
+
+def cmd_home(*args):
+    set_store([])
+
+def cmd_back(*args):
+    set_store(current_path[:-1])
+
+def build_toolbar():
+    global toolbar
+    toolbar = main_widget_tree.get_widget("toolbar")
+    toolbar.set_style(gtk.TOOLBAR_BOTH)
+    button = gtk.ToolButton(label="Home")
+    button.connect("clicked",cmd_home)
+    toolbar.insert(button,-1)
+    button = gtk.ToolButton(label="Back")
+    button.connect("clicked",cmd_back)
+    toolbar.insert(button,-1)
+    toolbar.show_all()
+
+def main():
+    global main_widget_tree,class_selector,cluster_viewer,info_area
+    gladefile = ocropy.findfile("gui/ocropus-gmmtree-view.glade")
+    windowname = "window1" 
+    main_widget_tree = gtk.glade.XML(gladefile)
+    dic = {
+        "on_window1_destroy_event" : gtk.main_quit,
+        "on_window1_delete_event" : gtk.main_quit,
+        "on_clusterview_item_activated" : clusterview_item_activated,
+        }
+    main_widget_tree.signal_autoconnect(dic)
+    window = main_widget_tree.get_widget("window1")
+    build_toolbar()
+
+    cluster_viewer = main_widget_tree.get_widget("clusterview")
+    cluster_viewer.set_selection_mode(gtk.SELECTION_MULTIPLE)
+    cluster_viewer.set_item_width(50)
+    cluster_viewer.set_pixbuf_column(0)
+    cluster_viewer.set_text_column(1)
+    assert cluster_viewer is not None
+    cluster_viewer.show_all()
+
+    status = main_widget_tree.get_widget("status")
+    main_widget_tree.get_widget("window1").show_all()
+    set_store()
+    gtk.main()
+
+main()
+

@@ -77,7 +77,8 @@ class Database:
         cur.close(); del cur
 
 class Table:
-    def __init__(self,con,tname,factory=Row):
+    def __init__(self,con,tname,factory=Row,read_only=0):
+        self.read_only = read_only
         if type(con)==str:
             self.con = sqlite3.connect(con,timeout=600.0)
         else:
@@ -94,11 +95,21 @@ class Table:
         cur.close(); del cur
     def converter(self,cname,conv):
         self.converters[cname] = conv
+    def read(self,ignore=1,**kw):
+        cur = self.con.cursor()
+        cols = list(cur.execute("pragma table_info("+self.tname+")"))
+        colnames = [col[1] for col in cols]
+        for k,v in kw.items():
+            assert k in colnames,"expected column %s missing from database"%k
+        cur.close()
     def create(self,ignore=1,**kw):
+        return self.open(ignore=ignore,**kw)
+    def open(self,ignore=1,**kw):
         cur = self.con.cursor()
         cols = list(cur.execute("pragma table_info("+self.tname+")"))
         colnames = [col[1] for col in cols]
         if cols==[]:
+            assert not self.read_only,"attempting to access table '%s' which doesn't exist"%self.tname
             # table doesn't exist, so create it
             cmd = "create table "+self.tname+" (id integer primary key"
             if self.verbose: print "#",cmd
@@ -109,10 +120,11 @@ class Table:
         else:
             # table already exists; add any missing columns
             for k,v in kw.items():
-                if k in colnames: continue
-                cmd = "alter table "+self.tname+" add column ("+k+" "+v+")"
-                print "###",cmd
-                cur.execute(cmd)
+                if not k in colnames:
+                    assert not self.read_only,"attempting to access column '%s.%s' which doesn't exist"%(self.tname,k)
+                    cmd = "alter table "+self.tname+" add column ("+k+" "+v+")"
+                    print "###",cmd
+                    cur.execute(cmd)
         self.con.commit()
     def del_hash(self,kw,commit=1):
         cur = self.con.cursor()

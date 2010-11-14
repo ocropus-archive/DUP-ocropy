@@ -185,7 +185,7 @@ for cluster in iterate_dbs(args):
     # add the image to the classifier
     image = FI(cluster.image/255.0)
     if options.display and nchar%1000==0: show_char(image,cls)
-    classifier.cadd(image,unicode(cls))
+    classifier.cadd(image,unichr(cls))
     count += 1
 
     # if the user requested automatically generated variants,

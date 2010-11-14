@@ -107,7 +107,7 @@ class CmodelLineRecognizer:
                 # are categorized as letters; this is an ugly special case, but
                 # it is quite common
                 ucls = cls
-                if type(cls)==str: ucls = unicode(cls,"utf-8")
+                if type(cls)==str: ucls = unichr(cls,"utf-8")
                 category = unicodedata.category(ucls[0])
                 if bbox.height()<self.min_height*mheight and category[0]=="L":
                     # add an empty transition to allow skipping junk

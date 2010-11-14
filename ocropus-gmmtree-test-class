@@ -1,0 +1,28 @@
+#!/usr/bin/python
+from pylab import *
+from ocropy import dbtables
+import gmmtree
+reload(gmmtree)
+import ocrofast
+reload(ocrofast)
+
+import pickle
+# tree = cPickle.load(open("gmmtree-400-50.tree"))
+tree = pickle.load(open("400-0.001.gmmtree"))
+
+dbfile = "unlv-corrected-2010-02-01.db"
+table = dbtables.Table(dbfile,"chars")
+table.verbose = 1
+table.converter("image",dbtables.SmallImage())
+table.create(image="blob",count="integer",cls="text",classes="text",key="text")
+
+ion()
+
+rows = list(table.get(random_=0,limit_=100))
+
+image = rows[1].image
+clf(); imshow(image); draw()
+print tree.coutputs(image,k=11)
+for i in range(100):
+    # if rows[i].cls=="~": continue
+    print i,rows[i].cls,tree.cdists(rows[i].image,k=3)

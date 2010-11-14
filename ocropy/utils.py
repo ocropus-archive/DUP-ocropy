@@ -162,8 +162,7 @@ def FI(image):
     return a
 
 def ustrg_as_string(s,skip0=1):
-    ## FIXME: handle unicode
-    """Convert an iulib ustrg into a Python string"""
+    """Convert an iulib ustrg into a Python string; handles unicode."""
     result = ""
     for i in range(s.length()):
         c = s.ord(i)
@@ -172,14 +171,13 @@ def ustrg_as_string(s,skip0=1):
         elif skip0 and c==0:
             pass
         elif c<0 or c>=256:
-            result += "{%d}"%c
+            result += unichr(c)
         else:
             result += chr(c)
     return result
 
 def intarray_as_string(s,skip0=1):
-    ## FIXME: handle unicode
-    """Convert an iulib intarray into a Python string"""
+    """Convert an iulib intarray into a Python string; handles unicode."""
     result = ""
     for i in range(s.length()):
         c = s.at(i)
@@ -191,7 +189,7 @@ def intarray_as_string(s,skip0=1):
             else:
                 result += "_"
         elif c<0 or c>=256:
-            result += "{%d}"%c
+            result += unichr(c)
         else:
             result += chr(c)
     return result
