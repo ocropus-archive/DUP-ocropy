@@ -3,6 +3,9 @@
 # make the clustering class-specific
 
 import sys,os,re,glob,math,glob,signal,traceback
+if "DISPLAY" not in os.environ:
+    import matplotlib
+    matplotlib.use("AGG")
 from scipy.ndimage import interpolation
 from pylab import *
 from optparse import OptionParser
@@ -176,7 +179,8 @@ def align1(t):
     ## if we can find a language model for it then perform alignment
     lmodel = default_lmodel
     if options.gtextension is not None:
-        base = re.sub(r'\.[^/]*$','',imagefile)
+        # base = re.sub(r'\.[^/]*$','',imagefile)
+        base = re.sub(r'\.[^/.]*$','',imagefile)
         gtname = base+options.gtextension
         log("gt",gtname)
         if not os.path.exists(gtname):

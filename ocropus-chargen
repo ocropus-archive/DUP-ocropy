@@ -40,6 +40,8 @@ inner = c(1.0)
 
 parser = OptionParser("""
 usage: %prog [options] ...
+
+Generates characters from TrueType fonts and stores them in a character database.
 """)
 parser.add_option("-o","--output",help="output file",default="chars.db")
 parser.add_option("-D","--display",help="display chars",action="store_true")

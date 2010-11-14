@@ -10,6 +10,9 @@ from optparse import OptionParser
 
 parser = OptionParser("""
 usage: %prog [options] ...
+
+Test existing character classifiers against artificially generated training
+samples and report overall error rates.
 """)
 (options,args) = parser.parse_args()
 cmodel = ocropy.load_IModel(args[0])
