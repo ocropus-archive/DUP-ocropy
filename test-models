@@ -8,8 +8,7 @@ from pylab import *
 from ocropy.fgen import *
 from optparse import OptionParser
 from ocropy import dbtables
-import gmmtree
-import rectifier
+from ocropy import gmmtree,rectifier
 
 parser = OptionParser(usage="""
 %prog [model n]
