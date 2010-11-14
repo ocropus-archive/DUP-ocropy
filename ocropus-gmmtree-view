@@ -81,11 +81,13 @@ def set_store(path=[]):
             pixbuf = numpy2pixbuf(array([m,m,v]).transpose([1,2,0]))
             cl = classes[tuple(path+[i])]
             grid.append([pixbuf,"[%d] %d\n%s"%(i,len(node.children[i].rows),cl),path+[i],cl[0]])
-    else:
+    elif len(node.rows)>0:
         r = int(sqrt(len(node.rows[0])))
         for i in range(len(node.rows)):
             pixbuf = numpy2pixbuf(node.rows[i].reshape(r,r))
             grid.append([pixbuf,"[%d] %s"%(i,node.values[i]),None,node.values[i]])
+    else:
+        print "no rows"
     index = array(argsort([row[3] for row in grid]))
     index = [int(i) for i in index]
     grid.reorder(index)
@@ -95,6 +97,7 @@ def clusterview_item_activated(*args):
     index = cluster_viewer.get_cursor()
     if index is None: return
     index = index[0][0]
+    # print index,len(grid)
     row = grid[index]
     if row[2] is None: return
     set_store(row[2])
