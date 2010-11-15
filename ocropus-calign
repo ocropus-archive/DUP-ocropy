@@ -149,7 +149,7 @@ def align1(t):
         default_lmodel_name = lname
         default_lmodel = read_lmodel(lname)
     nlines += 1
-    prefix = re.sub(r'\.[^/]*$','',imagefile)
+    prefix = re.sub(r'\.[^/.]*$','',imagefile)
 
     ## load the line image
     log("load\t",imagefile)

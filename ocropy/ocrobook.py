@@ -97,6 +97,7 @@ def cseg_chars(files,suffix="gt",segmenter=None,grouper=None,has_gt=1,verbose=0)
             base = re.sub("\.png$","",file)
             # load segmentation ground truth
             cseg_file = base+".cseg"+suffix+".png"
+            print file,cseg_file
             cseg = iulib.intarray()
             if not os.path.exists(cseg_file):
                 raise IOError(cseg_file)
@@ -179,4 +180,3 @@ def chars_no_gt(files,segmenter=default_segmenter,grouper=default_grouper):
             print "FAILED",sys.exc_info()[0]
             continue
 
-from utils import pad_to,bad_bin

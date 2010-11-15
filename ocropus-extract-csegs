@@ -54,7 +54,8 @@ for file in args:
     try:
         items = list(ocrobook.cseg_chars(file,verbose=options.verbose,segmenter=segmenter))
         nfiles += 1
-    except IOError:
+    except IOError,e:
+        print "ERROR",e
         print "# cseg for",file,"not found (got %d of %d files)"%(nfiles,ntried)
         continue
     except:
