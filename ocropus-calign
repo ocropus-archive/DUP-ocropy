@@ -18,6 +18,24 @@ from ocropy.utils import number_of_processors
 
 signal.signal(signal.SIGINT,lambda *args:sys.exit(1))
 
+class CostTooHigh:
+    def __init__(self,total=None,total_thr=None,avg=None,avg_thr=None):
+        self.total = total
+        self.total_thr = total_thr
+        self.avg = avg
+        self.avg_thr = avg_thr
+    def __str__(self):
+        result = ""
+        for k in "total total_thr avg avg_thr".split():
+            v = getattr(self,k,None)
+            if v is None: continue
+            if result!="": result += " "
+            result += "%s=%s"%(k,v)
+        return result
+
+class AlignmentFailed:
+    pass
+
 # ocropy.dinit(512,512,1)
 
 class Log:
@@ -205,12 +223,12 @@ def align1(t):
             # compute various cost statistics and reject if they are too high
             tcost = sum(costs)
             if tcost>10000.0:
-                raise Exception("total cost too high")
+                raise AlignmentFailed()
             mcost = mean(costs)
             if mcost>options.cthreshold:
-                raise Exception("avg char cost %g greather than -t threshold %g"%(mcost,options.cthreshold))
+                raise CostTooHigh(avg=mcost,avg_thr=options.cthreshold)
             if tcost>options.gthreshold:
-                raise Exception("total cost %g greather than -T threshold %g"%(tcost,options.gthreshold))
+                raise CostTooHigh(total=tcost,total_thr=options.gthreshold)
 
             # check whether the output file exists; that's usually an error (either
             # the user left some previous outputs lying around, in which case we might
@@ -232,6 +250,10 @@ def align1(t):
             if options.gtextension is None:
                 ocropy.write_text(prefix+suffix+".txt",result)
             goodlines += 1
+        except AlignmentFailed,e:
+            log("FAIL alignment failed")
+        except CostTooHigh,e:
+            log("FAIL cost threshold exceeded: %s"%e)
         except Exception,e:
             log(traceback.format_exc())
     log("[",goodlines,nlines,goodlines*100.0/nlines,"]")
