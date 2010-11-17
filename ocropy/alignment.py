@@ -49,7 +49,7 @@ def recognize_and_align(image,linerec,lmodel,beam=1000,nocseg=0):
     ocropus.beam_search(v1,v2,ins,outs,costs,lattice,lmodel,beam)
 
     # do the conversions
-    print "OUTS",[outs[i] for i in range(outs.length())]
+    print "OUTS",[outs.at(i) for i in range(outs.length())]
     result = intarray_as_string(outs,skip0=0)
     print "RSLT",result
 
