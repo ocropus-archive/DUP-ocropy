@@ -1,5 +1,7 @@
 # various hOCR-related utilities
 
+# FIXME make this much more general
+
 # generate the headers and footers
 
 header_template = """

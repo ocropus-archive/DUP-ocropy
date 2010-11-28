@@ -7,6 +7,7 @@ from pylab import *
 import sys,os,re,ocropy,optparse
 from ocropy import N,NI
 from ocropy.utils import number_of_processors
+from ocropy import common
 from scipy.ndimage import measurements
 from scipy.misc import imsave
 from PIL import Image
@@ -51,14 +52,14 @@ if options.threshold>0:
     options.high = options.threshold
 
 if options.binarizer=="StandardPreprocessing":
-    binarizer = ocropy.make_IBinarize("StandardPreprocessing")
+    binarizer = common.StandardPreprocessing()
     binarizer.pset("binarizer","BinarizeByHT")
     binarizer.reinit()
     binarizer.command("binarizer_pset","k0",str(options.low))
     binarizer.command("binarizer_pset","k1",str(options.high))
     binarizer.command("binarizer_pset","width",str(options.width))
 else:
-    binarizer = ocropy.make_IBinarize(options.binarizer)
+    binarizer = common.Binarizer().make(options.binarize)
 
 if options.Display: options.display = 1
 if options.display: ion(); show()
@@ -73,26 +74,25 @@ if not options.Output:
 def process_image(image,arg,count):
     if options.display: 
         clf()
-        imshow(NI(image),cmap=cm.gray)
+        imshow(image,cmap=cm.gray)
         draw()
         ginput(1,timeout=1)
-    bin = ocropy.bytearray()
-    gray = ocropy.bytearray()
+    bin,gray = binarizer.binarize(image)
     try:
-        binarizer.binarize(bin,gray,image)
+        pass
     except:
         print "# binarizer failed; skipping",arg
         return 0
     if options.display: 
         clf()
-        imshow(NI(bin),cmap=cm.gray)
+        imshow(bin,cmap=cm.gray)
         draw()
         if not options.Display: 
             raw_input("hit ENTER to continue")
         else:
             ginput(1,timeout=1)
     if not options.silent:
-        if ocropy.quick_check_page_components(bin,dpi=options.dpi)<0.5:
+        if common.quick_check_page_components(bin,dpi=options.dpi)<0.5:
             print "# skipping page"
             return 0
     if options.Output:
@@ -101,23 +101,23 @@ def process_image(image,arg,count):
         ocropy.write_image_gray(dest+".bin.png",bin)
     else:
         dest = "%s/%04d" % (options.output,count)
-        print "# writing",dest
-        ocropy.write_image_gray(dest+".png",gray)
-        ocropy.write_image_gray(dest+".bin.png",bin)
+        print "# writing",dest,gray.shape,bin.shape
+        imsave(dest+".png",gray)
+        imsave(dest+".bin.png",bin)
 
 def process1(t):
     arg,count = t
     n = 0
-    for image,arg in ocropy.page_iterator([arg]):
+    for image,arg in common.page_iterator([arg]):
         assert n<2,"no multipage files with parallel processing; use -P 0"
-        print "===",arg,count,image.dim(0),image.dim(1)
+        print "===",arg,count,image.shape
         process_image(image,arg,count)
         n += 1
 
 if options.parallel<2:
     count = 0
-    for image,arg in ocropy.page_iterator(args):
-        print "===",arg,count,image.dim(0),image.dim(1)
+    for image,arg in common.page_iterator(args):
+        print "===",arg,count,image.shape
         count += 1
         process_image(image,arg,count)
 else:
