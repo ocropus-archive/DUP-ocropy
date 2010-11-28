@@ -3,6 +3,7 @@ import iulib
 import ocropus
 import utils
 import components
+from scipy.misc import imsave
 from numpy import *
 
 ################################################################
@@ -54,7 +55,7 @@ def numpy2narray(page,type='B'):
     page = page.transpose([1,0]+range(2,page.ndim))[:,::-1,...]
     return iulib.narray(page,type=type)
 
-def narray2numpy(na,type):
+def narray2numpy(na,type='B'):
     """Convert an narray image to a numpy image. Flips from mathematical
     coordinates to raster coordinates.  When converting integer to float
     types, multiplies with 255.0, and when converting integer to float
@@ -118,8 +119,12 @@ def pseg2narray(pseg):
     """Convert a page segmentation (rank 3, RGB) to an narray."""
     checknp(pseg)
     assert pseg.dtype=='B' and pseg.ndim==3
-    pseg = array(pseg[:,:,0]<<16+pseg[:,:,1]<<8+pseg[:,:,2])
-    return numpy2narray(pseg)
+    r = numpy2narray(ascontiguousarray(pseg[:,:,0]))
+    g = numpy2narray(ascontiguousarray(pseg[:,:,1]))
+    b = numpy2narray(ascontiguousarray(pseg[:,:,2]))
+    rgb = iulib.intarray()
+    iulib.pack_rgb(rgb,r,g,b)
+    return rgb
 
 def narray2lseg(na):
     """Convert an narray to a line segmentation."""
@@ -129,9 +134,16 @@ def narray2lseg(na):
     pseg = transpose(pseg,[2,1,0])
     return pseg
 
+def lseg2narray(lseg):
+    """Convert a page segmentation (rank 3, RGB) to an narray."""
+    checknp(lseg)
+    assert lseg.dtype=='B' and lseg.ndim==3
+    lseg = array(lseg[:,:,0]<<16+lseg[:,:,1]<<8+lseg[:,:,2])
+    return numpy2narray(lseg,'i')
+
 def rect2raster(r,h):
     """Convert rectangles to raster coordinates."""
-    (x0,y0,x1,y1) = (r.x0(),r.y0(),r.x1(),r.y1())
+    (x0,y0,x1,y1) = (r.x0,r.y0,r.x1,r.y1)
     y1 = h-y1-1
     y0 = h-y0-1
     return (y1,x0,y0,x1)
@@ -143,7 +155,7 @@ def raster2rect(r,h):
 
 def rect2math(r):
     """Convert rectangles to mathematical coordinates."""
-    return (r.x0(),r.y0(),r.x1(),r.y1())
+    return (r.x0,r.y0,r.x1,r.y1)
 
 def math2rect(r):
     """Convert mathematical coordinates to rectangle coordinates."""
@@ -298,11 +310,15 @@ class SegmentPage(CommonComponent):
     def make_(self,name):
         self.comp = components.make_ISegmentPage(name)
     def segment(self,page,obstacles=None):
+        page = page2narray(page,'B')
+        iulib.write_image_gray("_seg_in.png",page)
         result = iulib.intarray()
-        if obstacles:
+        if obstacles not in [None,[]]:
             raise Exception("unimplemented")
         else:
-            self.comp.segment(result,page2narray(page,'B'))
+            self.comp.segment(result,page)
+        # ocropus.make_page_segmentation_black(result)
+        iulib.write_image_packed("_seg_out.png",result)
         return narray2pseg(result)
 
 class SegmentPageByRAST(SegmentPage):
@@ -321,17 +337,43 @@ class SegmentPageByXYCUTS(SegmentPage):
 class RegionExtractor:
     def __init__(self):
         self.comp = ocropus.RegionExtractor()
+        self.cache = {}
+    def clear(self):
+        del self.cache
+        self.cache = {}
     def setImage(self,image):
+        self.h = image.shape[0]
         self.comp.setImage(self.pseg2narray(image))
     def setImageMasked(self,image,mask,lo,hi):
+        self.h = image.shape[0]
         assert type(mask)==int and type(lo)==int and type(hi)==int
         self.comp.setImage(self.pseg2narray(image),mask,lo,hi)
     def setPageColumns(self,image):
-        self.comp.setPageColumns(self,pseg2narray(image))
+        self.h = image.shape[0]
+        image = pseg2narray(image)
+        self.comp.setPageColumns(self,image)
     def setPageParagraphs(self,image):
-        self.comp.setPageParagraphs(self,pseg2narray(image))
+        self.h = image.shape[0]
+        image = pseg2narray(image)
+        self.comp.setPageParagraphs(self,image)
     def setPageLines(self,image):
-        self.comp.setPageLines(self,pseg2narray(image))
+        self.h = image.shape[0]
+        image = pseg2narray(image)
+        iulib.write_image_packed("_seg.png",image)
+        self.comp.setPageLines(image)
+    def id(self,i):
+        return self.comp.id(i)
+    def x0(self):
+        return self.comp.x0(i)
+    def x1(self):
+        return self.comp.x1(i)
+    def y0(self):
+        return h-self.comp.y1(i)-1
+    def y1(self):
+        return h-self.comp.y0(i)-1
+    def bbox(self,i):
+        r = self.comp.bbox(i)
+        return rect2raster(r,self.h)
     def length(self):
         return self.comp.length()
     def mask(self,index,margin=0):
@@ -342,11 +384,11 @@ class RegionExtractor:
         result = iulib.bytearray()
         self.comp.extract(result,image,index,margin)
         return narray2numpy(result)
-    def extractMasked(self,image,index,grow,bg,margin=0):
-        result = iulib.bytearray()
-        self.comp.extract_masked(result,image,index,grow,bg,margin)
-        return narray2numpy(result)
-    
+    def extractMasked(self,image,index,grow,bg,margin=0,type=None):
+        h,w = image.shape[:2]
+        (r0,c0,r1,c1) = self.bbox(index)
+        mask = self.mask(index,margin=margin)
+        return image[max(0,r0-margin):min(h,r1+margin),max(0,c0-margin):min(w,c1+margin),...]
 
 class SegmentLine(CommonComponent):
     """Segment a line into character parts."""
@@ -612,5 +654,59 @@ def page_iterator(files):
     for image,file in utils.page_iterator(files):
         yield narray2page(image),file
 
-def quick_check_page_components(bin,dpi):
+def read_image_gray(file,type='B'):
+    na = iulib.bytearray()
+    iulib.read_image_gray(na,file)
+    return narray2numpy(na,type=type)
+
+def write_image_gray(file,image):
+    assert (array(image.shape)>0).all()
+    if image.ndim==2:
+        iulib.write_image_gray(file,numpy2narray(image))
+    elif image.ndim==3:
+        iulib.write_image_gray(file,numpy2narray(mean(image,axis=2)))
+    else:
+        raise Exception("ndim must be 2 or 3, not %d"%image.ndim)
+
+def quick_check_page_components(page_bin,dpi):
     return 1.0
+
+def quick_check_line_components(line_bin,dpi):
+    return 1.0
+
+def draw_pseg(pseg,axis=None):
+    if axis is None:
+        axis = subplot(111)
+    h = pseg.dim(1)
+    regions = RegionExtractor()
+    regions.setPageLines(pseg)
+    for i in range(1,regions.length()):
+        (r0,c0,r1,c1) = (regions.x0(i),regions.y0(i),regions.x1(i),regions.y1(i))
+        p = patches.Rectangle((c0,r0),c1-c0,r1-r0,edgecolor="red",fill=0)
+        axis.add_patch(p)
+
+def write_page_segmentation(name,pseg,white=1):
+    pseg = pseg2narray(pseg)
+    if white: ocropus.make_page_segmentation_white(pseg)
+    iulib.write_image_packed(name,pseg)
+    
+def make_line_segmentation_black(line):
+    line = lseg2narray(line)
+    ocropus.make_line_segmentation_black(line)
+    return narray2lseg(line)
+
+def make_page_segmentation_black(page):
+    page = pseg2narray(page)
+    ocropus.make_page_segmentation_black(page)
+    return narray2pseg(page)
+
+def make_line_segmentation_white(line):
+    line = lseg2narray(line)
+    ocropus.make_line_segmentation_white(line)
+    return narray2lseg(line)
+
+def make_page_segmentation_white(page):
+    page = pseg2narray(page)
+    ocropus.make_page_segmentation_white(page)
+    return narray2pseg(page)
+
