@@ -23,10 +23,12 @@ def isfp(a):
     return 0
 
 def checknp(a):
+    """Checks whether the argument is a numpy array.  Raises an error if not."""
     if type(a) in [iulib.bytearray,iulib.intarray,iulib.floatarray,iulib.rectarray]:
         raise Exception("numpy array expected; an narray was passed")
     assert type(a)==numpy.ndarray
 def checkna(a):
+    """Checks whether the argument is an narray.  Raises an error if not."""
     if type(a) in [iulib.bytearray,iulib.intarray,iulib.floatarray,iulib.rectarray]:
         return
     if type(a)==numpy.array:
@@ -168,11 +170,14 @@ def math2rect(r):
 
 class CommonComponent:
     """Common methods for components.  The implementations in this
-    base class are geared towards native components.  If you implement
-    components in pure Python, you do not need to inherit from this."""
+    base class is meant for C++ components and wraps those components.
+    The methods in the Python classes translate Python datatypes into
+    native datatypes and back.  If you implement components in pure
+    Python, you do not need to inherit from this."""
     def __init__(self):
         self.comp = None
     def make(self,name):
+        """Bind this component to an instance of a C++ component."""
         self.make_(name)
         return self
     def name(self):
@@ -231,6 +236,11 @@ class CleanupGray(CommonComponent):
         self.comp.cleanup_gray(result,page2narray(page,'B'))
         return narray2page(result,type=type)
 
+class DeskewGrayPageByRAST(CleanupGray):
+    """Page deskewing for gray scale images."""
+    def __init__(self):
+        self.make_("DeskewGrayPageByRAST")
+
 class CleanupBinary(CommonComponent): 
     """Cleanup binary images."""
     def make_(self,name):
@@ -241,27 +251,31 @@ class CleanupBinary(CommonComponent):
         return narray2page(result,type=type)
 
 class RmHalftone(CleanupBinary):
+    """Simple algorithm for removing halftones from binary images."""
     def __init__(self):
         self.make_("RmHalftone")
 class RmUnderline(CleanupBinary):
+    """Simple algorithm for removing underlines from binary images."""
     def __init__(self):
         self.make_("RmUnderline")
 class AutoInvert(CleanupBinary):
+    """Simple algorithm for fixing inverted images."""
     def __init__(self):
         self.make_("AutoInvert")
 class DeskewPageByRAST(CleanupBinary):
+    """Page deskewing for binary images."""
     def __init__(self):
         self.make_("DeskewPageByRAST")
-class DeskewGrayPageByRAST(CleanupBinary):
-    def __init__(self):
-        self.make_("DeskewGrayPageByRAST")
 class RmBig(CleanupBinary):
+    """Remove connected components that are too big to be text."""
     def __init__(self):
         self.make_("RmBig")
 class DocClean(CleanupBinary):
+    """Remove document image noise components."""
     def __init__(self):
         self.make_("DocClean")
 class PageFrameByRAST(CleanupBinary):
+    """Remove elements outside the document page frame."""
     def __init__(self):
         self.make_("PageFrameByRAST")
 
@@ -281,18 +295,23 @@ class Binarize(CommonComponent):
         return narray2page(result,type=type)
 
 class StandardPreprocessing(Binarize):
+    """Complete pipeline of deskewing, binarization, and page cleanup."""
     def __init__(self):
         self.make_("StandardPreprocessing")
 class BinarizeByRange(Binarize):
+    """Simple binarization using the mean of the range."""
     def __init__(self):
         self.make_("BinarizeByRange")
 class BinarizeBySauvola(Binarize):
+    """Fast variant of Sauvola binarization."""
     def __init__(self):
         self.make_("BinarizeBySauvola")
 class BinarizeByOtsu(Binarize):
+    """Otsu binarization."""
     def __init__(self):
         self.make_("BinarizeByOtsu")
 class BinarizeByHT(Binarize):
+    """Binarization by hysteresis thresholding."""
     def __init__(self):
         self.make_("BinarizeByHT")
 
@@ -306,7 +325,7 @@ class TextImageClassification(CommonComponent):
         return narray2pseg(result)
 
 class SegmentPage(CommonComponent):
-    """Segment a page into its components (layout analysis)."""
+    """Segment a page into columns and lines (layout analysis)."""
     def make_(self,name):
         self.comp = components.make_ISegmentPage(name)
     def segment(self,page,obstacles=None):
@@ -322,19 +341,28 @@ class SegmentPage(CommonComponent):
         return narray2pseg(result)
 
 class SegmentPageByRAST(SegmentPage):
+    """Segment a page into columns and lines using the RAST algorithm."""
     def __init__(self):
         self.make_("SegmentPageByRAST")
 class SegmentPageByRAST1(SegmentPage):
+    """Segment a page into columns and lines using the RAST algorithm,
+    assuming there is only a single column.  This is more robust for
+    single column documents than RAST."""
     def __init__(self):
         self.make_("SegmentPageByRAST1")
 class SegmentPageBy1CP(SegmentPage):
+    """A very simple page segmentation algorithm assuming a single column
+    document and performing projection."""
     def __init__(self):
         self.make_("SegmentPageBy1CP")
 class SegmentPageByXYCUTS(SegmentPage):
+    """An implementation of the XYCUT layout analysis algorithm.  Not
+    recommended for production use."""
     def __init__(self):
         self.make_("SegmentPageByXYCUTS")
 
 class RegionExtractor:
+    """A class facilitating iterating over the parts of a segmentation."""
     def __init__(self):
         self.comp = ocropus.RegionExtractor()
         self.cache = {}
@@ -342,53 +370,78 @@ class RegionExtractor:
         del self.cache
         self.cache = {}
     def setImage(self,image):
+        """Set the image to be iterated over.  This should be an RGB image,
+        ndim==3, dtype=='B'."""
         self.h = image.shape[0]
         self.comp.setImage(self.pseg2narray(image))
     def setImageMasked(self,image,mask,lo,hi):
+        """Set the image to be iterated over.  This should be an RGB image,
+        ndim==3, dtype=='B'.  This picks a subset of the segmentation to iterate
+        over, using a mask and lo and hi values.."""
         self.h = image.shape[0]
         assert type(mask)==int and type(lo)==int and type(hi)==int
         self.comp.setImage(self.pseg2narray(image),mask,lo,hi)
     def setPageColumns(self,image):
+        """Set the image to be iterated over.  This should be an RGB image,
+        ndim==3, dtype=='B'.  This iterates over the columns."""
         self.h = image.shape[0]
         image = pseg2narray(image)
         self.comp.setPageColumns(self,image)
     def setPageParagraphs(self,image):
+        """Set the image to be iterated over.  This should be an RGB image,
+        ndim==3, dtype=='B'.  This iterates over the paragraphs (if present
+        in the segmentation)."""
         self.h = image.shape[0]
         image = pseg2narray(image)
         self.comp.setPageParagraphs(self,image)
     def setPageLines(self,image):
+        """Set the image to be iterated over.  This should be an RGB image,
+        ndim==3, dtype=='B'.  This iterates over the lines."""
         self.h = image.shape[0]
         image = pseg2narray(image)
         iulib.write_image_packed("_seg.png",image)
         self.comp.setPageLines(image)
     def id(self,i):
+        """Return the RGB pixel value for this segment."""
         return self.comp.id(i)
     def x0(self):
+        """Return x0 (column) for the start of the box."""
         return self.comp.x0(i)
     def x1(self):
+        """Return x0 (column) for the end of the box."""
         return self.comp.x1(i)
     def y0(self):
+        """Return y0 (row) for the start of the box."""
         return h-self.comp.y1(i)-1
     def y1(self):
+        """Return y0 (row) for the end of the box."""
         return h-self.comp.y0(i)-1
     def bbox(self,i):
+        """Return the bounding box in raster coordinates
+        (row0,col0,row1,col1)."""
         r = self.comp.bbox(i)
         return rect2raster(r,self.h)
     def length(self):
+        """Return the number of components."""
         return self.comp.length()
     def mask(self,index,margin=0):
+        """Return the mask for component index."""
         result = iulib.bytearray()
         self.comp.mask(result,index,margin)
         return narray2numpy(result)
     def extract(self,image,index,margin=0):
-        result = iulib.bytearray()
-        self.comp.extract(result,image,index,margin)
-        return narray2numpy(result)
-    def extractMasked(self,image,index,grow,bg,margin=0,type=None):
+        """Return the subimage for component index."""
         h,w = image.shape[:2]
         (r0,c0,r1,c1) = self.bbox(index)
         mask = self.mask(index,margin=margin)
         return image[max(0,r0-margin):min(h,r1+margin),max(0,c0-margin):min(w,c1+margin),...]
+    def extractMasked(self,image,index,grow,bg,margin=0,type=None):
+        """Return the masked subimage for component index, elsewhere the bg value."""
+        h,w = image.shape[:2]
+        (r0,c0,r1,c1) = self.bbox(index)
+        mask = self.mask(index,margin=margin)
+        subimage = image[max(0,r0-margin):min(h,r1+margin),max(0,c0-margin):min(w,c1+margin),...]
+        return where(mask,subimage,bg)
 
 class SegmentLine(CommonComponent):
     """Segment a line into character parts."""
@@ -401,15 +454,20 @@ class SegmentLine(CommonComponent):
         return narray2lseg(result)
 
 class DpLineSegmenter(SegmentLine):
+    """Segment a text line by dynamic programming."""
     def __init__(self):
         self.make_("DpSegmenter")
 class SkelLineSegmenter(SegmentLine):
+    """Segment a text line by thinning and segmenting the skeleton."""
     def __init__(self):
         self.make_("SkelSegmenter")
 class GCCSLineSegmenter(SegmentLine):
+    """Segment a text line by connected components only, then grouping
+    vertically related connected components."""
     def __init__(self):
         self.make_("SegmentLineByGCCS")
 class CCSLineSegmenter(SegmentLine):
+    """Segment a text line by connected components only."""
     def __init__(self):
         self.make_("ConnectedComponentSegmenter")
 
@@ -528,11 +586,12 @@ class Grouper(CommonComponent):
         return self.comp.pixelSpace(i)
 
 class StandardGrouper(Grouper):
+    """The grouper usually used for printed OCR."""
     def __init__(self):
         self.make_("StandardGrouper")
 
 class RecognizeLine(CommonComponent):
-    """A line recognizer."""
+    """A line recognizer in general."""
     def make_(self,name):
         self.comp = components.make_IRecognizeLine(name)
     def recognizeLine(self,fst,line,segmentation=0):
@@ -567,33 +626,53 @@ class RecognizeLine(CommonComponent):
         return (ustrg2unicode(chars),narray2lseg(seg),iulib.numpy(costs,'f'))
 
 class Linerec(RecognizeLine):
+    """A line recognizer using neural networks and character size modeling.
+    Feature extraction is per character."""
     def __init__(self):
         self.make_("Linerec")
 class LinerecExtracted(RecognizeLine):
+    """A line recognizer using neural networks and character size modeling.
+    Feature extraction is per line."""
     def __init__(self):
         self.make_("linerec_extracted")
 
 class Model(CommonComponent):
+    """A classifier in general."""
     def make_(self,name):
         self.comp = components.make_IModel(name)
     def nfeatures(self):
+        """Return the expected number of input features."""
         return self.comp.nfeatures()
     def nclasses(self):
+        """Return the number of classes."""
         return self.comp.nclasses()
     def setExtractor(self,extractor):
+        """Set a feature extractor."""
         self.comp.setExtractor(extractor)
     def updateModel(self):
+        """After adding training samples, train the model."""
         self.comp.updateModel()
     def copy(self):
+        """Make a copy of this model."""
         c = self.comp.copy()
         m = Model()
         m.comp = c
         return m
     def cadd(self,v,cls):
+        """Add a training sample. The cls argument should be a string.
+        The v argument can be rank 1 or larger.  If it is larger, it
+        is assumed to be an image and converted from raster to mathematical
+        coordinates."""
         return self.comp.cadd(vector2narray(v),cls)
     def coutputs(self,v):
+        """Compute the ouputs for a given input vector v.  Outputs are
+        of the form [(cls,probability),...]
+        The v argument can be rank 1 or larger.  If it is larger, it
+        is assumed to be an image and converted from raster to mathematical
+        coordinates."""
         return self.comp.coutputs(vector2narray(v),coutputs)
     def cclassify(self,v):
+        """Perform classification of the input vector v."""
         return self.comp.cclassify(vector2narray(v))
 
 class KnnClassifier(CommonComponent):
@@ -645,21 +724,80 @@ class OmpClassifier:
         self.comp = ocropus.OmpClassifier()
         self.comp.load(file)
 
-class OcroFST(ocropus.OcroFST):
-    pass
+class OcroFST():
+    def __init__(self):
+        self.comp = ocropus.make_OcroFST()
+    def clear(self):
+        self.comp.clear()
+    def newState(self):
+        return self.comp.newState()
+    def addTransition(frm,to,output,cost=0.0,inpt=None):
+        if inpt is None:
+            self.comp.addTransition(frm,to,output,cost)
+        else:
+            self.comp.addTransition(frm,to,output,cost,inpt)
+    def setStart(self,node):
+        self.comp.setStart(node)
+    def setAccept(self,node,cost=0.0):
+        self.comp.setAccept(node,cost)
+    def special(self,s):
+        return self.comp.special(s)
+    def bestpath(self):
+        result = iulib.ustrg()
+        self.comp.bestpath(result)
+        ustrg2unicode(result)
+    def setString(self,s,costs,ids):
+        self.comp.setString(unicode2ustrg(s),costs,ids)
+    def nStates(self):
+        return self.comp.nStates()
+    def getStart(self):
+        return self.comp.getStart()
+    def getAcceptCost(self,node):
+        return self.comp.getAcceptCost(node)
+    def isAccepting(self,node):
+        return self.comp.isAccepting(node)
+    def getTransitions(self,frm):
+        tos = iulib.intarray()
+        symbols = iulib.intarray()
+        costs = iulib.floatarray()
+        inputs = iulib.intarray()
+        self.comp.getTransitions(tos,symbols,costs,inputs,frm)
+        return (iulib.numpy(tos,'i'),iulib.numpy(symbols,'i'),iulib.numpy(costs),iulib.numpy(inputs,'i'))
+    def rescore(frm,to,symbol,new_cost,inpt=None):
+        if inpt is None:
+            self.comp.resocre(frm,to,symbol,new_cost)
+        else:
+            self.comp.resocre(frm,to,symbol,new_cost,inpt)
+    def load(self,name):
+        self.comp.load(name)
+    def save(self,name):
+        self.comp.save(name)
+    def as_openfst(self):
+        import openfst,os
+        tmpfile = "/tmp/%d.fst"%os.getpid()
+        self.comp.save(tmpfile)
+        fst = openfst.StdVectorFst()
+        fst.Read(tmpfile)
+        os.unlink(tmpfile)
+        return fst
 
 def page_iterator(files):
+    """Given a list of image files, iterate through all images in that list.
+    In particular, if any files are multipage TIFF images, load each page
+    contained in that TIFF image."""
     # use the iulib implementation because its TIFF reader actually works;
     # the TIFF reader in all the Python libraries is broken
     for image,file in utils.page_iterator(files):
         yield narray2page(image),file
 
 def read_image_gray(file,type='B'):
+    """Read an image in grayscale."""
     na = iulib.bytearray()
     iulib.read_image_gray(na,file)
     return narray2numpy(na,type=type)
 
 def write_image_gray(file,image):
+    """Write an image in grayscale."""
     assert (array(image.shape)>0).all()
     if image.ndim==2:
         iulib.write_image_gray(file,numpy2narray(image))
@@ -669,12 +807,19 @@ def write_image_gray(file,image):
         raise Exception("ndim must be 2 or 3, not %d"%image.ndim)
 
 def quick_check_page_components(page_bin,dpi):
+    """Quickly check whether the components of page_bin are
+    reasonable.  Returns a value between 0 and 1; <0.5 means that
+    there is probably something wrong."""
     return 1.0
 
 def quick_check_line_components(line_bin,dpi):
+    """Quickly check whether the components of line_bin are
+    reasonable.  Returns a value between 0 and 1; <0.5 means that
+    there is probably something wrong."""
     return 1.0
 
 def draw_pseg(pseg,axis=None):
+    """Display a pseg."""
     if axis is None:
         axis = subplot(111)
     h = pseg.dim(1)
@@ -686,27 +831,28 @@ def draw_pseg(pseg,axis=None):
         axis.add_patch(p)
 
 def write_page_segmentation(name,pseg,white=1):
+    """Write a numpy page segmentation (rank 3, type='B' RGB image.)"""
     pseg = pseg2narray(pseg)
     if white: ocropus.make_page_segmentation_white(pseg)
     iulib.write_image_packed(name,pseg)
     
-def make_line_segmentation_black(line):
-    line = lseg2narray(line)
-    ocropus.make_line_segmentation_black(line)
-    return narray2lseg(line)
-
-def make_page_segmentation_black(page):
-    page = pseg2narray(page)
-    ocropus.make_page_segmentation_black(page)
-    return narray2pseg(page)
-
-def make_line_segmentation_white(line):
-    line = lseg2narray(line)
-    ocropus.make_line_segmentation_white(line)
-    return narray2lseg(line)
-
-def make_page_segmentation_white(page):
-    page = pseg2narray(page)
-    ocropus.make_page_segmentation_white(page)
-    return narray2pseg(page)
-
+def read_page_segmentation(name,pseg,black=1):
+    """Write a numpy page segmentation (rank 3, type='B' RGB image.)"""
+    pseg = iulib.intarray()
+    iulib.read_image_packed(pseg,name)
+    if black: ocropus.make_page_segmentation_black(pseg)
+    return narray2pseg(pseg)
+    
+def write_line_segmentation(name,pseg,white=1):
+    """Write a numpy line segmentation."""
+    pseg = pseg2narray(pseg)
+    if white: ocropus.make_line_segmentation_white(pseg)
+    iulib.write_image_packed(name,pseg)
+    
+def read_line_segmentation(name,pseg,black=1):
+    """Write a numpy line segmentation."""
+    pseg = iulib.intarray()
+    iulib.read_image_packed(pseg,name)
+    if black: ocropus.make_line_segmentation_black(pseg)
+    return narray2pseg(pseg)
+    
