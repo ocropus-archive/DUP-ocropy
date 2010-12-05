@@ -5,6 +5,7 @@ import utils
 import components
 from scipy.misc import imsave
 from numpy import *
+import unicodedata
 
 ################################################################
 ### conversion functions
@@ -77,7 +78,7 @@ def narray2numpy(na,type='B'):
 def vector2narray(v,type='f'):
     """Convert a numpy vector to an narray.  If ndim>1, it converts to
     mathematical coordinates.  This is used with classifiers."""
-    checknp(page)
+    checknp(v)
     if v.ndim==1: return iulib.narray(v,type=f)
     else: return iulib.narray(v[::-1,...].transpose([1,0]+range(2,v.ndim)))
 
@@ -100,12 +101,12 @@ def narray2page(page,type='B'):
 
 def line2narray(line,type='B'):
     """Convert line images to narrays."""
-    checknp(page)
+    checknp(line)
     return numpy2narray(line,type=type)
 
 def narray2line(line,type='B'):
     """Convert line narrays to line images."""
-    checkna(page)
+    checkna(line)
     return narray2numpy(line,type=type)
 
 def narray2pseg(na):
@@ -132,16 +133,17 @@ def narray2lseg(na):
     """Convert an narray to a line segmentation."""
     checkna(na)
     pseg = iulib.numpy(na,type='i')
+    pseg = transpose(pseg,[1,0])
     pseg = pseg[::-1,...]
-    pseg = transpose(pseg,[2,1,0])
     return pseg
 
 def lseg2narray(lseg):
-    """Convert a page segmentation (rank 3, RGB) to an narray."""
+    """Convert a line segmentation (rank 2, 'i') to an narray."""
     checknp(lseg)
-    assert lseg.dtype=='B' and lseg.ndim==3
-    lseg = array(lseg[:,:,0]<<16+lseg[:,:,1]<<8+lseg[:,:,2])
-    return numpy2narray(lseg,'i')
+    assert lseg.dtype=='i' and lseg.ndim==2,"wanted rank 2 'i' array, got %s"%lseg
+    lseg = lseg[::-1,...].transpose()
+    lseg = iulib.narray(lseg,type='i')
+    return lseg
 
 def rect2raster(r,h):
     """Convert rectangles to raster coordinates."""
@@ -197,11 +199,13 @@ class CommonComponent:
         return self.comp.info(depth=0)
     def save_native(self,file):
         """Save this component to FILE as a C++ saved object."""
-        raise Exception("unimplemented")
+        self.comp.save(file)
+        return self
     def load_native(self,file):
         """Load this component from FILE. This may change
         the underlying native component."""
-        raise Exception("unimplemented")
+        self.comp.load(file)
+        return self
     def pexists(self,name):
         """Check whether parameter NAME exists."""
         return self.comp.pexists(name)
@@ -450,7 +454,8 @@ class SegmentLine(CommonComponent):
     def charseg(self,line):
         """Segment a text line into potential character parts."""
         result = iulib.intarray()
-        self.comp.segment(result,line2narray(line,'B'))
+        self.comp.charseg(result,line2narray(line,'B'))
+        ocropus.make_line_segmentation_black(result)
         return narray2lseg(result)
 
 class DpLineSegmenter(SegmentLine):
@@ -478,11 +483,11 @@ class Grouper(CommonComponent):
         self.comp = components.make_IGrouper(name)
     def setSegmentation(self,segmentation):
         """Set the line segmentation."""
-        self.comp.setSegmentation(line2narray(segmentation,'B'))
+        self.comp.setSegmentation(lseg2narray(segmentation))
         self.h = segmentation.shape[0]
     def setCSegmentation(self,segmentation):
         """Set the line segmentation, assumed to be a cseg."""
-        self.comp.setCSegmentation(line2narray(segmentation,'B'))
+        self.comp.setCSegmentation(lseg2narray(segmentation))
         self.h = segmentation.shape[0]
     def length(self):
         """Number of groups."""
@@ -515,6 +520,7 @@ class Grouper(CommonComponent):
     def extract(self,source,dflt,i,grow=0,dtype='f'):
         """Extract the image corresponding to group i.  Background pixels are
         filled in with dflt."""
+        checknp(source)
         if isfp(source):
             out = iulib.floatarray()
             self.comp.extract(out,numpy2narray(source,'f'),dflt,i,grow)
@@ -525,6 +531,7 @@ class Grouper(CommonComponent):
             return narray2numpy(out,'B')
     def extractWithMask(self,source,i,grow=0):
         """Extract the image and mask corresponding to group i"""
+        checknp(source)
         if isfp(source):
             out = iulib.floatarray()
             mask = iulib.bytearray()
@@ -534,7 +541,7 @@ class Grouper(CommonComponent):
             out = iulib.bytearray()
             mask = iulib.bytearray()
             self.comp.extractWithMask(out,mask,numpy2narray(source,'B'),i,grow)
-            return (narray2numpy(out,'b'),narray2numpy(out,'B'))
+            return (narray2numpy(out,'B'),narray2numpy(out,'B'))
     def extractSliced(self,source,dflt,i,grow=0):
         """Extract the image and mask corresponding to group i, slicing through the entire input
         line.  Background pixels are filled with dflt."""
@@ -564,20 +571,22 @@ class Grouper(CommonComponent):
         be given as an integer, as a string, or as a unicode string.  The cost
         should be non-negative."""
         if type(cls)==str:
-            self.comp.setClass(i,unicode2ustrg(unicode(cls)),cost)
+            self.comp.setClass(i,iulib.unicode2ustrg(unicode(cls)),cost)
         elif type(cls)==unicode:
-            self.comp.setClass(i,unicode2ustrg(cls),cost)
+            self.comp.setClass(i,iulib.unicode2ustrg(cls),cost)
         elif type(cls)==int:
             self.comp.setClass(i,cls,cost)
         else:
-            raise Exception("bad class type")
+            raise Exception("bad class type '%s'"%cls)
     def setSpaceCost(self,i,yes_cost,no_cost):
         """Set the cost of putting a space or not putting a space after
         group i."""
         self.comp.setSpaceCost(i,yes_cost,no_cost)
-    def getLattice(self,fst):
+    def getLattice(self):
         """Construct the lattice for the group, using the setClass and setSpaceCost information."""
-        self.comp.getLattice(fst)
+        fst = OcroFST()
+        self.comp.getLattice(fst.comp)
+        return fst
     def clearLattice(self):
         """Clear all the lattice-related information accumulated so far."""
         self.comp.clearLattice()
@@ -594,14 +603,17 @@ class RecognizeLine(CommonComponent):
     """A line recognizer in general."""
     def make_(self,name):
         self.comp = components.make_IRecognizeLine(name)
-    def recognizeLine(self,fst,line,segmentation=0):
-        """Recognizes the line, saving the lattice into fst, and returning a segmentation."""
-        if segmentation:
-            segmentation = iulib.intarray()
-            self.comp.recognizeLine(fst,segmentation,line2narray(line,'B'))
-            return narray2lseg(segmentation)
-        else:
-            self.comp.recognizeLine(fst,line2narray(line,'B'))
+    def recognizeLine(self,line,segmentation=0):
+        """Recognizes the line and returns the recognition lattice."""
+        fst = OcroFST()
+        self.comp.recognizeLine(fst.comp,line2narray(line,'B'))
+        return fst
+    def recognizeLineSeg(self,line):
+        """Recognizes the line and returns the recognition lattice and a segmentation."""
+        fst = OcroFST()
+        rseg = iulib.intarray()
+        self.comp.recognizeLine(rseg,fst.comp,line2narray(line,'B'))
+        return (fst,narray2lseg(rseg))
     def startTraining(self,type="adaptation"):
         """Start training the line recognizer."""
         self.comp.startTraining(type)
@@ -630,6 +642,7 @@ class Linerec(RecognizeLine):
     Feature extraction is per character."""
     def __init__(self):
         self.make_("Linerec")
+
 class LinerecExtracted(RecognizeLine):
     """A line recognizer using neural networks and character size modeling.
     Feature extraction is per line."""
@@ -670,7 +683,7 @@ class Model(CommonComponent):
         The v argument can be rank 1 or larger.  If it is larger, it
         is assumed to be an image and converted from raster to mathematical
         coordinates."""
-        return self.comp.coutputs(vector2narray(v),coutputs)
+        return self.comp.coutputs(vector2narray(v))
     def cclassify(self,v):
         """Perform classification of the input vector v."""
         return self.comp.cclassify(vector2narray(v))
@@ -725,8 +738,11 @@ class OmpClassifier:
         self.comp.load(file)
 
 class OcroFST():
-    def __init__(self):
-        self.comp = ocropus.make_OcroFST()
+    def __init__(self,native=None):
+        if native:
+            self.comp = native
+        else:
+            self.comp = ocropus.make_OcroFST()
     def clear(self):
         self.comp.clear()
     def newState(self):
@@ -745,7 +761,7 @@ class OcroFST():
     def bestpath(self):
         result = iulib.ustrg()
         self.comp.bestpath(result)
-        ustrg2unicode(result)
+        return iulib.ustrg2unicode(result)
     def setString(self,s,costs,ids):
         self.comp.setString(unicode2ustrg(s),costs,ids)
     def nStates(self):
@@ -770,6 +786,7 @@ class OcroFST():
             self.comp.resocre(frm,to,symbol,new_cost,inpt)
     def load(self,name):
         self.comp.load(name)
+        return self
     def save(self,name):
         self.comp.save(name)
     def as_openfst(self):
@@ -780,6 +797,11 @@ class OcroFST():
         fst.Read(tmpfile)
         os.unlink(tmpfile)
         return fst
+
+def native_fst(fst):
+    if isinstance(fst,ocropus.OcroFST): return fst
+    if isinstance(fst,OcroFST): return fst.comp
+    raise Exception("expected either native or Python FST")
 
 def page_iterator(files):
     """Given a list of image files, iterate through all images in that list.
@@ -843,11 +865,11 @@ def read_page_segmentation(name,pseg,black=1):
     if black: ocropus.make_page_segmentation_black(pseg)
     return narray2pseg(pseg)
     
-def write_line_segmentation(name,pseg,white=1):
+def write_line_segmentation(name,lseg,white=1):
     """Write a numpy line segmentation."""
-    pseg = pseg2narray(pseg)
-    if white: ocropus.make_line_segmentation_white(pseg)
-    iulib.write_image_packed(name,pseg)
+    lseg = lseg2narray(lseg)
+    if white: ocropus.make_line_segmentation_white(lseg)
+    iulib.write_image_packed(name,lseg)
     
 def read_line_segmentation(name,pseg,black=1):
     """Write a numpy line segmentation."""
@@ -855,4 +877,283 @@ def read_line_segmentation(name,pseg,black=1):
     iulib.read_image_packed(pseg,name)
     if black: ocropus.make_line_segmentation_black(pseg)
     return narray2pseg(pseg)
+
+def beam_search(lattice,lmodel,beam):
+    """Perform a beam search through the lattice and language model, given the
+    beam size."""
+    v1 = iulib.intarray()
+    v2 = iulib.intarray()
+    ins = iulib.intarray()
+    outs = iulib.intarray()
+    costs = iulib.floatarray()
+    ocropus.beam_search(v1,v2,ins,outs,costs,native_fst(lattice),native_fst(lmodel),beam)
+    return (iulib.numpy(v1,'i'),iulib.numpy(v2,'i'),iulib.numpy(ins,'i'),iulib.numpy(outs,'i'),iulib.numpy(costs,'f'))
+
+def intarray_as_unicode(a,skip0=1):
+    result = u""
+    for i in range(len(a)):
+        if a[i]!=0:
+            result += unichr(a[i])
+    return result
     
+def rseg_map(inputs):
+    """This takes an array of the input labels produced by a beam search.
+    The input labels contain the correspondence
+    between the rseg label and the character.  These are put into
+    a dictionary and returned.  This is used for alignment between
+    a segmentation and text."""
+    n = len(inputs)
+    segs = []
+    for i in range(n):
+        start = inputs[i]>>16
+        end = inputs[i]&0xffff
+        segs.append((start,end))
+    n = amax([s[1] for s in segs])+1
+    count = 0
+    map = zeros(n,'i')
+    for i in range(len(segs)):
+        start,end = segs[i]
+        if start==0 or end==0: continue
+        count += 1
+        for j in range(start,end+1):
+            map[j] = count
+    return map
+
+def read_lmodel(file):
+    if file[-4:]==".fst":
+        return OcroFST().load(file)
+    else:
+        import fstutils
+        return OcroFST(fstutils.load_text_file_as_fst(file))
+
+def recognize_and_align(image,linerec,lmodel,beam=1000,nocseg=0):
+    """Perform line recognition with the given line recognizer and
+    language model.  Outputs an object containing the result (as a
+    Python string), the costs, the rseg, the cseg, the lattice and the
+    total cost.  The recognition lattice needs to have rseg's segment
+    numbers as inputs (pairs of 16 bit numbers); SimpleGrouper
+    produces such lattices.  cseg==None means that the connected
+    component renumbering failed for some reason."""
+
+    assert isinstance(linerec,RecognizeLine)
+
+    lattice,rseg = linerec.recognizeLineSeg(image)
+    v1,v2,ins,outs,costs = beam_search(lattice,lmodel,beam)
+    result = intarray_as_unicode(outs,skip0=0)
+
+    # compute the cseg
+    rmap = rseg_map(ins)
+    n = len(rseg)
+    if not nocseg and len(rmap)>1:
+        r,c = rseg.shape
+        cseg = zeros((r,c),'i')
+        for i in range(r):
+            for j in range(c):
+                value = rseg[i,j]
+                cseg[i,j] = rmap[value]
+    else:
+        cseg = None
+
+    # return everything we computed
+    return utils.Record(image=image,
+                        output=result,
+                        raw=outs,
+                        costs=costs,
+                        rseg=rseg,
+                        cseg=cseg,
+                        lattice=lattice,
+                        cost=sum(costs))
+
+def compute_alignment(lattice,rseg,lmodel,beam=1000,verbose=0):
+    """Given a lattice produced by a recognizer, a raw segmentation,
+    and a language model, computes the best solution, the cseg, and
+    the corresponding costs.  These are returned as Python data structures.
+    The recognition lattice needs to have rseg's segment numbers as inputs
+    (pairs of 16 bit numbers); SimpleGrouper produces such lattices."""
+
+    v1,v2,ins,outs,costs = beam_search(lattice,lmodel,beam)
+    result = intarray_as_unicode(outs,skip0=0)
+    assert len(ins)==len(outs)
+    n = len(ins)
+
+    result = u""
+    segs = []
+    for i in range(n):
+        if outs[i]<=0: continue
+        start = ins[i]>>16
+        end = ins[i]&0xffff
+        result += unichr(outs[i])
+        segs.append((start,end))
+
+    assert len(segs)>0
+    rmap = zeros(amax(segs)+1)
+    for i in range(len(segs)):
+        start,end = segs[i]
+        if verbose: print i+1,start,end,"'%s'"%result[i],costs.at(i)
+        if end==0: continue
+        rmap[start:end+1] = i+1
+
+    cseg = zeros(rseg.shape,'i')
+    for i in range(cseg.shape[0]):
+        for j in range(cseg.shape[1]):
+            cseg[i,j] = rmap[rseg[i,j]]
+
+    return utils.Record(output=result,
+                        raw=outs,
+                        ins=ins,
+                        outs=outs,
+                        segs=segs,
+                        costs=costs,
+                        rseg=rseg,
+                        cseg=cseg,
+                        lattice=lattice,
+                        cost=sum(costs))
+
+def load_linerec(file):
+    assert ".cmodel" not in file,"loading of .cmodel not supported (yet)"
+    linerec = ocropus.load_linerec(file)
+    native = components.load_linerec(file)
+    if isinstance(native,ocropus.IRecognizeLine):
+        result = RecognizeLine()
+        result.comp = native
+        return result
+    return native
+
+def renumber_labels(line,start):
+    line = lseg2narray(line)
+    iulib.renumber_labels(line,start)
+    return narray2lseg(line)
+
+class CmodelLineRecognizer:
+    def __init__(self,cmodel=None,segmenter="DpSegmenter",best=10,
+                 maxcost=10.0,reject_cost=100.0,minheight_letters=0.5):
+        """Initialize a line recognizer that works from character models.
+        The character shape model is given at initialization and needs to conform to
+        the IModel interface.  The segmenter needs to support ISegmentLine.
+        The best parameter determines how many of the top outputs from the classifier
+        are used in the construction of the lattice.  The maxcost parameter is
+        the maximum cost that will be assigned to a transiation in the lattice.
+        The reject_cost is a cost above which a character won't get added to the lattice
+        at all.  The minheight_letter threshold is the minimum height of a
+        component (expressed as fraction of the medium segment height) in
+        order to be added as a letter to the lattice."""
+        self.debug = 0
+        self.segmenter = SegmentLine().make(segmenter)
+        self.grouper = StandardGrouper()
+        # self.grouper.pset("maxdist",5)
+        # self.grouper.pset("maxrange",5)
+        self.cmodel = cmodel
+        self.best = best
+        self.maxcost = maxcost
+        self.reject_cost = reject_cost
+        self.min_height = minheight_letters
+        self.rho_scale = 1.0
+
+    def recognizeLine(self,lattice,image):
+        "Recognize a line, outputting a recognition lattice."""
+        lattice,rseg = self.recognizeLineSeg(image)
+        return lattice
+
+    def recognizeLineSeg(self,image):
+        """Recognize a line.
+        lattice: result of recognition
+        rseg: intarray where the raw segmentation will be put
+        image: line image to be recognized"""
+
+        ## compute the raw segmentation
+        rseg = self.segmenter.charseg(image)
+        if self.debug: show_segmentation(rseg) # FIXME
+        rseg = renumber_labels(rseg,1) # FIXME
+        self.grouper.setSegmentation(rseg)
+
+        # compute the median segment height
+        heights = []
+        for i in range(self.grouper.length()):
+            (y0,x0,y1,x1) = self.grouper.boundingBox(i)
+            heights.append(y1-y0)
+        mheight = median(array(heights))
+        self.mheight = mheight
+
+        # invert the input image (make a copy first)
+        old = image
+        image = 255-image
+
+        # this holds the list of recognized characters if keep!=0
+        self.chars = []
+        
+        # now iterate through the characters
+        for i in range(self.grouper.length()):
+            # get the bounding box for the character (used later)
+            (y0,x0,y1,x1) = self.grouper.boundingBox(i)
+            aspect = (y1-y0)*1.0/(x1-x0)
+
+            # extract the character image (and optionally display it)
+            (raw,mask) = self.grouper.extractWithMask(image,i,1)
+            char = raw/255.0
+            if self.debug:
+                imshow(char)
+                raw_input()
+
+            # Add a skip transition with the pixel width as cost.
+            # This ensures that the lattice is at least connected.
+            # Note that for typical character widths, this is going
+            # to be much larger than any per-charcter cost.
+            self.grouper.setClass(i,ocropus.L_RHO,self.rho_scale*raw.shape[1])
+
+            # compute the classifier output for this character
+            # FIXME parallelize this
+            outputs = self.cmodel.coutputs(char)
+            outputs = [(x[0],-log(x[1])) for x in outputs]
+            self.chars.append(utils.Record(index=i,image=char,outputs=outputs))
+            
+            # add the top classes to the lattice
+            outputs.sort(key=lambda x:x[1])
+            for cls,cost in outputs[:self.best]:
+                # don't add the reject class (written as "~")
+                if cls=="~": continue
+
+                # letters are never small, so we skip small bounding boxes that
+                # are categorized as letters; this is an ugly special case, but
+                # it is quite common
+                category = unicodedata.category(unicode(cls[0]))
+                if (y1-y0)<self.min_height*mheight and category[0]=="L":
+                    # add an empty transition to allow skipping junk
+                    # (commented out right now because I'm not sure whether
+                    # the grouper can handle it; FIXME)
+                    # self.grouper.setClass(i,"",1.0)
+                    continue
+
+                # for anything else, just add the classified character to the grouper
+                self.grouper.setClass(i,cls,min(cost,self.maxcost))
+                # FIXME better space handling
+                self.grouper.setSpaceCost(i,0.5,0.0)
+
+        # extract the recognition lattice from the grouper
+        lattice = self.grouper.getLattice()
+
+        # return the raw segmentation as a result
+        return lattice,rseg
+
+    def startTraining(self,type="adaptation"):
+        raise Exception("unimplemented")
+    def finishTraining(self):
+        raise Exception("unimplemented")
+    def addTrainingLine(self,image,transcription):
+        raise Exception("unimplemented")
+    def addTrainingLine(self,segmentation,image,transcription):
+        raise Exception("unimplemented")
+    def align(self,chars,seg,costs,image,transcription):
+        raise Exception("unimplemented")
+    def epoch(self,n):
+        raise Exception("unimplemented")
+    def save(self,file):
+        assert ".pymodel" in file
+        with open(file,"w") as stream:
+            pickle.dump(self,stream)
+    def load(self,file):
+        assert ".pymodel" in file
+        with open(file,"r") as stream:
+            obj = pickle.load(self,stream)
+        for k,v in obj.__dict__:
+            self.__dict__[k] = v
+
