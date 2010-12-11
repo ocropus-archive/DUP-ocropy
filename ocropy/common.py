@@ -1,3 +1,4 @@
+import os,os.path
 import numpy
 import iulib
 import ocropus
@@ -178,6 +179,9 @@ class CommonComponent:
     Python, you do not need to inherit from this."""
     def __init__(self):
         self.comp = None
+    def init(self,comp):
+        self.comp = comp
+        return self
     def make(self,name):
         """Bind this component to an instance of a C++ component."""
         self.make_(name)
@@ -425,6 +429,11 @@ class RegionExtractor:
         (row0,col0,row1,col1)."""
         r = self.comp.bbox(i)
         return rect2raster(r,self.h)
+    def bboxMath(self,i):
+        """Return the bounding box in math coordinates
+        (row0,col0,row1,col1)."""
+        r = self.comp.bbox(i)
+        return rect2math(r)
     def length(self):
         """Return the number of components."""
         return self.comp.length()
@@ -507,6 +516,9 @@ class Grouper(CommonComponent):
     def boundingBox(self,i):
         """Get the bounding box for group i."""
         return rect2raster(self.comp.boundingBox(i),self.h)
+    def bboxMath(self,i):
+        """Get the bounding box for group i."""
+        return rect2math(self.comp.boundingBox(i))
     def start(self,i):
         """Get the identifier of the character segment starting this group."""
         return self.start(i)
@@ -593,6 +605,17 @@ class Grouper(CommonComponent):
     def pixelSpace(self,i):
         """???"""
         return self.comp.pixelSpace(i)
+    def setSegmentationAndGt(self,rseg,cseg,gt):
+        """Set the line segmentation."""
+        assert rseg.shape==cseg.shape
+        self.comp.setSegmentationAndGt(lseg2narray(rseg),lseg2narray(cseg),iulib.unicode2ustrg(unicode(gt)))
+        self.h = rseg.shape[0]
+    def getGtIndex(self,i):
+        return self.comp.getGtIndex(i)
+    def getGtClass(self,i):
+        cls = self.comp.getGtClass(i)
+        if cls==-1: return "~"
+        return ocropus.multichr(cls)
 
 class StandardGrouper(Grouper):
     """The grouper usually used for printed OCR."""
@@ -814,6 +837,7 @@ def page_iterator(files):
 
 def read_image_gray(file,type='B'):
     """Read an image in grayscale."""
+    if not os.path.exists(file): raise IOError(file)
     na = iulib.bytearray()
     iulib.read_image_gray(na,file)
     return narray2numpy(na,type=type)
@@ -860,6 +884,7 @@ def write_page_segmentation(name,pseg,white=1):
     
 def read_page_segmentation(name,pseg,black=1):
     """Write a numpy page segmentation (rank 3, type='B' RGB image.)"""
+    if not os.path.exists(name): raise IOError(name)
     pseg = iulib.intarray()
     iulib.read_image_packed(pseg,name)
     if black: ocropus.make_page_segmentation_black(pseg)
@@ -871,12 +896,13 @@ def write_line_segmentation(name,lseg,white=1):
     if white: ocropus.make_line_segmentation_white(lseg)
     iulib.write_image_packed(name,lseg)
     
-def read_line_segmentation(name,pseg,black=1):
+def read_line_segmentation(name,black=1):
     """Write a numpy line segmentation."""
-    pseg = iulib.intarray()
-    iulib.read_image_packed(pseg,name)
-    if black: ocropus.make_line_segmentation_black(pseg)
-    return narray2pseg(pseg)
+    if not os.path.exists(name): raise IOError(name)
+    lseg = iulib.intarray()
+    iulib.read_image_packed(lseg,name)
+    if black: ocropus.make_line_segmentation_black(lseg)
+    return narray2lseg(lseg)
 
 def beam_search(lattice,lmodel,beam):
     """Perform a beam search through the lattice and language model, given the
@@ -920,6 +946,7 @@ def rseg_map(inputs):
     return map
 
 def read_lmodel(file):
+    if not os.path.exists(file): raise IOError(file)
     if file[-4:]==".fst":
         return OcroFST().load(file)
     else:
@@ -1009,22 +1036,12 @@ def compute_alignment(lattice,rseg,lmodel,beam=1000,verbose=0):
                         lattice=lattice,
                         cost=sum(costs))
 
-def load_linerec(file):
-    assert ".cmodel" not in file,"loading of .cmodel not supported (yet)"
-    linerec = ocropus.load_linerec(file)
-    native = components.load_linerec(file)
-    if isinstance(native,ocropus.IRecognizeLine):
-        result = RecognizeLine()
-        result.comp = native
-        return result
-    return native
-
 def renumber_labels(line,start):
     line = lseg2narray(line)
     iulib.renumber_labels(line,start)
     return narray2lseg(line)
 
-class CmodelLineRecognizer:
+class CmodelLineRecognizer(RecognizeLine):
     def __init__(self,cmodel=None,segmenter="DpSegmenter",best=10,
                  maxcost=10.0,reject_cost=100.0,minheight_letters=0.5):
         """Initialize a line recognizer that works from character models.
@@ -1156,4 +1173,38 @@ class CmodelLineRecognizer:
             obj = pickle.load(self,stream)
         for k,v in obj.__dict__:
             self.__dict__[k] = v
+
+def load_linerec(file):
+    """Loads a line recognizer.  This handles a bunch of special cases
+    due to the way OCRopus has evolved.  In the long term, .pymodel is the
+    preferred format.
+
+    For files ending in .pymodel, just unpickles the contents of the file.
+
+    For files ending in .cmodel, loads the character model using load_IModel
+    (it has to be a C++ character classifier), and then instantiates a
+    CmodelLineRecognizer with the cmodel as an argument.  Additional parameters
+    can be passed as in my.cmodel:best=5.  The line recognizer used can be
+    overridden as in my.cmodel:class=MyLineRecognizer:best=17.
+
+    For anything else, uses native load_linerec (which has its own special cases)."""
+
+    if ".pymodel" in file:
+        with open(file,"rb") as stream:
+            result = cPickle.load(stream)
+        return result
+
+    if ".cmodel" in file:
+        names = file.split(":")
+        cmodel = Model().init(components.load_IModel(names[0]))
+        linerec = CmodelLineRecognizer(cmodel=cmodel)
+        return linerec
+
+    linerec = ocropus.load_linerec(file)
+    native = components.load_linerec(file)
+    if isinstance(native,ocropus.IRecognizeLine):
+        result = RecognizeLine()
+        result.comp = native
+        return result
+    return native
 
