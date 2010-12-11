@@ -6,7 +6,7 @@
 ### -- add editors for ground truth
 
 from optparse import OptionParser
-import re,os,glob
+import re,os,glob,os.path
 import sys
 import matplotlib 
 matplotlib.use('GTK') 
@@ -27,6 +27,7 @@ from ocropy import fstutils,linerec
 from matplotlib import patches
 import scipy
 import ocropus
+import glob
 
 from matplotlib.backends.backend_gtk import FigureCanvasGTK as FigureCanvas
 from matplotlib.backends.backend_gtk import NavigationToolbar2GTK as NavigationToolbar
@@ -198,7 +199,6 @@ class LineWindow:
         dic = {
             "on_window1_destroy" : gtk.main_quit,
             "on_recognizer_changed" : self.recognizer_update,
-            "on_segmenter_changed" : self.segmenter_update,
             "on_langmod_changed" : self.langmod_update,
             "on_run_recognizer_clicked" : self.run_recognizer,
             "on_record_clicked" : self.record,
@@ -388,51 +388,25 @@ class LineWindow:
                         self.detail(" [oops]   ")
                 self.detail("\n")
     def recognizer_update(self,*args):
-        file = self.recognizer.get_active_text()
-        self.recognizer_load(file)
+        pass
     def segmenter_update(self,*args):
-        name = self.segmenter.get_active_text()
-        comp = ocropy.make_ISegmentLine(name)
-        self.linerec.segmenter = comp
-        print "set segmenter to",name,comp
+        pass
     def recognizer_load(self,file):
-        if file!="none":
-            if ".cmodel" in file:
-                cmodel = ocropy.load_IModel(file)
-                constructor = eval(options.linerecognizer)
-                self.linerec = constructor(cmodel=cmodel,
-                                           best=options.nbest,
-                                           maxcost=options.maxccost)
-            else:
-                self.linerec = ocropy.load_linerec(file)
-        # self.linerec.debug = 1
-        print "loaded",self.linerec
-        self.segmenter_update()
+        pass
     def langmod_update(self,*args):
-        lmodel_name = self.langmod.get_active_text()
-        self.langmod_load(lmodel_name)
+        pass
     def langmod_load(self,lmodel_name):
-        lmodel = None
-        if lmodel_name[0]=="*":
-            lmodel = lmodel_name
-        elif lmodel_name!="none":
-            lmodel = ocropy.make_OcroFST()
-            lmodel.load(lmodel_name)
-        self.lmodel = lmodel
-        print "loaded",self.lmodel
+        pass
     def run_recognizer(self,*args):
-        print "run_recognizer_activate",args
-        recognizer = self.recognizer.get_active_text()
-        langmod = self.langmod.get_active_text()
-        if recognizer=="none": return
-        if recognizer==self.last_recognizer and \
-                langmod==self.last_langmod: return
-        self.recognizeAll()
+        pass
 
 
 def main():
     app = LineWindow()
-    app.addImages(args)
+    if len(args)==1 and os.path.isdir(args[0]):
+        app.addImages(glob.glob(args[0]+"/????/??????.png"))
+    else:
+        app.addImages(args)
     if options.langmod is not None:
         app.langmod_load(options.langmod)
         app.langmod.append_text(options.langmod)
