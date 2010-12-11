@@ -196,7 +196,7 @@ class CommonComponent:
         return self.comp.print_()
     def info(self,depth=0):
         """Print information about this object."""
-        return self.comp.info(depth=0)
+        return self.comp.info()
     def save_native(self,file):
         """Save this component to FILE as a C++ saved object."""
         self.comp.save(file)

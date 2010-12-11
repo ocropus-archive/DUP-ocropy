@@ -1,5 +1,10 @@
 #!/usr/bin/python
 
+# FIXME
+# -- add more detailed preprocessing options, separate out stages explicitly
+# -- page frame removal, noise removal, ...
+# -- parallelize TIFF images
+
 from multiprocessing import Pool
 import signal
 signal.signal(signal.SIGINT,lambda *args:sys.exit(1))

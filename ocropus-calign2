@@ -226,7 +226,7 @@ def align1(t):
             # output the aligned segmentations
             common.write_line_segmentation(rseg_file,rseg)
             common.write_line_segmentation(cseg_file,cseg)
-            with open(prefix+".cseg"+suffix+".costs","w") as stream:
+            with open(prefix+suffix+".costs","w") as stream:
                 for i in range(len(costs)):
                     stream.write("%d %g\n"%(i,costs[i]))
             if options.gtextension is None:

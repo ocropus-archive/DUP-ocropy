@@ -394,6 +394,7 @@ class LineRecognizer:
                 if cost>self.reject_cost: continue
 
                 # for anything else, just add the classified character to the grouper
+                cls = unicode(cls)
                 s = iulib.unicode2ustrg(cls)
                 self.grouper.setClass(i,s,min(cost,self.maxcost))
 

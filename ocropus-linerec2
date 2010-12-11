@@ -4,6 +4,8 @@ import sys,os,re,glob,cPickle,signal
 import ocropy
 from ocropy import plotutils,fstutils,linerec,common
 from pylab import *
+from ocropy.utils import number_of_processors
+from multiprocessing import Pool
 
 signal.signal(signal.SIGINT,lambda *args:sys.exit(1))
 
@@ -40,6 +42,7 @@ parser.add_option("-D","--Display",help="display continuously",action="store_tru
 parser.add_option("-S","--suffix",help="suffix for writing results (e.g., '.gt')",default="")
 parser.add_option("-x","--gtextension",help="extension used for ground truth (ex: .txt, .gt.txt, .fst,...)",default=None)
 parser.add_option("-F","--filelist",help="list of input files",default=None)
+parser.add_option("-P","--parallel",type=int,default=number_of_processors(),help="number of parallel processes to use")
 
 (options,args) = parser.parse_args()
 
@@ -66,28 +69,30 @@ default_lmodel = ocropy.make_OcroFST()
 default_lmodel.load(options.langmod)
 default_lmodel_path = options.langmod
 
-for line in args:
+current_lmodel_name = None
+current_lmodel = None
+
+def process_line(job):
+    global current_lmodel_name,current_lmodel
+    line,lmodel_name = job
     base,allext = ocropy.allsplitext(line)
     _,ext = os.path.splitext(line)
 
-    # if the file is a language model, load it
-    if ext==".fst" or ext==".txt":
-        default_lmodel_path = line
-        default_lmodel = read_lmodel(line)
-        continue
-        
     # if we can find a specific language model for it then perform alignment
-    lmodel = default_lmodel
     if options.gtextension is not None:
         path = base+options.gtextension
         if os.path.exists(path):
-            if options.verbose: print "# using ",path
-            lmodel = read_lmodel(path)
+            if options.verbose: print "# gt",path
+            lmodel = common.read_lmodel(path)
         else:
             if options.verbose: print "# ground truth missing",path
-            continue
+            return
     else:
-        if options.verbose: print "# using",default_lmodel_path
+        if lmodel_name!=current_lmodel_name:
+            current_lmodel = common.read_lmodel(lmodel_name)
+            current_lmodel_name = lmodel_name
+        if options.verbose: print "# lmodel",lmodel_name
+        lmodel = current_lmodel
 
     # recognize the image with the given line recognizer and language model
     # FIXME read the .bin.png file if it exists.
@@ -103,6 +108,9 @@ for line in args:
     common.write_line_segmentation(base+".rseg"+options.suffix+".png",l.rseg)
     if l.cseg is not None:
         common.write_line_segmentation(base+".cseg"+options.suffix+".png",l.cseg)
+    with open(base+".costs","w") as stream:
+        for i in range(len(l.costs)):
+            stream.write("%d %g\n"%(i+1,l.costs[i]))
 
     # display if requested
     if options.display:
@@ -113,3 +121,20 @@ for line in args:
             raw_input("hit ENTER to continue")
         else:
             ginput(1,timeout=1)
+
+lmodel_name = options.langmod
+
+jobs = []
+for line in args:
+    base,allext = ocropy.allsplitext(line)
+    _,ext = os.path.splitext(line)
+    if ext=="txt" or ext=="fst":
+        lmodel_name = line
+        continue
+    jobs.append((line,lmodel_name))
+
+if options.parallel<2:
+    for job in jobs: process_line(job)
+else:
+    pool = Pool(processes=options.parallel)
+    result = pool.map(process_line,jobs)
