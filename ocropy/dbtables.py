@@ -1,5 +1,9 @@
+import os
 import sqlite3
 import numpy
+
+debug = os.getenv("dbtables_debug")
+if debug!=None: debug = int(debug)
 
 class Row:
     pass
@@ -116,6 +120,7 @@ class Table:
             for k,v in kw.items():
                 cmd += ", %s %s"%(k,v)
             cmd += ")"
+            if debug: print cmd
             cur.execute(cmd)
         else:
             # table already exists; add any missing columns
@@ -124,6 +129,7 @@ class Table:
                     assert not self.read_only,"attempting to access column '%s.%s' which doesn't exist"%(self.tname,k)
                     cmd = "alter table "+self.tname+" add column ("+k+" "+v+")"
                     print "###",cmd
+                    if debug: print cmd
                     cur.execute(cmd)
         self.con.commit()
     def del_hash(self,kw,commit=1):
@@ -135,6 +141,7 @@ class Table:
             conv = self.converters.get(k,None)
             if conv is not None: v = conv.pickle(v)
             values += [v]
+        if debug: print cmd
         cur.execute(cmd,values)
         if commit: self.con.commit()
         cur.close(); del cur
@@ -146,11 +153,13 @@ class Table:
     def get_keys(self,which):
         cur = self.con.cursor()
         cmd = "select distinct(%s) from "%which+self.tname
+        if debug: print cmd
         for row in cur.execute(cmd):
             yield row[0]
         cur.close(); del cur
     def query(self,cmd,values=[],commit=0):
         cur = self.con.cursor()
+        if debug: print cmd
         for row in cur.execute(cmd,values):
             yield row
         self.con.commit()
@@ -169,6 +178,7 @@ class Table:
         if limit_ is not None:
             cmd += " limit %d"%limit_
         if self.verbose: print "#",cmd,values
+        if debug: print cmd
         for row in cur.execute(cmd,values):
             result = self.factory()
             for k in row.keys():
@@ -199,6 +209,7 @@ class Table:
             if conv is not None: v = conv.pickle(v)
             values += [v]
         if self.verbose: print "#",cmd,values
+        if debug: print cmd,values[:1]+values[2:]
         cur.execute(cmd,values)
         self.con.commit()
         result = cur.lastrowid

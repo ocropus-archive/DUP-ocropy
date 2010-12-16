@@ -375,11 +375,13 @@ def cmd_nn(*args):
     results = ocropy.omp_classify(classifier,images)
     for k in range(len(selected)):
         i = selected[k]
+        row = grid[i]
         outputs = results[k]
         outputs = [(x[0],-log(x[1])) for x in outputs]
         outputs.sort(key=lambda x:x[1])
         if len(outputs)<1:
-            pat.cls = ""
+            row[1] = ""
+            row[2].cls = ""
         else:
             cls,cost = outputs[0]
             row[1] = cls
@@ -387,7 +389,7 @@ def cmd_nn(*args):
             table.put(row[2],commit=0)
         if count<10 or count%100==0:
             if len(outputs)>1:
-                print count,row[2].cls,outputs[0]
+                print count,row[2].cls,outputs[0],type(row[2].cls),row[2].id
             else:
                 print count,"no output"
         count += 1
