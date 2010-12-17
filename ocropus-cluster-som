@@ -1,0 +1,140 @@
+#!/usr/bin/python
+import code,pickle,sys,os,re,ocropy
+from ocropy import dbtables,binnednn
+from pylab import *
+from optparse import OptionParser
+
+parser = OptionParser("""
+usage: %prog [options] chars.db output.db
+
+""")
+
+parser.add_option("-D","--display",help="display chars",action="store_true")
+parser.add_option("-v","--verbose",help="verbose output",action="store_true")
+parser.add_option("-t","--table",help="table name",default="chars")
+parser.add_option("-g","--grid",help="grid size",default="10,10")
+parser.add_option("-T","--threshold",help="threshold",type=float,default=0.03)
+parser.add_option("-n","--niter",help="number of iterations",type=int,default=100000)
+
+from scipy import mgrid,linalg,ndimage
+import sys,os,random,math
+import numpy,pylab,scipy
+from numpy import *
+
+verbose = 1
+
+(options,args) = parser.parse_args()
+
+if len(args)!=2:
+    parser.print_help()
+    sys.exit(0)
+
+input = args[0]
+output = args[1]
+
+def rchoose(k,n):
+    assert k<=n
+    return random.permutation(range(n))[:k]
+def rowwise(f,data,samples=None):
+    assert data.ndim==2
+    if samples is None: samples = range(len(data))
+    return array([f(data[i]) for i in samples])
+def argmindist(x,data):
+    dists = [distsq(x,v) for v in data]
+    return argmin(dists)
+def dist(u,v):
+    return linalg.norm(u-v)
+def distsq(x,y):
+    d = x-y
+    return dot(d.ravel(),d.ravel())
+
+def som_theta(dist,iter,ngrid):
+    """Compute a SOM theta value used for updating.
+    (This is the default; you can define your own.)"""
+    so = 100.0*ngrid
+    to = 100.0*ngrid
+    sigma = 10.0 * so/(so+iter)
+    t = to/(to+iter) * exp(-dist/2/sigma)
+    if t<1e-3: return 0
+    return t
+
+def som(data,shape=None,niter=10000000,threshold=0.03,theta=som_theta,torus=0):
+    assert not isnan(data).any()
+    """Compute a 2D self-organizing map for the data,
+    with the given shape and the maximum number of iterations.
+    The theta value used for updating is computed by the theta
+    function passed as an argument."""
+    if shape is None:
+        k = max(3,floor(data.shape[0]**(1.0/3.0)))
+        shape = (k,k)
+    assert shape[0]>=3 and shape[1]>=3
+    w,h = shape
+    n,m = data.shape
+    total = w*h
+    items = rchoose(total,n)
+    # print items
+    grid = data[items,:].copy()
+    for iter in range(niter):
+        neighbor_update = theta(1.0,iter,total)
+        if neighbor_update<threshold: break
+        best = argmindist(data[iter%n],grid.reshape(w*h,m))
+        x,y = best/h,best%h
+        if verbose and iter%100==0:
+            print iter,x,y,theta(1,iter,total)
+        if theta(1,iter,total)<1e-2: break
+        for index in range(w*h):
+            u,v = index/h,index%h
+            dx = u-x
+            dy = v-y
+            if torus:
+                if abs(dx)>w/2: dx = abs(dx)-w
+                if abs(dy)>h/2: dy = abs(dy)-h
+            d = math.hypot(dx,dy)
+            t = theta(d,iter,total)
+            if t<1e-8: continue
+            diff = data[iter%n,:]-grid[index,:]
+            grid[index,:] += t * diff
+    grid.shape = (w,h,m)
+    return grid
+
+ion()
+show()
+
+table = dbtables.Table(input,options.table)
+table.converter("image",dbtables.SmallImage())
+table.create(image="blob",cls="text")
+
+classes = [row[0] for row in table.query("select distinct(cls) from '%s' order by cls"%
+                                         options.table)]
+
+extractor = ocropy.make_IExtractor("scaledfe")
+
+data = []
+print "loading"
+for cls in classes:
+    print "cls",cls
+    for row in table.get(cls=cls):
+        raw = row.image
+        if raw.shape[0]>255 or raw.shape[1]>255: continue
+        raw = raw/float(amax(raw))
+        v = ocropy.floatarray()
+        c = ocropy.floatarray().of(raw)
+        extractor.extract(v,c)
+        v = ocropy.as_numpy(v)
+        data.append(v)
+
+print "clustering"
+data = array(data)
+shape = eval("("+options.grid+")")
+grid = som(data,shape,torus=1)
+
+print "writing"
+table = dbtables.ClusterTable(output)
+table.create(image="blob",cls="text",count="integer",classes="text")
+table.converter("image",dbtables.SmallImage())
+
+for i in range(shape[0]):
+    for j in range(shape[1]):
+        image = array(v.numpy()/v.max()*255.0,'B')
+        image.shape = (30,30)
+        table.set(image=image,cls="_",count=1,classes="%d %d"%(i,j))
