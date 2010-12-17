@@ -15,7 +15,6 @@ from ocropy import N,NI,F,FI
 import ocropy.linerec
 from multiprocessing import Pool
 from ocropy.utils import number_of_processors
-from ocropy import common,components
 
 signal.signal(signal.SIGINT,lambda *args:sys.exit(1))
 
@@ -36,6 +35,8 @@ class CostTooHigh:
 
 class AlignmentFailed:
     pass
+
+# ocropy.dinit(512,512,1)
 
 class Log:
     def __init__(self):
@@ -119,22 +120,35 @@ def die(*args):
     error(*args)
     sys.exit(1)
 
-segmenter = common.SegmentLine().make(options.segmenter)
-grouper = common.StandardGrouper()
+segmenter = ocropy.make_ISegmentLine(options.segmenter)
+grouper = ocropy.make_IGrouper("SimpleGrouper")
 grouper.pset("maxdist",options.maxdist) # use 5 to handle "/''
 
 ion()
 
 print "loading",options.model
 
-cmodel = common.Model()
-cmodel.comp = components.load_IModel(options.model)
-linerec = common.CmodelLineRecognizer(cmodel=cmodel,
-                                      best=options.nbest,
-                                      maxcost=options.maxccost)
+if 0:
+    cmodel = ocropy.load_IModel(options.model)
+    linerec = ocropy.CmodelLineRecognizer(cmodel=cmodel,
+                                          best=options.nbest,
+                                          maxcost=options.maxccost)
+else:
+    linerec = ocropy.linerec.LineRecognizer()
+    linerec.load(options.model)
+
 
 default_lmodel_name = None
 default_lmodel = None
+
+def read_lmodel(file):
+    if file[-4:]==".fst":
+        result = ocropy.make_OcroFST()
+        result.load(file)
+        return result
+    else:
+        result = fstutils.load_text_file_as_fst(file)
+        return result
 
 if options.display:
     ion()
@@ -151,35 +165,39 @@ def align1(t):
     imagefile,lname = t
     if lname!=default_lmodel_name:
         default_lmodel_name = lname
-        default_lmodel = common.read_lmodel(lname)
+        default_lmodel = read_lmodel(lname)
     nlines += 1
     prefix = re.sub(r'\.[^/.]*$','',imagefile)
 
     ## load the line image
     log("load\t",imagefile)
-    image = common.read_image_gray(imagefile)
+    image = ocropy.bytearray()
+    ocropy.read_image_gray(image,imagefile)
     if options.display:
-        clf(); gray(); imshow(image); draw()
+        clf(); gray(); imshow(NI(image)); draw()
 
     ## perform line recognition, yielding a recognition lattice
+    lattice = ocropy.make_OcroFST()
+    rseg = ocropy.intarray()
     try:
-        lattice,rseg = linerec.recognizeLineSeg(image)
+        linerec.recognizeLineSeg(lattice,rseg,image)
     except:
         log.error(imagefile,"recognition failed")
         traceback.print_exc()
         return 0
-    assert rseg.dtype=='i'
     # lattice.save("_lattice.fst")
     lattice.save(prefix+suffix+".fst")
 
     ## compute and output the raw best path
-    s = lattice.bestpath()
+    s = ocropy.ustrg()
+    lattice.bestpath(s)
     cost = 0.0
-    log("lraw %6.2f\t%3d\t%s"%(cost,len(s),s))
+    log("lraw %6.2f\t%3d\t%s"%(cost,s.length(),ocropy.ustrg_as_string(s)))
 
     ## if we can find a language model for it then perform alignment
     lmodel = default_lmodel
     if options.gtextension is not None:
+        # base = re.sub(r'\.[^/]*$','',imagefile)
         base = re.sub(r'\.[^/.]*$','',imagefile)
         gtname = base+options.gtextension
         log("gt",gtname)
@@ -194,10 +212,10 @@ def align1(t):
 
     if lmodel is not None:
         try:
-            r = common.compute_alignment(lattice,rseg,lmodel)
+            r = ocropy.compute_alignment(lattice,rseg,lmodel)
             result = r.output
             cseg = r.cseg
-            costs = r.costs
+            costs = r.costs.numpy()
             # print costs
             log("costs",sum(costs),mean(costs),amax(costs),median(costs))
             log("result",result)
@@ -224,9 +242,9 @@ def align1(t):
                 # don't bother checking for costs file
 
             # output the aligned segmentations
-            common.write_line_segmentation(rseg_file,rseg)
-            common.write_line_segmentation(cseg_file,cseg)
-            with open(prefix+suffix+".costs","w") as stream:
+            ocropy.write_line_segmentation(rseg_file,rseg)
+            ocropy.write_line_segmentation(cseg_file,cseg)
+            with open(prefix+".cseg"+suffix+".costs","w") as stream:
                 for i in range(len(costs)):
                     stream.write("%d %g\n"%(i,costs[i]))
             if options.gtextension is None:

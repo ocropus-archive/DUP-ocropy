@@ -7,27 +7,27 @@ class Record:
         for k in kw.keys():
             self.__dict__[k] = kw[k]
 
-def as_numpy(image,flip=0):
+def as_numpy(image,flip=0,dtype='f'):
     if type(image)==numpy.ndarray: return image
-    if flip and image.rank()>1: return as_numpyI(image)
-    return iulib.numpy(image)
+    if flip and image.rank()>1: return as_numpyI(image,dtype=dtype)
+    return iulib.numpy(image,type=dtype)
 
-def as_narray(image,flip=0):
+def as_narray(image,flip=0,dtype='f'):
     if type(image)!=numpy.ndarray: return image
-    if flip and image.ndim: return as_narrayI(image)
-    return iulib.narray(image)
+    if flip and image.ndim: return as_narrayI(image,dtype=dtype)
+    return iulib.narray(image,type=dtype)
 
-def as_numpyI(image):
+def as_numpyI(image,dtype=dtype):
     if type(image)==numpy.ndarray: return image
-    image = iulib.numpy(image)
+    image = iulib.numpy(image,type=dtype)
     image = image.transpose([1,0]+range(2,image.ndim))
     return image[::-1,...]
 
-def as_narrayI(image):
+def as_narrayI(image,dtype=dtype):
     if type(image)!=numpy.ndarray: return image
     image = image[::-1,...]
     image = image.transpose([1,0]+range(2,image.ndim))
-    return iulib.narray(image)
+    return iulib.narray(image,type=dtype)
 
 def pad_to(image,w,h):
     """Symmetrically pad the image to the given width and height."""

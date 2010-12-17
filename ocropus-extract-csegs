@@ -4,6 +4,7 @@ from optparse import OptionParser
 from pylab import *
 import ocropy
 from ocropy import dbtables,binnednn,ocrobook
+from ocropy.utils import Record
 
 parser = OptionParser("""
 usage: %prog [options] .../.../010001.png ...
@@ -44,6 +45,36 @@ segmenter = None
 if options.segmenter!="none":
     segmenter = ocropy.make_ISegmentLine(options.segmenter)
 
+class BadGroundTruth(Exception):
+    pass
+
+def cseg_chars(file,suffix=".gt"):
+    image = ocropy.bytearray()
+    ocropy.read_image_gray(image,file)
+    ocropy.sub(255,image)
+    base,_ = ocropy.allsplitext(file)
+    cseg = ocropy.intarray()
+    ocropy.read_image_packed(cseg,base+".cseg"+suffix+".png")
+    ocropy.make_line_segmentation_black(cseg)
+    with open(base+suffix+".txt") as stream:
+        gt = stream.read()
+    gt = re.sub('\n','',gt)
+    grouper = ocropy.make_IGrouper("SimpleGrouper")
+    grouper.pset("maxrange",1)
+    grouper.setSegmentation(cseg)
+    print grouper.length(),len(gt),len(re.sub(' ','',gt))
+    if len(gt)!=grouper.length():
+        gt = re.sub(' ','',gt)
+        if len(gt)!=grouper.length():
+            raise BadGroundTruth()
+    for i in range(grouper.length()):
+        cls = gt[i]
+        if cls==' ': continue
+        raw = ocropy.bytearray()
+        mask = ocropy.bytearray()
+        grouper.extractWithMask(raw,mask,image,i,1)
+        yield Record(raw=raw,mask=mask,cls=cls,index=i,bbox=grouper.boundingBox(i))
+
 ntried = 0
 nfiles = 0
 total = 0
@@ -52,7 +83,7 @@ for file in args:
     text = ""
     ntried += 1
     try:
-        items = list(ocrobook.cseg_chars(file,verbose=options.verbose,segmenter=segmenter))
+        items = list(cseg_chars(file))
         nfiles += 1
     except IOError,e:
         print "ERROR",e
@@ -63,10 +94,13 @@ for file in args:
         continue
     if options.verbose:
         print file,len(segments),len(text)
+    index = 0
     for x in items:
         raw = x.raw
         mask = x.mask
         cls = x.cls
+        print index,cls
+        index += 1
         segments.append(raw)
         if options.display:
             clf(); gray(); imshow(ocrobook.NI(raw)); draw()
