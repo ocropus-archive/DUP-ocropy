@@ -1,0 +1,47 @@
+#!/usr/bin/python
+import code,pickle,sys,os,re,ocropy
+from ocropy import dbtables,binnednn
+from pylab import *
+from optparse import OptionParser
+
+parser = OptionParser("""
+usage: %prog [options] clusters.db out.db
+
+""")
+
+parser.add_option("-D","--display",help="display chars",action="store_true")
+parser.add_option("-v","--verbose",help="verbose output",action="store_true")
+
+(options,args) = parser.parse_args()
+
+if len(args)!=2:
+    parser.print_help()
+    sys.exit(0)
+
+input = args[0]
+output = args[1]
+
+ion()
+show()
+
+table = dbtables.Table(input,"chars")
+table.converter("image",dbtables.SmallImage())
+table.create(image="blob",count="integer",cls="text",classes="text",key="text")
+
+classes = [row[0] for row in table.query("select distinct(cls) from chars order by cls")]
+
+total = 0
+for cls in classes:
+    print "# clustering",cls
+    binned = binnednn.BinnedNN()
+    total = 0
+    for row in table.get(cls=cls):
+        raw = row.image
+        if raw.shape[0]>255 or raw.shape[1]>255: continue
+        raw = raw/float(amax(raw))
+        binned.add(raw,cls)
+        total+=1
+        if total%1000==0:
+            print total,"chars"
+            print binned.stats()
+    binned.save(output)

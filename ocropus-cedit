@@ -61,6 +61,7 @@ parser.add_option("-t","--table",help="which table to edit",default=None)
 # use this with old (unflipped) cmodels trained from Python
 parser.add_option("-F","--flip",help="flip characters before handing to classifier",default=1,action="store_false")
 parser.add_option("-B","--batchsize",help="maximum number of characters loaded for display",type="int",default=50000)
+parser.add_option("-s","--select",help="initial character to select",default=None)
 (options,args) = parser.parse_args()
 
 ion()
@@ -153,6 +154,7 @@ def set_store(target_cls,sortfun=None):
     selected = get_clusters(cls=target_cls)
     if sortfun is not None:
         selected = sortfun(selected)
+    print "sorting",len(selected),"with",sortfun
     for cluster in selected:
         pixbuf = numpy2pixbuf(1.0-cluster.image)
         row = [pixbuf,cluster.cls,cluster]
@@ -252,7 +254,7 @@ def cmd_sel_sort(item,which):
 ocropy.dinit(512,512)
 
 def charprop(image,kind):
-    bimage = ocropy.narray(255*image,'B')
+    bimage = ocropy.as_narrayI(255*image,'B')
     # ocropy.sub(255,bimage)
     if kind=="holes":
         result = ocropy.hole_counts(bimage,1.0)
@@ -588,6 +590,8 @@ def main():
 
     status = main_widget_tree.get_widget("status")
     main_widget_tree.get_widget("window1").show_all()
+    if options.select is not None:
+        set_store(options.select)
     gtk.main()
 
 main()
