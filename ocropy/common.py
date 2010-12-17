@@ -1174,7 +1174,7 @@ class CmodelLineRecognizer(RecognizeLine):
         for k,v in obj.__dict__:
             self.__dict__[k] = v
 
-def load_linerec(file):
+def load_linerec(file,wrapper=CmodelLineRecognizer):
     """Loads a line recognizer.  This handles a bunch of special cases
     due to the way OCRopus has evolved.  In the long term, .pymodel is the
     preferred format.
@@ -1197,7 +1197,7 @@ def load_linerec(file):
     if ".cmodel" in file:
         names = file.split(":")
         cmodel = Model().init(components.load_IModel(names[0]))
-        linerec = CmodelLineRecognizer(cmodel=cmodel)
+        linerec = wrapper(cmodel=cmodel)
         return linerec
 
     linerec = ocropus.load_linerec(file)
