@@ -5,6 +5,7 @@ import ocropus
 import utils
 import components
 from scipy.misc import imsave
+from scipy.ndimage import interpolation
 from numpy import *
 import unicodedata
 
@@ -369,6 +370,13 @@ class SegmentPageByXYCUTS(SegmentPage):
     def __init__(self):
         self.make_("SegmentPageByXYCUTS")
 
+def cut(image,box,margin=0,bg=0,dtype=None):
+    (r0,c0,r1,c1) = box
+    r0 -= margin; c0 -= margin; r1 += margin; c1 += margin
+    if dtype is None: dtype = image.dtype
+    result = interpolation.shift(image,(-r0,-c0),output=dtype,order=0,cval=bg)
+    return result[:(r1-r0),:(c1-c0)]
+
 class RegionExtractor:
     """A class facilitating iterating over the parts of a segmentation."""
     def __init__(self):
@@ -448,12 +456,15 @@ class RegionExtractor:
         (r0,c0,r1,c1) = self.bbox(index)
         mask = self.mask(index,margin=margin)
         return image[max(0,r0-margin):min(h,r1+margin),max(0,c0-margin):min(w,c1+margin),...]
-    def extractMasked(self,image,index,grow,bg,margin=0,type=None):
+    def extractMasked(self,image,index,grow,bg=None,margin=0,dtype=None):
         """Return the masked subimage for component index, elsewhere the bg value."""
+        if bg is None: bg = amax(image)
         h,w = image.shape[:2]
-        (r0,c0,r1,c1) = self.bbox(index)
         mask = self.mask(index,margin=margin)
-        subimage = image[max(0,r0-margin):min(h,r1+margin),max(0,c0-margin):min(w,c1+margin),...]
+        mh,mw = mask.shape
+        box = self.bbox(index)
+        r0,c0,r1,c1 = box
+        subimage = cut(image,(r0,c0,r0+mh-2*margin,c0+mw-2*margin),margin,bg=bg)
         return where(mask,subimage,bg)
 
 class SegmentLine(CommonComponent):

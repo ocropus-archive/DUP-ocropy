@@ -10,6 +10,7 @@ from pylab import *
 import ocropy
 from ocropy import N,NI,F,FI
 from ocropy import dbtables
+from ocropy.utils import Record
 import sqlite3
 
 def TODO():
@@ -114,16 +115,24 @@ table = dbtables.Table(file,options.table)
 table.converter("image",dbtables.SmallImage())
 print "done"
 
-def get_clusters(cls):
-    print "get_clusters",cls
-    clusters = list(table.get(cls=cls))
-    clusters.sort(key=lambda x:x.count,reverse=1)
-    for cluster in clusters:
-        if cluster.cls is None:
-            cluster.cls = "_"
-        cluster.image = cluster.image/255.0
-    print "got",len(clusters),"clusters"
-    return clusters
+grid = [row[0] for row in table.query("select distinct(grid) from '%s'" % options.table)]
+grid = [map(int,x.split()) for x in grid]
+rows = amax(array([x[0] for x in grid]))+1
+cols = amax(array([x[1] for x in grid]))+1
+print "rows",rows,"cols",cols
+data = array([[None]*cols]*rows)
+classes = array([[None]*cols]*rows)
+for row in table.get():
+    r,c = map(int,row.grid.split())
+    data[r,c] = row.image/255.0
+    classes[r,c] = row.cls
+
+def get_clusters():
+    result = []
+    for i in range(data.shape[0]):
+        for j in range(data.shape[1]):
+            result.append(Record(image=data[i,j],cls=classes[i,j],classes="",count=1))
+    return result
 
 def get_classes():
     return list(table.get_keys("cls"))
@@ -143,14 +152,14 @@ def compute_combolist():
         which = charlist.index(select)
         class_selector.set_active(which)
 
-def set_store(target_cls,sortfun=None):
+def set_store(sortfun=None):
     """Set the store for the target class."""
     global grid
     grid = gtk.ListStore(gtk.gdk.Pixbuf,
                          str,
                          gobject.TYPE_PYOBJECT)
     rownum = 0
-    selected = get_clusters(cls=target_cls)
+    selected = get_clusters()
     if sortfun is not None:
         selected = sortfun(selected)
     for cluster in selected:
@@ -438,11 +447,6 @@ def cmd_train(*args):
 
 ### basic event handlers
 
-def on_comboboxentry1_changed(entry):
-    s = entry.get_active_text()
-    if s is not None and s!="":
-        set_store(s)
-
 def on_iconview1_item_activated(*args):
     update_info()
 
@@ -565,7 +569,6 @@ def main():
         "on_iconview1_item_activated" : on_iconview1_item_activated,
         "on_iconview1_selection_changed" : on_iconview1_item_activated,
         "on_iconview1_motion_notify_event" : on_iconview1_motion_notify_event,
-        "on_comboboxentry1_changed" : on_comboboxentry1_changed,
         }
     main_widget_tree.signal_autoconnect(dic)
     window = main_widget_tree.get_widget("window1")
@@ -579,6 +582,7 @@ def main():
     cluster_viewer.set_item_width(50)
     cluster_viewer.set_pixbuf_column(0)
     cluster_viewer.set_text_column(1)
+    cluster_viewer.set_columns(cols)
     assert cluster_viewer is not None
     graphview.show_all()
     cluster_viewer.show_all()
@@ -588,6 +592,7 @@ def main():
 
     status = main_widget_tree.get_widget("status")
     main_widget_tree.get_widget("window1").show_all()
+    set_store()
     gtk.main()
 
 main()

@@ -127,7 +127,7 @@ class Table:
             for k,v in kw.items():
                 if not k in colnames:
                     assert not self.read_only,"attempting to access column '%s.%s' which doesn't exist"%(self.tname,k)
-                    cmd = "alter table "+self.tname+" add column ("+k+" "+v+")"
+                    cmd = "alter table "+self.tname+" add column "+k+" "+v
                     print "###",cmd
                     if debug: print cmd
                     cur.execute(cmd)

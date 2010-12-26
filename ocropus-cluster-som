@@ -3,6 +3,7 @@ import code,pickle,sys,os,re,ocropy
 from ocropy import dbtables,binnednn
 from pylab import *
 from optparse import OptionParser
+from ocropy.native import *
 
 parser = OptionParser("""
 usage: %prog [options] chars.db output.db
@@ -12,9 +13,11 @@ usage: %prog [options] chars.db output.db
 parser.add_option("-D","--display",help="display chars",action="store_true")
 parser.add_option("-v","--verbose",help="verbose output",action="store_true")
 parser.add_option("-t","--table",help="table name",default="chars")
+parser.add_option("-r","--torus",help="use toroidal topology",action="store_true")
 parser.add_option("-g","--grid",help="grid size",default="10,10")
 parser.add_option("-T","--threshold",help="threshold",type=float,default=0.03)
-parser.add_option("-n","--niter",help="number of iterations",type=int,default=100000)
+parser.add_option("-s","--scale",help="scale for iterating",type=float,default=3000)
+parser.add_option("-n","--niter",help="max number of iterations",type=int,default=100000)
 
 from scipy import mgrid,linalg,ndimage
 import sys,os,random,math
@@ -39,7 +42,7 @@ def rowwise(f,data,samples=None):
     assert data.ndim==2
     if samples is None: samples = range(len(data))
     return array([f(data[i]) for i in samples])
-def argmindist(x,data):
+def argmindist_slow(x,data):
     dists = [distsq(x,v) for v in data]
     return argmin(dists)
 def dist(u,v):
@@ -48,17 +51,54 @@ def distsq(x,y):
     d = x-y
     return dot(d.ravel(),d.ravel())
 
-def som_theta(dist,iter,ngrid):
+native_argmin = compile_and_load(r'''
+#include <math.h>
+#include <stdio.h>
+#include <assert.h>
+#include <stdlib.h>
+
+int argmindist0(int r,int d,float v[d],float vs[r][d]) {
+    double ds[r];
+#pragma omp parallel for
+    for(int i=0;i<r;i++) {
+        double total = 0.0;
+        for(int j=0;j<d;j++) {
+            float delta = v[j]-vs[i][j];
+            total += delta*delta;
+        }
+        assert(!isnan(total));
+        ds[i] = total; 
+    }
+    double md = ds[0];
+    double mi = 0;
+    for(int i=1;i<r;i++) {
+        if(ds[i]>=md) continue;
+        md = ds[i];
+        mi = i;
+    }
+    return mi;
+}
+''')
+
+native_argmin.argmindist0.argtypes = [I,I,A1F,A2F]
+native_argmin.restype = I
+
+def argmindist(v,data):
+    v = v[:]
+    assert len(v)==data.shape[1]
+    return native_argmin.argmindist0(data.shape[0],data.shape[1],v,data)
+
+def som_theta(dist,i,scale=options.scale):
     """Compute a SOM theta value used for updating.
     (This is the default; you can define your own.)"""
-    so = 100.0*ngrid
-    to = 100.0*ngrid
-    sigma = 10.0 * so/(so+iter)
-    t = to/(to+iter) * exp(-dist/2/sigma)
+    so = scale
+    to = scale
+    sigma = 10.0 * so/(so+i)
+    t = to/(to+i) * exp(-dist/2/sigma)
     if t<1e-3: return 0
     return t
 
-def som(data,shape=None,niter=10000000,threshold=0.03,theta=som_theta,torus=0):
+def som(data,shape=None,niter=10000000,threshold=0.03,theta=som_theta,torus=0,scale=30.0):
     assert not isnan(data).any()
     """Compute a 2D self-organizing map for the data,
     with the given shape and the maximum number of iterations.
@@ -74,14 +114,14 @@ def som(data,shape=None,niter=10000000,threshold=0.03,theta=som_theta,torus=0):
     items = rchoose(total,n)
     # print items
     grid = data[items,:].copy()
-    for iter in range(niter):
-        neighbor_update = theta(1.0,iter,total)
+    for i in range(niter):
+        neighbor_update = theta(1.0,i)
         if neighbor_update<threshold: break
-        best = argmindist(data[iter%n],grid.reshape(w*h,m))
+        best = argmindist(data[i%n],grid.reshape(w*h,m))
         x,y = best/h,best%h
-        if verbose and iter%100==0:
-            print iter,x,y,theta(1,iter,total)
-        if theta(1,iter,total)<1e-2: break
+        if verbose and i%100==0:
+            print i,x,y,theta(1,i)
+        if theta(1,i)<1e-2: break
         for index in range(w*h):
             u,v = index/h,index%h
             dx = u-x
@@ -90,9 +130,9 @@ def som(data,shape=None,niter=10000000,threshold=0.03,theta=som_theta,torus=0):
                 if abs(dx)>w/2: dx = abs(dx)-w
                 if abs(dy)>h/2: dy = abs(dy)-h
             d = math.hypot(dx,dy)
-            t = theta(d,iter,total)
+            t = theta(d,i)
             if t<1e-8: continue
-            diff = data[iter%n,:]-grid[index,:]
+            diff = data[i%n,:]-grid[index,:]
             grid[index,:] += t * diff
     grid.shape = (w,h,m)
     return grid
@@ -102,7 +142,7 @@ show()
 
 table = dbtables.Table(input,options.table)
 table.converter("image",dbtables.SmallImage())
-table.create(image="blob",cls="text")
+table.create(image="blob",cls="text",classes="text")
 
 classes = [row[0] for row in table.query("select distinct(cls) from '%s' order by cls"%
                                          options.table)]
@@ -126,15 +166,16 @@ for cls in classes:
 print "clustering"
 data = array(data)
 shape = eval("("+options.grid+")")
-grid = som(data,shape,torus=1)
+grid = som(data,shape,torus=options.torus,niter=options.niter,scale=options.scale)
 
 print "writing"
 table = dbtables.ClusterTable(output)
-table.create(image="blob",cls="text",count="integer",classes="text")
+table.create(image="blob",cls="text",count="integer",classes="text",grid="text")
 table.converter("image",dbtables.SmallImage())
 
 for i in range(shape[0]):
     for j in range(shape[1]):
-        image = array(v.numpy()/v.max()*255.0,'B')
+        v = grid[i,j]
+        image = array(v/amax(v)*255.0,'B')
         image.shape = (30,30)
-        table.set(image=image,cls="_",count=1,classes="%d %d"%(i,j))
+        table.set(image=image,cls="_",count=1,classes="",grid="%d %d"%(i,j))
