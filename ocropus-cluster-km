@@ -1,0 +1,159 @@
+#!/usr/bin/python
+import code,pickle,sys,os,re,ocropy
+from ocropy import dbtables,binnednn
+from pylab import *
+from optparse import OptionParser
+from ocropy.native import *
+
+parser = OptionParser("""
+usage: %prog [options] chars.db output.db
+
+""")
+
+parser.add_option("-D","--display",help="display chars",action="store_true")
+parser.add_option("-v","--verbose",help="verbose output",action="store_true")
+parser.add_option("-t","--table",help="table name",default="chars")
+parser.add_option("-k","--k",help="k",type=int,default=300)
+parser.add_option("-m","--minvecs",help="minimum number of vectors in a cluster",type=int,default=3)
+parser.add_option("-M","--minchange",help="minimum number of changes (fraction)",type=float,default=0.005)
+parser.add_option("-n","--niter",help="max number of iterations",type=int,default=100)
+parser.add_option("-O","--outlier",help="outlier range",type=float,default=3.0)
+
+from scipy import mgrid,linalg,ndimage
+import sys,os,random,math
+import numpy,pylab,scipy
+from numpy import *
+
+verbose = 1
+
+(options,args) = parser.parse_args()
+
+if len(args)!=2:
+    parser.print_help()
+    sys.exit(0)
+
+input = args[0]
+output = args[1]
+
+def rchoose(k,n):
+    assert k<=n
+    return random.permutation(range(n))[:k]
+def rowwise(f,data,samples=None):
+    assert data.ndim==2
+    if samples is None: samples = range(len(data))
+    return array([f(data[i]) for i in samples])
+def argmindist_slow(x,data):
+    dists = [distsq(x,v) for v in data]
+    return argmin(dists)
+def dist(u,v):
+    return linalg.norm(u-v)
+def distsq(x,y):
+    d = x-y
+    return dot(d.ravel(),d.ravel())
+
+nmod = compile_and_load(r'''
+#include <math.h>
+#include <stdio.h>
+#include <assert.h>
+#include <stdlib.h>
+
+void alldists(int r,int d,float out[r],float v[d],float vs[r][d]) {
+#pragma omp parallel for
+    for(int i=0;i<r;i++) {
+        double total = 0.0;
+        for(int j=0;j<d;j++) {
+            float delta = v[j]-vs[i][j];
+            total += delta*delta;
+        }
+        assert(!isnan(total));
+        out[i] = total; 
+    }
+}
+''')
+
+nmod.alldists.argtypes = [I,I,A1F,A1F,A2F]
+
+def argmindist2(v,data):
+    assert len(v)==data.shape[1]
+    ds = zeros(data.shape[0],'f')
+    nmod.alldists(data.shape[0],data.shape[1],ds,v,data)
+    i = argmin(ds)
+    return i,ds[i]
+
+def kmeans(data,k,maxiter=100,minchange=1,outlier=3.0):
+    """Regular k-means algorithm.  Computes k means from data."""
+    assert data.dtype==numpy.dtype('f')
+    global verbose, CHECK
+    n = len(data)
+    d = len(data[0])
+    means = data[rchoose(k,n)]
+    oldmins = -ones(n,'i')
+    counts = None
+    for i in range(maxiter):
+        outs = array([argmindist2(x,means) for x in data],'i')
+        mins = array(outs[:,0],'i')
+        dists = outs[:,1]
+        threshold = outlier*scipy.stats.scoreatpercentile(dists,per=50)
+        changed = sum(mins!=oldmins)
+        print changed
+        if verbose: sys.stderr.write("[kmeans iter %d: %d]\n"%(i,changed))
+        if changed<minchange: break
+        avgdists = zeros(k)
+        for i in range(k):
+            where = ((mins==i) & (dists<threshold))
+            avgdists[i] = mean(dists[where])
+        reuse = argsort(-avgdists)
+        j = 0
+        counts = zeros(k)
+        for i in range(k):
+            where = ((mins==i) & (dists<threshold))
+            counts[i] = sum(where)
+            if counts[i]<options.minvecs: 
+                print "%d=%d"%(i,reuse[j]),
+                means[i] = means[reuse[j]]*(1.0+1e-5*randn(len(means[j])))
+                j += 1
+            else:
+                means[i] = average(data[where],axis=0)
+        print
+        oldmins = mins
+    return means,counts
+
+ion()
+show()
+
+table = dbtables.Table(input,options.table)
+table.converter("image",dbtables.SmallImage())
+table.create(image="blob",cls="text",classes="text")
+classes = [row[0] for row in table.query("select distinct(cls) from '%s' order by cls"%options.table)]
+
+extractor = ocropy.make_IExtractor("scaledfe")
+
+data = []
+print "loading"
+for row in table.get():
+    raw = row.image
+    if raw.shape[0]>255 or raw.shape[1]>255: continue
+    raw = raw/float(amax(raw))
+    v = ocropy.floatarray()
+    c = ocropy.floatarray().of(raw)
+    extractor.extract(v,c)
+    v = ocropy.as_numpy(v)
+    data.append(v)
+
+
+print "clustering"
+data = array(data,'f')
+print "data",data.shape
+minchange=max(1,int(options.minchange*len(data)))
+means,counts = kmeans(data,k=options.k,maxiter=options.niter,minchange=minchange,outlier=options.outlier)
+
+print "writing"
+table = dbtables.ClusterTable(output)
+table.create(image="blob",cls="text",count="integer",classes="text")
+table.converter("image",dbtables.SmallImage())
+
+for i in range(means.shape[0]):
+    v = means[i]
+    image = array(v/amax(v)*255.0,'B')
+    image.shape = (30,30)
+    table.set(image=image,cls="_",count=counts[i],classes="")
