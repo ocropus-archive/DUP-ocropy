@@ -6,7 +6,7 @@ from optparse import OptionParser
 from ocropy.native import *
 
 parser = OptionParser("""
-usage: %prog [options] chars.db output.db
+usage: %prog [options] chars.db som.db mds.db
 
 """)
 
@@ -16,7 +16,7 @@ parser.add_option("-t","--table",help="table name",default="chars")
 parser.add_option("-r","--torus",help="use toroidal topology",action="store_true")
 parser.add_option("-g","--grid",help="grid size",default="10,10")
 parser.add_option("-T","--threshold",help="threshold",type=float,default=0.03)
-parser.add_option("-s","--scale",help="scale for iterating",type=float,default=3000)
+parser.add_option("-s","--scale",help="scale for iterating",type=float,default=3000.0)
 parser.add_option("-n","--niter",help="max number of iterations",type=int,default=100000)
 
 from scipy import mgrid,linalg,ndimage
@@ -28,12 +28,13 @@ verbose = 1
 
 (options,args) = parser.parse_args()
 
-if len(args)!=2:
+if len(args)!=3:
     parser.print_help()
     sys.exit(0)
 
 input = args[0]
 output = args[1]
+output2 = args[2]
 
 def rchoose(k,n):
     assert k<=n
@@ -98,7 +99,7 @@ def som_theta(dist,i,scale=options.scale):
     if t<1e-3: return 0
     return t
 
-def som(data,shape=None,niter=10000000,threshold=0.03,theta=som_theta,torus=0,scale=30.0):
+def som(data,shape=None,niter=10000000,threshold=0.03,theta=som_theta,torus=0):
     assert not isnan(data).any()
     """Compute a 2D self-organizing map for the data,
     with the given shape and the maximum number of iterations.
@@ -137,6 +138,53 @@ def som(data,shape=None,niter=10000000,threshold=0.03,theta=som_theta,torus=0,sc
     grid.shape = (w,h,m)
     return grid
 
+def coords0(v,grid):
+    w,h,m = grid.shape
+    n = w*h
+    vs = grid.reshape(n,m)
+    ds = zeros(n)
+    for i in range(len(vs)):
+        ds[i] = dist(v,vs[i])
+    best = argmin(ds)
+    return best/h,best%h
+
+def coords1(v,grid):
+    w,h,m = grid.shape
+    n = w*h
+    vs = grid.reshape(n,m)
+    ds = zeros(n)
+    ps = [None]*n
+    for i in range(len(vs)):
+        ps[i] = array([i/h,i%h])
+        ds[i] = dist(v,vs[i])
+    ps = array(ps)
+    ds = 1.0-(ds-amin(ds))/(amax(ds)-amin(ds))
+    ds = ds**2
+    x = sum(ps[:,0]*ds)/sum(ds)
+    y = sum(ps[:,1]*ds)/sum(ds)
+    return x,y
+
+def coords(v,grid):
+    w,h,m = grid.shape
+    n = w*h
+    vs = grid.reshape(n,m)
+    ds = array([dist(v,vs[i]) for i in range(n)])
+    best = argmin(ds)
+    bx,by = best/h,best%h
+    bds = []
+    bvs = []
+    for i in range(n):
+        x,y = i/h,i%h
+        if abs(x-bx)>1 or abs(y-by)>1: continue
+        bds.append(ds[i])
+        bvs.append([x,y])
+    bds = array(bds,'f')
+    bvs = array(bvs,'f')
+    bds = 1.0-(bds-amin(bds))/(amax(bds)-amin(bds))
+    x = sum(bvs[:,0]*bds)/sum(bds)
+    y = sum(bvs[:,1]*bds)/sum(bds)
+    return x,y
+
 ion()
 show()
 
@@ -144,14 +192,15 @@ table = dbtables.Table(input,options.table)
 table.converter("image",dbtables.SmallImage())
 table.create(image="blob",cls="text",classes="text")
 
-classes = [row[0] for row in table.query("select distinct(cls) from '%s' order by cls"%
+classlist = [row[0] for row in table.query("select distinct(cls) from '%s' order by cls"%
                                          options.table)]
 
 extractor = ocropy.make_IExtractor("scaledfe")
 
 data = []
+classes = []
 print "loading"
-for cls in classes:
+for cls in classlist:
     print "cls",cls
     for row in table.get(cls=cls):
         raw = row.image
@@ -162,20 +211,32 @@ for cls in classes:
         extractor.extract(v,c)
         v = ocropy.as_numpy(v)
         data.append(v)
+        classes.append(cls)
 
-print "clustering"
 data = array(data)
+print "clustering",data.shape
 shape = eval("("+options.grid+")")
-grid = som(data,shape,torus=options.torus,niter=options.niter,scale=options.scale)
+print "niter",options.niter,"scale",options.scale,"shape",shape
+grid = som(data,shape,torus=options.torus,niter=options.niter)
 
 print "writing"
 table = dbtables.ClusterTable(output)
 table.create(image="blob",cls="text",count="integer",classes="text",grid="text")
 table.converter("image",dbtables.SmallImage())
-
 for i in range(shape[0]):
     for j in range(shape[1]):
         v = grid[i,j]
         image = array(v/amax(v)*255.0,'B')
         image.shape = (30,30)
         table.set(image=image,cls="_",count=1,classes="",grid="%d %d"%(i,j))
+
+print "writing2"
+table = dbtables.ClusterTable(output2)
+table.create(image="blob",cls="text",count="integer",classes="text",mds="text")
+table.converter("image",dbtables.SmallImage())
+for i in range(len(data)):
+    v = data[i]
+    x,y = coords(v,grid)
+    image = array(v/amax(v)*255.0,'B')
+    image.shape = (30,30)
+    table.set(image=image,cls=classes[i],count=1,classes="",mds="%f %f"%(x,y))

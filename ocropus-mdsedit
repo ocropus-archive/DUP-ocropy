@@ -1,0 +1,116 @@
+#! /usr/bin/env python
+from optparse import OptionParser
+import pygtk
+pygtk.require("2.0") 
+import gobject,gtk,gtk.glade
+import sys,pickle,os,glob
+import scipy
+from pylab import *
+import ocropy
+from ocropy import N,NI,F,FI
+from ocropy import dbtables
+import sqlite3
+import pygtk
+pygtk.require('2.0')
+import gtk, gobject, cairo
+
+parser = OptionParser(usage="""...""")
+parser.add_option("-t","--table",help="which table to edit",default=None)
+parser.add_option("-v","--verbose",help="verbose",action="store_true")
+(options,args) = parser.parse_args()
+
+# Create a GTK+ widget on which we will draw using Cairo
+class Screen(gtk.DrawingArea):
+
+    # Draw in response to an expose-event
+    __gsignals__ = { "expose-event": "override" }
+
+    # Handle the expose-event by drawing
+    def do_expose_event(self, event):
+
+        # Create the cairo context
+        cr = self.window.cairo_create()
+
+        # Restrict Cairo to the exposed area; avoid extra work
+        cr.rectangle(event.area.x, event.area.y,
+                event.area.width, event.area.height)
+        cr.clip()
+
+        self.draw(cr, *self.window.get_size())
+
+    def draw(self, cr, width, height):
+        x0,y0 = 9999999,9999999
+        x1,y1 = -9999999,-9999999
+        for c in clusters:
+            x,y = c.mds
+            x0 = min(x,x0)
+            y0 = min(y,y0)
+            x1 = max(x,x1)
+            y1 = max(y,y1)
+        r = max((x1-x0),(y1-y0))
+        cs = 0.6
+        cr.scale(cs,cs)
+        width /= cs
+        height /= cs
+        s = 30.0
+        cr.set_source_rgb(0.2, 0.2, 0.2)
+        cr.rectangle(0, 0, width, height)
+        cr.fill()
+        for c in clusters:
+            print c.mds
+            image = array(255*array([c.image]*4).transpose([1,2,0]),order='C',dtype='B')
+            stride = cairo.ImageSurface.format_stride_for_width(cairo.FORMAT_RGB24,30)
+            print image.shape,len(image.data),stride
+            source = cairo.ImageSurface.create_for_data(image.data,cairo.FORMAT_RGB24,30,30,stride)
+            x,y = c.mds
+            x -= x0
+            y -= y0
+            x = floor(2*x)
+            y = floor(2*y)
+            x *= 40
+            y *= 40
+            cr.save()
+            cr.translate(x,y)
+            cr.set_source_surface(source,15,15)
+            cr.paint()
+            cr.restore()
+        print x0,y0,r
+
+# GTK mumbo-jumbo to show the widget in a window and quit when it's closed
+def run(Widget):
+    window = gtk.Window()
+    window.connect("delete-event", gtk.main_quit)
+    widget = Widget()
+    widget.show()
+    window.add(widget)
+    window.present()
+    gtk.main()
+
+print "opening table"
+file = "clusters.db"
+if len(args)>0: file = args[0]
+if not os.path.exists(file):
+    print file,"not found"
+    sys.exit(1)
+if options.table is None:
+    db = sqlite3.connect(file)
+    cur = db.cursor()
+    names = cur.execute("select name from sqlite_master where type='table'")
+    options.table = list(names)[0][0]
+    print "defaulting to table",options.table
+table = dbtables.Table(file,options.table)
+table.converter("image",dbtables.SmallImage())
+print "done"
+
+clusters = list(table.get())
+clusters.sort(key=lambda x:x.count,reverse=1)
+for cluster in clusters:
+    if cluster.cls is None:
+        cluster.cls = "_"
+    cluster.image = cluster.image/255.0
+print "got",len(clusters),"clusters"
+for c in clusters:
+    c.mds = array([float(x) for x in c.mds.split()])
+    print c.mds
+
+run(Screen)

@@ -1,0 +1,111 @@
+#!/usr/bin/python
+import code,pickle,sys,os,re,ocropy
+from ocropy import dbtables,binnednn
+from pylab import *
+from optparse import OptionParser
+from ocropy.native import *
+
+parser = OptionParser("""
+usage: %prog [options] chars.db output.db
+
+Simple multidimensional scaling using stochastic gradient descent.
+""")
+
+parser.add_option("-D","--display",help="display chars",action="store_true")
+parser.add_option("-v","--verbose",help="verbose output",action="store_true")
+parser.add_option("-t","--table",help="table name",default="chars")
+parser.add_option("-n","--niter",help="max number of iterations",type=int,default=100000)
+
+from scipy import mgrid,linalg,ndimage
+import sys,os,random,math
+import numpy,pylab,scipy
+from numpy import *
+
+verbose = 1
+
+(options,args) = parser.parse_args()
+
+if len(args)!=2:
+    parser.print_help()
+    sys.exit(0)
+
+input = args[0]
+output = args[1]
+
+def norm(v,l=2):
+    if l==2: return sqrt(sum(v**2))
+    if l==1: return sum(abs(v))
+    if l>10000: return amax(abs(v))
+    return sum(abs(v)**l)**(1.0/l)
+
+def mds(data,nepochs=1000,ndim=2,eta0=0.01,r=100,lnorm=3.0):
+    n = len(data)
+    d = len(data[0])
+    output = 0.01*randn(n,ndim)
+    for i in range(n):
+        assert (abs(output[i])<1e3).all()
+    err = 0.0
+    l = 1e-4
+    for epoch in range(nepochs):
+        for round in range(n):
+            eta = eta0
+            i = int(n*rand())
+            j = int(n*rand())
+            if i==j: continue
+            d = norm(data[i]-data[j],l=lnorm)
+            v = output[i]-output[j]
+            dr = norm(v,l=lnorm)
+            v0 = v/sqrt(dr)
+            delta = d-dr
+            output[i] += clip(eta*delta*v,-r,r)
+            output[j] -= clip(eta*delta*v,-r,r)
+            err = (1-l)*err + l*delta
+        print "%3d %7d %8.3f %8.5f %s %s"%(epoch,round,err,eta,output[i],output[j])
+        for round in range(n):
+            i = int(n*rand())
+            j = int(n*rand())
+    return output
+
+
+ion()
+show()
+
+table = dbtables.Table(input,options.table)
+table.converter("image",dbtables.SmallImage())
+table.create(image="blob",cls="text",classes="text")
+
+classes = [row[0] for row in table.query("select distinct(cls) from '%s' order by cls"%
+                                         options.table)]
+
+extractor = ocropy.make_IExtractor("scaledfe")
+
+data = []
+print "loading"
+for cls in classes:
+    print "cls",cls
+    for row in table.get(cls=cls):
+        raw = row.image
+        if raw.shape[0]>255 or raw.shape[1]>255: continue
+        raw = raw/float(amax(raw))
+        v = ocropy.floatarray()
+        c = ocropy.floatarray().of(raw)
+        extractor.extract(v,c)
+        v = ocropy.as_numpy(v)
+        data.append(v)
+
+print "clustering"
+data = array(data)
+grid = mds(data)
+print grid
+
+print "writing"
+table = dbtables.ClusterTable(output)
+table.create(image="blob",cls="text",count="integer",classes="text",mds="text")
+table.converter("image",dbtables.SmallImage())
+
+for i in range(len(data)):
+    v = data[i]
+    coords = grid[i]
+    image = array(v/amax(v)*255.0,'B')
+    image.shape = (30,30)
+    table.set(image=image,cls="_",count=1,classes="",mds="%f %f"%(coords[0],coords[1]))
