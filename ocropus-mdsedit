@@ -17,6 +17,7 @@ import gtk, gobject, cairo
 parser = OptionParser(usage="""...""")
 parser.add_option("-t","--table",help="which table to edit",default=None)
 parser.add_option("-v","--verbose",help="verbose",action="store_true")
+parser.add_option("-g","--grid",help="align images on a grid",action="store_true")
 (options,args) = parser.parse_args()
 
 # Create a GTK+ widget on which we will draw using Cairo
@@ -57,60 +58,66 @@ class Screen(gtk.DrawingArea):
         cr.rectangle(0, 0, width, height)
         cr.fill()
         for c in clusters:
-            print c.mds
             image = array(255*array([c.image]*4).transpose([1,2,0]),order='C',dtype='B')
             stride = cairo.ImageSurface.format_stride_for_width(cairo.FORMAT_RGB24,30)
-            print image.shape,len(image.data),stride
             source = cairo.ImageSurface.create_for_data(image.data,cairo.FORMAT_RGB24,30,30,stride)
             x,y = c.mds
-            x -= x0
-            y -= y0
-            x = floor(2*x)
-            y = floor(2*y)
-            x *= 40
-            y *= 40
+            x -= x0; y -= y0
+            if options.grid:
+                x = floor(2*x); y = floor(2*y)
+                x *= 40; y *= 40
+            else:
+                x *= 80; y *= 80
             cr.save()
             cr.translate(x,y)
             cr.set_source_surface(source,15,15)
             cr.paint()
             cr.restore()
-        print x0,y0,r
 
-# GTK mumbo-jumbo to show the widget in a window and quit when it's closed
+def load_clusters():
+    global clusters
+    print "opening table"
+    file = "clusters.db"
+    if len(args)>0: file = args[0]
+    if not os.path.exists(file):
+        print file,"not found"
+        sys.exit(1)
+    if options.table is None:
+        db = sqlite3.connect(file)
+        cur = db.cursor()
+        names = cur.execute("select name from sqlite_master where type='table'")
+        options.table = list(names)[0][0]
+        print "defaulting to table",options.table
+    table = dbtables.Table(file,options.table)
+    table.converter("image",dbtables.SmallImage())
+    print "done"
+
+    clusters = list(table.get())
+    clusters.sort(key=lambda x:x.count,reverse=1)
+    for cluster in clusters:
+        if cluster.cls is None:
+            cluster.cls = "_"
+        cluster.image = cluster.image/255.0
+    print "got",len(clusters),"clusters"
+    for c in clusters:
+        c.mds = array([float(x) for x in c.mds.split()])
+
 def run(Widget):
-    window = gtk.Window()
+    gladefile = ocropy.findfile("gui/ocropus-mdsedit.glade")
+    windowname = "window1" 
+    main_widget_tree = gtk.glade.XML(gladefile)
+    window = main_widget_tree.get_widget("window1")
+    scroll = main_widget_tree.get_widget("viewport1")
+    scroll.show()
     window.connect("delete-event", gtk.main_quit)
     widget = Widget()
+    widget.set_size_request(2000,2000)
     widget.show()
-    window.add(widget)
+    scroll.add(widget)
     window.present()
+    load_clusters()
+    window.show_all()
+    widget.show_all()
     gtk.main()
-
-print "opening table"
-file = "clusters.db"
-if len(args)>0: file = args[0]
-if not os.path.exists(file):
-    print file,"not found"
-    sys.exit(1)
-if options.table is None:
-    db = sqlite3.connect(file)
-    cur = db.cursor()
-    names = cur.execute("select name from sqlite_master where type='table'")
-    options.table = list(names)[0][0]
-    print "defaulting to table",options.table
-table = dbtables.Table(file,options.table)
-table.converter("image",dbtables.SmallImage())
-print "done"
-
-clusters = list(table.get())
-clusters.sort(key=lambda x:x.count,reverse=1)
-for cluster in clusters:
-    if cluster.cls is None:
-        cluster.cls = "_"
-    cluster.image = cluster.image/255.0
-print "got",len(clusters),"clusters"
-for c in clusters:
-    c.mds = array([float(x) for x in c.mds.split()])
-    print c.mds
 
 run(Screen)

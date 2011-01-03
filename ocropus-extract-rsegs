@@ -12,9 +12,11 @@ parser = OptionParser()
 parser.add_option("-o","--output",help="output file",default="chars.db")
 parser.add_option("-d","--display",help="display characters")
 parser.add_option("-v","--verbose",help="verbose output")
-parser.add_option("-r","--raw",help="output unsegmented",action="store_true",default=True)
-parser.add_option("-a","--maxage",help="output missegmented",default=10000000,type="int")
+parser.add_option("-m","--minsize",help="minimum component width and height",type="int",default=8)
+parser.add_option("-a","--absolute",help="output absolute images",action="store_true")
 parser.add_option("-s","--segmenter",help="segmenter",default="SegmentLineByGCCS")
+#parser.add_option("-r","--raw",help="output unsegmented",action="store_true",default=True)
+#parser.add_option("-a","--maxage",help="output missegmented",default=10000000,type="int")
 (options,args) = parser.parse_args()
 
 if len(args)<1:
@@ -74,6 +76,7 @@ for raw,mask,cls in chars(args):
     if options.display:
         clf(); gray(); imshow(raw); draw()
     if raw.shape[0]>255 or raw.shape[1]>255: continue
+    if raw.shape[0]<options.minsize or raw.shape[1]<options.minsize: continue
     raw = array(255*raw/float(amax(raw)),'B')
     table.set(image=raw,cls="_")
     total += 1

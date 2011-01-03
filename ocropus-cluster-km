@@ -102,7 +102,8 @@ def kmeans(data,k,maxiter=100,minchange=1,outlier=3.0):
         for i in range(k):
             where = ((mins==i) & (dists<threshold))
             avgdists[i] = mean(dists[where])
-        reuse = argsort(-avgdists)
+        if counts is not None: reuse = argsort(-counts)
+        else: reuse = argsort(avgdists)
         j = 0
         counts = zeros(k)
         for i in range(k):
