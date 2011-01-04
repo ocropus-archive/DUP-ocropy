@@ -23,10 +23,14 @@ from pylab import *
 import gnome
 import ocropy
 from ocropy import NI
-from ocropy import fstutils,linerec
+from ocropy import fstutils
 from matplotlib import patches
 import scipy
 import ocropus
+
+default_model = "2m2-reject.cmodel"
+default_segmenter = "DpSegmenter"
+default_langmod = "*.gt.txt"
 
 from matplotlib.backends.backend_gtk import FigureCanvasGTK as FigureCanvas
 from matplotlib.backends.backend_gtk import NavigationToolbar2GTK as NavigationToolbar
@@ -49,7 +53,7 @@ parser.add_option("-M","--maxccost",help="maxcost for characters in recognizer",
 parser.add_option("-b","--beam",help="beam width",default=1000,type="int")
 parser.add_option("-R","--recognizer",help="line model",default=None)
 parser.add_option("-L","--langmod",help="language model",default=None)
-parser.add_option("-C","--linerecognizer",help="class used for wrapping .cmodels; ocropy.CmodelLineRecognizer or linerec.LineRecognizer",default="linerec.LineRecognizer")
+#parser.add_option("-C","--linerecognizer",help="class used for wrapping .cmodels",default="oldlinerec.LineRecognizer")
 (options,args) = parser.parse_args()
 
 if len(args)<1:
@@ -223,7 +227,7 @@ class LineWindow:
         self.recognizer.set_model(self.recognizers)
         self.recognizer.set_text_column(0)
         for i in range(len(self.recognizers)):
-            if self.recognizers[i][0]=="default.model":
+            if self.recognizers[i][0]==default_model:
                 self.recognizer.set_active(i)
                 break
 
@@ -239,7 +243,7 @@ class LineWindow:
         self.segmenter.set_model(self.segmenters)
         self.segmenter.set_text_column(0)
         for i in range(len(self.segmenters)):
-            if self.segmenters[i][0]=="CurvedCutWithCcSegmenter":
+            if self.segmenters[i][0]==default_segmenter:
                 self.segmenter.set_active(i)
                 break
 
@@ -255,7 +259,7 @@ class LineWindow:
         self.langmod.set_model(self.langmods)
         self.langmod.set_text_column(0)
         for i in range(len(self.langmods)):
-            if self.langmods[i][0]=="default.fst":
+            if self.langmods[i][0]==default_langmod:
                 self.langmod.set_active(i)
                 break
 
@@ -473,7 +477,7 @@ class LineWindow:
         print "set segmenter to",name,comp
     def recognizer_load(self,file):
         if file!="none":
-            if ".cmodel" in file:
+            if 0 and ".cmodel" in file:
                 cmodel = ocropy.load_IModel(file)
                 constructor = eval(options.linerecognizer)
                 self.linerec = constructor(cmodel=cmodel,

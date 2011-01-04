@@ -4,7 +4,7 @@ from optparse import OptionParser
 from pylab import *
 import ocropy
 import traceback
-from ocropy import dbtables,binnednn,ocrobook,linerec
+from ocropy import dbtables,ocrobook,linerec
 
 parser = OptionParser("""
 usage: %prog [options] .../.../010001.png ...

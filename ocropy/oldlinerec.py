@@ -23,8 +23,8 @@ class OldSimpleLineRecognizer:
         self.debug = 0
         self.segmenter = components.make_ISegmentLine(segmenter)
         self.grouper = components.make_IGrouper("SimpleGrouper")
-        # self.grouper.pset("maxdist",5)
-        # self.grouper.pset("maxrange",5)
+        self.grouper.pset("maxrange",5)
+        self.grouper.pset("maxdist",10)
         self.cmodel = cmodel
         self.best = best
         self.maxcost = maxcost

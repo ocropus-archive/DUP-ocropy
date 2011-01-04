@@ -3,7 +3,7 @@ import code,pickle,sys,os,re,traceback
 from optparse import OptionParser
 from pylab import *
 import ocropy
-from ocropy import dbtables,binnednn,ocrobook,Record
+from ocropy import dbtables,ocrobook,Record
 
 parser = OptionParser("""
 usage: %prog [options] .../.../010001.png ...

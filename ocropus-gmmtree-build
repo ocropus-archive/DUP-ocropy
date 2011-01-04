@@ -1,6 +1,6 @@
 #!/usr/bin/python
 import code,pickle,sys,os,re,ocropy,cPickle
-from ocropy import dbtables,binnednn,improc
+from ocropy import dbtables,improc
 from pylab import *
 from optparse import OptionParser
 from ocropy import       ocrofast,gmmtree

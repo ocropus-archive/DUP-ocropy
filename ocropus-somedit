@@ -9,7 +9,7 @@ import scipy
 from pylab import *
 import ocropy
 from ocropy import N,NI,F,FI
-from ocropy import dbtables
+from ocropy import dbtables,common
 from ocropy.utils import Record
 import sqlite3
 
@@ -20,7 +20,6 @@ def TODO():
     reject-selection button (turns selection to #)
     misseg-selection button (turns selection to ~)
     cluster-classifier using output of manual classification
-    get rid of bogus binnednn loading message
     special chars: #=reject, _=unclassified, ~=missegmentation
     put confidence into database and display
     nnet+exception
@@ -214,7 +213,7 @@ def set_dist(x,s):
     for y in s:
         if x.shape!=y.shape: continue
         xt = x
-        err,rerr,_ = binnednn.symdist(xt,y)
+        err,rerr,_ = common.symdist(xt,y)
         minerr = min(err,minerr)
     return minerr
 

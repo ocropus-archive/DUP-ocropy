@@ -4,7 +4,7 @@ pygtk.require("2.0")
 import gobject,gtk,gtk.glade
 import sys,pickle,os,glob
 import code,pickle,sys,os,re,ocropy,cPickle
-from ocropy import dbtables,binnednn,improc
+from ocropy import dbtables,improc
 from pylab import *
 from optparse import OptionParser
 import traceback

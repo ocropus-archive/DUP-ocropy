@@ -50,7 +50,6 @@ parser.add_option("-M","--maxccost",help="maxcost for characters in recognizer",
 parser.add_option("-b","--beam",help="beam width",default=1000,type="int")
 parser.add_option("-R","--recognizer",help="line model",default=None)
 parser.add_option("-L","--langmod",help="language model",default=None)
-parser.add_option("-C","--linerecognizer",help="class used for wrapping .cmodels; ocropy.OldLineRecognizer or ocropy.OldFullLineRecognizer",default="ocropy.OldFullLineRecognizer")
 (options,args) = parser.parse_args()
 
 if len(args)<1:

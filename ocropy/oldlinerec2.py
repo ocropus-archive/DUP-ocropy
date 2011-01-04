@@ -257,6 +257,8 @@ class OldFullLineRecognizer:
         # self.segmenter.pset("debug","dpsegmenter.png")
         # self.segmenter.pset("fix_diacritics",0)
         self.grouper = components.make_IGrouper("SimpleGrouper")
+        self.grouper.pset("maxrange",5)
+        self.grouper.pset("maxdist",10)
         self.cmodel = None
         self.best = 10
         self.maxcost = 30.0

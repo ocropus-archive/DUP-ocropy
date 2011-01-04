@@ -1,5 +1,7 @@
 import iulib,ocropus,sys,re,cPickle
-from simplerec import CmodelLineRecognizer
+from oldlinerec import OldSimpleLineRecognizer
+
+CmodelLineRecognizer=OldSimpleLineRecognizer
 
 ### For the most part, these just wrap the corresponding functions
 ### in ocropus.i.  But you should use the ocropy versions because
