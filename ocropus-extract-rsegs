@@ -1,10 +1,9 @@
 #!/usr/bin/python
 import code,pickle,sys,os,signal,re
-import ocropy
-from ocropy import dbtables
-from ocropy import N,NI
 from pylab import *
 from optparse import OptionParser
+import ocrolib
+from ocrolib import dbtables
 
 signal.signal(signal.SIGINT,lambda s,f:sys.exit(1))
 
@@ -23,7 +22,7 @@ if len(args)<1:
     parser.print_help()
     sys.exit(0)
 
-segmenter = ocropy.make_ISegmentLine(options.segmenter)
+segmenter = ocrolib.make_ISegmentLine(options.segmenter)
 
 try:
     segmenter.pset("swidth",0)
@@ -31,9 +30,7 @@ try:
 except:
     pass
 
-grouper = ocropy.make_IGrouper("SimpleGrouper")
-grouper.pset("maxrange",1)
-grouper.pset("maxdist",1)
+grouper = ocrolib.StandardGrouper(maxrange=1,maxdist=1)
 
 table = dbtables.Table(options.output,"chars")
 table.converter("image",dbtables.SmallImage())
@@ -45,39 +42,33 @@ show()
 def chars(files):
     for file in files:
         print "# loading",file
-        image = ocropy.bytearray()
         binfile = re.sub(r'.png','.bin.png',file)
         if os.path.exists(binfile):
-            ocropy.read_image_gray(image,binfile)
+            image = ocrolib.read_image_gray(binfile)
         else:
-            ocropy.read_image_gray(image,file)
-        segmentation = ocropy.intarray()
+            image = ocrolib.read_image_gray(file)
         try:
-            segmenter.charseg(segmentation,image)
+            segmentation = segmenter.charseg(image)
         except:
             print "# segmentation failed"
             continue
-        ocropy.make_line_segmentation_black(segmentation)
-        ocropy.renumber_labels(segmentation,1)
         grouper.setSegmentation(segmentation)
-        ocropy.sub(255,image)
-        # print grouper.length()
+        image = 255-image
+        if options.display:
+            clf(); gray(); imshow(image); draw()
         for i in range(grouper.length()):
             cls = None
-            raw = ocropy.bytearray()
-            mask = ocropy.bytearray()
-            grouper.extractWithMask(raw,mask,image,i,1)
+            raw,mask = grouper.extractWithMask(image,i,1)
             yield raw,mask,cls
 
 total = 0
 for raw,mask,cls in chars(args):
     clf()
-    raw = NI(raw)
-    if options.display:
-        clf(); gray(); imshow(raw); draw()
     if raw.shape[0]>255 or raw.shape[1]>255: continue
     if raw.shape[0]<options.minsize or raw.shape[1]<options.minsize: continue
-    raw = array(255*raw/float(amax(raw)),'B')
+    if options.display:
+        print amin(raw),amax(raw)
+        clf(); gray(); imshow(raw); draw()
     table.set(image=raw,cls="_")
     total += 1
     if total%10000==0: table.commit()

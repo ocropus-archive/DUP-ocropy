@@ -9,13 +9,9 @@ if "DISPLAY" not in os.environ:
 from scipy.ndimage import interpolation
 from pylab import *
 from optparse import OptionParser
-import ocropy
-from ocropy import fstutils
-from ocropy import N,NI,F,FI
-import ocropy.linerec
 from multiprocessing import Pool
-from ocropy.utils import number_of_processors
-from ocropy import common,components
+from ocrolib import number_of_processors
+import ocrolib as common
 
 signal.signal(signal.SIGINT,lambda *args:sys.exit(1))
 
@@ -127,8 +123,8 @@ ion()
 
 print "loading",options.model
 
-cmodel = common.Model()
-cmodel.comp = components.load_IModel(options.model)
+cmodel = common.load_IModel(options.model)
+assert cmodel is not None
 linerec = common.CmodelLineRecognizer(cmodel=cmodel,
                                       best=options.nbest,
                                       maxcost=options.maxccost)
@@ -230,7 +226,7 @@ def align1(t):
                 for i in range(len(costs)):
                     stream.write("%d %g\n"%(i,costs[i]))
             if options.gtextension is None:
-                ocropy.write_text(prefix+suffix+".txt",result)
+                common.write_text(prefix+suffix+".txt",result)
             goodlines += 1
         except AlignmentFailed,e:
             log("FAIL alignment failed")

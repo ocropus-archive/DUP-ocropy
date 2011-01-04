@@ -125,3 +125,8 @@ def allsplitext(path):
     else:
         return match.group(1),match.group(3)
 
+def write_text(file,s):
+    """Write the given string s to the output file."""
+    with open(file,"w") as stream:
+        stream.write(s)
+
