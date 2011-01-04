@@ -6,15 +6,12 @@ import sys,os,re,optparse,shutil
 from matplotlib import patches
 from pylab import *
 from scipy.stats.stats import trim1
-
 from multiprocessing import Pool
-from ocropy.utils import number_of_processors
-from ocropy import common
 from scipy.ndimage import measurements
 from scipy.misc import imsave
-from PIL import Image
-import ocropy
-from ocropy import N,NI,plotutils
+
+from ocrolib import number_of_processors
+import ocrolib as common
 
 parser = optparse.OptionParser(usage="""
 %prog [options] image1.png image2.png ...
@@ -75,7 +72,7 @@ if options.display: ion()
 
 def process_arg(arg):
     print "===",arg
-    base,_ = ocropy.allsplitext(arg)
+    base,_ = common.allsplitext(arg)
     image = common.read_image_gray(arg,'B')
     h,w = image.shape
 

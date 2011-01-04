@@ -1,11 +1,12 @@
 #!/usr/bin/python
 
 import sys,os,re,glob,cPickle,signal
-import ocropy
-from ocropy import plotutils,fstutils,linerec,common
 from pylab import *
-from ocropy.utils import number_of_processors
 from multiprocessing import Pool
+
+from ocrolib import number_of_processors
+from ocrolib import plotutils,fstutils
+import ocrolib as common
 
 signal.signal(signal.SIGINT,lambda *args:sys.exit(1))
 
@@ -65,7 +66,7 @@ linerec = common.load_linerec(options.linerec)
 if options.verbose: linerec.info()
 
 # Load the default language model (can be overridden on the command line.).
-default_lmodel = ocropy.make_OcroFST()
+default_lmodel = common.OcroFST()
 default_lmodel.load(options.langmod)
 default_lmodel_path = options.langmod
 
@@ -75,7 +76,7 @@ current_lmodel = None
 def process_line(job):
     global current_lmodel_name,current_lmodel
     line,lmodel_name = job
-    base,allext = ocropy.allsplitext(line)
+    base,allext = common.allsplitext(line)
     _,ext = os.path.splitext(line)
 
     # if we can find a specific language model for it then perform alignment
@@ -99,7 +100,7 @@ def process_line(job):
     image = common.read_image_gray(line)
     l = common.recognize_and_align(image,linerec,lmodel)
     print "%6.2f\t%3d\t'%s'"%(l.cost,len(l.output),l.output)
-    base,_ = ocropy.allsplitext(line)
+    base,_ = common.allsplitext(line)
 
     # write the resulting files to disk
     with open(base+options.suffix+".txt","w") as stream:
@@ -126,7 +127,7 @@ lmodel_name = options.langmod
 
 jobs = []
 for line in args:
-    base,allext = ocropy.allsplitext(line)
+    base,allext = common.allsplitext(line)
     _,ext = os.path.splitext(line)
     if ext=="txt" or ext=="fst":
         lmodel_name = line
