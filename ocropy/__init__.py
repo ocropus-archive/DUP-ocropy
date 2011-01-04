@@ -1,4 +1,4 @@
-# Kind of hackish way of exposing the modules and symbols from the various submodules.
+print "[[[ importing old ocropy library ]]]"
 
 __all__ = ["dbtables","ocrobook","fgen"]
 from ocropus import *

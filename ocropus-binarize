@@ -9,13 +9,12 @@ from multiprocessing import Pool
 import signal
 signal.signal(signal.SIGINT,lambda *args:sys.exit(1))
 from pylab import *
-import sys,os,re,ocropy,optparse
-from ocropy import N,NI
-from ocropy.utils import number_of_processors
-from ocropy import common
+import sys,os,re,optparse
 from scipy.ndimage import measurements
 from scipy.misc import imsave
 from PIL import Image
+import ocrolib as common
+from ocrolib import number_of_processors
 
 parser = optparse.OptionParser(usage="""
 %prog -o dir [options] image1 image2 ...
@@ -101,9 +100,9 @@ def process_image(image,arg,count):
             print "# skipping page"
             return 0
     if options.Output:
-        dest,_ = ocropy.allsplitext(arg)
+        dest,_ = ocrolib.allsplitext(arg)
         print "# writing",dest
-        ocropy.write_image_gray(dest+".bin.png",bin)
+        imsave(dest+".bin.png",bin)
     else:
         dest = "%s/%04d" % (options.output,count)
         print "# writing",dest,gray.shape,bin.shape
