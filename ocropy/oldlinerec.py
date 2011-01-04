@@ -7,7 +7,7 @@ from pylab import *
 import unicodedata
 import pickle
 
-class CmodelLineRecognizer:
+class OldSimpleLineRecognizer:
     def __init__(self,cmodel=None,segmenter="DpSegmenter",best=10,
                  maxcost=10.0,reject_cost=100.0,minheight_letters=0.5):
         """Initialize a line recognizer that works from character models.

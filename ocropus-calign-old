@@ -130,9 +130,9 @@ print "loading",options.model
 
 if 0:
     cmodel = ocropy.load_IModel(options.model)
-    linerec = ocropy.CmodelLineRecognizer(cmodel=cmodel,
-                                          best=options.nbest,
-                                          maxcost=options.maxccost)
+    linerec = ocropy.OldSimpleLineRec(cmodel=cmodel,
+                                      best=options.nbest,
+                                      maxcost=options.maxccost)
 else:
     linerec = ocropy.linerec.LineRecognizer()
     linerec.load(options.model)

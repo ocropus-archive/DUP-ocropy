@@ -228,7 +228,7 @@ class SimpleSpaceModel:
 
         return result
 
-class LineRecognizer:
+class OldFullLineRecognizer:
     # can't derive from IRecognizeLine -- breaks save/load (ocropus.IRecognizeLine)
     def __init__(self,cmodel=None,segmenter="DpSegmenter",best=None,
                  maxcost=None,reject_cost=None,minheight_letters=None):

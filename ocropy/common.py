@@ -169,6 +169,42 @@ def math2rect(r):
     return iulib.rectangle(x0,y0,x1,y1)
 
 ################################################################
+### simple shape comparisons
+################################################################
+
+def dist(image,item):
+    assert image.shape==item.shape,[image.shape,item.shape]
+    ix,iy = measurements.center_of_mass(image)
+    if isnan(ix) or isnan(iy): return 9999,9999,None
+    # item = (item>amax(item)/2) # in case it's grayscale
+    x,y = measurements.center_of_mass(item)
+    if isnan(x) or isnan(y): return 9999,9999,None
+    dx,dy = int(0.5+x-ix),int(0.5+y-iy)
+    shifted = interpolation.shift(image,(dy,dx))
+    if abs(dx)>2 or abs(dy)>2:
+        return 9999,9999,None
+    if 0:
+        cla()
+        subplot(121); imshow(image-item)
+        subplot(122); imshow(shifted-item)
+        show()
+    image = shifted
+    mask = make_mask(image>0.5,1)
+    err = sum(mask*abs(item-image))
+    total = min(sum(mask*item),sum(mask*image))
+    rerr = err/max(1.0,total)
+    return err,rerr,image
+
+def symdist(image,item):
+    assert type(image)==numpy.ndarray
+    assert len(image.shape)==2
+    assert len(item.shape)==2
+    err,rerr,transformed = dist(image,item)
+    err1,rerr1,transformed1 = dist(item,image)
+    if rerr<rerr1: return err,rerr,transformed
+    else: return err1,rerr1,transformed1
+
+################################################################
 ### components
 ################################################################
 

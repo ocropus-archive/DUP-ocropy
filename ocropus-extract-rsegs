@@ -61,7 +61,7 @@ def chars(files):
         ocropy.renumber_labels(segmentation,1)
         grouper.setSegmentation(segmentation)
         ocropy.sub(255,image)
-        print grouper.length()
+        # print grouper.length()
         for i in range(grouper.length()):
             cls = None
             raw = ocropy.bytearray()

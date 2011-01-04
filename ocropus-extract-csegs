@@ -3,7 +3,7 @@ import code,pickle,sys,os,re
 from optparse import OptionParser
 from pylab import *
 import ocropy
-from ocropy import dbtables,binnednn,ocrobook
+from ocropy import dbtables,ocrobook
 from ocropy.utils import Record
 
 parser = OptionParser("""
@@ -62,7 +62,7 @@ def cseg_chars(file,suffix=".gt"):
     grouper = ocropy.make_IGrouper("SimpleGrouper")
     grouper.pset("maxrange",1)
     grouper.setSegmentation(cseg)
-    print grouper.length(),len(gt),len(re.sub(' ','',gt))
+    # print grouper.length(),len(gt),len(re.sub(' ','',gt))
     if len(gt)!=grouper.length():
         gt = re.sub(' ','',gt)
         if len(gt)!=grouper.length():
@@ -99,7 +99,7 @@ for file in args:
         raw = x.raw
         mask = x.mask
         cls = x.cls
-        print index,cls
+        # print index,cls
         index += 1
         segments.append(raw)
         if options.display:

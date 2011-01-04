@@ -21,7 +21,7 @@ parser.add_option("-D","--Display",help="display continuously",action="store_tru
 parser.add_option("-r","--dpi",help="resolution in DPI",type=float,default=200.0)
 parser.add_option("-c","--close",help="closing",type=int,default=0)
 parser.add_option("-o","--open",help="opening",type=int,default=2)
-parser.add_option("-S","--segmentation",help="segmentation component",default="ocropy.simpleti.SimpleTIClassification")
+parser.add_option("-S","--segmentation",help="segmentation component",default="ocropy.oldsimpleti.SimpleTIClassification")
 options,args = parser.parse_args()
 
 if options.Display: options.display = 1
