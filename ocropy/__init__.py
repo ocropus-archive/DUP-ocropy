@@ -1,4 +1,6 @@
-print "[[[ importing old ocropy library ]]]"
+print "   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+print "   !!! importing old ocropy library"
+print "   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
 
 __all__ = ["dbtables","ocrobook","fgen"]
 from ocropus import *
