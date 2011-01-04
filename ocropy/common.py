@@ -208,6 +208,15 @@ def symdist(image,item):
 ### components
 ################################################################
 
+def mkpython(name):
+    """Tries to instantiate a Python class.  Gives an error if it looks
+    like a Python class but can't be instantiated.  Returns None if it
+    doesn't look like a Python class."""
+    if "." in name or "(" in name:
+        return eval(name)
+    else:
+        return None
+
 class CommonComponent:
     """Common methods for components.  The implementations in this
     base class is meant for C++ components and wraps those components.
@@ -276,10 +285,14 @@ class CleanupGray(CommonComponent):
     """Cleanup grayscale images."""
     def make_(self,name):
         self.comp = components.make_ICleanupGray(name,dtype='B')
+        return self
     def cleanup_gray(self,page,type='f'):
         result = iulib.bytearray()
         self.comp.cleanup_gray(result,page2narray(page,'B'))
         return narray2page(result,type=type)
+
+def make_ICleanupGray(name):
+    return mkpython(name) or CleanupGray().make_(name)
 
 class DeskewGrayPageByRAST(CleanupGray):
     """Page deskewing for gray scale images."""
@@ -290,35 +303,45 @@ class CleanupBinary(CommonComponent):
     """Cleanup binary images."""
     def make_(self,name):
         self.comp = components.make_ICleanupBinary(name)
+        return self
     def cleanup(self,page,type='f'):
         result = iulib.bytearray()
         self.comp.cleanup(result,page2narray(page,'B'))
         return narray2page(result,type=type)
 
+def make_ICleanupBinary(name):
+    return mkpython(name) or CleanupBinary().make_(name)
+
 class RmHalftone(CleanupBinary):
     """Simple algorithm for removing halftones from binary images."""
     def __init__(self):
         self.make_("RmHalftone")
+
 class RmUnderline(CleanupBinary):
     """Simple algorithm for removing underlines from binary images."""
     def __init__(self):
         self.make_("RmUnderline")
+
 class AutoInvert(CleanupBinary):
     """Simple algorithm for fixing inverted images."""
     def __init__(self):
         self.make_("AutoInvert")
+
 class DeskewPageByRAST(CleanupBinary):
     """Page deskewing for binary images."""
     def __init__(self):
         self.make_("DeskewPageByRAST")
+
 class RmBig(CleanupBinary):
     """Remove connected components that are too big to be text."""
     def __init__(self):
         self.make_("RmBig")
+
 class DocClean(CleanupBinary):
     """Remove document image noise components."""
     def __init__(self):
         self.make_("DocClean")
+
 class PageFrameByRAST(CleanupBinary):
     """Remove elements outside the document page frame."""
     def __init__(self):
@@ -328,6 +351,7 @@ class Binarize(CommonComponent):
     """Binarize images."""
     def make_(self,name):
         self.comp = components.make_IBinarize(name)
+        return self
     def binarize(self,page,type='f'):
         if len(page.shape)==3: page = mean(page,axis=2)
         bin = iulib.bytearray()
@@ -338,6 +362,9 @@ class Binarize(CommonComponent):
         result = iulib.bytearray()
         self.comp.binarize_color(result,page2narray(page,'B'))
         return narray2page(result,type=type)
+
+def make_IBinarize(name):
+    return mkpython(name) or Binarize().make_(name)
 
 class StandardPreprocessing(Binarize):
     """Complete pipeline of deskewing, binarization, and page cleanup."""
@@ -363,11 +390,15 @@ class BinarizeByHT(Binarize):
 class TextImageClassification(CommonComponent):
     """Perform text/image classification."""
     def make_(self,name):
-        self.comp = components.make_ICleanupBinary(name)
+        self.comp = components.make_ITextImageClassification(name)
+        return self
     def textImageProbabilities(self,page):
         result = iulib.intarray()
         self.comp.textImageProbabilities(result,page2narray(page,'B'))
         return narray2pseg(result)
+
+def make_ITextImageClassification(name):
+    return mkpython(name) or TextImageClassification().make_(name)
 
 class SegmentPage(CommonComponent):
     """Segment a page into columns and lines (layout analysis)."""
@@ -384,6 +415,9 @@ class SegmentPage(CommonComponent):
         # ocropus.make_page_segmentation_black(result)
         iulib.write_image_packed("_seg_out.png",result)
         return narray2pseg(result)
+
+def make_ISegmentPage(name):
+    return mkpython(name) or SegmentPage().make_(name)
 
 class SegmentPageByRAST(SegmentPage):
     """Segment a page into columns and lines using the RAST algorithm."""
@@ -507,12 +541,16 @@ class SegmentLine(CommonComponent):
     """Segment a line into character parts."""
     def make_(self,name):
         self.comp = components.make_ISegmentLine(name)
+        return self
     def charseg(self,line):
         """Segment a text line into potential character parts."""
         result = iulib.intarray()
         self.comp.charseg(result,line2narray(line,'B'))
         ocropus.make_line_segmentation_black(result)
         return narray2lseg(result)
+
+def make_ISegmentLine(name):
+    return mkpython(name) or SegmentLine().make_(name)
 
 class DpLineSegmenter(SegmentLine):
     """Segment a text line by dynamic programming."""
@@ -664,6 +702,9 @@ class Grouper(CommonComponent):
         if cls==-1: return "~"
         return ocropus.multichr(cls)
 
+def make_IGrouper(name):
+    return mkpython(name) or Grouper().make_(name)
+
 class StandardGrouper(Grouper):
     """The grouper usually used for printed OCR."""
     def __init__(self):
@@ -673,6 +714,7 @@ class RecognizeLine(CommonComponent):
     """A line recognizer in general."""
     def make_(self,name):
         self.comp = components.make_IRecognizeLine(name)
+        return self
     def recognizeLine(self,line,segmentation=0):
         """Recognizes the line and returns the recognition lattice."""
         fst = OcroFST()
@@ -707,6 +749,9 @@ class RecognizeLine(CommonComponent):
         self.comp.align(chars,seg,costs,line,transcription)
         return (ustrg2unicode(chars),narray2lseg(seg),iulib.numpy(costs,'f'))
 
+def make_IRecognizeLine(name):
+    return mkpython(name) or RecognizeLine().make_(name)
+
 class Linerec(RecognizeLine):
     """A line recognizer using neural networks and character size modeling.
     Feature extraction is per character."""
@@ -723,6 +768,7 @@ class Model(CommonComponent):
     """A classifier in general."""
     def make_(self,name):
         self.comp = components.make_IModel(name)
+        return self
     def nfeatures(self):
         """Return the expected number of input features."""
         return self.comp.nfeatures()
@@ -758,15 +804,20 @@ class Model(CommonComponent):
         """Perform classification of the input vector v."""
         return self.comp.cclassify(vector2narray(v))
 
+def make_IModel(name):
+    return mkpython(name) or Model().make_(name)
+
 class KnnClassifier(CommonComponent):
     """A simple nearest neighbor classifier."""
     def __init__(self):
         self.make_("KnnClassifier")
+
 class AutoMlpClassifier(CommonComponent):
     """An MLP classifier trained with gradient descent and
     automatic learning rate adjustment."""
     def __init__(self):
         self.make_("AutoMlpClassifier")
+
 class LatinClassifier(CommonComponent):
     """A classifier that combines several stages: alphabetic classification,
     upper/lower case, ..."""
@@ -1104,8 +1155,8 @@ class CmodelLineRecognizer(RecognizeLine):
         self.debug = 0
         self.segmenter = SegmentLine().make(segmenter)
         self.grouper = StandardGrouper()
-        # self.grouper.pset("maxdist",5)
-        # self.grouper.pset("maxrange",5)
+        self.grouper.pset("maxdist",10)
+        self.grouper.pset("maxrange",5)
         self.cmodel = cmodel
         self.best = best
         self.maxcost = maxcost
