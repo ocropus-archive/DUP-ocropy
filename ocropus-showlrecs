@@ -27,6 +27,7 @@ from ocropy import fstutils
 from matplotlib import patches
 import scipy
 import ocropus
+from ocropy import common
 
 default_model = "2m2-reject.cmodel"
 default_segmenter = "DpSegmenter"
@@ -213,6 +214,22 @@ class LineWindow:
         self.setupTreeView()
         self.details = self.wtree.get_widget("details")
 
+        self.segmenters = gtk.ListStore(str)
+        cl = ocropy.ComponentList()
+        for i in range(cl.length()):
+            if cl.kind(i)!="ISegmentLine": continue
+            name = " "+cl.name(i); name = name[1:]
+            print name
+            self.segmenters.append([name])
+        print [self.segmenters[i][0] for i in range(len(self.segmenters))]
+        self.segmenter = self.wtree.get_widget("segmenter")
+        self.segmenter.set_model(self.segmenters)
+        self.segmenter.set_text_column(0)
+        for i in range(len(self.segmenters)):
+            if self.segmenters[i][0]==default_segmenter:
+                self.segmenter.set_active(i)
+                break
+
         self.recognizers = gtk.ListStore(str)
         self.recognizers.append(["none"])
         models = glob.glob("*.model")
@@ -229,22 +246,6 @@ class LineWindow:
         for i in range(len(self.recognizers)):
             if self.recognizers[i][0]==default_model:
                 self.recognizer.set_active(i)
-                break
-
-        self.segmenters = gtk.ListStore(str)
-        cl = ocropy.ComponentList()
-        for i in range(cl.length()):
-            if cl.kind(i)!="ISegmentLine": continue
-            name = " "+cl.name(i); name = name[1:]
-            print name
-            self.segmenters.append([name])
-        print [self.segmenters[i][0] for i in range(len(self.segmenters))]
-        self.segmenter = self.wtree.get_widget("segmenter")
-        self.segmenter.set_model(self.segmenters)
-        self.segmenter.set_text_column(0)
-        for i in range(len(self.segmenters)):
-            if self.segmenters[i][0]==default_segmenter:
-                self.segmenter.set_active(i)
                 break
 
         active = 0
@@ -305,10 +306,11 @@ class LineWindow:
         for i in range(len(self.lines)):
             file = self.lines[i][6]
             print file
-            image = ocropy.bytearray()
-            ocropy.read_image_gray(image,line_image(file))
-            fst = ocropy.make_OcroFST()
-            self.linerec.recognizeLine(fst,image)
+            image = common.read_image_gray(line_image(file))
+            fst = self.linerec.recognizeLine(ocrofst,image)
+            # FIXME converting back to C++ data structures
+            fst = fst.comp
+            image = common.numpy2narray(image)
 
             lmodel = None
             if type(self.lmodel) is str:
@@ -374,11 +376,13 @@ class LineWindow:
         self.detail_pixbuf(gtk.gdk.pixbuf_new_from_file(line_image(file)),lscale)
         self.detail("\n\n")
         print "# recognizing line"
-        image = ocropy.bytearray()
-        ocropy.read_image_gray(image,line_image(file))
-        fst = ocropy.make_OcroFST()
-        rseg = ocropy.intarray()
-        self.linerec.recognizeLineSeg(fst,rseg,image)
+        image = common.read_image_gray(line_image(file))
+        fst,rseg = self.linerec.recognizeLineSeg(image)
+        # FIXME converting back to C++ data structurs
+        fst = fst.comp
+        rseg = common.lseg2narray(rseg)
+        image = common.numpy2narray(image)
+
         s = ocropy.ustrg()
         fst.bestpath(s)
         result = ocropy.ustrg_as_string(s)
@@ -472,19 +476,12 @@ class LineWindow:
         self.recognizer_load(file)
     def segmenter_update(self,*args):
         name = self.segmenter.get_active_text()
-        comp = ocropy.make_ISegmentLine(name)
+        comp = common.make_ISegmentLine(name)
         self.linerec.segmenter = comp
         print "set segmenter to",name,comp
     def recognizer_load(self,file):
         if file!="none":
-            if 0 and ".cmodel" in file:
-                cmodel = ocropy.load_IModel(file)
-                constructor = eval(options.linerecognizer)
-                self.linerec = constructor(cmodel=cmodel,
-                                           best=options.nbest,
-                                           maxcost=options.maxccost)
-            else:
-                self.linerec = ocropy.load_linerec(file)
+            self.linerec = common.load_linerec(file)
         # self.linerec.debug = 1
         print "loaded",self.linerec
         self.segmenter_update()
