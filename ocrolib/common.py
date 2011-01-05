@@ -1,4 +1,4 @@
-import os,os.path
+import os,os.path,re
 import numpy
 import iulib
 import ocropus
@@ -868,7 +868,7 @@ class OcroFST():
         self.comp.clear()
     def newState(self):
         return self.comp.newState()
-    def addTransition(frm,to,output,cost=0.0,inpt=None):
+    def addTransition(self,frm,to,output,cost=0.0,inpt=None):
         if inpt is None:
             self.comp.addTransition(frm,to,output,cost)
         else:
@@ -934,26 +934,14 @@ def iulib_page_iterator(files):
         if ext.lower()==".tif" or ext.lower()==".tiff":
             if os.path.getsize(file)>2e9:
                 raise IOError("TIFF file is greater than 2G")
-            if 1:
-                tiff = iulib.Tiff(file,"r")
-                for i in range(tiff.numPages()):
-                    image = iulib.bytearray()
-                    try:
-                        tiff.getPageRaw(image,i,True)
-                    except:
-                        tiff.getPage(image,i,True)
-                    yield image,"%s[%d]"%(file,i)
-            else:
-                image = Image.open(file)
-                for i in range(10000):
-                    try:
-                        image.seek(i)
-                    except EOFError:
-                        break
-                    sys.stderr("# TIFF frame %d\n"%image.tell())
-                    frame = array(image)
-                    frame = ocropy.FI(frame)
-                    yield frame,"%s[%d]"%(file,i)
+            tiff = iulib.Tiff(file,"r")
+            for i in range(tiff.numPages()):
+                image = iulib.bytearray()
+                try:
+                    tiff.getPageRaw(image,i,True)
+                except:
+                    tiff.getPage(image,i,True)
+                yield image,"%s[%d]"%(file,i)
         else:
             image = iulib.bytearray()
             iulib.read_image_gray(image,file)
@@ -1206,7 +1194,7 @@ class CmodelLineRecognizer(RecognizeLine):
         self.min_height = minheight_letters
         self.rho_scale = 1.0
 
-    def recognizeLine(self,lattice,image):
+    def recognizeLine(self,image):
         "Recognize a line, outputting a recognition lattice."""
         lattice,rseg = self.recognizeLineSeg(image)
         return lattice
@@ -1414,10 +1402,12 @@ def edit_distance(s,t,use_space=0,case_sensitive=0):
     if not use_space:
         s = re.sub(r'\s+','',s)
         t = re.sub(r'\s+','',t)
-    s_ = ocropy.ustrg()
-    s_.assign(s)
-    t_ = ocropy.ustrg()
-    t_.assign(t)
+    s_ = iulib.ustrg()
+    s_.assign(s.encode("utf-8"))
+    t_ = iulib.ustrg()
+    t_.assign(t.encode("utf-8"))
+    print s_.as_string()
+    print t_.as_string()
     return ocropus.edit_distance(s_,t_)
 
 class ComponentList:

@@ -21,13 +21,11 @@ import gtk.glade
 import gobject
 from pylab import *
 import gnome
-import ocropy
-from ocropy import NI
-from ocropy import fstutils
 from matplotlib import patches
 import scipy
-import ocropus
-from ocropy import common
+
+import ocrolib
+from ocrolib import fstutils
 
 default_model = "2m2-reject.cmodel"
 default_segmenter = "DpSegmenter"
@@ -69,19 +67,6 @@ def readfile(file):
         return stream.read()
 
 
-def edit_distance(s,t,use_space=0,case_sensitive=0):
-    if not case_sensitive:
-        s = s.upper()
-        t = t.upper()
-    if not use_space:
-        s = re.sub(r'\s+','',s)
-        t = re.sub(r'\s+','',t)
-    s_ = ocropy.ustrg()
-    s_.assign(s)
-    t_ = ocropy.ustrg()
-    t_.assign(t)
-    return ocropy.edit_distance(s_,t_)
-
 def gtk_yield():
     while gtk.events_pending():
        gtk.main_iteration(False)
@@ -99,46 +84,6 @@ def numpy2pixbuf(a):
         data[:,:,2] = 255*a
         return gtk.gdk.pixbuf_new_from_array(data,gtk.gdk.COLORSPACE_RGB,8)
 
-def get_icon(file,size=iconwidth):
-    page_gray = ocropy.bytearray()
-    ocropy.read_image_gray(page_gray,file)
-    w = page_gray.dim(0)
-    h = page_gray.dim(1)
-    scale = max(w/size,h/size)
-    scale = max(1.0,scale)
-    icon_gray = ocropy.bytearray()
-    ocropy.rescale(icon_gray,page_gray,int(w/scale),int(h/scale))
-    page_gray.clear()
-    icon = NI(icon_gray)
-    icon_gray.clear()
-    lo,hi = amin(icon),amax(icon)
-    icon = (icon-lo)*1.0/(hi-lo)
-    return numpy2pixbuf(icon)
-
-def get_icon0(file,size=iconwidth):
-    image = imread(file)
-    h,w = image.shape[:2]
-    scale = max(w/size,h/size)
-    scale = max(1.0,scale)
-    if scale>1.0:
-        icon = scipy.ndimage.interpolation.zoom(image,(1.0/scale,1.0/scale,1.0))
-        result = numpy2pixbuf(icon)
-        del icon
-    else:
-        result = numpy2pixbuf(image)
-    del image
-    return result
-    
-def compute_component_combolist(widget,kind=None,dflt=None):
-    """Compute the combolist from the current charlist."""
-    combolist = gtk.ListStore(str)
-    for n in ocropy.get_components(kind):
-        if n==dflt: select = len(combolist)
-        combolist.append([n])
-    widget.set_model(combolist)
-    widget.set_text_column(0)
-    widget.set_active(select)
-
 def float_sort(model,x,y,col):
     x = model[x][col]
     y = model[y][col]
@@ -149,13 +94,12 @@ def float_sort(model,x,y,col):
     return 0    
 
 def line_image(file):
-    base,ext = ocropy.allsplitext(file)
+    base,ext = ocrolib.allsplitext(file)
     s = base+".bin.png"
     if os.path.exists(s): return s
     return file
 
 def seg2pixbuf(rseg):
-    rseg = NI(rseg)
     w,h = rseg.shape
     if 1:
         colors = zeros((w,h,3))
@@ -171,7 +115,7 @@ def seg2pixbuf(rseg):
     return rseg
 
 def make_fst(s):
-    fst = ocropy.make_OcroFST()
+    fst = ocrolib.OcroFST()
     start = fst.newState()
     fst.setStart(start)
     for i in range(len(s)):
@@ -188,7 +132,7 @@ class LineWindow:
         self.lmodel = None
         self.linerec = None
         
-        gladefile = ocropy.findfile("ocropus-showlrecs.glade")
+        gladefile = ocrolib.findfile("ocropus-showlrecs.glade")
         self.windowname = "linerecs" 
         self.wtree = gtk.glade.XML(gladefile,self.windowname) 
         self.window = self.wtree.get_widget(self.windowname)
@@ -215,7 +159,7 @@ class LineWindow:
         self.details = self.wtree.get_widget("details")
 
         self.segmenters = gtk.ListStore(str)
-        cl = ocropy.ComponentList()
+        cl = ocrolib.ComponentList()
         for i in range(cl.length()):
             if cl.kind(i)!="ISegmentLine": continue
             name = " "+cl.name(i); name = name[1:]
@@ -306,11 +250,8 @@ class LineWindow:
         for i in range(len(self.lines)):
             file = self.lines[i][6]
             print file
-            image = common.read_image_gray(line_image(file))
-            fst = self.linerec.recognizeLine(ocrofst,image)
-            # FIXME converting back to C++ data structures
-            fst = fst.comp
-            image = common.numpy2narray(image)
+            image = ocrolib.read_image_gray(line_image(file))
+            fst = self.linerec.recognizeLine(image)
 
             lmodel = None
             if type(self.lmodel) is str:
@@ -318,36 +259,32 @@ class LineWindow:
                 if os.path.exists(gt):
                     print "loading",gt
                     lmodel = fstutils.load_text_file_as_fst(gt)
-                print "done"
             elif self.lmodel is not None:
                 lmodel = self.lmodel
 
-            s = ocropy.ustrg()
             if lmodel is not None:
-                print "lmodel",lmodel
-                cost = ocropy.beam_search(s,fst,lmodel,options.beam)
+                result,cost = ocrolib.beam_search_simple(fst,lmodel,options.beam)
                 self.lines[i][7] = cost
             else:
-                fst.bestpath(s)
+                result = fst.bestpath()
 
-            result = ocropy.ustrg_as_string(s)
             gt = self.lines[i][5]
             if gt!="" and gt is not None:
-                err = edit_distance(result,gt,
-                                    use_space=options.spaces,
-                                    case_sensitive=options.case)
+                err = ocrolib.edit_distance(result,gt,
+                                            use_space=options.spaces,
+                                            case_sensitive=options.case)
                 self.lines[i][0] = err
                 if self.lines[i][1]!="":
                     self.lines[i][2] = float(self.lines[i][0])-float(self.lines[i][1])
                 # ground truth cost
                 gt_fst = make_fst(gt)
-                cost2 = ocropy.beam_search(s,fst,gt_fst,options.beam)
+                s,cost2 = ocrolib.beam_search_simple(fst,gt_fst,options.beam)
                 self.lines[i][8] = cost2
                 # language model cost
                 if self.lmodel is not None:
-                    cost3 = ocropy.beam_search(s,gt_fst,lmodel,options.beam)
+                    s,cost3 = ocrolib.beam_search_simple(gt_fst,lmodel,options.beam)
                     self.lines[i][9] = cost3
-            print result
+            print "RESULT",result
             self.lines[i][4] = result
             gtk_yield()
     def record(self,*args):
@@ -371,21 +308,17 @@ class LineWindow:
             return
         row = self.lines[index]
         file = row[6]
-        base,_ = ocropy.allsplitext(file)
+        base,_ = ocrolib.allsplitext(file)
         self.detail(file+"\n\n")
         self.detail_pixbuf(gtk.gdk.pixbuf_new_from_file(line_image(file)),lscale)
         self.detail("\n\n")
         print "# recognizing line"
-        image = common.read_image_gray(line_image(file))
+        image = ocrolib.read_image_gray(line_image(file))
         fst,rseg = self.linerec.recognizeLineSeg(image)
         # FIXME converting back to C++ data structurs
-        fst = fst.comp
-        rseg = common.lseg2narray(rseg)
-        image = common.numpy2narray(image)
 
-        s = ocropy.ustrg()
-        fst.bestpath(s)
-        result = ocropy.ustrg_as_string(s)
+        s = fst.bestpath()
+        result = s
         self.detail("raw output: %s\n\n"%result)
         gt = row[5]
         lmodel = None
@@ -397,25 +330,24 @@ class LineWindow:
             lmodel = self.lmodel
         if lmodel is not None:
             print "# beam search, width:",options.beam
-            cost = ocropy.beam_search(s,fst,lmodel,options.beam)
-            result = ocropy.ustrg_as_string(s)
+            result,cost = ocrolib.beam_search_simple(fst,lmodel,options.beam)
             self.detail("cost: %f\n\n"%cost)
             self.detail("output: %s\n\n"%result)
         else:
             self.detail("(load a language model for more details)\n")
         if gt is not None and gt!="":
             print "# edit distance"
-            err = edit_distance(result,gt,
-                                use_space=options.spaces,
-                                case_sensitive=options.case)
+            err = ocrolib.edit_distance(result,gt,
+                                        use_space=options.spaces,
+                                        case_sensitive=options.case)
             self.detail("ground truth: %s\n\n"%gt)
             self.detail("error: %f\n\n"%err)
             fst2 = make_fst(gt)
-            cost2 = ocropy.beam_search(s,fst,fst2,options.beam)
+            s,cost2 = ocrolib.beam_search_simple(fst,fst2,options.beam)
             self.detail("gt cost: %f\n\n"%cost2)
         if gt is not None and self.lmodel is not None:
             fst3 = make_fst(gt)
-            cost3 = ocropy.beam_search(s,fst3,lmodel,options.beam)
+            s,cost3 = ocrolib.beam_search_simple(fst3,lmodel,options.beam)
             self.detail("lmodel cost: %f\n\n"%cost3)
         gtk_yield()
         self.detail("\n")
@@ -426,7 +358,7 @@ class LineWindow:
         if lmodel is not None:
             print "# alignment"
             self.detail("\naligned segmentation\n")
-            l = ocropy.compute_alignment(fst,rseg,lmodel,beam=options.beam)
+            l = ocrolib.compute_alignment(fst,rseg,lmodel,beam=options.beam)
             result = l.output
             cseg = l.cseg
             costs = l.costs
@@ -437,22 +369,19 @@ class LineWindow:
                 self.detail_pixbuf(colors,lscale)
                 self.detail("\n")
                 self.detail("\nper-character results\n")
-                grouper = ocropy.make_IGrouper("SimpleGrouper")
-                grouper.pset("maxrange",1)
-                grouper.pset("maxdist",1)
-                ocropy.make_line_segmentation_black(cseg)
+                grouper = ocrolib.StandardGrouper(maxrange=1,maxdist=1)
                 grouper.setSegmentation(cseg)
+                reverse = amax(image)-image
                 for i in range(grouper.length()):
                     try:
                         if result[i]==' ': continue
-                        raw = ocropy.bytearray()
-                        mask = ocropy.bytearray()
-                        grouper.extractWithMask(raw,mask,image,i,1)
-                        img = 1.0-NI(mask)/255.0
+                        raw,mask = grouper.extractWithMask(reverse,i,1)
+                        img = 1.0-mask/255.0
                         self.detail_pixbuf(numpy2pixbuf(img))
                         self.detail(" [%s]   "%result[i])
                         if (i+1)%10==0: self.detail("\n")
                     except:
+                        traceback.print_exc()
                         self.detail(" [oops]   ")
                 self.detail("\n")
         else:
@@ -476,12 +405,12 @@ class LineWindow:
         self.recognizer_load(file)
     def segmenter_update(self,*args):
         name = self.segmenter.get_active_text()
-        comp = common.make_ISegmentLine(name)
+        comp = ocrolib.make_ISegmentLine(name)
         self.linerec.segmenter = comp
         print "set segmenter to",name,comp
     def recognizer_load(self,file):
         if file!="none":
-            self.linerec = common.load_linerec(file)
+            self.linerec = ocrolib.load_linerec(file)
         # self.linerec.debug = 1
         print "loaded",self.linerec
         self.segmenter_update()
@@ -493,7 +422,7 @@ class LineWindow:
         if lmodel_name[0]=="*":
             lmodel = lmodel_name
         elif lmodel_name!="none":
-            lmodel = ocropy.make_OcroFST()
+            lmodel = ocrolib.OcroFST()
             lmodel.load(lmodel_name)
         self.lmodel = lmodel
         print "loaded",self.lmodel
