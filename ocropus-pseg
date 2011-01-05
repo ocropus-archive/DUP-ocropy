@@ -94,18 +94,14 @@ def process_arg(arg):
     page_ti = None
     tirects = None
     if os.path.exists(base+".tiseg.png"):
-        # FIXME
-        print "# loading",base+".tiseg.png"
-        ocropy.read_image_packed(page_ti,base+".tiseg.png")
-        r = ocropy.bytearray()
-        g = ocropy.bytearray()
-        b = ocropy.bytearray()
-        ocropy.unpack_rgb(r,g,b,page_ti)
-        components = ocropy.intarray()
-        components.copy(g)
-        n = ocropy.label_components(components)
-        print "# number of image regions",n
-        ocropy.bounding_boxes(tirects,components)
+        # FIXME these aren't implemented
+        # print "# loading",base+".tiseg.png"
+        # rgb = ocrolib.read_image_packed(page_ti,base+".tiseg.png")
+        # ocrolib.unpack_rgb(r,g,b,page_ti)
+        # n = ocrolib.label_components(components)
+        # print "# number of image regions",n
+        # ocrolib.bounding_boxes(tirects,components)
+        raise Exception("tiseg handling unimplemented right now")
 
     if options.blackout and tirects is not None:
         for (r0,c0,r1,c1) in tirects:
