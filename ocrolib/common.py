@@ -529,6 +529,7 @@ class SegmentLine(CommonComponent):
         result = iulib.intarray()
         self.comp.charseg(result,line2narray(line,'B'))
         ocropus.make_line_segmentation_black(result)
+        ocropus.renumber_labels(result,1)
         return narray2lseg(result)
 
 class DpLineSegmenter(SegmentLine):
@@ -815,6 +816,44 @@ class OmpClassifier:
         """Load a classifier."""
         self.comp = ocropus.OmpClassifier()
         self.comp.load(file)
+
+class Extractor(CommonComponent):
+    """Feature extractor. (Only for backwards compatibility; not recommended.)"""
+    c_interface = "IExtractor"
+    def extract(self,input):
+        out = iulib.floatarray()
+        self.comp.extract(out,iulib.narray(input,type='f'))
+        return iulib.numpy(out,type='f')
+
+class ScaledFE(Extractor):
+    c_class = "scaledfe"
+
+class DistComp(CommonComponent):
+    """Compute distances fast. (Only for backwards compatibility; not recommended.)"""
+    c_interface = "IDistComp"
+    def add(self,v):
+        self.comp.add(iulib.narray(v,type='f'))
+    def distances(self,v):
+        out = iulib.floatarray()
+        self.comp.add(out,iulib.narray(v,type='f'))
+        return iulib.numpy(out,type='f')
+    def find(self,v,eps):
+        return self.comp.find(iulib.narray(v,type='f'),eps)
+    def merge(self,i,v,weight):
+        self.comp.merge(i,iulib.narray(v,type='f'),weight)
+    def length(self):
+        return self.comp.length()
+    def counts(self,i):
+        return self.comp.counts(i)
+    def vector(self,i):
+        out = iulib.floatarray()
+        self.comp.vector(out,i)
+        return iulib.numpy(out,type='f')
+    def nearest(self,v):
+        return self.comp.find(iulib.narray(v,type='f'))
+
+class EdistComp(DistComp):
+    c_class = "edist"
 
 class OcroFST():
     def __init__(self,native=None):
