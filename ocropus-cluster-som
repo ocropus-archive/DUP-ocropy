@@ -1,9 +1,10 @@
 #!/usr/bin/python
-import code,pickle,sys,os,re,ocropy
-from ocropy import dbtables
+import code,pickle,sys,os,re
 from pylab import *
 from optparse import OptionParser
-from ocropy.native import *
+from ocrolib import dbtables
+from ocrolib.native import *
+import ocrolib
 
 parser = OptionParser("""
 usage: %prog [options] chars.db som.db mds.db
@@ -195,7 +196,7 @@ table.create(image="blob",cls="text",classes="text")
 classlist = [row[0] for row in table.query("select distinct(cls) from '%s' order by cls"%
                                          options.table)]
 
-extractor = ocropy.make_IExtractor("scaledfe")
+extractor = ocrolib.ScaledFE()
 
 data = []
 classes = []
@@ -205,13 +206,12 @@ for cls in classlist:
     for row in table.get(cls=cls):
         raw = row.image
         if raw.shape[0]>255 or raw.shape[1]>255: continue
-        raw = raw/float(amax(raw))
-        v = ocropy.floatarray()
-        c = ocropy.floatarray().of(raw)
-        extractor.extract(v,c)
-        v = ocropy.as_numpy(v)
+        c = raw/float(amax(raw))
+        v = extractor.extract(c)
         data.append(v)
         classes.append(cls)
+
+assert len(data)>10,"not enough input data elements (maybe you need to specify a different table?)"
 
 data = array(data)
 print "clustering",data.shape

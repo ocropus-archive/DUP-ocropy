@@ -1,9 +1,11 @@
 #!/usr/bin/python
-import code,pickle,sys,os,re,ocropy
-from ocropy import dbtables
+import code,pickle,sys,os,re
 from pylab import *
 from optparse import OptionParser
-from ocropy.native import *
+from ocrolib import dbtables
+from ocrolib.native import *
+from scipy import stats
+import ocrolib
 
 parser = OptionParser("""
 usage: %prog [options] chars.db output.db
@@ -93,7 +95,7 @@ def kmeans(data,k,maxiter=100,minchange=1,outlier=3.0):
         outs = array([argmindist2(x,means) for x in data],'i')
         mins = array(outs[:,0],'i')
         dists = outs[:,1]
-        threshold = outlier*scipy.stats.scoreatpercentile(dists,per=50)
+        threshold = outlier * stats.scoreatpercentile(dists,per=50)
         changed = sum(mins!=oldmins)
         print changed
         if verbose: sys.stderr.write("[kmeans iter %d: %d]\n"%(i,changed))
@@ -127,18 +129,15 @@ table.converter("image",dbtables.SmallImage())
 table.create(image="blob",cls="text",classes="text")
 classes = [row[0] for row in table.query("select distinct(cls) from '%s' order by cls"%options.table)]
 
-extractor = ocropy.make_IExtractor("scaledfe")
+extractor = ocrolib.ScaledFE()
 
 data = []
 print "loading"
 for row in table.get():
     raw = row.image
     if raw.shape[0]>255 or raw.shape[1]>255: continue
-    raw = raw/float(amax(raw))
-    v = ocropy.floatarray()
-    c = ocropy.floatarray().of(raw)
-    extractor.extract(v,c)
-    v = ocropy.as_numpy(v)
+    c = raw/float(amax(raw))
+    v = extractor.extract(c)
     data.append(v)
 
 
