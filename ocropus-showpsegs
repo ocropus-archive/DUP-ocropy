@@ -19,10 +19,10 @@ import gtk.glade
 import gobject
 from pylab import *
 import gnome
-import ocropy
-from ocropy import NI
 from matplotlib import patches
 import scipy
+
+import ocrolib
 
 from matplotlib.backends.backend_gtk import FigureCanvasGTK as FigureCanvas
 from matplotlib.backends.backend_gtk import NavigationToolbar2GTK as NavigationToolbar
@@ -64,28 +64,13 @@ def numpy2pixbuf(a):
         return gtk.gdk.pixbuf_new_from_array(data,gtk.gdk.COLORSPACE_RGB,8)
 
 def get_icon(file,size=iconwidth):
-    page_gray = ocropy.bytearray()
-    ocropy.read_image_gray(page_gray,file)
-    w = page_gray.dim(0)
-    h = page_gray.dim(1)
-    scale = max(w/size,h/size)
-    scale = max(1.0,scale)
-    icon_gray = ocropy.bytearray()
-    ocropy.rescale(icon_gray,page_gray,int(w/scale),int(h/scale))
-    page_gray.clear()
-    icon = NI(icon_gray)
-    icon_gray.clear()
-    lo,hi = amin(icon),amax(icon)
-    icon = (icon-lo)*1.0/(hi-lo)
-    return numpy2pixbuf(icon)
-
-def get_icon0(file,size=iconwidth):
-    image = imread(file)
+    image = ocrolib.read_image_gray(file)
+    print mean(image)
     h,w = image.shape[:2]
     scale = max(w/size,h/size)
     scale = max(1.0,scale)
     if scale>1.0:
-        icon = scipy.ndimage.interpolation.zoom(image,(1.0/scale,1.0/scale,1.0))
+        icon = scipy.ndimage.interpolation.zoom(image,(1.0/scale,1.0/scale))
         result = numpy2pixbuf(icon)
         del icon
     else:
@@ -96,9 +81,12 @@ def get_icon0(file,size=iconwidth):
 def compute_component_combolist(widget,kind=None,dflt=None):
     """Compute the combolist from the current charlist."""
     combolist = gtk.ListStore(str)
-    for n in ocropy.get_components(kind):
-        if n==dflt: select = len(combolist)
-        combolist.append([n])
+    cl = ocrolib.ComponentList()
+    for i in range(cl.length()):
+        if cl.kind(i)!=kind: continue
+        if cl.name(i)==dflt: select = len(combolist)
+        name = " "+cl.name(i); name = name[1:]
+        combolist.append([name])
     widget.set_model(combolist)
     widget.set_text_column(0)
     widget.set_active(select)
@@ -106,7 +94,7 @@ def compute_component_combolist(widget,kind=None,dflt=None):
 class GraphWindow: 
     def __init__(self): 
         self.file = None
-        gladefile = ocropy.findfile("ocropus-showpsegs.glade")
+        gladefile = ocrolib.findfile("ocropus-showpsegs.glade")
         self.windowname = "pagesegs" 
         self.wtree = gtk.glade.XML(gladefile, self.windowname) 
         self.window = self.wtree.get_widget(self.windowname)
@@ -176,11 +164,11 @@ class GraphWindow:
         self.recompute()
     def ppupdate(self,*args):
         name = self.ppselect.get_active_text()
-        self.preproc = ocropy.make_IBinarize(name)
+        self.preproc = ocrolib.make_IBinarize(name)
         self.recompute()
     def segupdate(self,*args):
         name = self.segselect.get_active_text()
-        self.segmenter = ocropy.make_ISegmentPage(name)
+        self.segmenter = ocrolib.make_ISegmentPage(name)
         self.recompute()
     def recompute(self):
         file = self.file
@@ -190,36 +178,29 @@ class GraphWindow:
         
         # load the image
         print "loading",file
-        page_gray = ocropy.bytearray()
-        ocropy.read_image_gray(page_gray,file)
-        print "got",page_gray.dim(0),page_gray.dim(1)
+        page_gray = ocrolib.read_image_gray(file)
         self.raw_axis = self.makeFigure("raw_container")
-        self.raw_axis.imshow(NI(page_gray),cmap=cm.gray)
+        self.raw_axis.imshow(page_gray,cmap=cm.gray)
         gtk_yield()
         
         # clean it up using the given cleanup method
         print "cleanup",file
-        page_bin = ocropy.bytearray()
-        self.preproc.binarize(page_bin,page_gray)
+        page_bin,page_gray = self.preproc.binarize(page_gray)
         self.cleanup_axis = self.makeFigure("cleanup_container")
-        self.cleanup_axis.imshow(NI(page_bin),cmap=cm.gray)
+        self.cleanup_axis.imshow(page_bin,cmap=cm.gray)
         gtk_yield()
         
         # perform segmentation
         print "segmentation",file
         self.segmentation_axis = self.makeFigure("segmentation_container")
-        self.segmentation_axis.imshow(NI(page_bin),cmap=cm.gray)
-        page_seg = ocropy.intarray()
-        self.segmenter.segment(page_seg,page_bin)      
-        regions = ocropy.RegionExtractor()
+        self.segmentation_axis.imshow(page_bin,cmap=cm.gray)
+        page_seg = self.segmenter.segment(page_bin)      
+        regions = ocrolib.RegionExtractor()
         regions.setPageLines(page_seg)
         print "lines:",regions.length()
-        h = page_seg.dim(1)
+        h,w = page_bin.shape
         for i in range(1,regions.length()):
-            x0 = regions.x0(i)
-            y0 = regions.y0(i)
-            x1 = regions.x1(i)
-            y1 = regions.y1(i)
+            x0,y0,x1,y1 = regions.bboxMath(i)
             p = patches.Rectangle((x0,h-y1-1),x1-x0,y1-y0,edgecolor="red",fill=0)
             self.segmentation_axis.add_patch(p)
         gtk_yield()
