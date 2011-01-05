@@ -4,9 +4,8 @@ import sys,os,re,glob,math,glob,signal
 from optparse import OptionParser
 from pylab import *
 from scipy.ndimage import interpolation,filters
-import ocropy
-from ocropy import dbtables
-from ocropy import N,NI,F,FI
+import ocrolib
+from ocrolib import dbtables
 signal.signal(signal.SIGINT,lambda *args:sys.exit(1))
 
 parser = OptionParser(usage="""
@@ -66,7 +65,6 @@ def distort(nimage,sx,sy,sigma=10.0):
     x and y displacement vectors.  The displacement amounts sx and
     sy are in terms of fractions of the image width and height.
     Image should be an narray."""
-    image = NI(nimage)
     h0,w0 = image.shape
     my = sy*h0
     mx = sx*w0
@@ -80,7 +78,7 @@ def distort(nimage,sx,sy,sigma=10.0):
     dx += arange(w)[newaxis,:]
     distorted = interpolation.map_coordinates(image,array([dy,dx]),order=1)
     # print amax(abs(dy)),amax(abs(dx)),amax(abs(distorted-image))
-    return FI(distorted)
+    return distorted
 
 # unlabeled-as-reject implies that we train reject classes
 
@@ -112,11 +110,9 @@ if options.display:
 # initialize the C++ debugging graphics (just in case it's needed for
 # debugging the native code feature extractors)
 
-ocropy.dinit(512,512)
-
 print "making classifier"
 
-classifier = ocropy.make_IModel(options.model)
+classifier = ocrolib.make_IModel(options.model)
 classifier.setExtractor(options.extractor)
 if options.bits:
     classifier.pset("cds","bitdataset")
@@ -129,7 +125,6 @@ def show_char(image,cls):
     """Display the character in a grid, wrapping around every now and then.
     Used for showing progress in loading the training characters."""
     global fig
-    image = ocropy.NI(image)
     r = 4
     if fig%r**2==0: clf(); gray()
     subplot(r,r,fig%r**2+1)
@@ -183,7 +178,7 @@ for cluster in iterate_dbs(args):
     if cls=="~": nreject += 1
 
     # add the image to the classifier
-    image = FI(cluster.image/255.0)
+    image = cluster.image/255.0
     if options.display and nchar%1000==0: show_char(image,cls)
     classifier.cadd(image,cls)
     count += 1
@@ -211,7 +206,7 @@ classifier.updateModel()
 # save the resulting model
 
 print "saving",output
-ocropy.save_component(output,classifier)
+ocrolib.save_native(output,classifier)
 
 # provide some feedback about the training process
 

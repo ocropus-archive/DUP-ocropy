@@ -529,7 +529,7 @@ class SegmentLine(CommonComponent):
         result = iulib.intarray()
         self.comp.charseg(result,line2narray(line,'B'))
         ocropus.make_line_segmentation_black(result)
-        ocropus.renumber_labels(result,1)
+        iulib.renumber_labels(result,1)
         return narray2lseg(result)
 
 class DpLineSegmenter(SegmentLine):
@@ -1342,6 +1342,9 @@ def load_native(file,interface):
     exec "loader = ocropus.load_%s"%interface
     result = loader(file)
     return result
+
+def save_native(file,object):
+    object.save_native(file)
 
 def load_linerec(file,wrapper=CmodelLineRecognizer):
     """Loads a line recognizer.  This handles a bunch of special cases
