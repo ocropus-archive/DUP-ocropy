@@ -1,10 +1,7 @@
 #!/usr/bin/python
 from pylab import *
-from ocropy import dbtables
-import gmmtree
+from ocrolib import dbtables,gmmtree
 reload(gmmtree)
-import ocrofast
-reload(ocrofast)
 
 import pickle
 # tree = cPickle.load(open("gmmtree-400-50.tree"))

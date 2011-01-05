@@ -1,16 +1,11 @@
 #!/usr/bin/python
-import code,pickle,sys,os,re,ocropy,cPickle
-from ocropy import dbtables,improc
+import code,pickle,sys,os,re,cPickle
 from pylab import *
 from optparse import OptionParser
-import ocrofast
 import traceback
-import nntree
-
-import ocrofast
-reload(ocrofast)
-import gmmtree
+from ocrolib import dbtables,improc,gmmtree
 reload(gmmtree)
+
 ion()
 clf()
 

@@ -6,13 +6,10 @@ import sys,os,re,glob,math,glob,signal
 from scipy.ndimage import interpolation
 from pylab import *
 from optparse import OptionParser
-import ocropy
-from ocropy import fstutils
-from ocropy import N,NI,F,FI
+import ocrolib
+from ocrolib import fstutils
 
 signal.signal(signal.SIGINT,lambda *args:sys.exit(1))
-
-# ocropy.dinit(512,512,1)
 
 parser = OptionParser("""
 usage: %prog text.txt langmod.fst

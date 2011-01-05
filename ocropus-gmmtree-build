@@ -1,10 +1,9 @@
 #!/usr/bin/python
-import code,pickle,sys,os,re,ocropy,cPickle
-from ocropy import dbtables,improc
+import code,pickle,sys,os,re,cPickle
 from pylab import *
 from optparse import OptionParser
-from ocropy import       ocrofast,gmmtree
 import traceback
+from ocrolib import gmmtree,dbtables,improc
 
 parser = OptionParser("""
 usage: %prog [options] chars.db clusters.gmmtree

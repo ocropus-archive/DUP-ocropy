@@ -3,13 +3,12 @@ import pygtk
 pygtk.require("2.0") 
 import gobject,gtk,gtk.glade
 import sys,pickle,os,glob
-import code,pickle,sys,os,re,ocropy,cPickle
-from ocropy import dbtables,improc
+import code,pickle,sys,os,re,cPickle
 from pylab import *
 from optparse import OptionParser
 import traceback
 import cPickle
-from ocropy import ocrofast, gmmtree
+from ocrolib import dbtables,gmmtree
 
 parser = OptionParser(usage="""
 %prog [options] -o output.cmodel input.db ...
@@ -122,7 +121,7 @@ def build_toolbar():
 
 def main():
     global main_widget_tree,class_selector,cluster_viewer,info_area
-    gladefile = ocropy.findfile("gui/ocropus-gmmtree-view.glade")
+    gladefile = ocrolib.findfile("gui/ocropus-gmmtree-view.glade")
     windowname = "window1" 
     main_widget_tree = gtk.glade.XML(gladefile)
     dic = {

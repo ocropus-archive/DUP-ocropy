@@ -1013,7 +1013,7 @@ def write_page_segmentation(name,pseg,white=1):
     if white: ocropus.make_page_segmentation_white(pseg)
     iulib.write_image_packed(name,pseg)
     
-def read_page_segmentation(name,pseg,black=1):
+def read_page_segmentation(name,black=1):
     """Write a numpy page segmentation (rank 3, type='B' RGB image.)"""
     if not os.path.exists(name): raise IOError(name)
     pseg = iulib.intarray()
