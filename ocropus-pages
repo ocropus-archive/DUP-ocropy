@@ -10,9 +10,9 @@ import resource
 resource.setrlimit(resource.RLIMIT_DATA,(2e9,2e9))
 
 import sys,os,re,glob
-import ocropy
-from ocropy import NI,plotutils,simpleti
-from ocropy import hocr
+import ocrolib
+from ocrolib import plotutils
+from ocrolib import hocr
 
 ion()
 hold(False)
@@ -98,29 +98,29 @@ if options.displaylines:
     sys.stderr.write("[note] recognizer runs significantly slower with -L flag (line display)\n")
 
 # Create/load the various recognition components.  Note that you can pass parameters
-# to any of these using the syntax documented under ocropy.make_component.
+# to any of these using the syntax documented under ocrolib.make_component.
 
 # The preprocessor: removes noise, performs page deskewing, and other cleanup.
-preproc = ocropy.make_IBinarize(options.clean)
+preproc = ocrolib.make_IBinarize(options.clean)
 
 # The page segmenter.
-segmenter = ocropy.make_ISegmentPage(options.pseg)
+segmenter = ocrolib.make_ISegmentPage(options.pseg)
 
 # The line recognizer.  Note that this is loaded, not instantiated.
 # You can pass x.model, x.cmodel, and x.pymodel, which loads a C++
 # line recognizer, a C++ character recognizer, or a pickled Python line
 # recognizer respectively.
-linerec = ocropy.load_linerec(options.linerec)
+linerec = ocrolib.load_linerec(options.linerec)
 alert("[note]","line recognizer:",linerec)
 
 # The language model, loaded from disk.
-lmodel = ocropy.make_OcroFST()
+lmodel = ocrolib.OcroFST()
 lmodel.load(options.langmod)
 
 # The text/image segmenter, if given.
 ticlass = None
 if options.ticlass is not None:
-    ticlass = ocropy.make_ITextImageClassification(options.ticlass)
+    ticlass = ocrolib.make_ITextImageClassification(options.ticlass)
 
 # Now start the output with printing the hOCR header if hOCR output has been requested.
 if options.hocr:
@@ -130,7 +130,7 @@ if options.hocr:
 # with TIFF files, we use the page_iterator abstraction that takes care of all the special
 # cases.  But basically, this just gives us one gray image after another, plus the file name.
 pageno = 0
-for page_gray,pagefile in ocropy.page_iterator(args):
+for page_gray,pagefile in ocrolib.page_iterator(args):
     pageno += 1
     sys.stderr.write("[note] *** %d %s ***\n"%(pageno,pagefile))
 
@@ -141,22 +141,20 @@ for page_gray,pagefile in ocropy.page_iterator(args):
             (pageno,pageno,pagefile)
 
     # Perform cleanup and binarization of the page.
-    page_bin = ocropy.bytearray()
-    preproc.binarize(page_bin,page_gray)
+    page_bin,page_gray = preproc.binarize(page_gray)
 
     if not options.silent:
-        if ocropy.quick_check_page_components(page_bin,dpi=options.dpi)<0.5:
+        if ocrolib.quick_check_page_components(page_bin,dpi=options.dpi)<0.5:
             continue
 
     # Black out images in the binary page image.
     # This will cause images to be treated as non-text blocks
     # by the page segmenter.
     if ticlass is not None:
-        ocropy.blackout_images(page_bin,ticlass)
+        ocrolib.blackout_images(page_bin,ticlass)
 
     # Perform page segmentation into text columns and text lines.
-    page_seg = ocropy.intarray()
-    segmenter.segment(page_seg,page_bin)
+    page_seg = segmenter.segment(page_bin)
 
     # For debugging purposes, display the segmented page image.
     if options.display: 
@@ -173,7 +171,7 @@ for page_gray,pagefile in ocropy.page_iterator(args):
     # Now iterate through the text lines of the page, in reading order.
     # We use the RegionExtractor utility class for that.  The page_seg image
     # is just an RGB image, see http://docs.google.com/Doc?id=dfxcv4vc_92c8xxp7
-    regions = ocropy.RegionExtractor()
+    regions = ocrolib.RegionExtractor()
     regions.setPageLines(page_seg)
 
     # If there are too many text lines, probably something went wrong with the
@@ -185,24 +183,21 @@ for page_gray,pagefile in ocropy.page_iterator(args):
     alert("[note]",pagefile,"lines:",regions.length())
     for i in range(1,regions.length()):
         # Extract the line image and optionally display it.
-        line = ocropy.bytearray()
-        regions.extract(line,page_bin,i,1) # might use page_gray
+        line = regions.extract(page_bin,i,1) # might use page_gray
         if options.display and options.displaylines:
             clf(); subplot(111); imshow(NI(line),cmap=cm.gray); ginput(1,timeout=0.1)
 
         # Perform some simple sanity checks on the text line image; skip anything
         # that doesn't look like a real text line.
         if not options.silent:
-            if ocropy.quick_check_line_components(line,dpi=options.dpi)<0.5:
+            if ocrolib.quick_check_line_components(line,dpi=options.dpi)<0.5:
                 continue
 
         # Now perform the actual text line recognition.  The variables fst and rseg
         # hold the recognition lattice and raw segmentation that the line recognizer
         # computes.
-        fst = ocropy.make_OcroFST()
-        rseg = ocropy.intarray()
         try:
-            linerec.recognizeLineSeg(fst,rseg,line)
+            fst,rseg = linerec.recognizeLineSeg(line)
         except:
             traceback.print_exc()
             alert("[error]","line recognizer failed")
@@ -211,8 +206,7 @@ for page_gray,pagefile in ocropy.page_iterator(args):
         # Next is the application of the language model.  We perform a beam search
         # through the recognition lattice and language model.  The result is
         # stored in an iulib string.
-        s = ocropy.ustrg()
-        cost = ocropy.beam_search(s,fst,lmodel,options.beam)
+        s,cost = ocrolib.beam_search_simple(fst,lmodel,options.beam)
         if cost>999999.0:
             alert("[warn]","beam search didn't find a solution (line not in language model)")
             continue
@@ -222,15 +216,14 @@ for page_gray,pagefile in ocropy.page_iterator(args):
             # For hOCR output, we obtain the line bounding box from the region extractor.
             # If we wanted to output word or character bounding boxes, we'd have to
             # add that information here.
-            print "<span class='ocr_line' bbox='%d %d %d %d'>%s</span>"%\
-                (regions.x0(i),regions.y0(i),regions.x1(i),regions.y1(i),\
-                 ocropy.ustrg_as_string(s))
+            x0,y0,x1,y1 = regions.bboxMath(i)
+            print "<span class='ocr_line' bbox='%d %d %d %d'>%s</span>"%(x0,y0,x1,y1,s)
         elif options.plain:
             # For plain output, just output the string itself.
-            print ocropy.ustrg_as_string(s)
+            print s
         else:
             # The default output gives the cost, length, and string.
-            print "%6.2f\t%3d\t%s"%(cost,s.length(),ocropy.ustrg_as_string(s))
+            print "%6.2f\t%3d\t%s"%(cost,len(s),s)
 
         # If display is on, we show the recognized line.  (Note that this slows
         # down recognition considerably because Matplotlib isn't very fast.)

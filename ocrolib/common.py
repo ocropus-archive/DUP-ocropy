@@ -351,6 +351,8 @@ class Binarize(CommonComponent):
     """Binarize images."""
     c_interface = "IBinarize"
     def binarize(self,page,type='f'):
+        """Binarize the image; returns a tuple consisting of the binary image and
+        a possibly transformed grayscale image."""
         if len(page.shape)==3: page = mean(page,axis=2)
         bin = iulib.bytearray()
         gray = iulib.bytearray()
@@ -719,7 +721,7 @@ class RecognizeLine(CommonComponent):
         seg = iulib.intarray()
         costs = iulib.floatarray()
         self.comp.align(chars,seg,costs,line,transcription)
-        return (ustrg2unicode(chars),narray2lseg(seg),iulib.numpy(costs,'f'))
+        return (iulib.ustrg2unicode(chars),narray2lseg(seg),iulib.numpy(costs,'f'))
 
 class Linerec(RecognizeLine):
     """A line recognizer using neural networks and character size modeling.
@@ -1034,6 +1036,11 @@ def read_line_segmentation(name,black=1):
     iulib.read_image_packed(lseg,name)
     if black: ocropus.make_line_segmentation_black(lseg)
     return narray2lseg(lseg)
+
+def beam_search_simple(u,v,n):
+    s = iulib.ustrg()
+    cost = ocropus.beam_search(s,native_fst(u),native_fst(v),n)
+    return iulib.ustrg2unicode(s),cost
 
 def beam_search(lattice,lmodel,beam):
     """Perform a beam search through the lattice and language model, given the
