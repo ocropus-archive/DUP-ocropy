@@ -82,6 +82,7 @@ class Database:
 
 class Table:
     def __init__(self,con,tname,factory=Row,read_only=0):
+        self.ignore_extra_keys = 0
         self.read_only = read_only
         if type(con)==str:
             self.con = sqlite3.connect(con,timeout=600.0)
@@ -199,6 +200,9 @@ class Table:
             cmd = "insert or replace into "+self.tname
         else:
             cmd = "insert into "+self.tname
+        if not self.ignore_extra_keys:
+            for key in item.keys():
+                assert key in self.columns
         names = [x for x in item.keys() if x in self.columns]
         cmd += " ("+",".join(names)+")"
         cmd += " values ("+",".join(["?"]*len(names))+")"

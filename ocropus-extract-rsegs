@@ -14,6 +14,7 @@ parser.add_option("-v","--verbose",help="verbose output")
 parser.add_option("-m","--minsize",help="minimum component width and height",type="int",default=8)
 parser.add_option("-a","--absolute",help="output absolute images",action="store_true")
 parser.add_option("-s","--segmenter",help="segmenter",default="SegmentLineByGCCS")
+parser.add_option("-N","--nosource",help="do not record source info",action="store_true")
 #parser.add_option("-r","--raw",help="output unsegmented",action="store_true",default=True)
 #parser.add_option("-a","--maxage",help="output missegmented",default=10000000,type="int")
 (options,args) = parser.parse_args()
@@ -34,7 +35,7 @@ grouper = ocrolib.StandardGrouper(maxrange=1,maxdist=1)
 
 table = dbtables.Table(options.output,"chars")
 table.converter("image",dbtables.SmallImage())
-table.create(image="blob",count="integer",cls="text",classes="text",key="text")
+table.create(image="blob",count="integer",cls="text",classes="text",key="text",file="text",bbox="text",cluster="integer")
 
 ion()
 show()
@@ -59,17 +60,17 @@ def chars(files):
         for i in range(grouper.length()):
             cls = None
             raw,mask = grouper.extractWithMask(image,i,1)
-            yield raw,mask,cls
+            yield raw,mask,cls,file,grouper.bboxMath(i)
 
 total = 0
-for raw,mask,cls in chars(args):
+for raw,mask,cls,file,bbox in chars(args):
     clf()
     if raw.shape[0]>255 or raw.shape[1]>255: continue
     if raw.shape[0]<options.minsize or raw.shape[1]<options.minsize: continue
     if options.display:
         print amin(raw),amax(raw)
         clf(); gray(); imshow(raw); draw()
-    table.set(image=raw,cls="_")
+    table.set(image=raw,cls="_",count=1,file=file,bbox="%g %g %g %g"%bbox,cluster=-1)
     total += 1
     if total%10000==0: table.commit()
 

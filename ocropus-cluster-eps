@@ -14,6 +14,7 @@ parser.add_option("-D","--display",help="display chars",action="store_true")
 parser.add_option("-v","--verbose",help="verbose output",action="store_true")
 parser.add_option("-t","--table",help="table name",default="chars")
 parser.add_option("-e","--epsilon",help="epsilon",type=float,default=0.1)
+parser.add_option("-o","--overwrite",help="overwrite output if it exists",action="store_true")
 
 class FastCluster:
     def __init__(self,eps=0.05):
@@ -32,10 +33,12 @@ class FastCluster:
             self.dc.add(v)
             self.classes.append({cls:1})
             self.counts.append(1)
+            return len(self.counts)-1
         else:
             self.classes[i][cls] = self.classes[i].get(cls,0)+1
             self.counts[i] += 1
             self.dc.merge(i,v,1.0/self.counts[i])
+            return i
     def biniter(self):
         for i in range(self.dc.length()):
             key = ""
@@ -68,29 +71,31 @@ if len(args)!=2:
 
 input = args[0]
 output = args[1]
+if os.path.exists(output):
+    if not options.overwrite:
+        sys.stderr.write("%s: already exists\n"%output)
+        sys.exit(1)
+    else:
+        os.unlink(output)
 
 ion()
 show()
 
 table = dbtables.Table(input,options.table)
 table.converter("image",dbtables.SmallImage())
-table.create(image="blob",cls="text")
-
-classes = [row[0] for row in table.query("select distinct(cls) from '%s' order by cls"%
-                                         options.table)]
+table.create(image="blob",cluster="integer",cls="integer")
 
 total = 0
-for cls in classes:
-    print "# clustering",cls
-    binned = FastCluster(options.epsilon)
-    total = 0
-    for row in table.get(cls=cls):
-        raw = row.image
-        if raw.shape[0]>255 or raw.shape[1]>255: continue
-        raw = raw/float(amax(raw))
-        binned.add(raw,cls)
-        total+=1
-        if total%1000==0:
-            print "#",total,"chars",binned.stats()
-    print "#",binned.stats()
-    binned.save(output)
+binned = FastCluster(options.epsilon)
+total = 0
+for row in table.get():
+    raw = row.image
+    cls = row.cls
+    if raw.shape[0]>255 or raw.shape[1]>255: continue
+    raw = raw/float(amax(raw))
+    cluster = binned.add(raw,cls)
+    total+=1
+    if total%1000==0:
+        print "#",total,"chars",binned.stats()
+print "#",binned.stats()
+binned.save(output)
