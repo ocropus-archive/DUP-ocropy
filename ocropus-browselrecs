@@ -80,30 +80,6 @@ def numpy2pixbuf(a):
         data[:,:,2] = 255*a
         return gtk.gdk.pixbuf_new_from_array(data,gtk.gdk.COLORSPACE_RGB,8)
 
-def get_icon1(file,size=iconwidth):
-    page_gray = ocrolib.read_image_gray(file)
-    h,w = page_gray.shape
-    scale = max(w/size,h/size)
-    scale = max(1.0,scale)
-    icon = scipy.ndimage.interpolation.zoom(image,(1.0/scale,1.0/scale))
-    lo,hi = amin(icon),amax(icon)
-    icon = (icon-lo)*1.0/(hi-lo)
-    return numpy2pixbuf(icon)
-
-def get_icon(file,size=iconwidth):
-    image = ocrolib.read_image_Gray(file)
-    h,w = image.shape[:2]
-    scale = max(w/size,h/size)
-    scale = max(1.0,scale)
-    if scale>1.0:
-        icon = scipy.ndimage.interpolation.zoom(image,(1.0/scale,1.0/scale,1.0))
-        result = numpy2pixbuf(icon)
-        del icon
-    else:
-        result = numpy2pixbuf(image)
-    del image
-    return result
-    
 def float_sort(model,x,y,col):
     x = model[x][col]
     y = model[y][col]
