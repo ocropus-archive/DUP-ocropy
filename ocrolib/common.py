@@ -1400,3 +1400,25 @@ def endpoints_counts(image,r=1.0):
     image = binarize_range(image)
     return ocropus.endpoints_counts(numpy2narray(image),r)
 
+def edit_distance(s,t,use_space=0,case_sensitive=0):
+    if not case_sensitive:
+        s = s.upper()
+        t = t.upper()
+    if not use_space:
+        s = re.sub(r'\s+','',s)
+        t = re.sub(r'\s+','',t)
+    s_ = ocropy.ustrg()
+    s_.assign(s)
+    t_ = ocropy.ustrg()
+    t_.assign(t)
+    return ocropus.edit_distance(s_,t_)
+
+class ComponentList:
+    def __init__(self):
+        self.comp = ocropus.ComponentList()
+    def length(self):
+        return self.comp.length()
+    def kind(self,i):
+        return self.comp.kind(i)
+    def name(self,i):
+        return self.comp.name(i)

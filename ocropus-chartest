@@ -1,12 +1,12 @@
 #!/usr/bin/python
 
 import sys,os,re,glob,math,glob,signal,cPickle
-import iulib,ocropus
-import ocropy
-from ocropy import utils
 from pylab import *
-from ocropy.fgen import *
 from optparse import OptionParser
+
+from ocrolib import utils
+from ocrolib.fgen import *
+import ocrolib
 
 parser = OptionParser("""
 usage: %prog [options] ...
@@ -15,7 +15,7 @@ Test existing character classifiers against artificially generated training
 samples and report overall error rates.
 """)
 (options,args) = parser.parse_args()
-cmodel = ocropy.load_IModel(args[0])
+cmodel = ocrolib.load_IModel(args[0])
 
 spec="Arial Black italic"
 testset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
@@ -68,7 +68,7 @@ for family in families:
                     if sigma2>0: image = gauss_degrade(image,change=change,sigma2=sigma2,noise=noise)
                     if maxdelta>0: image = gauss_distort([image],maxdelta=maxdelta)[0]
                     if display: clf(); imshow(image); draw()
-                    inputs.append(ocropy.FI(array(image,'f')))
+                    inputs.append(array(image,'f'))
                 results = utils.omp_classify(cmodel,inputs)
                 for i in range(n):
                     outputs = results[i]

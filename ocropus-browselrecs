@@ -21,13 +21,13 @@ import gtk.glade
 import gobject
 from pylab import *
 import gnome
-import ocropy
-from ocropy import NI
-from ocropy import fstutils,linerec
 from matplotlib import patches
 import scipy
 import ocropus
 import glob
+
+import ocrolib
+from ocrolib import fstutils
 
 from matplotlib.backends.backend_gtk import FigureCanvasGTK as FigureCanvas
 from matplotlib.backends.backend_gtk import NavigationToolbar2GTK as NavigationToolbar
@@ -63,20 +63,6 @@ def readfile(file):
     with open(file) as stream:
         return stream.read()
 
-
-def edit_distance(s,t,use_space=0,case_sensitive=0):
-    if not case_sensitive:
-        s = s.upper()
-        t = t.upper()
-    if not use_space:
-        s = re.sub(r'\s+','',s)
-        t = re.sub(r'\s+','',t)
-    s_ = ocropy.ustrg()
-    s_.assign(s)
-    t_ = ocropy.ustrg()
-    t_.assign(t)
-    return ocropy.edit_distance(s_,t_)
-
 def gtk_yield():
     while gtk.events_pending():
        gtk.main_iteration(False)
@@ -94,24 +80,18 @@ def numpy2pixbuf(a):
         data[:,:,2] = 255*a
         return gtk.gdk.pixbuf_new_from_array(data,gtk.gdk.COLORSPACE_RGB,8)
 
-def get_icon(file,size=iconwidth):
-    page_gray = ocropy.bytearray()
-    ocropy.read_image_gray(page_gray,file)
-    w = page_gray.dim(0)
-    h = page_gray.dim(1)
+def get_icon1(file,size=iconwidth):
+    page_gray = ocrolib.read_image_gray(file)
+    h,w = page_gray.shape
     scale = max(w/size,h/size)
     scale = max(1.0,scale)
-    icon_gray = ocropy.bytearray()
-    ocropy.rescale(icon_gray,page_gray,int(w/scale),int(h/scale))
-    page_gray.clear()
-    icon = NI(icon_gray)
-    icon_gray.clear()
+    icon = scipy.ndimage.interpolation.zoom(image,(1.0/scale,1.0/scale))
     lo,hi = amin(icon),amax(icon)
     icon = (icon-lo)*1.0/(hi-lo)
     return numpy2pixbuf(icon)
 
-def get_icon0(file,size=iconwidth):
-    image = imread(file)
+def get_icon(file,size=iconwidth):
+    image = ocrolib.read_image_Gray(file)
     h,w = image.shape[:2]
     scale = max(w/size,h/size)
     scale = max(1.0,scale)
@@ -124,16 +104,6 @@ def get_icon0(file,size=iconwidth):
     del image
     return result
     
-def compute_component_combolist(widget,kind=None,dflt=None):
-    """Compute the combolist from the current charlist."""
-    combolist = gtk.ListStore(str)
-    for n in ocropy.get_components(kind):
-        if n==dflt: select = len(combolist)
-        combolist.append([n])
-    widget.set_model(combolist)
-    widget.set_text_column(0)
-    widget.set_active(select)
-
 def float_sort(model,x,y,col):
     x = model[x][col]
     y = model[y][col]
@@ -144,13 +114,12 @@ def float_sort(model,x,y,col):
     return 0    
 
 def line_image(file):
-    base,ext = ocropy.allsplitext(file)
+    base,ext = ocrolib.allsplitext(file)
     s = base+".bin.png"
     if os.path.exists(s): return s
     return file
 
 def seg2pixbuf(rseg):
-    rseg = NI(rseg)
     w,h = rseg.shape
     if 1:
         colors = zeros((w,h,3))
@@ -164,18 +133,6 @@ def seg2pixbuf(rseg):
         colors = zeros((10,10,3),'B')
     rseg = gtk.gdk.pixbuf_new_from_array(colors,gtk.gdk.COLORSPACE_RGB,8)
     return rseg
-
-def make_fst(s):
-    fst = ocropy.make_OcroFST()
-    start = fst.newState()
-    fst.setStart(start)
-    for i in range(len(s)):
-        c = ord(s[i])
-        node = fst.newState()
-        fst.addTransition(start,node,c,0.0,c)
-        start = node
-    fst.setAccept(start)
-    return fst
 
 def read_costs(file):
     costs = []
@@ -191,7 +148,7 @@ class LineWindow:
         self.lmodel = None
         self.linerec = None
         
-        gladefile = ocropy.findfile("ocropus-browselrecs.glade")
+        gladefile = ocrolib.findfile("ocropus-browselrecs.glade")
         self.windowname = "linerecs" 
         self.wtree = gtk.glade.XML(gladefile,self.windowname) 
         self.window = self.wtree.get_widget(self.windowname)
@@ -235,7 +192,7 @@ class LineWindow:
                 break
 
         self.segmenters = gtk.ListStore(str)
-        cl = ocropy.ComponentList()
+        cl = ocrolib.ComponentList()
         for i in range(cl.length()):
             if cl.kind(i)!="ISegmentLine": continue
             name = " "+cl.name(i); name = name[1:]
@@ -328,7 +285,7 @@ class LineWindow:
         row = self.lines[index]
         file = row[0]
         print file
-        base,_ = ocropy.allsplitext(file)
+        base,_ = ocrolib.allsplitext(file)
         self.detail(file+"\n\n")
         self.detail_pixbuf(gtk.gdk.pixbuf_new_from_file(line_image(file)),lscale)
         self.detail("\n\n")
@@ -339,27 +296,21 @@ class LineWindow:
                 self.detail("\n\n========== ground truth ==========\n\n")
             if os.path.exists(base+".rseg"+suffix+".png"):
                 self.detail("\n\nrseg:\n\n")
-                rseg = ocropy.intarray()
-                ocropy.read_image_packed(rseg,base+".rseg"+suffix+".png")
-                ocropy.make_line_segmentation_black(rseg)
+                rseg = ocrolib.read_line_segmentation(base+".rseg"+suffix+".png")
                 colors = seg2pixbuf(rseg)
                 self.detail_pixbuf(colors,lscale)
                 self.detail("\n\n")
             cseg = None
             if os.path.exists(base+".cseg"+suffix+".png"):
                 self.detail("\n\ncseg:\n\n")
-                cseg = ocropy.intarray()
-                ocropy.read_image_packed(cseg,base+".cseg"+suffix+".png")
-                ocropy.make_line_segmentation_black(cseg)
+                cseg = ocrolib.read_line_segmentation(base+".cseg"+suffix+".png")
                 colors = seg2pixbuf(cseg)
                 self.detail_pixbuf(colors,lscale)
                 self.detail("\n\n")
             if cseg is not None and os.path.exists(base+suffix+".txt"):
-                image = ocropy.bytearray()
-                ocropy.read_image_gray(image,file)
-                grouper = ocropy.make_IGrouper("SimpleGrouper")
-                grouper.pset("maxrange",1)
-                grouper.pset("maxdist",1)
+                image = ocrolib.read_image_gray(file)
+                image = amax(image)-image
+                grouper = ocrolib.StandardGrouper(maxrange=1,maxdist=1)
                 grouper.setSegmentation(cseg)
                 result = readfile(base+suffix+".txt")
                 self.detail("[%s]\n"%result)
@@ -373,10 +324,8 @@ class LineWindow:
                 for i in range(grouper.length()):
                     try:
                         if result[i]==' ': continue
-                        raw = ocropy.bytearray()
-                        mask = ocropy.bytearray()
-                        grouper.extractWithMask(raw,mask,image,i,1)
-                        img = 1.0-NI(mask)/255.0
+                        raw,mask = grouper.extractWithMask(image,i,1)
+                        img = 1.0-mask/255.0
                         self.detail_pixbuf(numpy2pixbuf(img))
                         if costs is not None:
                             self.detail(" [%s] %d   "%(result[i],int(10*costs[i])))
