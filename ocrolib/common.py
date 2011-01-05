@@ -1378,3 +1378,25 @@ def load_linerec(file,wrapper=CmodelLineRecognizer):
     result.comp = native
     return result
 
+def binarize_range(image,dtype='B'):
+    threshold = (amax(image)+amin(image))/2
+    scale = 1
+    if dtype=='B': scale = 255
+    return array(scale*(image>threshold),dtype=dtype)
+
+def hole_counts(image,r=1.0):
+    image = binarize_range(image)
+    return ocropus.hole_counts(numpy2narray(image),r)
+
+def component_counts(image,r=1.0):
+    image = binarize_range(image)
+    return ocropus.component_counts(numpy2narray(image),r)
+
+def junction_counts(image,r=1.0):
+    image = binarize_range(image)
+    return ocropus.junction_counts(numpy2narray(image),r)
+
+def endpoints_counts(image,r=1.0):
+    image = binarize_range(image)
+    return ocropus.endpoints_counts(numpy2narray(image),r)
+

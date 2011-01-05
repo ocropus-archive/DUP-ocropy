@@ -4,13 +4,11 @@ from optparse import OptionParser
 import pygtk
 pygtk.require("2.0") 
 import gobject,gtk,gtk.glade
-import sys,pickle,os,glob
+import sys,pickle,os,glob,traceback
 import scipy
 from pylab import *
-import ocropy
-from ocropy import N,NI,F,FI
-from ocropy import dbtables
-from ocropy import common
+import ocrolib
+from ocrolib import dbtables
 import sqlite3
 
 def TODO():
@@ -207,7 +205,7 @@ def set_dist(x,s):
     for y in s:
         if x.shape!=y.shape: continue
         xt = x
-        err,rerr,_ = common.symdist(xt,y)
+        err,rerr,_ = ocrolib.symdist(xt,y)
         minerr = min(err,minerr)
     return minerr
 
@@ -221,8 +219,8 @@ def cmd_similar(*args):
         selected = [grid[i][2].image for i in cluster_viewer.get_selected_items()]
         dists = [set_dist(x[2].image,selected) for x in grid]
     else:
-        selected = [ocropy.stdsize(grid[i][2].image) for i in cluster_viewer.get_selected_items()]
-        dists = [set_dist(ocropy.stdsize(x[2].image),selected) for x in grid]
+        selected = [ocrolib.stdsize(grid[i][2].image) for i in cluster_viewer.get_selected_items()]
+        dists = [set_dist(ocrolib.stdsize(x[2].image),selected) for x in grid]
     index = array(argsort(dists))
     index = [int(i) for i in index]
     grid.reorder(index)
@@ -251,19 +249,15 @@ def cmd_sel_sort(item,which):
         print "sort style",item,which
         sort_style = which
 
-ocropy.dinit(512,512)
-
 def charprop(image,kind):
-    bimage = ocropy.as_narrayI(255*image,'B')
-    # ocropy.sub(255,bimage)
     if kind=="holes":
-        result = ocropy.hole_counts(bimage,1.0)
+        result = ocrolib.hole_counts(image,1.0)
     elif kind=="components":
-        result = ocropy.component_counts(bimage,1.0)
+        result = ocrolib.component_counts(image,1.0)
     elif kind=="junctions":
-        result = ocropy.junction_counts(bimage,1.0)
+        result = ocrolib.junction_counts(image,1.0)
     elif kind=="endpoints":
-        result = ocropy.endpoints_counts(bimage,1.0)
+        result = ocrolib.endpoints_counts(image,1.0)
     else:
         raise Exception("unknown charprop")
     print image.shape,kind,result
@@ -320,7 +314,7 @@ def classifier_menu(cmd):
     activated = 0
     models = glob.glob("*.cmodel")
     try:
-        modeldir = ocropy.finddir("models")
+        modeldir = ocrolib.finddir("models")
         models += glob.glob(modeldir+"/*.cmodel")
     except IOError:
         pass
@@ -343,14 +337,18 @@ def cmd_sel_class(item,which):
 
 classifier = None
 
+class NoException:
+    pass
+
 def load_classifier(which=options.model):
     global classifier
     try:
-        classifier = ocropy.load_IModel(which)
-        classifier.info()
-        classifier.getExtractor().info()
+        classifier = ocrolib.load_IModel(which)
+        # classifier.info()
+        # classifier.getExtractor().info()
         print "loaded classifier",which
     except:
+        traceback.print_exc()
         print "loading",options.model,"failed"
         classifier = None
 
@@ -363,11 +361,12 @@ confidence = None
 def load_confidence(which=options.model):
     global confidence
     try:
-        confidence = ocropy.load_IModel(which)
-        confidence.info()
-        confidence.getExtractor().info()
+        confidence = ocrolib.load_IModel(which)
+        # confidence.info()
+        # confidence.getExtractor().info()
         print "loaded confidence",which
     except:
+        traceback.print_exc()
         print "loading",options.model,"failed"
         confidence = None
 
@@ -388,9 +387,9 @@ def cmd_nn(*args):
     for i in selected:
         row = grid[i]
         pat = row[2]
-        image = FI(pat.image)
+        image = pat.image
         images.append(image)
-    results = ocropy.omp_classify(classifier,images)
+    results = ocrolib.omp_classify(classifier,images)
     for k in range(len(selected)):
         i = selected[k]
         row = grid[i]
@@ -425,9 +424,9 @@ def cmd_class(*args):
     inputs = []
     for i in range(n):
         row = grid[i]
-        image = FI(row[2].image)
+        image = row[2].image
         inputs.append(image)
-    results = ocropy.omp_classify(confidence,inputs)
+    results = ocrolib.omp_classify(confidence,inputs)
     for i in range(n):
         outputs = results[i]
         outputs = [(x[0],-log(x[1])) for x in outputs]
@@ -572,7 +571,7 @@ def build_toolbar():
 
 def main():
     global main_widget_tree,class_selector,cluster_viewer,info_area
-    gladefile = ocropy.findfile("gui/ocropus-cedit.glade")
+    gladefile = ocrolib.findfile("gui/ocropus-cedit.glade")
     windowname = "window1" 
     main_widget_tree = gtk.glade.XML(gladefile)
     dic = {
