@@ -2,9 +2,9 @@
 import code,pickle,sys,os,signal,re
 from pylab import *
 from optparse import OptionParser
+
 import ocrolib
-from ocrolib import dbtables
-from scipy.ndimage import measurements
+from ocrolib import dbtables,docproc
 
 signal.signal(signal.SIGINT,lambda s,f:sys.exit(1))
 
@@ -42,33 +42,6 @@ table.create(image="blob",count="integer",cls="text",classes="text",key="text",
 ion()
 show()
 
-def seg_boxes(seg,math=0):
-    seg = array(seg,'i')
-    slices = measurements.find_objects(seg)
-    h = seg.shape[0]
-    result = []
-    for ys,xs in slices:
-        if math:
-            result += [(h-ys.stop-1,h-ys.start-1,xs.start,xs.stop)]
-        else:
-            result += [(ys.start,ys.stop,xs.start,xs.stop)]
-    return result
-
-def avg(*args):
-    return mean(args)
-
-from scipy import stats
-
-def seg_geometry(segmentation):
-    boxes = seg_boxes(segmentation,math=1)
-    heights = [(y1-y0) for (y0,y1,x0,x1) in boxes]
-    mh = stats.scoreatpercentile(heights,per=50)
-    centers = [(avg(y0,y1),avg(x0,x1)) for (y0,y1,x0,x1) in boxes]
-    xs = [x for y,x in centers]
-    ys = [y for y,x in centers]
-    a,b = polyfit(xs,ys,1)
-    return mh,a,b
-
 def chars(files):
     for file in files:
         print "# loading",file
@@ -82,7 +55,7 @@ def chars(files):
         except:
             print "# segmentation failed"
             continue
-        geo = seg_geometry(segmentation)
+        geo = docproc.seg_geometry(segmentation)
         grouper.setSegmentation(segmentation)
         image = 255-image
         if options.display:

@@ -1,10 +1,9 @@
 #!/usr/bin/python
-import code,pickle,sys,os,re
+import code,pickle,sys,os,re,traceback
 from optparse import OptionParser
 from pylab import *
 import ocrolib
-from ocrolib import dbtables
-from ocrolib import Record
+from ocrolib import dbtables,docproc,Record
 
 parser = OptionParser("""
 usage: %prog [options] .../.../010001.png ...
@@ -38,7 +37,8 @@ if os.path.exists(options.output):
 
 table = dbtables.Table(options.output,"chars")
 table.converter("image",dbtables.SmallImage())
-table.create(image="blob",cls="text",file="text",segid="integer",bbox="text",count="integer",classes="text")
+table.create(image="blob",cls="text",file="text",segid="integer",bbox="text",
+             count="integer",classes="text",lgeo="text")
 
 class BadGroundTruth(Exception):
     pass
@@ -51,6 +51,7 @@ def cseg_chars(file,suffix=".gt"):
     with open(base+suffix+".txt") as stream:
         gt = stream.read()
     gt = re.sub('\n','',gt)
+    geo = docproc.seg_geometry(cseg)
     grouper = ocrolib.StandardGrouper()
     grouper.pset("maxrange",1)
     grouper.setSegmentation(cseg)
@@ -63,7 +64,8 @@ def cseg_chars(file,suffix=".gt"):
         cls = gt[i]
         if cls==' ': continue
         raw,mask = grouper.extractWithMask(image,i,1)
-        yield Record(raw=raw,mask=mask,cls=cls,index=i,bbox=grouper.boundingBox(i),bbox_m=grouper.bboxMath(i))
+        yield Record(raw=raw,mask=mask,cls=cls,index=i,bbox=grouper.boundingBox(i),
+                     bbox_m=grouper.bboxMath(i),lgeo=geo)
 
 def cseg_chars_all(file,suffix=".gt"):
     image = ocrolib.read_image_gray(file)
@@ -74,13 +76,15 @@ def cseg_chars_all(file,suffix=".gt"):
     with open(base+suffix+".txt") as stream:
         gt = stream.read()
     gt = re.sub('\n','',gt)
+    geo = docproc.seg_geometry(cseg)
     grouper = ocrolib.StandardGrouper()
     grouper.setSegmentationAndGt(rseg,cseg,gt)
     for i in range(grouper.length()):
         cls = grouper.getGtClass(i)
         if cls==' ': continue
         raw,mask = grouper.extractWithMask(image,i,1)
-        yield Record(raw=raw,mask=mask,cls=cls,index=grouper.getGtIndex(i),bbox=grouper.boundingBox(i),bbox_m=grouper.bboxMath(i))
+        yield Record(raw=raw,mask=mask,cls=cls,index=grouper.getGtIndex(i),bbox=grouper.boundingBox(i),
+                     bbox_m=grouper.bboxMath(i),lgeo=geo)
 
 ntried = 0
 nfiles = 0
@@ -104,6 +108,7 @@ for file in args:
             print "#",file,"failed",e
             continue
         else:
+            traceback.print_exc()
             raise e
     if options.verbose:
         print file,len(segments),len(text)
@@ -133,11 +138,11 @@ for file in args:
         if options.verbose:
             print key,cls,raw.shape
         if options.nosource:
-            id = table.set(image=raw,cls=cls,count=1)
+            id = table.set(image=raw,cls=cls,count=1,lgeo="%g %g %g"%x.lgeo)
         else:
             r = x.bbox_m
             id = table.set(image=raw,cls=cls,count=1,
-                           file=file,
+                           file=file,lgeo="%g %g %g"%x.lgeo,
                            bbox="%d %d %d %d"%r)
         total+=1
         if total%10000==0:
