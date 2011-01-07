@@ -1,0 +1,62 @@
+#!/bin/sh
+
+die() {
+    echo ERROR "$*"
+    exit 255
+}
+
+TEST() {
+    echo
+    echo '****************************************************************'
+    echo '***' "$*"
+    echo '****************************************************************'
+    echo
+}
+
+rm -rf _test _test.*
+
+TEST binarize
+ocropus-binarize isri0188/000[1-4].png -o _test || die
+cp isri0188/*.gt.txt _test/
+
+TEST pseg
+ocropus-pseg _test/????.png || die
+
+TEST linerec
+ocropus-linerec _test/????/??????.png || die
+
+TEST align
+for i in _test/????; do echo $i.gt.txt; ls $i/??????.png; done > _test.lst
+ocropus-calign -t 20 -T 200 -m models/2m2-reject.cmodel `cat _test.lst` > _test.align 2>&1 || {
+head _test.align
+    tail _test.align
+    die
+}
+head _test.align
+tail _test.align
+
+TEST extract
+ocropus-extract -o _test.db _test/????/??????.png > _test.cextract 2>&1 || die
+head _test.cextract
+tail _test.cextract
+
+TEST training
+ocropus-ctrain -o _test.cmodel _test.db || die
+
+TEST reclassifying
+ocropus-linerec -m _test.cmodel _test/????/??????.png || die
+
+TEST extract-rseg
+ocropus-extract-rsegs _test/????/??????.png -o _test/rsegs.db || die
+
+TEST extract-cseg
+ocropus-extract _test/????/??????.png -o _test/csegs.db || die
+
+TEST cluster-eps
+ocropus-cluster-eps _test/rsegs.db _test/rsegs-eps.db || die
+
+TEST cluster-km
+ocropus-cluster-km -n 10 -t clusters _test/rsegs-eps.db _test/rsegs-km.db || die
+
+TEST cluster-som
+ocropus-cluster-som -t clusters _test/rsegs-eps.db _test/rsegs-som.db _test/rsegs-mds.db || die

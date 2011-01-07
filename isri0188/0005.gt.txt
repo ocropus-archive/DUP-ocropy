@@ -1,0 +1,58 @@
+geologic studies that it said are needed to understand tectonics but were not
+identified in the draft Mission Plan.
+
+Response
+
+      Argillaceous rocks were considered for the first repository in the late
+1970s at the Nevada Test Site.   General studies were made of low-permeability
+shale, and detailed studies were made of the argillite-rich Eleana Formation.
+The argillites were too complex, and further consideration was suspended in
+favor of the Yucca Mountain site (tuff).
+
+      Rock structure and the presence of organic matter in the rock are covered
+by information need 1.2.1, which includes the "mineral composition of the pro-
+posed repository horizon, and geochemical parameters along the water flow."
+The DOE also agrees that the effects of heterogeneous rock structure should be
+considered.
+
+      The information needed to determine whether the host rock is sufficiently
+extensive for the repository is covered in issue 4.3 of Chapter 1.   The test-
+ing needed to determine the adequacy of the site is discussed in Chapter 4 of
+the draft environmental assessments and will be specified in the site-
+characterizat ion plans.
+
+      Erosion in issue 1.4 is meant to represent the physical removal and
+transport of surface material.   Conversations with the author of this comment
+revealed that the word "weathering" in the comment was meant to represent the
+dissolution of the host rock or the waste by ground water.  In that sense
+erosion and weathering are different.   Dissolution is covered in issue 1.6.
+(See Section 6.5 in this document for comments and responses on dissolution.)
+
+      The million-year limit for protection from erosion comes from Figure
+3.4.1 of the DOE's Final Environmental Impact Statement--Management of Commer
+cially Generated Radioactive Waste (DOE, 1980a).  That figure shows that in 1
+million years the hazard from spent fuel will be well below the hazard from
+the natural uranium ore used to make the nuclear fuel.
+
+      The DOE agrees that the regional geologic setting must be considered and
+has revised Section 2.2 of Part II.   The information and insights gained from
+generic studies will be used in planning and interpreting site-specific in-
+vest igat ions.
+
+      In the DOE siting guidelines~ igneous activity is included under the
+heading of "tectonics" (10 CFR 960.4-2-7); it is not discussed as a separate
+topic.   The wording of issue 1.7 was changed to make it consistent with the
+guidelines, showing tectonics as the main heading.  A more detailed explana-
+tion of the potential effects of igneous activity was added to the discussion
+of issue 1.7.
+
+      The design of the repository will permit construction, operation, and
+closure in the face of disturbances by natural events that can be expected to
+occur at the site.   It is essentially impossible to design a repository that
+will survive igneous activity.   However, the probability of igneous activity
+can be kept to a satisfactory low level through proper site selection.   There-
+fore, the reference to the effects of igneous activity on the repository was
+deleted from issue 4.5.
+
+                                       -19 3-
+
