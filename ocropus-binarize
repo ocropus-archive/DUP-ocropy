@@ -13,7 +13,7 @@ import sys,os,re,optparse
 from scipy.ndimage import measurements
 from scipy.misc import imsave
 from PIL import Image
-import ocrolib as common
+import ocrolib
 from ocrolib import number_of_processors
 
 parser = optparse.OptionParser(usage="""
@@ -56,14 +56,14 @@ if options.threshold>0:
     options.high = options.threshold
 
 if options.binarizer=="StandardPreprocessing":
-    binarizer = common.StandardPreprocessing()
+    binarizer = ocrolib.StandardPreprocessing()
     binarizer.pset("binarizer","BinarizeByHT")
     binarizer.reinit()
     binarizer.command("binarizer_pset","k0",str(options.low))
     binarizer.command("binarizer_pset","k1",str(options.high))
     binarizer.command("binarizer_pset","width",str(options.width))
 else:
-    binarizer = common.Binarizer().make(options.binarize)
+    binarizer = ocrolib.Binarizer().make(options.binarize)
 
 if options.Display: options.display = 1
 if options.display: ion(); show()
@@ -96,7 +96,7 @@ def process_image(image,arg,count):
         else:
             ginput(1,timeout=1)
     if not options.silent:
-        if common.quick_check_page_components(bin,dpi=options.dpi)<0.5:
+        if ocrolib.quick_check_page_components(bin,dpi=options.dpi)<0.5:
             print "# skipping page"
             return 0
     if options.Output:
@@ -112,7 +112,7 @@ def process_image(image,arg,count):
 def process1(t):
     arg,count = t
     n = 0
-    for image,arg in common.page_iterator([arg]):
+    for image,arg in ocrolib.page_iterator([arg]):
         assert n<2,"no multipage files with parallel processing; use -P 0"
         print "===",arg,count,image.shape
         process_image(image,arg,count)
@@ -120,7 +120,7 @@ def process1(t):
 
 if options.parallel<2:
     count = 0
-    for image,arg in common.page_iterator(args):
+    for image,arg in ocrolib.page_iterator(args):
         print "===",arg,count,image.shape
         count += 1
         process_image(image,arg,count)

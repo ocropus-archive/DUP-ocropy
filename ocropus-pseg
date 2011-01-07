@@ -9,6 +9,7 @@ from scipy.stats.stats import trim1
 from multiprocessing import Pool
 from scipy.ndimage import measurements
 from scipy.misc import imsave
+import traceback
 
 from ocrolib import number_of_processors
 import ocrolib as common
@@ -143,10 +144,6 @@ def process_arg(arg):
             common.write_image_gray("%s/%06x.bin.png"%(base,regions.id(i)),line)
             common.write_image_gray("%s/%06x.png"%(base,regions.id(i)),line)
     common.write_page_segmentation(base+".pseg.png",page_seg)
-    try:
-        pass
-    except:
-        print "# OOPS bad page segmentation?"
     if options.display:
         draw()
         if not options.Display: 
@@ -154,10 +151,17 @@ def process_arg(arg):
         else:
             ginput(1,timeout=1)
 
+def process_arg_safe(arg):
+    try:
+        process_arg(arg)
+    except:
+        traceback.print_exc()
+        print "# OOPS",arg,"failed"
+
 if options.parallel<2:
     for arg in args:
-        process_arg(arg)
+        process_arg_safe(arg)
 else:
     pool = Pool(processes=options.parallel)
     jobs = args
-    result = pool.map(process_arg,jobs)
+    result = pool.map(process_arg_safe,jobs)
