@@ -44,3 +44,26 @@ def seg_geometry(segmentation):
     a,b = polyfit(xs,ys,1)
     return mh,a,b
 
+def rel_char_geom(box,params):
+    """Given a character bounding box and a set of line geometry parameters,
+    compute relative character position and size."""
+    y0,y1,x0,x1 = box
+    mh,a,b = params
+    y = avg(y0,y1)
+    x = avg(x0,x1)
+    yl = a*x+b
+    rel_ypos = (y-yl)/mh
+    rel_width = (x1-x0)*1.0/mh
+    rel_height = (y1-y0)*1.0/mh
+    return rel_ypos,rel_width,rel_height
+
+def rel_geo_normalize(rel):
+    if type(rel)==str:
+        rel = [float(x) for x in rel.split()]
+    ry,rw,rh = rel
+    ry = clip(2*ry,-1,1)
+    rw = clip(log(rw),-1,1)
+    rh = clip(log(rh),-1,1)
+    geometry = array([ry,rw,rh],'f')
+    return geometry
+

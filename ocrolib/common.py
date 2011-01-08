@@ -1,12 +1,12 @@
-import os,os.path,re
+import os,os.path,re,numpy,cPickle,unicodedata
 import numpy
-import iulib
-import ocropus
-import utils
+from numpy import *
 from scipy.misc import imsave
 from scipy.ndimage import interpolation
-from numpy import *
-import unicodedata
+
+import iulib,ocropus
+import utils
+import docproc
 
 ################################################################
 ### conversion functions
@@ -80,7 +80,7 @@ def vector2narray(v,type='f'):
     """Convert a numpy vector to an narray.  If ndim>1, it converts to
     mathematical coordinates.  This is used with classifiers."""
     checknp(v)
-    if v.ndim==1: return iulib.narray(v,type=f)
+    if v.ndim==1: return iulib.narray(v,type='f')
     else: return iulib.narray(v[::-1,...].transpose([1,0]+range(2,v.ndim)))
 
 def narray2vector(na,type='f'):
@@ -227,7 +227,10 @@ def mkpython(name):
     """Tries to instantiate a Python class.  Gives an error if it looks
     like a Python class but can't be instantiated.  Returns None if it
     doesn't look like a Python class."""
-    if "." in name or "(" in name:
+    if type(name) is not str:
+        return name()
+    elif "(" in name:
+        if not "." in name: name = "ocrolib."+name
         return eval(name)
     else:
         return None
@@ -243,6 +246,9 @@ class CommonComponent:
     def __init__(self,**kw):
         self.params = kw
         if self.c_class is not None: self.make(self.c_class)
+        self.init()
+    def init(self):
+        pass
     def make(self,comp):
         """Bind this component to an instance of a C++ component."""
         assert self.c_interface is not None
@@ -258,6 +264,10 @@ class CommonComponent:
         """Save the native C++ component from this object to a file."""
         ocropus.save_component(file,self.comp)
         return self
+    def load(self,file):
+        self.load_native(file)
+    def save(self,file):
+        self.save_native(file)
     def name(self):
         """Return the name of this component."""
         return self.comp.name()
@@ -733,58 +743,6 @@ class LinerecExtracted(RecognizeLine):
     Feature extraction is per line."""
     c_class = "LinerecExtracted"
 
-class Model(CommonComponent):
-    """A classifier in general."""
-    c_interface = "IModel"
-    def nfeatures(self):
-        """Return the expected number of input features."""
-        return self.comp.nfeatures()
-    def nclasses(self):
-        """Return the number of classes."""
-        return self.comp.nclasses()
-    def setExtractor(self,extractor):
-        """Set a feature extractor."""
-        self.comp.setExtractor(extractor)
-    def updateModel(self):
-        """After adding training samples, train the model."""
-        self.comp.updateModel()
-    def copy(self):
-        """Make a copy of this model."""
-        c = self.comp.copy()
-        m = Model()
-        m.comp = c
-        return m
-    def cadd(self,v,cls):
-        """Add a training sample. The cls argument should be a string.
-        The v argument can be rank 1 or larger.  If it is larger, it
-        is assumed to be an image and converted from raster to mathematical
-        coordinates."""
-        return self.comp.cadd(vector2narray(v),cls)
-    def coutputs(self,v):
-        """Compute the ouputs for a given input vector v.  Outputs are
-        of the form [(cls,probability),...]
-        The v argument can be rank 1 or larger.  If it is larger, it
-        is assumed to be an image and converted from raster to mathematical
-        coordinates."""
-        return self.comp.coutputs(vector2narray(v))
-    def cclassify(self,v):
-        """Perform classification of the input vector v."""
-        return self.comp.cclassify(vector2narray(v))
-
-class KnnClassifier(CommonComponent):
-    """A simple nearest neighbor classifier."""
-    cclassd = "KnnClassifier"
-
-class AutoMlpClassifier(CommonComponent):
-    """An MLP classifier trained with gradient descent and
-    automatic learning rate adjustment."""
-    c_class = "AutoMlpClassifier"
-
-class LatinClassifier(CommonComponent):
-    """A classifier that combines several stages: alphabetic classification,
-    upper/lower case, ..."""
-    c_class = "LatinClassifier"
-
 class OmpClassifier:
     """A parallel classifier using OMP.  This only works for native code models.
     You first set the classifier, then you resize to the number of samples you
@@ -818,6 +776,71 @@ class OmpClassifier:
         """Load a classifier."""
         self.comp = ocropus.OmpClassifier()
         self.comp.load(file)
+
+class Model(CommonComponent):
+    """A classifier in general."""
+    c_interface = "IModel"
+    def init(self):
+        self.omp = None
+    def nfeatures(self):
+        """Return the expected number of input features."""
+        return self.comp.nfeatures()
+    def nclasses(self):
+        """Return the number of classes."""
+        return self.comp.nclasses()
+    def setExtractor(self,extractor):
+        """Set a feature extractor."""
+        self.comp.setExtractor(extractor)
+    def updateModel(self):
+        """After adding training samples, train the model."""
+        self.comp.updateModel()
+    def copy(self):
+        """Make a copy of this model."""
+        c = self.comp.copy()
+        m = Model()
+        m.comp = c
+        return m
+    def cadd(self,v,cls,geometry=None):
+        """Add a training sample. The cls argument should be a string.
+        The v argument can be rank 1 or larger.  If it is larger, it
+        is assumed to be an image and converted from raster to mathematical
+        coordinates."""
+        return self.comp.cadd(vector2narray(v),cls)
+    def coutputs(self,v,geometry=None):
+        """Compute the ouputs for a given input vector v.  Outputs are
+        of the form [(cls,probability),...]
+        The v argument can be rank 1 or larger.  If it is larger, it
+        is assumed to be an image and converted from raster to mathematical
+        coordinates."""
+        return self.comp.coutputs(vector2narray(v))
+    def coutputs_par(self,vs,geometries=None):
+        assert geometries==None
+        if self.omp is None: self.omp = OmpClassifier()
+        self.omp.resize(len(vs))
+        for i in range(len(vs)):
+            self.omp.input(vs[i],i)
+        self.omp.classify()
+        result = []
+        for i in range(len(vs)):
+            result.append(self.omp.output(i))
+        return result
+    def cclassify(self,v,geometry=None):
+        """Perform classification of the input vector v."""
+        return self.comp.cclassify(vector2narray(v))
+
+class KnnClassifier(CommonComponent):
+    """A simple nearest neighbor classifier."""
+    cclassd = "KnnClassifier"
+
+class AutoMlpClassifier(CommonComponent):
+    """An MLP classifier trained with gradient descent and
+    automatic learning rate adjustment."""
+    c_class = "AutoMlpClassifier"
+
+class LatinClassifier(CommonComponent):
+    """A classifier that combines several stages: alphabetic classification,
+    upper/lower case, ..."""
+    c_class = "LatinClassifier"
 
 class Extractor(CommonComponent):
     """Feature extractor. (Only for backwards compatibility; not recommended.)"""
@@ -1205,12 +1228,16 @@ class CmodelLineRecognizer(RecognizeLine):
         rseg: intarray where the raw segmentation will be put
         image: line image to be recognized"""
 
-        ## compute the raw segmentation
+        # compute the raw segmentation
         rseg = self.segmenter.charseg(image)
         if self.debug: show_segmentation(rseg) # FIXME
         rseg = renumber_labels(rseg,1) # FIXME
         self.grouper.setSegmentation(rseg)
 
+        # compute the geometry (might have to use
+        # CCS segmenter if this doesn't work well)
+        geo = docproc.seg_geometry(rseg)
+        
         # compute the median segment height
         heights = []
         for i in range(self.grouper.length()):
@@ -1230,7 +1257,11 @@ class CmodelLineRecognizer(RecognizeLine):
         for i in range(self.grouper.length()):
             # get the bounding box for the character (used later)
             (y0,x0,y1,x1) = self.grouper.boundingBox(i)
+
+            # compute relative geometry
             aspect = (y1-y0)*1.0/(x1-x0)
+            rel = docproc.rel_char_geom((y0,y1,x0,x1),geo)
+            rel = docproc.rel_geo_normalize(rel)
 
             # extract the character image (and optionally display it)
             (raw,mask) = self.grouper.extractWithMask(image,i,1)
@@ -1247,7 +1278,7 @@ class CmodelLineRecognizer(RecognizeLine):
 
             # compute the classifier output for this character
             # FIXME parallelize this
-            outputs = self.cmodel.coutputs(char)
+            outputs = self.cmodel.coutputs(char,geometry=rel)
             outputs = [(x[0],-log(x[1])) for x in outputs]
             self.chars.append(utils.Record(index=i,image=char,outputs=outputs))
             
@@ -1320,6 +1351,8 @@ def make_IRecognizeLine(name):
     return mkpython(name) or RecognizeLine().make(name)
 def make_IModel(name):
     return mkpython(name) or Model().make(name)
+def make_IExtractor(name):
+    return mkpython(name) or Extractor().make(name)
 
 def load_python(file):
     if ".pymodel" in file:
@@ -1337,9 +1370,22 @@ def load_native(file,interface):
     exec "loader = ocropus.load_%s"%interface
     result = loader(file)
     return result
-
 def save_native(file,object):
     object.save_native(file)
+
+def save_component(file,object):
+    if ".pymodel" in file:
+        with open(file,"w") as stream:
+            cPickle.dump(object,stream,2)
+    else:
+        save_native(file,object)
+
+def load_component(self,file):
+    if ".pymodel" in file:
+        with open(file,"w") as stream:
+            return cPickle.load(stream)
+    else:
+        load_native(file,object)
 
 def load_linerec(file,wrapper=CmodelLineRecognizer):
     """Loads a line recognizer.  This handles a bunch of special cases
@@ -1359,6 +1405,10 @@ def load_linerec(file,wrapper=CmodelLineRecognizer):
     if ".pymodel" in file:
         with open(file,"rb") as stream:
             result = cPickle.load(stream)
+        if getattr(result,"coutputs",None):
+            print "[wrapping %s]"%result
+            result = wrapper(cmodel=result)
+        print "[loaded %s]"%result
         return result
 
     if ".cmodel" in file:

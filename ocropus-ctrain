@@ -5,7 +5,7 @@ from optparse import OptionParser
 from pylab import *
 from scipy.ndimage import interpolation,filters
 import ocrolib
-from ocrolib import dbtables
+from ocrolib import dbtables,docproc
 signal.signal(signal.SIGINT,lambda *args:sys.exit(1))
 
 parser = OptionParser(usage="""
@@ -46,6 +46,7 @@ parser.add_option("-E","--extractor",help="feature extractor",default="StandardE
 parser.add_option("-N","--nvariants",help="number of variants to generate",default=0,type="int")
 parser.add_option("-D","--distortion",help="maximum distortion",default=0.2,type="float")
 parser.add_option("-d","--display",help="debug display",action="store_true")
+parser.add_option("-g","--geometry",help="add geometric information",default=None)
 (options,args) = parser.parse_args()
 
 # some utility functions we're going to need later
@@ -112,10 +113,13 @@ if options.display:
 
 print "making classifier"
 
-classifier = ocrolib.make_IModel(options.model)
-classifier.setExtractor(options.extractor)
-if options.bits:
-    classifier.pset("cds","bitdataset")
+if options.geometry is None:
+    classifier = ocrolib.make_IModel(options.model)
+    classifier.setExtractor(options.extractor)
+    if options.bits:
+        classifier.pset("cds","bitdataset")
+else:
+    classifier = ocrolib.ModelWithGeometry()
 
 # little utility function for displaying character training progress window
 
@@ -177,10 +181,17 @@ for cluster in iterate_dbs(args):
 
     if cls=="~": nreject += 1
 
+    geometry=None
+    if options.geometry is not None and getattr(cluster,"rel",None):
+        geometry = docproc.rel_geo_normalize(cluster.rel)
+
     # add the image to the classifier
     image = cluster.image/255.0
     if options.display and nchar%1000==0: show_char(image,cls)
-    classifier.cadd(image,cls)
+    if geometry is not None:
+        classifier.cadd(image,cls,geometry=geometry)
+    else:
+        classifier.cadd(image,cls)
     count += 1
 
     # if the user requested automatically generated variants,
@@ -206,7 +217,7 @@ classifier.updateModel()
 # save the resulting model
 
 print "saving",output
-ocrolib.save_native(output,classifier)
+ocrolib.save_component(output,classifier)
 
 # provide some feedback about the training process
 

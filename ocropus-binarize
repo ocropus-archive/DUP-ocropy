@@ -102,6 +102,7 @@ def process_image(image,arg,count):
     if options.Output:
         dest,_ = ocrolib.allsplitext(arg)
         print "# writing",dest
+        imsave(dest+".png",gray)
         imsave(dest+".bin.png",bin)
     else:
         dest = "%s/%04d" % (options.output,count)

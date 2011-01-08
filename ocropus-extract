@@ -38,7 +38,7 @@ if os.path.exists(options.output):
 table = dbtables.Table(options.output,"chars")
 table.converter("image",dbtables.SmallImage())
 table.create(image="blob",cls="text",file="text",segid="integer",bbox="text",
-             count="integer",classes="text",lgeo="text")
+             count="integer",classes="text",lgeo="text",rel="text")
 
 class BadGroundTruth(Exception):
     pass
@@ -89,6 +89,7 @@ def cseg_chars_all(file,suffix=".gt"):
 ntried = 0
 nfiles = 0
 total = 0
+
 for file in args:
     segments = []
     text = ""
@@ -105,10 +106,9 @@ for file in args:
         continue
     except Exception,e:
         if options.cerrors:
-            print "#",file,"failed",e
-            continue
-        else:
             traceback.print_exc()
+            print "#",file,"failed",e
+        else:
             raise e
     if options.verbose:
         print file,len(segments),len(text)
@@ -138,16 +138,25 @@ for file in args:
         if options.verbose:
             print key,cls,raw.shape
         if options.nosource:
-            id = table.set(image=raw,cls=cls,count=1,lgeo="%g %g %g"%x.lgeo)
+            id = table.set(image=raw,
+                           cls=cls,
+                           count=1,
+                           lgeo="%g %g %g"%x.lgeo)
         else:
-            r = x.bbox_m
-            id = table.set(image=raw,cls=cls,count=1,
-                           file=file,lgeo="%g %g %g"%x.lgeo,
-                           bbox="%d %d %d %d"%r)
+            x0,y0,x1,y1 = x.bbox_m
+            rel = docproc.rel_char_geom((y0,y1,x0,x1),x.lgeo)
+            id = table.set(image=raw,
+                           cls=cls,
+                           count=1,
+                           file=file,
+                           lgeo="%g %g %g"%x.lgeo,
+                           rel="%g %g %g"%rel,
+                           bbox="%d %d %d %d"%x.bbox_m)
         total+=1
         if total%10000==0:
             print total,"chars"
             table.commit()
+
 
 table.commit()
 print total,"chars"

@@ -37,7 +37,7 @@ grouper = ocrolib.StandardGrouper(maxrange=1,maxdist=1)
 table = dbtables.Table(options.output,"chars")
 table.converter("image",dbtables.SmallImage())
 table.create(image="blob",count="integer",cls="text",classes="text",key="text",
-             file="text",bbox="text",cluster="integer",lgeo="text")
+             file="text",bbox="text",cluster="integer",lgeo="text",rel="text")
 
 ion()
 show()
@@ -73,7 +73,10 @@ for raw,mask,cls,file,bbox,geo in chars(args):
     if 0 and options.display:
         print amin(raw),amax(raw)
         clf(); gray(); imshow(raw); draw()
-    table.set(image=raw,cls="_",count=1,file=file,bbox="%g %g %g %g"%bbox,cluster=-1,lgeo="%g %g %g"%geo)
+    x0,y0,x1,y1 = bbox
+    rel = docproc.rel_char_geom(bbox,geo)
+    table.set(image=raw,cls="_",count=1,file=file,bbox="%g %g %g %g"%bbox,
+              cluster=-1,lgeo="%g %g %g"%geo,rel="%g %g %g"%rel)
     total += 1
     if total%10000==0: table.commit()
 
