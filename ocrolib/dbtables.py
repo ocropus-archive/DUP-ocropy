@@ -158,6 +158,11 @@ class Table:
         for row in cur.execute(cmd):
             yield row[0]
         cur.close(); del cur
+    def count(self):
+        cmd = "select count(*) from "+self.tname
+        with self.con.cursor() as cur:
+            for row in cur.execute(cmd):
+                return int(row[0])
     def query(self,cmd,values=[],commit=0):
         cur = self.con.cursor()
         if debug: print cmd

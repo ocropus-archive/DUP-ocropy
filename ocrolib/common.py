@@ -1,4 +1,4 @@
-import os,os.path,re,numpy,cPickle,unicodedata
+import os,os.path,re,numpy,cPickle,unicodedata,sys
 import numpy
 from numpy import *
 from scipy.misc import imsave
@@ -7,6 +7,35 @@ from scipy.ndimage import interpolation
 import iulib,ocropus
 import utils
 import docproc
+
+################################################################
+### other utilities
+################################################################
+
+def logging(message,*args):
+    message = message%args
+    sys.stderr.write(message)
+
+def die(message,*args):
+    message = message%args
+    message = "FATAL: "+message+"\n"
+    sys.stderr.write(message)
+    sys.exit(1)
+
+def warn(message,*args):
+    message = message%args
+    message = "WARNING: "+message+"\n"
+    sys.stderr.write(message)
+    sys.exit(1)
+
+already_warned = {}
+
+def warn_once(message,*args):
+    if message in already_warned: return
+    already_warned[message] = 1
+    message = message%args
+    message = "WARNING: "+message+"\n"
+    sys.stderr.write(message)
 
 ################################################################
 ### conversion functions
@@ -805,6 +834,7 @@ class Model(CommonComponent):
         The v argument can be rank 1 or larger.  If it is larger, it
         is assumed to be an image and converted from raster to mathematical
         coordinates."""
+        if geometry is not None: warn_once("geometry given to Model")
         return self.comp.cadd(vector2narray(v),cls)
     def coutputs(self,v,geometry=None):
         """Compute the ouputs for a given input vector v.  Outputs are
@@ -812,6 +842,7 @@ class Model(CommonComponent):
         The v argument can be rank 1 or larger.  If it is larger, it
         is assumed to be an image and converted from raster to mathematical
         coordinates."""
+        if geometry is not None: warn_once("geometry given to Model")
         return self.comp.coutputs(vector2narray(v))
     def coutputs_par(self,vs,geometries=None):
         assert geometries==None
@@ -826,6 +857,7 @@ class Model(CommonComponent):
         return result
     def cclassify(self,v,geometry=None):
         """Perform classification of the input vector v."""
+        if geometry is not None: warn_once("geometry given to Model")
         return self.comp.cclassify(vector2narray(v))
 
 class KnnClassifier(CommonComponent):
