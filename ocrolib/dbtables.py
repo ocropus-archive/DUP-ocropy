@@ -160,9 +160,12 @@ class Table:
         cur.close(); del cur
     def count(self):
         cmd = "select count(*) from "+self.tname
-        with self.con.cursor() as cur:
-            for row in cur.execute(cmd):
-                return int(row[0])
+        cur = self.con.cursor()
+        for row in cur.execute(cmd):
+            result = int(row[0])
+            break
+        cur.close(); del cur
+        return result
     def query(self,cmd,values=[],commit=0):
         cur = self.con.cursor()
         if debug: print cmd
@@ -170,7 +173,7 @@ class Table:
             yield row
         self.con.commit()
         cur.close(); del cur
-    def get_hash(self,kw,random_=0,limit_=None):
+    def get_hash(self,kw,random_=0,limit_=None,sample_=None):
         cur = self.con.cursor()
         cmd = "select * from "+self.tname+" where id>=0"
         values = []
@@ -179,6 +182,8 @@ class Table:
             conv = self.converters.get(k,None)
             if conv is not None: v = conv.pickle(v)
             values += [v]
+        if sample_:
+            cmd += " and id%%%d=abs(random())%%%d"%(sample_,sample_)
         if random_:
             cmd += " order by random()"
         if limit_ is not None:
@@ -228,14 +233,18 @@ class Table:
         self.del_hash(kw)
     def get(self,**kw):
         random_ = 0
+        sample_ = None
+        limit_ = 100000000
+        if "sample_" in kw:
+            sample_ = int(kw["sample_"])
+            del kw["sample_"]
         if "random_" in kw:
             random_ = int(kw["random_"])
             del kw["random_"]
-        limit_ = 100000000
         if "limit_" in kw:
             limit_ = int(kw["limit_"])
             del kw["limit_"]
-        return self.get_hash(kw,random_=random_,limit_=limit_)
+        return self.get_hash(kw,random_=random_,limit_=limit_,sample_=sample_)
     def set(self,**kw):
         return self.put_hash(kw)
     def put(self,x,commit=1):

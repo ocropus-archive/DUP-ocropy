@@ -8,6 +8,7 @@ from pylab import *
 from optparse import OptionParser
 import traceback
 import cPickle
+import ocrolib
 from ocrolib import dbtables,gmmtree
 
 parser = OptionParser(usage="""

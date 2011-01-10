@@ -41,7 +41,7 @@ output = args[1]
 table = dbtables.Table(dbfile,options.table,read_only=1)
 table.verbose = options.verbose
 table.converter("image",dbtables.SmallImage())
-table.open(image="blob",count="integer",cls="text",classes="text",key="text")
+table.open(image="blob",count="integer",cls="text",classes="text")
 
 if options.display:
     ion()

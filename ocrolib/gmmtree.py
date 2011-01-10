@@ -1,6 +1,5 @@
 import sys,os,random,math
 import numpy,pylab,scipy
-import ocrofast
 from ocropy import improc
 import ocropy
 import nnlib
