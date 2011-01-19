@@ -860,16 +860,16 @@ class Model(CommonComponent):
         if geometry is not None: warn_once("geometry given to Model")
         return self.comp.cclassify(vector2narray(v))
 
-class KnnClassifier(CommonComponent):
+class KnnClassifier(Model):
     """A simple nearest neighbor classifier."""
-    cclassd = "KnnClassifier"
+    c_class = "KnnClassifier"
 
-class AutoMlpClassifier(CommonComponent):
+class AutoMlpClassifier(Model):
     """An MLP classifier trained with gradient descent and
     automatic learning rate adjustment."""
     c_class = "AutoMlpClassifier"
 
-class LatinClassifier(CommonComponent):
+class LatinClassifier(Model):
     """A classifier that combines several stages: alphabetic classification,
     upper/lower case, ..."""
     c_class = "LatinClassifier"

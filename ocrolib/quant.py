@@ -53,7 +53,8 @@ def alldists(v,data,out=None):
     if out is None: out = zeros(data.shape[0],'f')
     assert len(out)==data.shape[0]
     assert len(v)==data.shape[1]
-    nmod.alldists(out,v,data)
+    nmod.alldists(data.shape[0],data.shape[1],out,v,data)
+    return out
 
 def argmindist2(v,data):
     assert len(v)==data.shape[1]
@@ -62,7 +63,33 @@ def argmindist2(v,data):
     i = argmin(ds)
     return i,ds[i]
 
-def kmeans(data,k,maxiter=100,minchange=1,outlier=3.0,minvecs=5):
+def kmeans(data,k,maxiter=100):
+    """Regular k-means algorithm.  Computes k means from data."""
+    print "# kmeans",data.shape,"k",k
+    assert data.dtype==numpy.dtype('f')
+    global verbose, CHECK
+    n = len(data)
+    d = len(data[0])
+    means = data[rchoose(k,n)]
+    oldmins = -ones(n,'i')
+    counts = None
+    for round in range(maxiter):
+        outs = array([argmindist2(x,means) for x in data],'i')
+        mins = array(outs[:,0],'i')
+        dists = outs[:,1]
+        counts = zeros(k)
+        for i in range(k):
+            where = (mins==i)
+            counts[i] = sum(where)
+            means[i] = average(data[where],axis=0)
+        diff = sum(oldmins!=mins)
+        oldmins = mins
+        print "# round",round,"changed",diff
+        if diff<10: break
+    print "# result",means.shape
+    return means,counts
+
+def kmeans_limit(data,k,maxiter=100,minchange=1,outlier=3.0,minvecs=5):
     """Regular k-means algorithm.  Computes k means from data."""
     assert data.dtype==numpy.dtype('f')
     global verbose, CHECK
@@ -71,18 +98,23 @@ def kmeans(data,k,maxiter=100,minchange=1,outlier=3.0,minvecs=5):
     means = data[rchoose(k,n)]
     oldmins = -ones(n,'i')
     counts = None
+    threshold = None
     for i in range(maxiter):
         outs = array([argmindist2(x,means) for x in data],'i')
         mins = array(outs[:,0],'i')
         dists = outs[:,1]
-        threshold = outlier * stats.scoreatpercentile(dists,per=50)
+        if outlier is not None:
+            threshold = outlier * stats.scoreatpercentile(dists,per=50)
         changed = sum(mins!=oldmins)
         print changed
         if verbose: sys.stderr.write("[kmeans iter %d: %d]\n"%(i,changed))
         if changed<minchange: break
         avgdists = zeros(k)
         for i in range(k):
-            where = ((mins==i) & (dists<threshold))
+            if threshold is not None:
+                where = ((mins==i) & (dists<threshold))
+            else:
+                where = (mins==i)
             avgdists[i] = mean(dists[where])
         if counts is not None: reuse = argsort(-counts)
         else: reuse = argsort(avgdists)

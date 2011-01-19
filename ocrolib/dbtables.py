@@ -1,6 +1,7 @@
 import os
 import sqlite3
 import numpy
+import docproc
 
 debug = os.getenv("dbtables_debug")
 if debug!=None: debug = int(debug)
@@ -265,4 +266,55 @@ class CharTable(Table):
     def __init__(self,con,factory=Row,name="chars"):
         Table.__init__(self,con,name,factory=factory)
         self.converter("image",RLEImage())
-    
+
+class CharRow(sqlite3.Row):
+    def __getattr__(self,name):
+        try:
+            return self[name]
+        except KeyError:
+            raise AttributeError()
+        self.con.row_factory = sqlite3.Row
+    def byte_image(self):
+        s = self.image
+        d0 = ord(s[0])
+        d1 = ord(s[1])
+        assert len(s)==d0*d1+2,(len(s),d0,d1)
+        return numpy.frombuffer(s[2:],dtype='B').reshape(d0,d1)
+    def float_image(self):
+        return numpy.array(self.byte_image(),'f')/255.0
+    def lineparams(self):
+        return numpy.array([float(x) for x in self.rel.split()],'f')
+    def rel_lineparams(self):
+        return docproc.rel_geo_normalize(self.rel)
+
+class CharDB:
+    def __init__(self,con,tname,factory=CharRow,read_only=0):
+        if type(con)==str:
+            self.con = sqlite3.connect(con,timeout=600.0)
+        else:
+            self.con = con
+        self.con.row_factory = factory
+        self.con.text_factory = str
+        self.tname = tname
+        self.execute("pragma synchronous=off")
+    def execute(self,cmd,values=[],commit=0):
+        cur = self.con.cursor()
+        if debug: print cmd
+        for row in cur.execute(cmd,values):
+            yield row
+        self.con.commit()
+        cur.close(); del cur
+    def keys(self):
+        return self.find("id>=0")
+    def items(self):
+        for row in self.execute("select * from '%s'"%self.tname):
+            yield row["id"],row
+    def find(self,expr,values=[]):
+        query = "select id from '%s' where "%self.tname+expr
+        ids = [row[0] for row in self.execute(query,values)]
+        return ids
+    def __getitem__(self,index):
+        rows = self.execute("select * from '%s' where id=?"%self.tname,[index])
+        result = list(rows)
+        assert len(result)==1
+        return result[0]
