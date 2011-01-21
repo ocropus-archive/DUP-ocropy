@@ -1386,38 +1386,30 @@ def make_IModel(name):
 def make_IExtractor(name):
     return mkpython(name) or Extractor().make(name)
 
-def load_python(file):
-    if ".pymodel" in file:
-        with open(file,"rb") as stream:
-            result = cPickle.load(stream)
-        return result
-    else:
-        return None
-def load_IModel(file):
-    return load_python(file) or Model().load_native(file)
-def load_IRecognizeLine(file):
-    return load_python(file) or RecognizeLine().load_native(file)
-
-def load_native(file,interface):
-    exec "loader = ocropus.load_%s"%interface
-    result = loader(file)
-    return result
-def save_native(file,object):
-    object.save_native(file)
-
 def save_component(file,object):
-    if ".pymodel" in file:
-        with open(file,"w") as stream:
-            cPickle.dump(object,stream,2)
-    else:
-        save_native(file,object)
+    if isinstance(object,CommonComponent) and hasattr(object,"comp"):
+        ocropus.save_component(object.comp)
+        return
+    if type(object).__module__=="ocropus":
+        ocropus.save_component(object)
+    with open(file,"w") as stream:
+        cPickle.dump(object,stream,2)
 
-def load_component(self,file):
-    if ".pymodel" in file:
-        with open(file,"w") as stream:
-            return cPickle.load(stream)
-    else:
-        load_native(file,object)
+def load_component(file):
+    with open(file,"r") as stream:
+        start = stream.read(128)
+    if start.startswith("<object>\nmlp\n"):
+        result = Model()
+        result.comp = comp = ocropus.load_IModel(file)
+        return result
+    if start.startswith("<object>\nlinerec\n"):
+        result = RecognizeLine()
+        result.comp = ocropus.load_IRecognizeLine(file)
+        return result
+    if start.startswith("<object>"):
+        raise Exception("%s: no loader defined for %s"%start.split("\n")[1])
+    with open(file,"r") as stream:
+        return cPickle.load(stream)
 
 def load_linerec(file,wrapper=CmodelLineRecognizer):
     """Loads a line recognizer.  This handles a bunch of special cases
