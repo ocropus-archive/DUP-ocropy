@@ -12,7 +12,7 @@ def seg_boxes(seg,math=0):
     math=0, raster coordinates are used, with math=1, Postscript
     coordinates are used (however, the order of the values in the
     tuple doesn't change)."""
-    seg = array(seg,'i')
+    seg = array(seg,'uint32')
     slices = measurements.find_objects(seg)
     h = seg.shape[0]
     result = []

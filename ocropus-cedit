@@ -389,7 +389,7 @@ def cmd_nn(*args):
         pat = row[2]
         image = pat.image
         images.append(image)
-    results = ocrolib.omp_classify(classifier,images)
+    results = classifier.couputs_batch(images)
     for k in range(len(selected)):
         i = selected[k]
         row = grid[i]

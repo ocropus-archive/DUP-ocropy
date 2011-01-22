@@ -1,6 +1,6 @@
 from __future__ import with_statement
 
-__all__ = "RectifierMLP".split()
+__all__ = "MLP".split()
 
 import os,sys,os.path,re,math
 import copy as pycopy
@@ -47,10 +47,6 @@ inline double max(double x,double y) {
     if(x>y) return x; else return y;
 }
 
-inline double H(double x) {
-    if(x<=0) return 0; else return 1;
-}
-
 void forward(int n,int m,int l,float w1[m][n],float b1[m],float w2[l][m],float b2[l],
              int k,float data[k][n],float outputs[k][l]) {
     // printf("forward %d:%d:%d (%d)\n",n,m,l,k);
@@ -94,7 +90,7 @@ void classify(int n,int m,int l,float w1[m][n],float b1[m],float w2[l][m],float 
         for(int i=0;i<m;i++) {
             double total = b1[i];
             for(int j=0;j<n;j++) total += w1[i][j]*x[j];
-            y[i] = max(0,total);
+            y[i] = sigmoid(total);
         }
         for(int i=0;i<l;i++) {
             double total = b2[i];
@@ -119,7 +115,7 @@ void backward(int n,int m,int l,float w1[m][n],float b1[m],float w2[l][m],float 
         for(int i=0;i<m;i++) {
             double total = b1[i];
             for(int j=0;j<n;j++) total += w1[i][j]*x[j];
-            y[i] = max(0,total);
+            y[i] = sigmoid(total);
             assert(!isnan(y[i]));
         }
         for(int i=0;i<l;i++) {
@@ -142,7 +138,7 @@ void backward(int n,int m,int l,float w1[m][n],float b1[m],float w2[l][m],float 
             double total = 0.0;
             for(int j=0;j<l;j++)
                 total += delta2[j] *  w2[j][i];
-            total *= H(y[i]);
+            total *= y[i] * (1-y[i]);
             delta1[i] = total;
         }
         for(int i=0;i<l;i++) {
@@ -163,7 +159,7 @@ nnet_native.forward.argtypes = [I,I,I,A2F,A1F,A2F,A1F, I,A2F,A2F]
 nnet_native.classify.argtypes = [I,I,I,A2F,A1F,A2F,A1F, I,A2F,A1I]
 nnet_native.backward.argtypes = [I,I,I,A2F,A1F,A2F,A1F, I,A2F,A1I,F,I]
 
-class RectifierMLP:
+class MLP:
     def __init__(self):
         self.w1 = None
         self.verbose = 0
@@ -377,9 +373,9 @@ class RectifierMLP:
                              len(data),data,result)
         return result
 
-class NnModel:
-    def __init__(self,nnet=None):
-        self.nnet = nnet
+class MlpModel:
+    def __init__(self):
+        self.nnet = MLP()
         self.extractor = None
         self.nfeatures = None # number of features after extraction
         self.collect = [] # feature vectors for training
@@ -388,20 +384,19 @@ class NnModel:
         self.i2c = {}
     def preprocess(self,image):
         if self.extractor is None:
-            return ocropy.as_numpy(image,flip=0)
+            return image.ravel()
         else:
-            image = ocropy.as_narray(image,flip=0)
-            out = ocropy.floatarray()
-            self.extractor.extract(out,image)
-            return ocropy.as_numpy(out,flip=0)
+            return self.extractor(image).ravel()
     def name(self):
-        return "RectifierMlp"
-    def cadd(self,image,c):
-        image = ocropy.as_numpy(image,flip=1)
-        preprocessed = self.preprocess(image).ravel()
-        if self.nfeatures is not None: assert self.nfeatures==len(preprocessed)
-        else: self.nfeatures = len(preprocessed)
-        self.collect.append(preprocessed)
+        return "MLP"
+    def cadd(self,image,c,geometry=None):
+        v = self.preprocess(image)
+        if geometry is not None: v = concatenate([v,array(geometry,'f')])
+        if self.nfeatures is not None:
+            assert self.nfeatures==len(v)
+        else:
+            self.nfeatures = len(v)
+        self.collect.append(v)
         self.values.append(c)
     def updateModel(self,etas=[(0.1,100000)]*15,verbose=1):
         self.i2c = sorted(list(set(self.values)))
@@ -415,16 +410,3 @@ class NnModel:
         image = self.preprocess(image).ravel()
         v = self.nnet.outputs(image.reshape(1,len(image)))[0]
         return [(self.i2c[i],v[i]) for i in range(len(v))]
-    def add(self,image,c):
-        raise Exception("unimplemented")
-    def outputs(self,image,k=None):
-        raise Exception("unimplemented")
-    def setExtractor(self,s):
-        if type(s)==str:
-            self.extractor = ocropy.make_IExtractor(s)
-        else:
-            self.extractor = s
-
-class RectifierModel(NnModel):
-    def __init__(self,*args,**kw):
-        NnModel.__init__(self,RectifierMLP())

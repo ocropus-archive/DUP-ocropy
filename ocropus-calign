@@ -10,8 +10,8 @@ from scipy.ndimage import interpolation
 from pylab import *
 from optparse import OptionParser
 from multiprocessing import Pool
+import ocrolib
 from ocrolib import number_of_processors
-import ocrolib as common
 
 signal.signal(signal.SIGINT,lambda *args:sys.exit(1))
 
@@ -33,13 +33,19 @@ class CostTooHigh:
 class AlignmentFailed:
     pass
 
+def safe_str(x):
+    try:
+        return str(x)
+    except:
+        return "<bad ASCII>"
+
 class Log:
     def __init__(self):
         self.lines = []
     def __del__(self):
         self.output()
     def log(self,*args):
-        args = [str(x) for x in args]
+        args = [safe_str(x) for x in args]
         self.lines.append(" ".join(args))
     def error(self,*args):
         self.log("ERROR",*args)
@@ -115,17 +121,17 @@ def die(*args):
     error(*args)
     sys.exit(1)
 
-segmenter = common.SegmentLine().make(options.segmenter)
-grouper = common.StandardGrouper()
+segmenter = ocrolib.SegmentLine().make(options.segmenter)
+grouper = ocrolib.StandardGrouper()
 grouper.pset("maxdist",options.maxdist) # use 5 to handle "/''
 
 ion()
 
 print "loading",options.model
 
-cmodel = common.load_IModel(options.model)
+cmodel = ocrolib.load_component(options.model)
 assert cmodel is not None
-linerec = common.CmodelLineRecognizer(cmodel=cmodel,
+linerec = ocrolib.CmodelLineRecognizer(cmodel=cmodel,
                                       best=options.nbest,
                                       maxcost=options.maxccost)
 
@@ -147,13 +153,13 @@ def align1(t):
     imagefile,lname = t
     if lname!=default_lmodel_name:
         default_lmodel_name = lname
-        default_lmodel = common.read_lmodel(lname)
+        default_lmodel = ocrolib.read_lmodel(lname)
     nlines += 1
     prefix = re.sub(r'\.[^/.]*$','',imagefile)
 
     ## load the line image
     log("load\t",imagefile)
-    image = common.read_image_gray(imagefile)
+    image = ocrolib.read_image_gray(imagefile)
     if options.display:
         clf(); gray(); imshow(image); draw()
 
@@ -190,7 +196,7 @@ def align1(t):
 
     if lmodel is not None:
         try:
-            r = common.compute_alignment(lattice,rseg,lmodel)
+            r = ocrolib.compute_alignment(lattice,rseg,lmodel)
             result = r.output
             cseg = r.cseg
             costs = r.costs
@@ -220,13 +226,13 @@ def align1(t):
                 # don't bother checking for costs file
 
             # output the aligned segmentations
-            common.write_line_segmentation(rseg_file,rseg)
-            common.write_line_segmentation(cseg_file,cseg)
+            ocrolib.write_line_segmentation(rseg_file,rseg)
+            ocrolib.write_line_segmentation(cseg_file,cseg)
             with open(prefix+suffix+".costs","w") as stream:
                 for i in range(len(costs)):
                     stream.write("%d %g\n"%(i,costs[i]))
             if options.gtextension is None:
-                common.write_text(prefix+suffix+".txt",result)
+                ocrolib.write_text(prefix+suffix+".txt",result)
             goodlines += 1
         except AlignmentFailed,e:
             log("FAIL alignment failed")

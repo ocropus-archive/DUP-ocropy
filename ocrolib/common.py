@@ -7,6 +7,7 @@ from scipy.ndimage import interpolation
 import iulib,ocropus
 import utils
 import docproc
+import multiclass
 
 ################################################################
 ### other utilities
@@ -844,7 +845,7 @@ class Model(CommonComponent):
         coordinates."""
         if geometry is not None: warn_once("geometry given to Model")
         return self.comp.coutputs(vector2narray(v))
-    def coutputs_par(self,vs,geometries=None):
+    def coutputs_batch(self,vs,geometries=None):
         assert geometries==None
         if self.omp is None: self.omp = OmpClassifier()
         self.omp.resize(len(vs))
@@ -1396,18 +1397,18 @@ def save_component(file,object):
         cPickle.dump(object,stream,2)
 
 def load_component(file):
+    if file[0]=="@":
+        return eval(file[1:])
     with open(file,"r") as stream:
         start = stream.read(128)
-    if start.startswith("<object>\nmlp\n"):
-        result = Model()
-        result.comp = comp = ocropus.load_IModel(file)
-        return result
     if start.startswith("<object>\nlinerec\n"):
         result = RecognizeLine()
         result.comp = ocropus.load_IRecognizeLine(file)
         return result
     if start.startswith("<object>"):
-        raise Exception("%s: no loader defined for %s"%start.split("\n")[1])
+        result = Model()
+        result.comp = ocropus.load_IModel(file)
+        return result
     with open(file,"r") as stream:
         return cPickle.load(stream)
 
