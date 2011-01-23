@@ -808,7 +808,7 @@ class OmpClassifier:
         self.comp.load(file)
 
 class Model(CommonComponent):
-    """A classifier in general."""
+    """A character recognizer in general."""
     c_interface = "IModel"
     def init(self):
         self.omp = None
@@ -861,16 +861,12 @@ class Model(CommonComponent):
         if geometry is not None: warn_once("geometry given to Model")
         return self.comp.cclassify(vector2narray(v))
 
-class KnnClassifier(Model):
-    """A simple nearest neighbor classifier."""
-    c_class = "KnnClassifier"
-
-class AutoMlpClassifier(Model):
+class AutoMlpModel(Model):
     """An MLP classifier trained with gradient descent and
     automatic learning rate adjustment."""
     c_class = "AutoMlpClassifier"
 
-class LatinClassifier(Model):
+class LatinModel(Model):
     """A classifier that combines several stages: alphabetic classification,
     upper/lower case, ..."""
     c_class = "LatinClassifier"
@@ -885,6 +881,73 @@ class Extractor(CommonComponent):
 
 class ScaledFE(Extractor):
     c_class = "scaledfe"
+
+class Classifier:
+    """An abstraction for a classifier.  This gets trained on training vectors and
+    returns vectors of posterior probabilities (or some other discriminant function.)
+    You usually save these objects by pickling them."""
+    def train(self,data,classes):
+        """Train the classifier on the given dataset."""
+        raise Exception("unimplemented")
+    def outputs(self,data):
+        """Compute the ouputs corresponding to each input data vector."""
+        raise Exception("unimplemented")
+
+class ClassifierModel:
+    """Wraps all the necessary functionality around a classifier in order to
+    turn it into a character recognition model."""
+    def __init__(self):
+        self.nbest = 10000
+        self.minp = 1e-6
+        self.classifier = self.makeClassifier()
+        self.extractor = self.makeExtractor()
+        self.rows = None
+        self.nrows = 0
+        self.classes = []
+        self.c2i = {}
+        self.i2c = []
+    def makeInput(self,image,geometry):
+        v = self.extractor.extract(image)
+        if geometry is not None:
+            v = concatenate(v,array(geometry,'f'))
+        return v
+    def makeOutputs(self,w):
+        result = []
+        indexes = argsort(-w)
+        for i in indexes[:self.nbest]:
+            if w[i]<self.minp: break
+            result.append((self.i2c[i],w[i]))
+        return result
+    def cadd(self,image,c,geometry=None):
+        v = self.makeInput(image,geometry)
+        assert amin(v)>=-1.2 and amax(v)<=1.2
+        if self.nrows==0:
+            self.rows = zeros((1000,len(v)),'int8')
+        elif self.nrows==len(self.rows):
+            n,d = self.rows.shape
+            self.rows.resize((1000+n,d))
+        self.rows[self.nrows,:] = 100.0*v
+        if c not in self.c2i:
+            self.c2i[c] = len(self.i2c)
+            self.i2c.append(c)
+        self.classes.append(self.c2i[c])
+        self.nrows += 1
+    def updateModel(self,*args,**kw):
+        n,d = self.rows.shape
+        self.rows.resize(self.nrows,d)
+        self.classifier.train(self.rows,array(self.classes,'i'),*args,**kw)
+    def coutputs(self,image,geometry=None):
+        v = self.makeInput(image,geometry)
+        w = self.classifier.outputs(v.reshape(1,len(v)))[0]
+        return self.makeOutputs(w)
+    def cclassify(self,v,geometry=None):
+        v = self.makeInput(image,geometry)
+        w = self.classifier.outputs(v.reshape(1,len(v)))[0]
+        return self.i2c[argmax(w)]
+    def coutputs_batch(self,images,geometries=None):
+        # FIXME parallelize this
+        if geometries is None: geometries = [None]*len(images)
+        return [self.coutputs(images[i],geometries[i]) for i in range(len(images))]
 
 class DistComp(CommonComponent):
     """Compute distances fast. (Only for backwards compatibility; not recommended.)"""

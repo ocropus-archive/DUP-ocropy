@@ -3,12 +3,10 @@
 import sys,os,re,glob,math,glob,signal,cPickle
 import iulib,ocropus
 import ocropy
-from ocropy import utils
 from pylab import *
-from ocropy.fgen import *
 from optparse import OptionParser
-from ocropy import dbtables
-from ocropy import gmmtree,rectifier
+import ocrolib
+from ocrolib.fgen import *
 
 parser = OptionParser(usage="""
 %prog [model n]
@@ -23,16 +21,13 @@ an OCRopus component or a Python construction expression), and the second one is
 of training examples per class.
 """)
 parser.add_option("-D","--display",help="display continuously",action="store_true")
+parser.add_option("-n","--nvariants",help="number of variants",type=int,default=20)
 options,args = parser.parse_args()
-assert len(args)==0 or len(args)==2
 
-if len(args)==2:
-    models = [(eval(args[0]),int(args[1]))]
-else:
-    models = []
-    models.append((gmmtree.GmmTree(),20))
-    models.append((gmmtree.GmmTree(),100))
-    models.append((ocropy.make_IModel("AutoMlpClassifier"),20))
+models = []
+for arg in args:
+    model = ocrolib.load_component(arg)
+    models.append((model,options.nvariants))
 
 class unif:
     def __init__(self,lo,hi):
@@ -84,14 +79,14 @@ for model,nvariants in models:
     count = 0
     for image,cls in generate(nvariants):
         if display and count<=36: subplot(6,6,count%36+1); imshow(image); draw()
-        model.cadd(ocropy.as_narray(image),cls)
+        model.cadd(image,cls)
         count += 1
     print "training"
-    model.updateModel()
+    model.updateModel(verbose=1)
     print "testing"
     errs = 0
     for image,cls in generate(1):
-        result = sorted(model.coutputs(ocropy.as_narray(image)),key=lambda x:x[1],reverse=1)
+        result = sorted(model.coutputs(image),key=lambda x:x[1],reverse=1)
         pred = result[0][0]
         if cls!=pred:
             errs += 1

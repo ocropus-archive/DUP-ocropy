@@ -1,7 +1,7 @@
 import os,sys,re,string,hashlib
 import numpy
 from  numpy.ctypeslib import ndpointer
-from ctypes import c_int,c_float,c_double
+from ctypes import c_int,c_float,c_double,c_byte
 import ctypes
 import timeit
 from pylab import prod
@@ -9,10 +9,10 @@ from pylab import prod
 I = c_int
 F = c_float
 D = c_double
+B = c_byte
 
 for d in range(1,4):
-    for t in ["i","f","d","b"]:
-        T = t.upper()
+    for T,t in [("I","int32"),("F","float32"),("D","float64"),("B","int8"),("U","uint8")]:
         exec "A%d%s = ndpointer(dtype='%s',ndim=%d,flags='CONTIGUOUS,ALIGNED')"%(d,T,t,d)
 
 class CompileError(Exception):
