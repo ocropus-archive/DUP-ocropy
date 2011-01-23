@@ -1396,9 +1396,20 @@ def save_component(file,object):
     with open(file,"w") as stream:
         cPickle.dump(object,stream,2)
 
+def pyconstruct(s):
+    env = {}
+    if "(" in s:
+        path = s[:s.find("(")]
+        if "." in path:
+            module = path[:path.rfind(".")]
+            exec "import "+module in env
+    return eval(s,env)
+
 def load_component(file):
-    if file[0]=="@":
-        return eval(file[1:])
+    if file[0]=="=":
+        return pyconstruct(file[1:])
+    elif file[0]=="@":
+        file = file[1:]
     with open(file,"r") as stream:
         start = stream.read(128)
     if start.startswith("<object>\nlinerec\n"):
