@@ -873,7 +873,7 @@ class Model(CommonComponent):
         if geometry is not None: warn_once("geometry given to Model")
         return self.comp.cclassify(vector2narray(v))
 
-class AutoMlpModel(Model):
+class OldAutoMlpModel(Model):
     """An MLP classifier trained with gradient descent and
     automatic learning rate adjustment."""
     c_class = "AutoMlpClassifier"
