@@ -8,4 +8,4 @@ import multiclass
 from utils import *
 from common import *
 from gmodel import *
-from mlp import MlpModel
+from mlp import MlpModel,AutoMlpModel
