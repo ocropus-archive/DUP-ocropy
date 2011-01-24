@@ -4,6 +4,7 @@ __all__ = "MLP".split()
 
 import os,sys,os.path,re,math
 import copy as pycopy
+import random as pyrandom
 from random import sample as selection, shuffle, uniform
 from numpy import *
 from pylab import *
@@ -416,35 +417,41 @@ class MLP:
             raise Exception("data has unknown type")
         return result
 
+def log_uniform(lo,hi):
+    return exp(pyrandom.uniform(log(lo),log(hi)))
+
 class AutoMLP(MLP):
     def __init__(self):
+        # fairly conservative default settings that result
+        # in reasonably good performance for many problems
         self.verbose = 1
+        self.initial_nhidden = [10,20,40,60,80,120,160]
+        self.initial_eta = (0.1,0.8)
+        self.initial_epochs_per_round = 20
         self.log_eta_var = 0.2
         self.log_nh_var = 0.2
-        self.nhidden = [10,20,40,80]
-        self.eta = 0.1
         self.min_round = 100000
         self.max_round = 10000000
         self.epochs_per_round = 5
-        self.max_rounds = 16
-        self.max_pool = 4
+        self.max_rounds = 24
+        self.max_pool = 3
     def train(self,data,classes,verbose=0):
         n = len(data)
         testing = array(selection(xrange(n),n/10),'i')
         training = setdiff1d(array(xrange(n),'i'),testing)
         testset = data[testing,:]
         testclasses = classes[testing]
-        ntrain = max(self.min_round,len(data)*self.epochs_per_round)
+        ntrain = max(self.min_round,len(data)*self.initial_epochs_per_round)
         pool = []
-        for nh in self.nhidden:
+        for nh in self.initial_nhidden:
             mlp = MLP()
-            mlp.eta = self.eta
-            mlp.train(data,classes,etas=[(self.eta,ntrain)],
+            mlp.eta = log_uniform(*self.initial_eta)
+            mlp.train(data,classes,etas=[(mlp.eta,ntrain)],
                       nhidden=nh,
                       verbose=0,
                       samples=training)
             mlp.err = error(mlp,testset,testclasses)
-            if verbose: print "AutoMLP initial",mlp.eta,nh,\
+            if verbose: print "AutoMLP initial","%.3f"%mlp.eta,nh,\
                     mlp.err,"%.4f"%(mlp.err*1.0/len(testset))
             pool.append(mlp)
         for i in range(self.max_rounds):
@@ -455,7 +462,7 @@ class AutoMLP(MLP):
             # print "eta",mlp.eta,new_eta,"nh",mlp.nhidden(),new_nh
             mlp.eta = new_eta
             mlp.changeHidden(data,classes,new_nh)
-            mlp.train(data,classes,etas=[(self.eta,ntrain)],
+            mlp.train(data,classes,etas=[(mlp.eta,ntrain)],
                       verbose=(self.verbose>1),samples=training)
             mlp.err = error(mlp,testset,testclasses)
             print "AutoMLP pool",mlp.err,"%.4f"%(mlp.err*1.0/len(testset)),\
