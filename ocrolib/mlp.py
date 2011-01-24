@@ -434,7 +434,7 @@ class AutoMLP(MLP):
         self.verbose = 1
         self.initial_nhidden = [20,40,60,80,120,160]
         self.initial_eta = (0.1,0.8)
-        self.initial_epochs_per_round = 20
+        self.initial_ntrain = 1000000
         self.log_eta_var = 0.2
         self.log_nh_var = 0.2
         self.min_round = 100000
@@ -448,7 +448,7 @@ class AutoMLP(MLP):
         training = setdiff1d(array(xrange(n),'i'),testing)
         testset = data[testing,:]
         testclasses = classes[testing]
-        ntrain = max(self.min_round,len(data)*self.initial_epochs_per_round)
+        ntrain = self.initial_ntrain
         pool = []
         for nh in self.initial_nhidden:
             mlp = MLP()
