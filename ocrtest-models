@@ -83,6 +83,10 @@ for model,nvariants in models:
         count += 1
     print "training"
     model.updateModel(verbose=1)
+    print "saving"
+    model.save("_temp.model")
+    print "loading"
+    model.load("_temp.model")
     print "testing"
     errs = 0
     for image,cls in generate(1):
