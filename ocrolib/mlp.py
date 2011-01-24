@@ -37,11 +37,14 @@ nnet_native = compile_and_load(r'''
 #include <stdio.h>
 #include <assert.h>
 #include <stdlib.h>
+#include <omp.h>
 
 int verbose = 0;
+int maxthreads = 8;
 
 double sigmoid(double x);
 double max(double x,double y);
+#define MIN(x,y) ((x)<(y)?(x):(y))
 
 inline double sigmoid(double x) {
     if(x<-200) x = -200;
@@ -113,7 +116,7 @@ void backward(int n,int m,int l,float w1[m][n],float b1[m],float w2[l][m],float 
     if(verbose) printf("backward %d:%d:%d (%d)\n",n,m,l,k);
     assert(eta>0.0);
     assert(eta<10.0);
-#pragma omp parallel for
+#pragma omp parallel for num_threads MIN(maxthreads,omp_get_num_threads())
     for(int trial=0;trial<ntrain;trial++) {
         int row;
         if(nsamples>0) row = samples[(unsigned)(19.73*k*sin(trial))%nsamples];
@@ -210,7 +213,7 @@ void backward_b(int n,int m,int l,float w1[m][n],float b1[m],float w2[l][m],floa
     if(verbose) printf("backward %d:%d:%d (%d)\n",n,m,l,k);
     assert(eta>0.0);
     assert(eta<10.0);
-#pragma omp parallel for
+#pragma omp parallel for num_threads MIN(maxthreads,omp_get_num_threads())
     for(int trial=0;trial<ntrain;trial++) {
         int row;
         if(nsamples>0) row = samples[(unsigned)(19.73*k*sin(trial))%nsamples];
@@ -264,6 +267,8 @@ nnet_native.forward_b.argtypes = [I,I,I,A2F,A1F,A2F,A1F, I,A2B,A2F]
 nnet_native.classify_b.argtypes = [I,I,I,A2F,A1F,A2F,A1F, I,A2B,A1I]
 nnet_native.backward_b.argtypes = [I,I,I,A2F,A1F,A2F,A1F, I,A2B,A1I,F,I,I,A1I]
 
+nverbose = c_int.in_dll(nnet_native,"verbose")
+maxthreads = c_int.in_dll(nnet_native,"maxthreads")
 
 class MLP:
     def __init__(self):
