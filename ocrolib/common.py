@@ -7,7 +7,6 @@ from scipy.ndimage import interpolation
 import iulib,ocropus
 import utils
 import docproc
-import multiclass
 
 ################################################################
 ### other utilities
