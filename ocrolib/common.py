@@ -253,6 +253,20 @@ def mknative(spec,interface):
         result.pset(k,v)
     return result
 
+def pyconstruct(s):
+    """Constructs a Python object from a constructor, an expression
+    of the form x.y.z.name(args).  This ensures that x.y.z is imported.
+    In the future, more forms of syntax may be accepted."""
+    env = {}
+    if "(" in s:
+        path = s[:s.find("(")]
+        if "." in path:
+            module = path[:path.rfind(".")]
+            exec "import "+module in env
+    else:
+        warn_once("pyconstruct: no '()' in",s)
+    return eval(s,env)
+
 def mkpython(name):
     """Tries to instantiate a Python class.  Gives an error if it looks
     like a Python class but can't be instantiated.  Returns None if it
@@ -260,8 +274,7 @@ def mkpython(name):
     if type(name) is not str:
         return name()
     elif "(" in name:
-        if not "." in name: name = "ocrolib."+name
-        return eval(name)
+        return pyconstruct(name)
     else:
         return None
 
@@ -1458,15 +1471,6 @@ def save_component(file,object):
         ocropus.save_component(object)
     with open(file,"w") as stream:
         cPickle.dump(object,stream,2)
-
-def pyconstruct(s):
-    env = {}
-    if "(" in s:
-        path = s[:s.find("(")]
-        if "." in path:
-            module = path[:path.rfind(".")]
-            exec "import "+module in env
-    return eval(s,env)
 
 def load_component(file):
     if file[0]=="=":
