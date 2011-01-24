@@ -918,10 +918,20 @@ class ClassifierModel:
         self.classes = []
         self.c2i = {}
         self.i2c = []
+        self.geo = None
+    def setupGeometry(self,geometry):
+        if self.geo is None:
+            if geometry is None: 
+                self.geo = 0
+            else:
+                self.geo = len(array(geometry,'f'))
     def makeInput(self,image,geometry):
         v = self.extractor.extract(image)
-        if geometry is not None:
-            v = concatenate(v,array(geometry,'f'))
+        if self.geo>0:
+            if geometry is not None:
+                geometry = array(geometry,'f')
+                assert len(geometry)==self.geo
+                v = concatenate([v,geometry])
         return v
     def makeOutputs(self,w):
         result = []
@@ -931,6 +941,9 @@ class ClassifierModel:
             result.append((self.i2c[i],w[i]))
         return result
     def cadd(self,image,c,geometry=None):
+        if self.geo is None: 
+            # first time around, remember whether this classifier uses geometry
+            self.setupGeometry(geometry)
         v = self.makeInput(image,geometry)
         assert amin(v)>=-1.2 and amax(v)<=1.2
         if self.nrows==0:
