@@ -4,7 +4,6 @@ __all__ = [
     "mlp",
 ]
 
-import multiclass
 from utils import *
 from common import *
 from gmodel import *
