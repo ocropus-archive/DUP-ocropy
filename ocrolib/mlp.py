@@ -444,7 +444,8 @@ class AutoMLP(MLP):
                       verbose=0,
                       samples=training)
             mlp.err = error(mlp,testset,testclasses)
-            if verbose: print "AutoMLP initial",mlp.eta,nh,mlp.err
+            if verbose: print "AutoMLP initial",mlp.eta,nh,\
+                    mlp.err,"%.4f"%(mlp.err*1.0/len(testset))
             pool.append(mlp)
         for i in range(self.max_rounds):
             mlp = selection(pool,1)[0]
@@ -457,7 +458,8 @@ class AutoMLP(MLP):
             mlp.train(data,classes,etas=[(self.eta,ntrain)],
                       verbose=(self.verbose>1),samples=training)
             mlp.err = error(mlp,testset,testclasses)
-            print "AutoMLP pool",mlp.err,"(%.3f,%d)"%(mlp.eta,mlp.nhidden()),\
+            print "AutoMLP pool",mlp.err,"%.4f"%(mlp.err*1.0/len(testset)),\
+                "(%.3f,%d)"%(mlp.eta,mlp.nhidden()),\
                 [x.err for x in pool]
             pool += [mlp]
             errs = [x.err+0.1*x.nhidden() for x in pool]

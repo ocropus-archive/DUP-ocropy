@@ -212,7 +212,7 @@ for cluster in iterate_dbs(args):
 # gradient descent training for a multi-layer perceptron)
     
 print "starting classifier training"
-classifier.updateModel()
+classifier.updateModel(verbose=1)
 
 # save the resulting model
 
