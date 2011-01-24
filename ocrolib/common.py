@@ -699,10 +699,13 @@ class Grouper(CommonComponent):
         """Set the class for group i, and the associated cost.  The class may
         be given as an integer, as a string, or as a unicode string.  The cost
         should be non-negative."""
+        cost = float(cost)
         if type(cls)==str:
-            self.comp.setClass(i,iulib.unicode2ustrg(unicode(cls)),cost)
+            u = iulib.unicode2ustrg(unicode(cls))
+            self.comp.setClass(i,u,cost)
         elif type(cls)==unicode:
-            self.comp.setClass(i,iulib.unicode2ustrg(cls),cost)
+            u = iulib.unicode2ustrg(cls)
+            self.comp.setClass(i,u,cost)
         elif type(cls)==int:
             self.comp.setClass(i,cls,cost)
         else:
@@ -909,8 +912,8 @@ class ClassifierModel:
     """Wraps all the necessary functionality around a classifier in order to
     turn it into a character recognition model."""
     def __init__(self):
-        self.nbest = 10000
-        self.minp = 1e-6
+        self.nbest = 5
+        self.minp = 1e-3
         self.classifier = self.makeClassifier()
         self.extractor = self.makeExtractor()
         self.rows = None
@@ -1477,10 +1480,11 @@ def make_IExtractor(name):
 
 def save_component(file,object):
     if isinstance(object,CommonComponent) and hasattr(object,"comp"):
-        ocropus.save_component(object.comp)
+        ocropus.save_component(file,object.comp)
         return
     if type(object).__module__=="ocropus":
-        ocropus.save_component(object)
+        ocropus.save_component(file,object)
+        return
     with open(file,"w") as stream:
         cPickle.dump(object,stream,2)
 
