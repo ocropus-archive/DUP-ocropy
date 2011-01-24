@@ -311,6 +311,7 @@ class MLP:
         self.b1 = array(self.b1[keep],dtype='f',order="C")
         self.w2 = array(self.w2[:,keep],dtype='f',order="C")
     def increaseHidden(self,data,cls,new_nhidden):
+        nhidden = self.nhidden()
         vs = []
         bs = []
         delta = new_nhidden-nhidden
@@ -449,7 +450,7 @@ class AutoMLP(MLP):
             mlp = selection(pool,1)[0]
             mlp = mlp.copy()
             new_eta = exp(log(mlp.eta)+randn()*self.log_eta_var)
-            new_nh = max(2,int(log(mlp.nhidden())+randn()*self.log_nh_var))
+            new_nh = max(2,int(exp(log(mlp.nhidden())+randn()*self.log_nh_var)))
             # print "eta",mlp.eta,new_eta,"nh",mlp.nhidden(),new_nh
             mlp.eta = new_eta
             mlp.changeHidden(data,classes,new_nh)
@@ -459,11 +460,11 @@ class AutoMLP(MLP):
             print "AutoMLP pool",mlp.err,"(%.3f,%d)"%(mlp.eta,mlp.nhidden()),\
                 [x.err for x in pool]
             pool += [mlp]
-            errs = [x.err for x in pool]
+            errs = [x.err+0.1*x.nhidden() for x in pool]
             if len(errs)>self.max_pool:
                 choice = argsort(errs)
                 pool = list(take(pool,choice[:self.max_pool]))
-        best = argmin([mlp.err+0.1*mlp.nhidden() for mlp in pool])
+        best = argmin([x.err+0.1*x.nhidden() for x in pool])
         mlp = pool[best]
         self.assign(mlp)
     def assign(self,mlp):

@@ -821,7 +821,7 @@ class Model(CommonComponent):
     def setExtractor(self,extractor):
         """Set a feature extractor."""
         self.comp.setExtractor(extractor)
-    def updateModel(self):
+    def updateModel(self,**kw):
         """After adding training samples, train the model."""
         self.comp.updateModel()
     def copy(self):
