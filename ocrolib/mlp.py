@@ -40,7 +40,7 @@ nnet_native = compile_and_load(r'''
 #include <omp.h>
 
 int verbose = 0;
-int maxthreads = 8;
+int maxthreads = 4;
 
 double sigmoid(double x);
 double max(double x,double y);
@@ -116,7 +116,7 @@ void backward(int n,int m,int l,float w1[m][n],float b1[m],float w2[l][m],float 
     if(verbose) printf("backward %d:%d:%d (%d)\n",n,m,l,k);
     assert(eta>0.0);
     assert(eta<10.0);
-#pragma omp parallel for num_threads MIN(maxthreads,omp_get_max_threads())
+#pragma omp parallel for num_threads maxthreads
     for(int trial=0;trial<ntrain;trial++) {
         int row;
         if(nsamples>0) row = samples[(unsigned)(19.73*k*sin(trial))%nsamples];
@@ -213,7 +213,7 @@ void backward_b(int n,int m,int l,float w1[m][n],float b1[m],float w2[l][m],floa
     if(verbose) printf("backward %d:%d:%d (%d)\n",n,m,l,k);
     assert(eta>0.0);
     assert(eta<10.0);
-#pragma omp parallel for num_threads MIN(maxthreads,omp_get_num_threads())
+#pragma omp parallel for num_threads maxthreads
     for(int trial=0;trial<ntrain;trial++) {
         int row;
         if(nsamples>0) row = samples[(unsigned)(19.73*k*sin(trial))%nsamples];
