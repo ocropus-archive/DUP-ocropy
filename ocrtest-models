@@ -24,6 +24,9 @@ parser.add_option("-D","--display",help="display continuously",action="store_tru
 parser.add_option("-n","--nvariants",help="number of variants",type=int,default=20)
 options,args = parser.parse_args()
 
+if len(args)==0:
+    args = ["=ocrolib.AutoMlpModel()"]
+
 models = []
 for arg in args:
     model = ocrolib.load_component(arg)
@@ -84,9 +87,9 @@ for model,nvariants in models:
     print "training"
     model.updateModel(verbose=1)
     print "saving"
-    model.save("_temp.model")
+    ocrolib.save_component("_temp.model",model)
     print "loading"
-    model.load("_temp.model")
+    model = ocrolib.load_component("_temp.model")
     print "testing"
     errs = 0
     for image,cls in generate(1):

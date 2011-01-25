@@ -273,10 +273,11 @@ maxthreads = c_int.in_dll(nnet_native,"maxthreads")
 maxthreads.value = min(8,utils.number_of_processors())
 
 class MLP:
-    def __init__(self):
+    def __init__(self,**kw):
         self.w1 = None
         self.verbose = 0
         self.eta = 0.1
+        common.set_params(self,kw,warn=0)
         self.err = -1
     def copy(self):
         mlp = MLP()
@@ -404,7 +405,7 @@ class MLP:
             nnet_native.forward_b(n,m,l,self.w1,self.b1,self.w2,self.b2,
                                   len(data),data,result)
         else:
-            raise Exception("data has unknown type")
+            raise Exception("data has unknown type: %s"%data.dtype)
         return result
     def classify(self,data,subset=None):
         data = data.reshape(len(data),prod(data.shape[1:]))
@@ -428,12 +429,13 @@ def log_uniform(lo,hi):
     return exp(pyrandom.uniform(log(lo),log(hi)))
 
 class AutoMLP(MLP):
-    def __init__(self):
+    def __init__(self,**kw):
         # fairly conservative default settings that result
         # in reasonably good performance for many problems
         self.verbose = 1
         self.initial_nhidden = [20,40,60,80,120,160]
         self.initial_eta = (0.1,0.8)
+        self.initial_epochs = 5
         self.initial_ntrain = 1000000
         self.log_eta_var = 0.2
         self.log_nh_var = 0.2
@@ -442,16 +444,18 @@ class AutoMLP(MLP):
         self.epochs_per_round = 5
         self.max_rounds = 24
         self.max_pool = 3
+        common.set_params(self,kw,warn=0)
+        self.kw = kw
     def train(self,data,classes,verbose=0):
         n = len(data)
         testing = array(selection(xrange(n),n/10),'i')
         training = setdiff1d(array(xrange(n),'i'),testing)
         testset = data[testing,:]
         testclasses = classes[testing]
-        ntrain = self.initial_ntrain
+        ntrain = min(self.initial_epochs*n,self.initial_ntrain)
         pool = []
         for nh in self.initial_nhidden:
-            mlp = MLP()
+            mlp = MLP(**self.kw)
             mlp.eta = log_uniform(*self.initial_eta)
             mlp.train(data,classes,etas=[(mlp.eta,ntrain)],
                       nhidden=nh,
@@ -504,7 +508,7 @@ def test():
 
 class MlpModel(common.ClassifierModel):
     makeClassifier = MLP
-    makeExtractor = ocrolib.ScaledFE
+    makeExtractor = ocrolib.BboxFE
     def __init__(self):
         common.ClassifierModel.__init__(self)
     def name(self):
@@ -514,7 +518,7 @@ class MlpModel(common.ClassifierModel):
 
 class AutoMlpModel(common.ClassifierModel):
     makeClassifier = AutoMLP
-    makeExtractor = ocrolib.ScaledFE
+    makeExtractor = ocrolib.BboxFE
     def __init__(self):
         common.ClassifierModel.__init__(self)
     def name(self):

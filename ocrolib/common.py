@@ -12,6 +12,14 @@ import docproc
 ### other utilities
 ################################################################
 
+def set_params(object,kw,warn=1):
+    for k,v in kw:
+        if hasattr(object,k):
+            setattr(object,k,v)
+        else:
+            if warn:
+                warn_once("setting unknown parameter %s=%s on %s"%(k,v,object))
+
 def logging(message,*args):
     message = message%args
     sys.stderr.write(message)
@@ -350,6 +358,16 @@ class CommonComponent:
         """Reinitialize the C++ component (if supported)."""
         self.comp.reinit()
 
+class PyComponent:
+    """Defines common methods similar to CommonComponent, but for Python
+    classes. Use of this base class is optional."""
+    def init(self):
+        pass
+    def name(self):
+        return "%s"%self
+    def description(self):
+        return "%s"%self
+    
 class CleanupGray(CommonComponent):
     """Cleanup grayscale images."""
     c_interface = "ICleanupGray"
@@ -897,7 +915,14 @@ class Extractor(CommonComponent):
 class ScaledFE(Extractor):
     c_class = "scaledfe"
 
-class Classifier:
+class BboxFE(PyComponent):
+    def __init__(self,**kw):
+        self.r = 32
+        set_params(self,kw)
+    def extract(self,image):
+        return array(docproc.isotropic_rescale(image,self.r),'f')
+
+class Classifier(PyComponent):
     """An abstraction for a classifier.  This gets trained on training vectors and
     returns vectors of posterior probabilities (or some other discriminant function.)
     You usually save these objects by pickling them."""
@@ -908,14 +933,15 @@ class Classifier:
         """Compute the ouputs corresponding to each input data vector."""
         raise Exception("unimplemented")
 
-class ClassifierModel:
+class ClassifierModel(PyComponent):
     """Wraps all the necessary functionality around a classifier in order to
     turn it into a character recognition model."""
-    def __init__(self):
+    def __init__(self,**kw):
         self.nbest = 5
         self.minp = 1e-3
         self.classifier = self.makeClassifier()
         self.extractor = self.makeExtractor()
+        set_params(self,kw)
         self.rows = None
         self.nrows = 0
         self.classes = []
@@ -929,7 +955,7 @@ class ClassifierModel:
             else:
                 self.geo = len(array(geometry,'f'))
     def makeInput(self,image,geometry):
-        v = self.extractor.extract(image)
+        v = self.extractor.extract(image).ravel()
         if self.geo>0:
             if geometry is not None:
                 geometry = array(geometry,'f')

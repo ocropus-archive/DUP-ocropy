@@ -1,3 +1,4 @@
+import scipy
 from scipy import stats
 from scipy.ndimage import measurements
 
@@ -67,3 +68,51 @@ def rel_geo_normalize(rel):
     geometry = array([ry,rw,rh],'f')
     return geometry
 
+def rescale_mean(image,r=32,plot=None):
+    ys,xs = meshgrid(range(image.shape[0]),range(image.shape[1]))
+    xs = xs.ravel()[(image>0).ravel()]
+    ys = ys.ravel()[(image>0).ravel()]
+    xm,ym = mean(xs),mean(ys)
+    xd,yd = mean(abs(xs-xm)),mean(abs(ys-ym))
+    if plot:
+        axis = subplot(plot)
+        imshow(image)
+        axis.add_patch(patches.Rectangle((xm-0.5,ym-0.5),1,1))
+    d = max(xd,yd)
+    print (xm,ym),(xd,yd)
+    scale = min(maxscale,(r/5.0)/d)
+    image = interpolation.zoom(image,scale,order=1)
+    w,h = image.shape
+    result = zeros((w+2*r,h+2*r))
+    result[:w,:h] = image[:,:]
+    image = result
+    dx,dy = r/2-scale*xm,r/2-scale*ym
+    print dx,dy
+    image = interpolation.shift(image,(dy,dx),order=0)
+    image = image[:r,:r]
+    return image
+
+def bbox(image):
+    image = (image!=0)
+    c = scipy.ndimage.measurements.find_objects(image)[0]
+    return (c[0].start,c[1].start,c[0].stop,c[1].stop)
+
+def extract(image,x0,y0,x1,y1):
+    return scipy.ndimage.interpolation.affine_transform(image,diag([1,1]),
+                                                        offset=(x0,y0),
+                                                        output_shape=(x1-x0,y1-y0))
+
+def isotropic_rescale(image,r=32):
+    x0,y0,x1,y1 = bbox(image)
+    sx = r*1.0/(x1-x0)
+    sy = r*1.0/(y1-y0)
+    s = min(sx,sy)
+    rs = r/s
+    dx = x0-(rs-(x1-x0))/2
+    dy = y0-(rs-(y1-y0))/2
+    result = scipy.ndimage.affine_transform(image,
+                                            diag([1/s,1/s]),
+                                            offset=(dx,dy),
+                                            order=0,
+                                            output_shape=(r,r))
+    return result
