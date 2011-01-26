@@ -8,6 +8,8 @@ import iulib,ocropus
 import utils
 import docproc
 
+pickle_mode = 1
+
 ################################################################
 ### other utilities
 ################################################################
@@ -1511,8 +1513,8 @@ def save_component(file,object):
     if type(object).__module__=="ocropus":
         ocropus.save_component(file,object)
         return
-    with open(file,"w") as stream:
-        cPickle.dump(object,stream,2)
+    with open(file,"wb") as stream:
+        cPickle.dump(object,stream,pickle_mode)
 
 def load_component(file):
     if file[0]=="=":
@@ -1529,7 +1531,7 @@ def load_component(file):
         result = Model()
         result.comp = ocropus.load_IModel(file)
         return result
-    with open(file,"r") as stream:
+    with open(file,"rb") as stream:
         return cPickle.load(stream)
 
 def load_linerec(file,wrapper=CmodelLineRecognizer):
