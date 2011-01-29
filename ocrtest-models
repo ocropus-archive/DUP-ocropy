@@ -84,9 +84,9 @@ for model,nvariants in models:
     print "training"
     model.updateModel(verbose=1)
     print "saving"
-    model.save("_temp.model")
+    ocrolib.save_component("_temp.model",model)
     print "loading"
-    model.load("_temp.model")
+    model = ocrolib.load_component("_temp.model")
     print "testing"
     errs = 0
     for image,cls in generate(1):

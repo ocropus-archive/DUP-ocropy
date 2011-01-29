@@ -528,16 +528,16 @@ class RegionExtractor:
     def id(self,i):
         """Return the RGB pixel value for this segment."""
         return self.comp.id(i)
-    def x0(self):
+    def x0(self,i):
         """Return x0 (column) for the start of the box."""
         return self.comp.x0(i)
-    def x1(self):
+    def x1(self,i):
         """Return x0 (column) for the end of the box."""
         return self.comp.x1(i)
-    def y0(self):
+    def y0(self,i):
         """Return y0 (row) for the start of the box."""
         return h-self.comp.y1(i)-1
-    def y1(self):
+    def y1(self,i):
         """Return y0 (row) for the end of the box."""
         return h-self.comp.y0(i)-1
     def bbox(self,i):
