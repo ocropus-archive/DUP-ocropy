@@ -212,7 +212,11 @@ for cluster in iterate_dbs(args):
 # gradient descent training for a multi-layer perceptron)
     
 print "starting classifier training"
-classifier.updateModel(verbose=1)
+round = 0
+for progress in classifier.updateModel1(verbose=1):
+    print "ocropus-ctrain:",round,progress
+    ocrolib.save_component("_temp_%03d.pymodel"%round,classifier)
+    round += 1
 
 # save the resulting model
 

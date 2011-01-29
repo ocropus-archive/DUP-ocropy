@@ -15,6 +15,12 @@ import common
 ocrolib = common
 from native import *
 
+class Record:
+    def __init__(self, **kwds):
+        self.__dict__.update(kwds)
+    def __str__(self):
+        return str(self.__dict__)
+
 def c_order(a):
     return tuple(a.strides)==tuple(sorted(a.strides,reverse=1))
 
@@ -442,11 +448,11 @@ class AutoMLP(MLP):
         self.min_round = 100000
         self.max_round = 10000000
         self.epochs_per_round = 5
-        self.max_rounds = 24
+        self.max_rounds = 48
         self.max_pool = 3
         common.set_params(self,kw,warn=0)
         self.kw = kw
-    def train(self,data,classes,verbose=0):
+    def train1(self,data,classes,verbose=0):
         n = len(data)
         testing = array(selection(xrange(n),n/10),'i')
         training = setdiff1d(array(xrange(n),'i'),testing)
@@ -466,27 +472,37 @@ class AutoMLP(MLP):
                     mlp.err,"%.4f"%(mlp.err*1.0/len(testset))
             pool.append(mlp)
         for i in range(self.max_rounds):
+            # if the pool is too large, pick only the best models
+            errs = [x.err+0.1*x.nhidden() for x in pool]
+            if len(errs)>self.max_pool:
+                choice = argsort(errs)
+                pool = list(take(pool,choice[:self.max_pool]))
+            # pick a random model from the pool
             mlp = selection(pool,1)[0]
             mlp = mlp.copy()
+            # compute random learning rates and number of hidden units
             new_eta = exp(log(mlp.eta)+randn()*self.log_eta_var)
             new_nh = max(2,int(exp(log(mlp.nhidden())+randn()*self.log_nh_var)))
-            # print "eta",mlp.eta,new_eta,"nh",mlp.nhidden(),new_nh
+            # train with the new parameters
             mlp.eta = new_eta
             mlp.changeHidden(data,classes,new_nh)
             mlp.train(data,classes,etas=[(mlp.eta,ntrain)],
                       verbose=(self.verbose>1),samples=training)
+            # determine error on test set
             mlp.err = error(mlp,testset,testclasses)
             print "AutoMLP pool",mlp.err,"%.4f"%(mlp.err*1.0/len(testset)),\
                 "(%.3f,%d)"%(mlp.eta,mlp.nhidden()),\
                 [x.err for x in pool]
             pool += [mlp]
-            errs = [x.err+0.1*x.nhidden() for x in pool]
-            if len(errs)>self.max_pool:
-                choice = argsort(errs)
-                pool = list(take(pool,choice[:self.max_pool]))
-        best = argmin([x.err+0.1*x.nhidden() for x in pool])
-        mlp = pool[best]
-        self.assign(mlp)
+            # to allow partial training, update this with the best model so far
+            best = argmin([x.err+0.1*x.nhidden() for x in pool])
+            mlp = pool[best]
+            self.assign(mlp)
+            yield Record(round=i,rounds=self.max_rounds,testerr=mlp.err*1.0/len(testset))
+    def train(self,data,classes,verbose=1):
+        # perform training for all rounds
+        for progress in self.train1(data,classes,verbose=verbose):
+            if verbose: print "progress",progress
     def assign(self,mlp):
         for k,v in mlp.__dict__.items():
             if k[0]=="_": continue
