@@ -16,7 +16,7 @@ pickle_mode = 2
 ################################################################
 
 def set_params(object,kw,warn=1):
-    for k,v in kw:
+    for k,v in kw.items():
         if hasattr(object,k):
             setattr(object,k,v)
         else:
@@ -1373,8 +1373,7 @@ def renumber_labels(line,start):
     return narray2lseg(line)
 
 class CmodelLineRecognizer(RecognizeLine):
-    def __init__(self,cmodel=None,segmenter="DpSegmenter",best=10,
-                 maxcost=10.0,reject_cost=100.0,minheight_letters=0.5):
+    def __init__(self,**kw):
         """Initialize a line recognizer that works from character models.
         The character shape model is given at initialization and needs to conform to
         the IModel interface.  The segmenter needs to support ISegmentLine.
@@ -1385,17 +1384,20 @@ class CmodelLineRecognizer(RecognizeLine):
         at all.  The minheight_letter threshold is the minimum height of a
         component (expressed as fraction of the medium segment height) in
         order to be added as a letter to the lattice."""
+        self.cmodel = None
         self.debug = 0
-        self.segmenter = SegmentLine().make(segmenter)
+        self.segmenter = SegmentLine().make("DpSegmenter")
         self.grouper = StandardGrouper()
-        self.grouper.pset("maxdist",10)
-        self.grouper.pset("maxrange",5)
-        self.cmodel = cmodel
-        self.best = best
-        self.maxcost = maxcost
-        self.reject_cost = reject_cost
-        self.min_height = minheight_letters
+        self.best = 3
+        self.min_probability = 0.1 
+        self.maxcost = 10.0
+        self.min_height = 0.5
         self.rho_scale = 1.0
+        self.maxdist = 10
+        self.maxrange = 5
+        set_params(self,kw)
+        self.grouper.pset("maxdist",self.maxdist)
+        self.grouper.pset("maxrange",self.maxrange)
 
     def recognizeLine(self,image):
         "Recognize a line, outputting a recognition lattice."""
@@ -1459,6 +1461,7 @@ class CmodelLineRecognizer(RecognizeLine):
             # compute the classifier output for this character
             # FIXME parallelize this
             outputs = self.cmodel.coutputs(char,geometry=rel)
+            outputs = [x for x in outputs if x[1]>self.min_probability]
             outputs = [(x[0],-log(x[1])) for x in outputs]
             self.chars.append(utils.Record(index=i,image=char,outputs=outputs))
             
