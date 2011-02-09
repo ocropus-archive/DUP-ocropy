@@ -312,10 +312,12 @@ def classifier_menu(cmd):
     menu = gtk.Menu()
     group = None
     activated = 0
-    models = glob.glob("*.cmodel")
+    models = glob.glob("*.cmodel") + glob.glob("*.model") + glob.glob("*.pymodel")
     try:
         modeldir = ocrolib.finddir("models")
         models += glob.glob(modeldir+"/*.cmodel")
+        models += glob.glob(modeldir+"/*.model")
+        models += glob.glob(modeldir+"/*.pymodel")
     except IOError:
         pass
     for model in models:
@@ -383,13 +385,15 @@ def cmd_nn(*args):
     assert type(grid)==gtk.ListStore
     count = 0
     images = []
+    geometries = []
     selected = list(cluster_viewer.get_selected_items())
     for i in selected:
         row = grid[i]
         pat = row[2]
         image = pat.image
         images.append(image)
-    results = classifier.coutputs_batch(images)
+        geometries.append([float(x) for x in pat.rel.split()])
+    results = classifier.coutputs_batch(images,geometries)
     for k in range(len(selected)):
         i = selected[k]
         row = grid[i]
@@ -422,11 +426,13 @@ def cmd_class(*args):
     n = len(grid)
     print "parallel classifier",n
     inputs = []
+    geometries = []
     for i in range(n):
         row = grid[i]
         image = row[2].image
         inputs.append(image)
-    results = ocrolib.omp_classify(confidence,inputs)
+        geometries.append([float(x) for x in row[2].rel.split()])
+    results = confidence.coutputs_batch(inputs,geometries)
     for i in range(n):
         outputs = results[i]
         outputs = [(x[0],-log(x[1])) for x in outputs]

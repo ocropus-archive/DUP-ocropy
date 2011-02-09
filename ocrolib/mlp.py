@@ -11,8 +11,7 @@ from pylab import *
 from scipy import *
 import utils
 
-import common
-ocrolib = common
+import common as ocrolib
 from native import *
 
 class Record:
@@ -397,7 +396,7 @@ class MLP:
             self.error_rate = rate
     def outputs(self,data,subset=None):
         data = data.reshape(len(data),prod(data.shape[1:]))
-        assert data.shape[1]==self.w1.shape[1]
+        assert data.shape[1]==self.w1.shape[1],"input shape: %s w1: %s"%(data.shape,self.w1.shape)
         if subset is not None:
             data = take(data,subset,axis=0)
             cls = take(cls,subset)
@@ -522,7 +521,7 @@ def test():
     print sum(pred!=classes[9000:])
     print mlp.w1.shape,mlp.w2.shape
 
-class MlpModel(common.ClassifierModel):
+class MlpModel(ocrolib.ClassifierModel):
     makeClassifier = MLP
     makeExtractor = ocrolib.BboxFE
     def __init__(self,**kw):
@@ -532,11 +531,11 @@ class MlpModel(common.ClassifierModel):
     def setExtractor(self,e):
         pass
 
-class AutoMlpModel(common.ClassifierModel):
+class AutoMlpModel(ocrolib.ClassifierModel):
     makeClassifier = AutoMLP
     makeExtractor = ocrolib.BboxFE
     def __init__(self,**kw):
-        common.ClassifierModel.__init__(self,**kw)
+        ocrolib.ClassifierModel.__init__(self,**kw)
     def name(self):
         return str(self)
     def setExtractor(self,e):

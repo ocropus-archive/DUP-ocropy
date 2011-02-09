@@ -378,16 +378,6 @@ class CommonComponent:
         """Reinitialize the C++ component (if supported)."""
         self.comp.reinit()
 
-class PyComponent:
-    """Defines common methods similar to CommonComponent, but for Python
-    classes. Use of this base class is optional."""
-    def init(self):
-        pass
-    def name(self):
-        return "%s"%self
-    def description(self):
-        return "%s"%self
-    
 class CleanupGray(CommonComponent):
     """Cleanup grayscale images."""
     c_interface = "ICleanupGray"
@@ -936,122 +926,6 @@ class Extractor(CommonComponent):
 
 class ScaledFE(Extractor):
     c_class = "scaledfe"
-
-class BboxFE(PyComponent):
-    def __init__(self,**kw):
-        self.r = 32
-        set_params(self,kw)
-    def extract(self,image):
-        return array(docproc.isotropic_rescale(image,self.r),'f')
-
-class Classifier(PyComponent):
-    """An abstraction for a classifier.  This gets trained on training vectors and
-    returns vectors of posterior probabilities (or some other discriminant function.)
-    You usually save these objects by pickling them."""
-    def train(self,data,classes):
-        """Train the classifier on the given dataset."""
-        raise Exception("unimplemented")
-    def outputs(self,data):
-        """Compute the ouputs corresponding to each input data vector."""
-        raise Exception("unimplemented")
-
-class ClassifierModel(PyComponent):
-    """Wraps all the necessary functionality around a classifier in order to
-    turn it into a character recognition model."""
-    def __init__(self,**kw):
-        self.nbest = 5
-        self.minp = 1e-3
-        self.classifier = self.makeClassifier()
-        self.extractor = self.makeExtractor()
-        set_params(self,kw,warn=0)
-        set_params(self.classifier,kw,warn=0)
-        self.rows = None
-        self.nrows = 0
-        self.classes = []
-        self.c2i = {}
-        self.i2c = []
-        self.geo = None
-    def setupGeometry(self,geometry):
-        if self.geo is None:
-            if geometry is None: 
-                self.geo = 0
-            else:
-                self.geo = len(array(geometry,'f'))
-    def makeInput(self,image,geometry):
-        v = self.extractor.extract(image).ravel()
-        if self.geo>0:
-            if geometry is not None:
-                geometry = array(geometry,'f')
-                assert len(geometry)==self.geo
-                v = concatenate([v,geometry])
-        return v
-    def makeOutputs(self,w):
-        result = []
-        indexes = argsort(-w)
-        for i in indexes[:self.nbest]:
-            if w[i]<self.minp: break
-            result.append((self.i2c[i],w[i]))
-        return result
-    def clear(self):
-        self.rows = None
-        self.classes = None
-        self.nrows = 0
-    def cadd(self,image,c,geometry=None):
-        if self.geo is None: 
-            # first time around, remember whether this classifier uses geometry
-            self.setupGeometry(geometry)
-        v = self.makeInput(image,geometry)
-        assert amin(v)>=-1.2 and amax(v)<=1.2
-        if self.nrows==0:
-            self.rows = zeros((1000,len(v)),'int8')
-        elif self.nrows==len(self.rows):
-            n,d = self.rows.shape
-            self.rows.resize((1000+n,d))
-        self.rows[self.nrows,:] = 100.0*v
-        if c not in self.c2i:
-            self.c2i[c] = len(self.i2c)
-            self.i2c.append(c)
-        self.classes.append(self.c2i[c])
-        self.nrows += 1
-    def updateModel(self,*args,**kw):
-        n,d = self.rows.shape
-        self.rows.resize(self.nrows,d)
-        self.classifier.train(self.rows,array(self.classes,'i'),*args,**kw)
-        self.clear()
-    def updateModel1(self,*args,**kw):
-        if not hasattr(self.classifier,"train1"):
-            warn_once("no train1 method; just doing training in one step")
-            self.updateModel(*args,**kw)
-            return
-        n,d = self.rows.shape
-        self.rows.resize(self.nrows,d)
-        for progress in self.classifier.train1(self.rows,array(self.classes,'i'),*args,**kw):
-            yield progress
-        self.clear()
-    def coutputs(self,image,geometry=None):
-        v = self.makeInput(image,geometry)
-        w = self.classifier.outputs(v.reshape(1,len(v)))[0]
-        return self.makeOutputs(w)
-    def cclassify(self,v,geometry=None):
-        v = self.makeInput(image,geometry)
-        w = self.classifier.outputs(v.reshape(1,len(v)))[0]
-        return self.i2c[argmax(w)]
-    def coutputs_batch(self,images,geometries=None):
-        # FIXME parallelize this
-        if geometries is None: geometries = [None]*len(images)
-        return [self.coutputs(images[i],geometries[i]) for i in range(len(images))]
-    def save_component(self,path):
-        rows = self.rows
-        nrows = self.nrows
-        classes = self.classes
-        self.rows = None
-        self.classes = None
-        self.nrows = None
-        with open(path,"wb") as stream:
-            pickle.dump(self,stream,pickle_mode)
-        self.rows = rows
-        self.classes = classes
-        self.nrows = nrows
 
 class DistComp(CommonComponent):
     """Compute distances fast. (Only for backwards compatibility; not recommended.)"""
@@ -1687,3 +1561,139 @@ class ComponentList:
         return self.comp.kind(i)
     def name(self,i):
         return self.comp.name(i)
+
+################################################################
+### new, pure Python components
+################################################################
+
+class PyComponent:
+    """Defines common methods similar to CommonComponent, but for Python
+    classes. Use of this base class is optional."""
+    def init(self):
+        pass
+    def name(self):
+        return "%s"%self
+    def description(self):
+        return "%s"%self
+    
+class ClassifierModel(PyComponent):
+    """Wraps all the necessary functionality around a classifier in order to
+    turn it into a character recognition model."""
+    def __init__(self,**kw):
+        self.nbest = 5
+        self.minp = 1e-3
+        self.classifier = self.makeClassifier()
+        self.extractor = self.makeExtractor()
+        set_params(self,kw,warn=0)
+        set_params(self.classifier,kw,warn=0)
+        self.rows = None
+        self.nrows = 0
+        self.classes = []
+        self.c2i = {}
+        self.i2c = []
+        self.geo = None
+    def setupGeometry(self,geometry):
+        if self.geo is None:
+            if geometry is None: 
+                self.geo = 0
+            else:
+                self.geo = len(array(geometry,'f'))
+    def makeInput(self,image,geometry):
+        v = self.extractor.extract(image).ravel()
+        if self.geo>0:
+            if geometry is not None:
+                geometry = array(geometry,'f')
+                assert len(geometry)==self.geo
+                v = concatenate([v,geometry])
+        return v
+    def makeOutputs(self,w):
+        result = []
+        indexes = argsort(-w)
+        for i in indexes[:self.nbest]:
+            if w[i]<self.minp: break
+            result.append((self.i2c[i],w[i]))
+        return result
+    def clear(self):
+        self.rows = None
+        self.classes = None
+        self.nrows = 0
+    def cadd(self,image,c,geometry=None):
+        if self.geo is None: 
+            # first time around, remember whether this classifier uses geometry
+            self.setupGeometry(geometry)
+        v = self.makeInput(image,geometry)
+        assert amin(v)>=-1.2 and amax(v)<=1.2
+        if self.nrows==0:
+            self.rows = zeros((1000,len(v)),'int8')
+        elif self.nrows==len(self.rows):
+            n,d = self.rows.shape
+            self.rows.resize((1000+n,d))
+        self.rows[self.nrows,:] = 100.0*v
+        if c not in self.c2i:
+            self.c2i[c] = len(self.i2c)
+            self.i2c.append(c)
+        self.classes.append(self.c2i[c])
+        self.nrows += 1
+    def updateModel(self,*args,**kw):
+        n,d = self.rows.shape
+        self.rows.resize(self.nrows,d)
+        self.classifier.train(self.rows,array(self.classes,'i'),*args,**kw)
+        self.clear()
+    def updateModel1(self,*args,**kw):
+        if not hasattr(self.classifier,"train1"):
+            warn_once("no train1 method; just doing training in one step")
+            self.updateModel(*args,**kw)
+            return
+        n,d = self.rows.shape
+        self.rows.resize(self.nrows,d)
+        for progress in self.classifier.train1(self.rows,array(self.classes,'i'),*args,**kw):
+            yield progress
+        self.clear()
+    def coutputs(self,image,geometry=None):
+        assert (not self.geo) or (geometry is not None),\
+            "classifier requires geometry but none is given"
+        v = self.makeInput(image,geometry)
+        w = self.classifier.outputs(v.reshape(1,len(v)))[0]
+        return self.makeOutputs(w)
+    def cclassify(self,v,geometry=None):
+        assert (not self.geo) or (geometry is not None),\
+            "classifier requires geometry but none is given"
+        v = self.makeInput(image,geometry)
+        w = self.classifier.outputs(v.reshape(1,len(v)))[0]
+        return self.i2c[argmax(w)]
+    def coutputs_batch(self,images,geometries=None):
+        # FIXME parallelize this
+        if geometries is None: geometries = [None]*len(images)
+        return [self.coutputs(images[i],geometries[i]) for i in range(len(images))]
+    def save_component(self,path):
+        rows = self.rows
+        nrows = self.nrows
+        classes = self.classes
+        self.rows = None
+        self.classes = None
+        self.nrows = None
+        with open(path,"wb") as stream:
+            pickle.dump(self,stream,pickle_mode)
+        self.rows = rows
+        self.classes = classes
+        self.nrows = nrows
+
+class BboxFE(PyComponent):
+    def __init__(self,**kw):
+        self.r = 32
+        set_params(self,kw)
+    def extract(self,image):
+        return array(docproc.isotropic_rescale(image,self.r),'f')
+
+class Classifier(PyComponent):
+    """An abstraction for a classifier.  This gets trained on training vectors and
+    returns vectors of posterior probabilities (or some other discriminant function.)
+    You usually save these objects by pickling them."""
+    def train(self,data,classes):
+        """Train the classifier on the given dataset."""
+        raise Exception("unimplemented")
+    def outputs(self,data):
+        """Compute the ouputs corresponding to each input data vector."""
+        raise Exception("unimplemented")
+
+    
