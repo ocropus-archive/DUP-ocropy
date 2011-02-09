@@ -72,8 +72,11 @@ def rel_geo_normalize(rel):
 
 def bbox(image):
     """Compute the bounding box for the pixels in the image."""
-    image = (image!=0)
-    c = scipy.ndimage.measurements.find_objects(image)[0]
+    assert len(image.shape)==2,"wrong shape: "+str(image.shape)
+    image = array(image!=0,'uint32')
+    cs = scipy.ndimage.measurements.find_objects(image)
+    if len(cs)<1: return None
+    c = cs[0]
     return (c[0].start,c[1].start,c[0].stop,c[1].stop)
 
 def extract(image,x0,y0,x1,y1):

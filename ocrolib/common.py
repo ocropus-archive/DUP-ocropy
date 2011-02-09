@@ -2,7 +2,7 @@ import os,os.path,re,numpy,unicodedata,sys
 import numpy
 from numpy import *
 from scipy.misc import imsave
-from scipy.ndimage import interpolation
+from scipy.ndimage import interpolation,measurements,morphology
 
 import iulib,ocropus
 import utils
@@ -16,12 +16,16 @@ pickle_mode = 2
 ################################################################
 
 def set_params(object,kw,warn=1):
+    kw = kw.copy()
     for k,v in kw.items():
         if hasattr(object,k):
+            print "setting",k,"=",v
             setattr(object,k,v)
         else:
             if warn:
                 warn_once("setting unknown parameter %s=%s on %s"%(k,v,object))
+        del kw[k]
+    return kw
 
 def logging(message,*args):
     message = message%args
@@ -210,6 +214,19 @@ def math2rect(r):
 ################################################################
 ### simple shape comparisons
 ################################################################
+
+def thin(image,c=1):
+    if c>0: image = morphology.binary_closing(image,iterations=c)
+    image = array(image,'B')
+    image = numpy2narray(image)
+    iulib.thin(image)
+    return array(narray2numpy(image),'B')
+
+def make_mask(image,r):    
+    skeleton = thin(image)
+    mask = ~(morphology.binary_dilation(image,iterations=r) - morphology.binary_erosion(image,iterations=r))
+    mask |= skeleton # binary_dilation(skeleton,iterations=1)
+    return mask
 
 def dist(image,item):
     assert image.shape==item.shape,[image.shape,item.shape]
@@ -816,7 +833,7 @@ class OmpClassifier:
     classify().  When classify() returns, you can get the outputs corresponding
     to each input sample."""
     def setClassifier(self,model):
-        self.comp = ocropus.OmpClassifier()
+        self.comp = ocropus.make_OmpClassifier()
         if isinstance(model,Model):
             self.model = model.comp
             self.comp.setClassifier(model.comp)
@@ -874,7 +891,7 @@ class Model(CommonComponent):
         if geometry is not None: warn_once("geometry given to Model")
         return self.comp.cadd(vector2narray(v),cls)
     def coutputs(self,v,geometry=None):
-        """Compute the ouputs for a given input vector v.  Outputs are
+        """Compute the outputs for a given input vector v.  Outputs are
         of the form [(cls,probability),...]
         The v argument can be rank 1 or larger.  If it is larger, it
         is assumed to be an image and converted from raster to mathematical
@@ -883,7 +900,9 @@ class Model(CommonComponent):
         return self.comp.coutputs(vector2narray(v))
     def coutputs_batch(self,vs,geometries=None):
         assert geometries==None
-        if self.omp is None: self.omp = OmpClassifier()
+        if self.omp is None: 
+            self.omp = OmpClassifier()
+            self.omp.setClassifier(self)
         self.omp.resize(len(vs))
         for i in range(len(vs)):
             self.omp.input(vs[i],i)
@@ -944,7 +963,8 @@ class ClassifierModel(PyComponent):
         self.minp = 1e-3
         self.classifier = self.makeClassifier()
         self.extractor = self.makeExtractor()
-        set_params(self,kw)
+        set_params(self,kw,warn=0)
+        set_params(self.classifier,kw,warn=0)
         self.rows = None
         self.nrows = 0
         self.classes = []

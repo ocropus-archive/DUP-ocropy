@@ -8,7 +8,7 @@ import sys,pickle,os,glob,traceback
 import scipy
 from pylab import *
 import ocrolib
-from ocrolib import dbtables
+from ocrolib import dbtables,docproc
 import sqlite3
 
 def TODO():
@@ -219,8 +219,8 @@ def cmd_similar(*args):
         selected = [grid[i][2].image for i in cluster_viewer.get_selected_items()]
         dists = [set_dist(x[2].image,selected) for x in grid]
     else:
-        selected = [ocrolib.stdsize(grid[i][2].image) for i in cluster_viewer.get_selected_items()]
-        dists = [set_dist(ocrolib.stdsize(x[2].image),selected) for x in grid]
+        selected = [docproc.isotropic_rescale(grid[i][2].image) for i in cluster_viewer.get_selected_items()]
+        dists = [set_dist(docproc.isotropic_rescale(x[2].image),selected) for x in grid]
     index = array(argsort(dists))
     index = [int(i) for i in index]
     grid.reorder(index)
@@ -343,10 +343,10 @@ class NoException:
 def load_classifier(which=options.model):
     global classifier
     try:
-        classifier = ocrolib.load_IModel(which)
+        classifier = ocrolib.load_component(which)
         # classifier.info()
         # classifier.getExtractor().info()
-        print "loaded classifier",which
+        print "loaded classifier",which,classifier
     except:
         traceback.print_exc()
         print "loading",options.model,"failed"
@@ -361,10 +361,10 @@ confidence = None
 def load_confidence(which=options.model):
     global confidence
     try:
-        confidence = ocrolib.load_IModel(which)
+        confidence = ocrolib.load_component(which)
         # confidence.info()
         # confidence.getExtractor().info()
-        print "loaded confidence",which
+        print "loaded confidence",which,confidence
     except:
         traceback.print_exc()
         print "loading",options.model,"failed"
@@ -389,7 +389,7 @@ def cmd_nn(*args):
         pat = row[2]
         image = pat.image
         images.append(image)
-    results = classifier.couputs_batch(images)
+    results = classifier.coutputs_batch(images)
     for k in range(len(selected)):
         i = selected[k]
         row = grid[i]

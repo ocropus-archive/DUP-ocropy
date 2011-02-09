@@ -525,8 +525,8 @@ def test():
 class MlpModel(common.ClassifierModel):
     makeClassifier = MLP
     makeExtractor = ocrolib.BboxFE
-    def __init__(self):
-        common.ClassifierModel.__init__(self)
+    def __init__(self,**kw):
+        common.ClassifierModel.__init__(self,**kw)
     def name(self):
         return str(self)
     def setExtractor(self,e):
@@ -535,8 +535,8 @@ class MlpModel(common.ClassifierModel):
 class AutoMlpModel(common.ClassifierModel):
     makeClassifier = AutoMLP
     makeExtractor = ocrolib.BboxFE
-    def __init__(self):
-        common.ClassifierModel.__init__(self)
+    def __init__(self,**kw):
+        common.ClassifierModel.__init__(self,**kw)
     def name(self):
         return str(self)
     def setExtractor(self,e):
