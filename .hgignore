@@ -21,3 +21,8 @@ Volume-*
 Volume_*
 *[0-9][0-9][0-9][0-9]*
 TAGS
+build
+*.db
+OLD
+*.tgz
+*.zip
