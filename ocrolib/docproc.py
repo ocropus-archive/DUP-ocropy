@@ -49,6 +49,7 @@ def rel_char_geom(box,params):
     """Given a character bounding box and a set of line geometry parameters,
     compute relative character position and size."""
     y0,y1,x0,x1 = box
+    assert y1>y0 and x1>x0,"%s %s"%((x0,x1),(y0,y1))
     mh,a,b = params
     y = avg(y0,y1)
     x = avg(x0,x1)
@@ -56,6 +57,10 @@ def rel_char_geom(box,params):
     rel_ypos = (y-yl)/mh
     rel_width = (x1-x0)*1.0/mh
     rel_height = (y1-y0)*1.0/mh
+    # ensure some reasonable bounds
+    assert rel_ypos>-100 and rel_ypos<100
+    assert rel_width>0 and rel_width<100
+    assert rel_height>0 and rel_height<100
     return rel_ypos,rel_width,rel_height
 
 def rel_geo_normalize(rel):
@@ -64,6 +69,7 @@ def rel_geo_normalize(rel):
     if type(rel)==str:
         rel = [float(x) for x in rel.split()]
     ry,rw,rh = rel
+    assert rw>0 and rh>0
     ry = clip(2*ry,-1,1)
     rw = clip(log(rw),-1,1)
     rh = clip(log(rh),-1,1)

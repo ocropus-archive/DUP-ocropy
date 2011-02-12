@@ -1,5 +1,5 @@
 #!/usr/bin/python
-import code,pickle,sys,os,signal,re
+import code,pickle,sys,os,signal,re,traceback
 from pylab import *
 from optparse import OptionParser
 
@@ -74,7 +74,13 @@ for raw,mask,cls,file,bbox,geo in chars(args):
         print amin(raw),amax(raw)
         clf(); gray(); imshow(raw); draw()
     x0,y0,x1,y1 = bbox
-    rel = docproc.rel_char_geom(bbox,geo)
+    try:
+        rel = docproc.rel_char_geom((y0,y1,x0,x1),geo)
+    except:
+        print "bad docproc.rel_char_geom"
+        traceback.print_exc()
+    ry,rw,rh = rel
+    assert rw>0 and rh>0
     table.set(image=raw,cls="_",count=1,file=file,bbox="%g %g %g %g"%bbox,
               cluster=-1,lgeo="%g %g %g"%geo,rel="%g %g %g"%rel)
     total += 1

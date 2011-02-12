@@ -145,6 +145,8 @@ for file in args:
         else:
             x0,y0,x1,y1 = x.bbox_m
             rel = docproc.rel_char_geom((y0,y1,x0,x1),x.lgeo)
+            ry,rw,rh = rel
+            assert rw>0 and rh>0
             id = table.set(image=raw,
                            cls=cls,
                            count=1,

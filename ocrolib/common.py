@@ -56,6 +56,16 @@ def warn_once(message,*args):
 ### conversion functions
 ################################################################
 
+def ustrg2unicode(u):
+    """Convert an iulib ustrg to a Python unicode string; the
+    C++ version iulib.ustrg2unicode does weird things for special
+    symbols like -3"""
+    result = ""
+    for i in range(u.length()):
+        value = u.at(i)
+        if value>=0: result += unichr(value)
+    return result
+
 def isfp(a):
     """Check whether the array is a floating point array."""
     if type(a)==str:
@@ -735,6 +745,7 @@ class Grouper(CommonComponent):
             u = iulib.unicode2ustrg(cls)
             self.comp.setClass(i,u,cost)
         elif type(cls)==int:
+            assert cls>=-3,"bad cls: %d (should be >= -3)"%cls
             self.comp.setClass(i,cls,cost)
         else:
             raise Exception("bad class type '%s'"%cls)
@@ -804,7 +815,7 @@ class RecognizeLine(CommonComponent):
         seg = iulib.intarray()
         costs = iulib.floatarray()
         self.comp.align(chars,seg,costs,line,transcription)
-        return (iulib.ustrg2unicode(chars),narray2lseg(seg),iulib.numpy(costs,'f'))
+        return (ustrg2unicode(chars),narray2lseg(seg),iulib.numpy(costs,'f'))
 
 class Linerec(RecognizeLine):
     """A line recognizer using neural networks and character size modeling.
@@ -979,7 +990,7 @@ class OcroFST():
     def bestpath(self):
         result = iulib.ustrg()
         self.comp.bestpath(result)
-        return iulib.ustrg2unicode(result)
+        return ustrg2unicode(result)
     def setString(self,s,costs,ids):
         self.comp.setString(unicode2ustrg(s),costs,ids)
     def nStates(self):
@@ -1125,7 +1136,7 @@ def read_line_segmentation(name,black=1):
 def beam_search_simple(u,v,n):
     s = iulib.ustrg()
     cost = ocropus.beam_search(s,native_fst(u),native_fst(v),n)
-    return iulib.ustrg2unicode(s),cost
+    return ustrg2unicode(s),cost
 
 def beam_search(lattice,lmodel,beam):
     """Perform a beam search through the lattice and language model, given the
@@ -1136,7 +1147,8 @@ def beam_search(lattice,lmodel,beam):
     outs = iulib.intarray()
     costs = iulib.floatarray()
     ocropus.beam_search(v1,v2,ins,outs,costs,native_fst(lattice),native_fst(lmodel),beam)
-    return (iulib.numpy(v1,'i'),iulib.numpy(v2,'i'),iulib.numpy(ins,'i'),iulib.numpy(outs,'i'),iulib.numpy(costs,'f'))
+    return (iulib.numpy(v1,'i'),iulib.numpy(v2,'i'),iulib.numpy(ins,'i'),
+            iulib.numpy(outs,'i'),iulib.numpy(costs,'f'))
 
 def intarray_as_unicode(a,skip0=1):
     result = u""
@@ -1337,6 +1349,8 @@ class CmodelLineRecognizer(RecognizeLine):
             # compute relative geometry
             aspect = (y1-y0)*1.0/(x1-x0)
             rel = docproc.rel_char_geom((y0,y1,x0,x1),geo)
+            ry,rw,rh = rel
+            assert rw>0 and rh>0,"error: rw=%g rh=%g"%(rw,rh)
             rel = docproc.rel_geo_normalize(rel)
 
             # extract the character image (and optionally display it)
@@ -1664,7 +1678,15 @@ class ClassifierModel(PyComponent):
     def coutputs_batch(self,images,geometries=None):
         # FIXME parallelize this
         if geometries is None: geometries = [None]*len(images)
-        return [self.coutputs(images[i],geometries[i]) for i in range(len(images))]
+        result = []
+        for i in range(len(images)):
+            try:
+                output = self.coutputs(images[i],geometries[i]) 
+            except:
+                print "recognition failed"
+                output = []
+            result.append(output)
+        return result
     def save_component(self,path):
         rows = self.rows
         nrows = self.nrows
@@ -1683,7 +1705,9 @@ class BboxFE(PyComponent):
         self.r = 32
         set_params(self,kw)
     def extract(self,image):
-        return array(docproc.isotropic_rescale(image,self.r),'f')
+        v = array(docproc.isotropic_rescale(image,self.r),'f')
+        # v /= sqrt(sum(v**2))
+        return v
 
 class Classifier(PyComponent):
     """An abstraction for a classifier.  This gets trained on training vectors and

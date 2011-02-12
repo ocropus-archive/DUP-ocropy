@@ -396,14 +396,17 @@ class MLP:
             self.error_rate = rate
     def outputs(self,data,subset=None):
         data = data.reshape(len(data),prod(data.shape[1:]))
-        assert data.shape[1]==self.w1.shape[1],"input shape: %s w1: %s"%(data.shape,self.w1.shape)
+        assert data.shape[1]==self.w1.shape[1],\
+            "input shape: %s w1: %s"%(data.shape,self.w1.shape)
         if subset is not None:
             data = take(data,subset,axis=0)
             cls = take(cls,subset)
         result = zeros((len(data),self.w2.shape[0]),dtype='f')
         n,m,l = self.shape()
         if data.dtype==dtype('f'):
-            assert amin(data)>-100.0 and amax(data)<100
+            # if amin(data)<-100 or amax(data)>100: print data
+            assert amin(data)>-100.0 and amax(data)<100,\
+                "mlp input out of range: %g %g"%(amin(data),amax(data))
             nnet_native.forward(n,m,l,self.w1,self.b1,self.w2,self.b2,
                                 len(data),data,result)
         elif data.dtype==dtype('int8'):
