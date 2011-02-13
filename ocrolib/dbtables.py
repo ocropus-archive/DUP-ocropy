@@ -2,12 +2,10 @@ import os
 import sqlite3
 import numpy
 import docproc
+import utils
 
 debug = os.getenv("dbtables_debug")
 if debug!=None: debug = int(debug)
-
-class Row:
-    pass
 
 class SmallImage:
     def pickle(self,image):
@@ -63,7 +61,7 @@ class RLEImage:
         return a
     
 class Database:
-    def __init__(self,con,factory=Row):
+    def __init__(self,con,factory=sqlite3.Row):
         if type(con)==str:
             self.con = sqlite3.connect(con,timeout=600.0)
         else:
@@ -82,14 +80,15 @@ class Database:
         cur.close(); del cur
 
 class Table:
-    def __init__(self,con,tname,factory=Row,read_only=0):
+    def __init__(self,con,tname,factory=sqlite3.Row,read_only=0):
         self.ignore_extra_keys = 0
         self.read_only = read_only
         if type(con)==str:
             self.con = sqlite3.connect(con,timeout=600.0)
         else:
             self.con = con
-        self.con.row_factory = sqlite3.Row
+        print self.con
+        self.con.row_factory = factory
         self.con.text_factory = str
         self.tname = tname
         self.converters = {}
@@ -99,6 +98,11 @@ class Table:
         cur = self.con.cursor()
         cur.execute("pragma synchronous=off")
         cur.close(); del cur
+    def __enter__(self,):
+        return self
+    def __exit__(self,type,value,traceback):
+        self.close()
+        return None
     def converter(self,cname,conv):
         self.converters[cname] = conv
     def read(self,ignore=1,**kw):
@@ -114,6 +118,7 @@ class Table:
         cur = self.con.cursor()
         cols = list(cur.execute("pragma table_info("+self.tname+")"))
         colnames = [col[1] for col in cols]
+        self.columns = colnames
         if cols==[]:
             assert not self.read_only,"attempting to access table '%s' which doesn't exist"%self.tname
             # table doesn't exist, so create it
@@ -121,6 +126,7 @@ class Table:
             if self.verbose: print "#",cmd
             for k,v in kw.items():
                 cmd += ", %s %s"%(k,v)
+                self.columns.append(k)
             cmd += ")"
             if debug: print cmd
             cur.execute(cmd)
@@ -133,7 +139,9 @@ class Table:
                     print "###",cmd
                     if debug: print cmd
                     cur.execute(cmd)
+                    self.columns.append(k)
         self.con.commit()
+        del cur
     def del_hash(self,kw,commit=1):
         cur = self.con.cursor()
         cmd = "delete from "+self.tname+" where id>=0"
@@ -150,7 +158,8 @@ class Table:
     def commit(self):
         self.con.commit()
     def close(self):
-        self.con.close(); del self.con
+        self.con.close()
+        del self.con
         self.con = None
     def get_keys(self,which):
         cur = self.con.cursor()
@@ -192,7 +201,7 @@ class Table:
         if self.verbose: print "#",cmd,values
         if debug: print cmd
         for row in cur.execute(cmd,values):
-            result = self.factory()
+            result = utils.Record()
             for k in row.keys():
                 conv = self.converters.get(k,None)
                 v = row[k]
@@ -203,17 +212,15 @@ class Table:
         cur.close(); del cur
     def put_hash(self,item,commit=1):
         assert len(item.keys())>0
+        assert self.columns is not None,"call open first"
         cur = self.con.cursor()
-        if self.columns is None:
-            cur.execute("PRAGMA table_info("+self.tname+")")
-            self.columns = [col[1] for col in cur]
         if item.has_key("id"):
             cmd = "insert or replace into "+self.tname
         else:
             cmd = "insert into "+self.tname
         if not self.ignore_extra_keys:
             for key in item.keys():
-                assert key in self.columns
+                assert key in self.columns,"key %s missing from columns %s"%(key,self.columns)
         names = [x for x in item.keys() if x in self.columns]
         cmd += " ("+",".join(names)+")"
         cmd += " values ("+",".join(["?"]*len(names))+")"
@@ -257,46 +264,6 @@ class Table:
             return result
         else:
             return self.put_hash(x.__dict__,commit=commit)
-
-class ClusterTable(Table):
-    def __init__(self,con,factory=Row,name="clusters"):
-        Table.__init__(self,con,name,factory=factory)
-        self.converter("image",SmallImage())
-class CharTable(Table):
-    def __init__(self,con,factory=Row,name="chars"):
-        Table.__init__(self,con,name,factory=factory)
-        self.converter("image",RLEImage())
-
-class CharRow(sqlite3.Row):
-    def __getattr__(self,name):
-        try:
-            return self[name]
-        except KeyError:
-            raise AttributeError()
-        self.con.row_factory = sqlite3.Row
-    def byte_image(self):
-        s = self.image
-        d0 = ord(s[0])
-        d1 = ord(s[1])
-        assert len(s)==d0*d1+2,(len(s),d0,d1)
-        return numpy.frombuffer(s[2:],dtype='B').reshape(d0,d1)
-    def float_image(self):
-        return numpy.array(self.byte_image(),'f')/255.0
-    def lineparams(self):
-        return numpy.array([float(x) for x in self.rel.split()],'f')
-    def rel_lineparams(self):
-        return docproc.rel_geo_normalize(self.rel)
-
-class CharDB:
-    def __init__(self,con,tname,factory=CharRow,read_only=0):
-        if type(con)==str:
-            self.con = sqlite3.connect(con,timeout=600.0)
-        else:
-            self.con = con
-        self.con.row_factory = factory
-        self.con.text_factory = str
-        self.tname = tname
-        self.execute("pragma synchronous=off")
     def execute(self,cmd,values=[],commit=0):
         cur = self.con.cursor()
         if debug: print cmd
@@ -318,3 +285,36 @@ class CharDB:
         result = list(rows)
         assert len(result)==1
         return result[0]
+
+class ClusterTable(Table):
+    def __init__(self,con,factory=sqlite3.Row,name="clusters"):
+        Table.__init__(self,con,name,factory=factory)
+        self.converter("image",SmallImage())
+
+class CharTable(Table):
+    def __init__(self,con,factory=sqlite3.Row,name="chars"):
+        Table.__init__(self,con,name,factory=factory)
+        self.converter("image",RLEImage())
+
+class CharRow(sqlite3.Row):
+    def __getattr__(self,name):
+        try:
+            return self[name]
+        except KeyError:
+            raise AttributeError()
+    def byte_image(self):
+        s = self.image
+        d0 = ord(s[0])
+        d1 = ord(s[1])
+        assert len(s)==d0*d1+2,(len(s),d0,d1)
+        return numpy.frombuffer(s[2:],dtype='B').reshape(d0,d1)
+    def float_image(self):
+        return numpy.array(self.byte_image(),'f')/255.0
+    def lineparams(self):
+        return numpy.array([float(x) for x in self.rel.split()],'f')
+    def rel_lineparams(self):
+        return docproc.rel_geo_normalize(self.rel)
+
+class OcroTable(Table):
+    def __init__(self,con,name="chars"):
+        Table.__init__(self,con,name,factory=CharRow)
