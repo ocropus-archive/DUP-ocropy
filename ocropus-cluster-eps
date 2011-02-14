@@ -54,14 +54,14 @@ class FastCluster:
         return " ".join([str(self.total),str(self.dc.length())])
     def save(self,file):
         table = dbtables.ClusterTable(file)
-        table.create(image="blob",cls="text",count="integer",classes="text")
+        table.create(image="blob",cls="text",count="integer",classes="text",cluster="integer")
         table.converter("image",dbtables.SmallImage())
         for i,v,count,key in self.biniter():
             image = array(v/amax(v)*255.0,'B')
             image.shape = (30,30)
             cls,count = self.cls(i)
             classes = repr(self.classes[i])
-            table.set(image=image,cls=cls,count=count,classes=classes)
+            table.set(image=image,cls=cls,count=count,classes=classes,cluster=i)
 
 (options,args) = parser.parse_args()
 
@@ -109,8 +109,9 @@ for row in table.get():
         print "#",total,"chars",binned.stats()
 
     # record which cluster the character was assigned to
-    table.set(id=row.id,cluster=cluster)
+    table.execute("update chars set cluster=? where id=?",[cluster,row.id])
 
+table.commit()
 table.close()
 
 # FIXME optionally perform k-means clustering here so that we can do 
