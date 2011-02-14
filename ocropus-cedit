@@ -23,6 +23,7 @@ def TODO():
     nnet+exception
     centering on largest component only
     sort by size, similarity, frequency
+    FIXME unify the two classification loops
     """
 
 parser = OptionParser(usage="""
@@ -392,11 +393,10 @@ def cmd_nn(*args):
         pat = row[2]
         image = pat.image
         images.append(image)
-        try:
+        if hasattr(pat,"rel"):
             geometry = docproc.rel_geo_normalize(pat.rel)
-        except:
-            print "OOPS",pat.rel
-            return 
+        else:
+            geometry = None
         geometries.append(geometry)
     results = classifier.coutputs_batch(images,geometries)
     for k in range(len(selected)):
@@ -436,7 +436,10 @@ def cmd_class(*args):
         row = grid[i]
         image = row[2].image
         inputs.append(image)
-        geometry = docproc.rel_geo_normalize(row[2].rel)
+        if hasattr(row[2],"rel"):
+            geometry = docproc.rel_geo_normalize(row[2].rel)
+        else:
+            geometry = None
         geometries.append(geometry)
     results = confidence.coutputs_batch(inputs,geometries)
     for i in range(n):

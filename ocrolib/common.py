@@ -900,12 +900,12 @@ class Model(CommonComponent):
         if geometry is not None: warn_once("geometry given to Model")
         return self.comp.coutputs(vector2narray(v))
     def coutputs_batch(self,vs,geometries=None):
-        assert geometries==None
         if self.omp is None: 
             self.omp = OmpClassifier()
             self.omp.setClassifier(self)
         self.omp.resize(len(vs))
         for i in range(len(vs)):
+            assert geometries is None or geometries[i] is None
             self.omp.input(vs[i],i)
         self.omp.classify()
         result = []

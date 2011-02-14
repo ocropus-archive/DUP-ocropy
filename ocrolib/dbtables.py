@@ -114,12 +114,16 @@ class Table:
         cur.close()
     def create(self,ignore=1,**kw):
         return self.open(ignore=ignore,**kw)
-    def open(self,ignore=1,**kw):
+    def getColumns(self):
         cur = self.con.cursor()
         cols = list(cur.execute("pragma table_info("+self.tname+")"))
-        colnames = [col[1] for col in cols]
-        self.columns = colnames
-        if cols==[]:
+        self.columns = [col[1] for col in cols]
+        del cur
+    def open(self,ignore=1,**kw):
+        cur = self.con.cursor()
+        self.getColumns()
+        colnames = self.columns
+        if colnames==[]:
             assert not self.read_only,"attempting to access table '%s' which doesn't exist"%self.tname
             # table doesn't exist, so create it
             cmd = "create table "+self.tname+" (id integer primary key"
@@ -142,6 +146,7 @@ class Table:
                     self.columns.append(k)
         self.con.commit()
         del cur
+        self.getColumns()
     def del_hash(self,kw,commit=1):
         cur = self.con.cursor()
         cmd = "delete from "+self.tname+" where id>=0"
@@ -212,7 +217,8 @@ class Table:
         cur.close(); del cur
     def put_hash(self,item,commit=1):
         assert len(item.keys())>0
-        assert self.columns is not None,"call open first"
+        if self.columns is None:
+            self.getColumns()
         cur = self.con.cursor()
         if item.has_key("id"):
             cmd = "insert or replace into "+self.tname
