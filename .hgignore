@@ -26,3 +26,5 @@ build
 OLD
 *.tgz
 *.zip
+html
+apidocs
