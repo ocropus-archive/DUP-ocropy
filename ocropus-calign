@@ -36,7 +36,8 @@ class AlignmentFailed:
 def safe_str(x):
     try:
         return str(x)
-    except:
+    except e:
+        traceback.print_exc()
         return "<bad ASCII>"
 
 class Log:
