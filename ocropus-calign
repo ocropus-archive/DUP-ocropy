@@ -154,7 +154,7 @@ def align1(t):
     imagefile,lname = t
     if lname!=default_lmodel_name:
         default_lmodel_name = lname
-        default_lmodel = ocrolib.read_lmodel(lname)
+        default_lmodel = ocrolib.read_lmodel_or_textlines(lname)
     nlines += 1
     prefix = re.sub(r'\.[^/.]*$','',imagefile)
 
@@ -190,7 +190,7 @@ def align1(t):
             log.error(gtname,"not found")
             return 0
         try:
-            lmodel = read_lmodel(gtname)
+            lmodel = read_lmodel_or_textlines(gtname)
         except:
             log.error(gtname,"failed to load")
             return 0

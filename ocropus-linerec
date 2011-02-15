@@ -84,13 +84,13 @@ def process_line(job):
         path = base+options.gtextension
         if os.path.exists(path):
             if options.verbose: print "# gt",path
-            lmodel = common.read_lmodel(path)
+            lmodel = common.read_lmodel_or_textlines(path)
         else:
             if options.verbose: print "# ground truth missing",path
             return
     else:
         if lmodel_name!=current_lmodel_name:
-            current_lmodel = common.read_lmodel(lmodel_name)
+            current_lmodel = common.read_lmodel_or_textlines(lmodel_name)
             current_lmodel_name = lmodel_name
         if options.verbose: print "# lmodel",lmodel_name
         lmodel = current_lmodel

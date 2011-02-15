@@ -12,7 +12,7 @@ import cPickle as pickle
 pickle_mode = 2
 
 ################################################################
-### other utilities
+### smallish utilities
 ################################################################
 
 def set_params(object,kw,warn=1):
@@ -51,6 +51,18 @@ def warn_once(message,*args):
     message = message%args
     message = "WARNING: "+message+"\n"
     sys.stderr.write(message)
+
+def quick_check_page_components(page_bin,dpi):
+    """Quickly check whether the components of page_bin are
+    reasonable.  Returns a value between 0 and 1; <0.5 means that
+    there is probably something wrong."""
+    return 1.0
+
+def quick_check_line_components(line_bin,dpi):
+    """Quickly check whether the components of line_bin are
+    reasonable.  Returns a value between 0 and 1; <0.5 means that
+    there is probably something wrong."""
+    return 1.0
 
 ################################################################
 ### conversion functions
@@ -271,8 +283,22 @@ def symdist(image,item):
     else: return err1,rerr1,transformed1
 
 ################################################################
-### components
+### native components
 ################################################################
+
+class ComponentList:
+    """Simple interface that lists the native components defined in OCRopus C++ code."""
+    def __init__(self):
+        self.comp = ocropus.ComponentList()
+    def length(self):
+        return self.comp.length()
+    def kind(self,i):
+        return self.comp.kind(i)
+    def name(self,i):
+        return self.comp.name(i)
+    def list(self):
+        for i in range(self.length()):
+            yield (self.kind(i),self.name(i))
 
 def mknative(spec,interface):
     """Instantiate a native OCRopus component.
@@ -878,6 +904,11 @@ class Model(CommonComponent):
     def updateModel(self,**kw):
         """After adding training samples, train the model."""
         self.comp.updateModel()
+    def updateModel1(self,**kw):
+        """After adding training samples, train the model. (For Python
+        components, this is an iterator that returns intermediate
+        results, but here, it just returns.)"""
+        self.comp.updateModel()
     def copy(self):
         """Make a copy of this model."""
         c = self.comp.copy()
@@ -1034,9 +1065,16 @@ def native_fst(fst):
         return fst.comp
     raise Exception("expected either native or Python FST")
 
-from PIL import Image
+### native code image I/O; we use this because it works more reliably
+### than Python's code for TIFF files
+
+### FIXME eventually try to replace this with builtin code
 
 def iulib_page_iterator(files):
+    """Given a list of files, iterate through the page images in those
+    files.  When multi-page TIFF files are encountered, iterates through
+    each such TIFF file.  Yields tuples (image,filename), where image
+    is in iulib format."""
     for file in files:
         _,ext = os.path.splitext(file)
         if ext.lower()==".tif" or ext.lower()==".tiff":
@@ -1056,9 +1094,10 @@ def iulib_page_iterator(files):
             yield image,file
 
 def page_iterator(files):
-    """Given a list of image files, iterate through all images in that list.
-    In particular, if any files are multipage TIFF images, load each page
-    contained in that TIFF image."""
+    """Given a list of files, iterate through the page images in those
+    files.  When multi-page TIFF files are encountered, iterates through
+    each such TIFF file.  Yields tuples (image,filename), where image
+    is in NumPy format."""
     # use the iulib implementation because its TIFF reader actually works;
     # the TIFF reader in all the Python libraries is broken
     for image,file in iulib_page_iterator(files):
@@ -1080,18 +1119,6 @@ def write_image_gray(file,image):
         iulib.write_image_gray(file,numpy2narray(mean(image,axis=2)))
     else:
         raise Exception("ndim must be 2 or 3, not %d"%image.ndim)
-
-def quick_check_page_components(page_bin,dpi):
-    """Quickly check whether the components of page_bin are
-    reasonable.  Returns a value between 0 and 1; <0.5 means that
-    there is probably something wrong."""
-    return 1.0
-
-def quick_check_line_components(line_bin,dpi):
-    """Quickly check whether the components of line_bin are
-    reasonable.  Returns a value between 0 and 1; <0.5 means that
-    there is probably something wrong."""
-    return 1.0
 
 def draw_pseg(pseg,axis=None):
     """Display a pseg."""
@@ -1133,14 +1160,23 @@ def read_line_segmentation(name,black=1):
     if black: ocropus.make_line_segmentation_black(lseg)
     return narray2lseg(lseg)
 
+def renumber_labels(line,start):
+    line = lseg2narray(line)
+    iulib.renumber_labels(line,start)
+    return narray2lseg(line)
+
+### native code beam search
+
 def beam_search_simple(u,v,n):
+    """Perform a simple beam search through the two lattices; beam width is
+    given by n."""
     s = iulib.ustrg()
     cost = ocropus.beam_search(s,native_fst(u),native_fst(v),n)
     return ustrg2unicode(s),cost
 
 def beam_search(lattice,lmodel,beam):
     """Perform a beam search through the lattice and language model, given the
-    beam size."""
+    beam size.  Returns (v1,v2,input_symbols,output_symbols,costs)."""
     v1 = iulib.intarray()
     v2 = iulib.intarray()
     ins = iulib.intarray()
@@ -1149,6 +1185,79 @@ def beam_search(lattice,lmodel,beam):
     ocropus.beam_search(v1,v2,ins,outs,costs,native_fst(lattice),native_fst(lmodel),beam)
     return (iulib.numpy(v1,'i'),iulib.numpy(v2,'i'),iulib.numpy(ins,'i'),
             iulib.numpy(outs,'i'),iulib.numpy(costs,'f'))
+
+### code for instantiation native components
+
+def make_ICleanupGray(name):
+    """Make a native component or a Python component.  Anything containing
+    a "(" is assumed to be a Python component."""
+    return mkpython(name) or CleanupGray().make(name)
+def make_ICleanupBinary(name):
+    """Make a native component or a Python component.  Anything containing
+    a "(" is assumed to be a Python component."""
+    return mkpython(name) or CleanupBinary().make(name)
+def make_IBinarize(name):
+    """Make a native component or a Python component.  Anything containing
+    a "(" is assumed to be a Python component."""
+    return mkpython(name) or Binarize().make(name)
+def make_ITextImageClassification(name):
+    """Make a native component or a Python component.  Anything containing
+    a "(" is assumed to be a Python component."""
+    return mkpython(name) or TextImageClassification().make(name)
+def make_ISegmentPage(name):
+    """Make a native component or a Python component.  Anything containing
+    a "(" is assumed to be a Python component."""
+    return mkpython(name) or SegmentPage().make(name)
+def make_ISegmentLine(name):
+    """Make a native component or a Python component.  Anything containing
+    a "(" is assumed to be a Python component."""
+    return mkpython(name) or SegmentLine().make(name)
+def make_IGrouper(name):
+    """Make a native component or a Python component.  Anything containing
+    a "(" is assumed to be a Python component."""
+    return mkpython(name) or Grouper().make(name)
+def make_IRecognizeLine(name):
+    """Make a native component or a Python component.  Anything containing
+    a "(" is assumed to be a Python component."""
+    return mkpython(name) or RecognizeLine().make(name)
+def make_IModel(name):
+    """Make a native component or a Python component.  Anything containing
+    a "(" is assumed to be a Python component."""
+    return mkpython(name) or Model().make(name)
+def make_IExtractor(name):
+    """Make a native component or a Python component.  Anything containing
+    a "(" is assumed to be a Python component."""
+    return mkpython(name) or Extractor().make(name)
+
+### native feature extraction code
+
+def hole_counts(image,r=1.0):
+    """Count the number of holes in the input image.  This assumes
+    background-is-FIXME."""
+    image = binarize_range(image)
+    return ocropus.hole_counts(numpy2narray(image),r)
+
+def component_counts(image,r=1.0):
+    """Count the number of connected components in the image.  This
+    assumes background-is-FIXME."""
+    image = binarize_range(image)
+    return ocropus.component_counts(numpy2narray(image),r)
+
+def junction_counts(image,r=1.0):
+    """Count the number of junctions in the image.  This
+    assumes background-is-FIXME."""
+    image = binarize_range(image)
+    return ocropus.junction_counts(numpy2narray(image),r)
+
+def endpoints_counts(image,r=1.0):
+    """Count the number of endpoints in the image.  This
+    assumes background-is-FIXME."""
+    image = binarize_range(image)
+    return ocropus.endpoints_counts(numpy2narray(image),r)
+
+################################################################
+### alignment, segmentations, and conversions
+################################################################
 
 def intarray_as_unicode(a,skip0=1):
     result = u""
@@ -1180,7 +1289,9 @@ def rseg_map(inputs):
             map[j] = count
     return map
 
-def read_lmodel(file):
+def read_lmodel_or_textlines(file):
+    """Either reads a language model in .fst format, or reads a text file
+    and corresponds a language model out of its lines."""
     if not os.path.exists(file): raise IOError(file)
     if file[-4:]==".fst":
         return OcroFST().load(file)
@@ -1273,11 +1384,205 @@ def compute_alignment(lattice,rseg,lmodel,beam=1000,verbose=0):
                         lattice=lattice,
                         cost=sum(costs))
 
-def renumber_labels(line,start):
-    line = lseg2narray(line)
-    iulib.renumber_labels(line,start)
-    return narray2lseg(line)
 
+################################################################
+### new, pure Python components
+################################################################
+
+class PyComponent:
+    """Defines common methods similar to CommonComponent, but for Python
+    classes. Use of this base class is optional."""
+    def init(self):
+        pass
+    def name(self):
+        return "%s"%self
+    def description(self):
+        return "%s"%self
+    
+class ClassifierModel(PyComponent):
+    """Wraps all the necessary functionality around a classifier in order to
+    turn it into a character recognition model."""
+    def __init__(self,**kw):
+        self.nbest = 5
+        self.minp = 1e-3
+        self.classifier = self.makeClassifier()
+        self.extractor = self.makeExtractor()
+        set_params(self,kw,warn=0)
+        set_params(self.classifier,kw,warn=0)
+        self.rows = None
+        self.nrows = 0
+        self.classes = []
+        self.c2i = {}
+        self.i2c = []
+        self.geo = None
+
+    ## helper methods
+
+    def setupGeometry(self,geometry):
+        """Set the self.geo instance variable to remember whether this
+        Model uses geometry or not."""
+        if self.geo is None:
+            if geometry is None: 
+                self.geo = 0
+            else:
+                self.geo = len(array(geometry,'f'))
+    def makeInput(self,image,geometry):
+        """Given an image and geometry, compute and return a feature vector.
+        This calls the feature extractor via self.extract(image)."""
+        v = self.extractor.extract(image).ravel()
+        if self.geo>0:
+            if geometry is not None:
+                geometry = array(geometry,'f')
+                assert len(geometry)==self.geo
+                v = concatenate([v,geometry])
+        return v
+    def makeOutputs(self,w):
+        """Given an output vector w from a classifier, translate use the
+        i2c array to translate this into a list [(class,probability),...]
+        representing the string output of the character recognizer."""
+        result = []
+        indexes = argsort(-w)
+        for i in indexes[:self.nbest]:
+            if w[i]<self.minp: break
+            result.append((self.i2c[i],w[i]))
+        return result
+
+    ## public methods
+    
+    def clear(self):
+        """Completely clear the classifier"""
+        self.rows = None
+        self.classes = None
+        self.nrows = 0
+
+    def cadd(self,image,c,geometry=None):
+        """Add a character to the model for training.  The image may be of variable size.
+        c should be the corresponding class, a string.  If geometry is given, it must be
+        given always and consistently."""
+        if self.geo is None: 
+            # first time around, remember whether this classifier uses geometry
+            self.setupGeometry(geometry)
+        v = self.makeInput(image,geometry)
+        assert amin(v)>=-1.2 and amax(v)<=1.2
+        if self.nrows==0:
+            self.rows = zeros((1000,len(v)),'int8')
+        elif self.nrows==len(self.rows):
+            n,d = self.rows.shape
+            self.rows.resize((1000+n,d))
+        self.rows[self.nrows,:] = 100.0*v
+        if c not in self.c2i:
+            self.c2i[c] = len(self.i2c)
+            self.i2c.append(c)
+        self.classes.append(self.c2i[c])
+        self.nrows += 1
+
+    def updateModel(self,*args,**kw):
+        """Perform actual training of the model."""
+        n,d = self.rows.shape
+        self.rows.resize(self.nrows,d)
+        self.classifier.train(self.rows,array(self.classes,'i'),*args,**kw)
+        self.clear()
+
+    def updateModel1(self,*args,**kw):
+        """Perform training of the model.  This actually is an iterator and
+        returns from time to time during training to allow saving of intermediate
+        models.  Use as in "for progress in model.updateModel1(): print progress" """
+        if not hasattr(self.classifier,"train1"):
+            warn_once("no train1 method; just doing training in one step")
+            self.updateModel(*args,**kw)
+            return
+        n,d = self.rows.shape
+        self.rows.resize(self.nrows,d)
+        for progress in self.classifier.train1(self.rows,array(self.classes,'i'),*args,**kw):
+            yield progress
+        self.clear()
+
+    def coutputs(self,image,geometry=None):
+        """Given an image and corresponding geometry (as during
+        training), compute outputs (posterior probabilities or
+        discriminant functions) for the image.  Returns a list like
+        [(class,probability),...]"""
+        assert (not self.geo) or (geometry is not None),\
+            "classifier requires geometry but none is given"
+        v = self.makeInput(image,geometry)
+        w = self.classifier.outputs(v.reshape(1,len(v)))[0]
+        return self.makeOutputs(w)
+
+    def cclassify(self,v,geometry=None):
+        """Given an image and corresponding geometry (as during
+        training), classify the image.  Returns just the class."""
+        assert (not self.geo) or (geometry is not None),\
+            "classifier requires geometry but none is given"
+        v = self.makeInput(image,geometry)
+        w = self.classifier.outputs(v.reshape(1,len(v)))[0]
+        return self.i2c[argmax(w)]
+
+    def coutputs_batch(self,images,geometries=None):
+        """Given a list of images (and an optional list of geometries if the
+        classifier requires it), compute a list of the corresponding outputs.
+        This is the same as calling coutputs repeatedly, but it may be
+        parallelized."""
+        # FIXME parallelize this
+        if geometries is None: geometries = [None]*len(images)
+        result = []
+        for i in range(len(images)):
+            try:
+                output = self.coutputs(images[i],geometries[i]) 
+            except:
+                print "recognition failed"
+                output = []
+            result.append(output)
+        return result
+
+    def save_component(self,path):
+        """Save this component to a file (using pickle). Use
+        ocrolib.load_component or cPickle.load to read the component
+        back in again."""
+        rows = self.rows
+        nrows = self.nrows
+        classes = self.classes
+        self.rows = None
+        self.classes = None
+        self.nrows = None
+        with open(path,"wb") as stream:
+            pickle.dump(self,stream,pickle_mode)
+        self.rows = rows
+        self.classes = classes
+        self.nrows = nrows
+
+class BboxFE(PyComponent):
+    """A feature extractor that only rescales the input image to fit into
+    a 32x32 (or, generally, r x r box) and normalizes the vector.
+    Parameters are r (size of the rescaled image), and normalize (can be
+    one of "euclidean", "max", "sum", or None)."""
+    def __init__(self,**kw):
+        self.r = 32
+        self.normalize = None
+        set_params(self,kw)
+    def extract(self,image):
+        v = array(docproc.isotropic_rescale(image,self.r),'f')
+        if self.normalize is None:
+            pass
+        elif self.normalize=="euclidean":
+            v /= sqrt(sum(v**2))
+        elif self.normalize=="max":
+            v /= amax(v)
+        elif self.normalize=="sum":
+            v /= sum(abs(v))
+        return v
+
+class Classifier(PyComponent):
+    """An abstraction for a classifier.  This gets trained on training vectors and
+    returns vectors of posterior probabilities (or some other discriminant function.)
+    You usually save these objects by pickling them."""
+    def train(self,data,classes):
+        """Train the classifier on the given dataset."""
+        raise Exception("unimplemented")
+    def outputs(self,data):
+        """Compute the ouputs corresponding to each input data vector."""
+        raise Exception("unimplemented")
+
+    
 class CmodelLineRecognizer(RecognizeLine):
     def __init__(self,**kw):
         """Initialize a line recognizer that works from character models.
@@ -1424,26 +1729,12 @@ class CmodelLineRecognizer(RecognizeLine):
         for k,v in obj.__dict__:
             self.__dict__[k] = v
 
-def make_ICleanupGray(name):
-    return mkpython(name) or CleanupGray().make(name)
-def make_ICleanupBinary(name):
-    return mkpython(name) or CleanupBinary().make(name)
-def make_IBinarize(name):
-    return mkpython(name) or Binarize().make(name)
-def make_ITextImageClassification(name):
-    return mkpython(name) or TextImageClassification().make(name)
-def make_ISegmentPage(name):
-    return mkpython(name) or SegmentPage().make(name)
-def make_ISegmentLine(name):
-    return mkpython(name) or SegmentLine().make(name)
-def make_IGrouper(name):
-    return mkpython(name) or Grouper().make(name)
-def make_IRecognizeLine(name):
-    return mkpython(name) or RecognizeLine().make(name)
-def make_IModel(name):
-    return mkpython(name) or Model().make(name)
-def make_IExtractor(name):
-    return mkpython(name) or Extractor().make(name)
+################################################################
+### loading and saving components
+################################################################
+
+# This code has to deal with a lot of special cases for all the
+# different formats we have accrued.
 
 def obinfo(ob):
     result = str(ob)
@@ -1453,6 +1744,13 @@ def obinfo(ob):
     return result
 
 def save_component(file,object,verbose=0,verify=0):
+    """Save an object to disk in an appropriate format.  If the object
+    is a wrapper for a native component (=inherits from
+    CommonComponent and has a comp attribute, or is in package
+    ocropus), write it using ocropus.save_component in native format.
+    Otherwise, write it using Python's pickle.  We could use pickle
+    for everything (since the native components pickle), but that
+    would be slower and more confusing."""
     if hasattr(object,"save_component"):
         object.save_component(file)
         return
@@ -1476,6 +1774,14 @@ def save_component(file,object,verbose=0,verify=0):
             test = pickle.load(stream)
 
 def load_component(file):
+    """Load a component from disk.  If file starts with "@", it is
+    taken as a Python expression and evaluated, but this can be overridden
+    by starting file with "=".  Otherwise, the contents of the file are
+    examined.  If it looks like a native component, it is loaded as a line
+    recognizers if it can be identified as such, otherwise it is loaded
+    with load_Imodel as a model.  Anything else is loaded with Python's
+    pickle.load."""
+
     if file[0]=="=":
         return pyconstruct(file[1:])
     elif file[0]=="@":
@@ -1535,22 +1841,6 @@ def binarize_range(image,dtype='B'):
     if dtype=='B': scale = 255
     return array(scale*(image>threshold),dtype=dtype)
 
-def hole_counts(image,r=1.0):
-    image = binarize_range(image)
-    return ocropus.hole_counts(numpy2narray(image),r)
-
-def component_counts(image,r=1.0):
-    image = binarize_range(image)
-    return ocropus.component_counts(numpy2narray(image),r)
-
-def junction_counts(image,r=1.0):
-    image = binarize_range(image)
-    return ocropus.junction_counts(numpy2narray(image),r)
-
-def endpoints_counts(image,r=1.0):
-    image = binarize_range(image)
-    return ocropus.endpoints_counts(numpy2narray(image),r)
-
 def edit_distance(s,t,use_space=0,case_sensitive=0):
     if not case_sensitive:
         s = s.upper()
@@ -1566,158 +1856,3 @@ def edit_distance(s,t,use_space=0,case_sensitive=0):
     print t_.as_string()
     return ocropus.edit_distance(s_,t_)
 
-class ComponentList:
-    def __init__(self):
-        self.comp = ocropus.ComponentList()
-    def length(self):
-        return self.comp.length()
-    def kind(self,i):
-        return self.comp.kind(i)
-    def name(self,i):
-        return self.comp.name(i)
-
-################################################################
-### new, pure Python components
-################################################################
-
-class PyComponent:
-    """Defines common methods similar to CommonComponent, but for Python
-    classes. Use of this base class is optional."""
-    def init(self):
-        pass
-    def name(self):
-        return "%s"%self
-    def description(self):
-        return "%s"%self
-    
-class ClassifierModel(PyComponent):
-    """Wraps all the necessary functionality around a classifier in order to
-    turn it into a character recognition model."""
-    def __init__(self,**kw):
-        self.nbest = 5
-        self.minp = 1e-3
-        self.classifier = self.makeClassifier()
-        self.extractor = self.makeExtractor()
-        set_params(self,kw,warn=0)
-        set_params(self.classifier,kw,warn=0)
-        self.rows = None
-        self.nrows = 0
-        self.classes = []
-        self.c2i = {}
-        self.i2c = []
-        self.geo = None
-    def setupGeometry(self,geometry):
-        if self.geo is None:
-            if geometry is None: 
-                self.geo = 0
-            else:
-                self.geo = len(array(geometry,'f'))
-    def makeInput(self,image,geometry):
-        v = self.extractor.extract(image).ravel()
-        if self.geo>0:
-            if geometry is not None:
-                geometry = array(geometry,'f')
-                assert len(geometry)==self.geo
-                v = concatenate([v,geometry])
-        return v
-    def makeOutputs(self,w):
-        result = []
-        indexes = argsort(-w)
-        for i in indexes[:self.nbest]:
-            if w[i]<self.minp: break
-            result.append((self.i2c[i],w[i]))
-        return result
-    def clear(self):
-        self.rows = None
-        self.classes = None
-        self.nrows = 0
-    def cadd(self,image,c,geometry=None):
-        if self.geo is None: 
-            # first time around, remember whether this classifier uses geometry
-            self.setupGeometry(geometry)
-        v = self.makeInput(image,geometry)
-        assert amin(v)>=-1.2 and amax(v)<=1.2
-        if self.nrows==0:
-            self.rows = zeros((1000,len(v)),'int8')
-        elif self.nrows==len(self.rows):
-            n,d = self.rows.shape
-            self.rows.resize((1000+n,d))
-        self.rows[self.nrows,:] = 100.0*v
-        if c not in self.c2i:
-            self.c2i[c] = len(self.i2c)
-            self.i2c.append(c)
-        self.classes.append(self.c2i[c])
-        self.nrows += 1
-    def updateModel(self,*args,**kw):
-        n,d = self.rows.shape
-        self.rows.resize(self.nrows,d)
-        self.classifier.train(self.rows,array(self.classes,'i'),*args,**kw)
-        self.clear()
-    def updateModel1(self,*args,**kw):
-        if not hasattr(self.classifier,"train1"):
-            warn_once("no train1 method; just doing training in one step")
-            self.updateModel(*args,**kw)
-            return
-        n,d = self.rows.shape
-        self.rows.resize(self.nrows,d)
-        for progress in self.classifier.train1(self.rows,array(self.classes,'i'),*args,**kw):
-            yield progress
-        self.clear()
-    def coutputs(self,image,geometry=None):
-        assert (not self.geo) or (geometry is not None),\
-            "classifier requires geometry but none is given"
-        v = self.makeInput(image,geometry)
-        w = self.classifier.outputs(v.reshape(1,len(v)))[0]
-        return self.makeOutputs(w)
-    def cclassify(self,v,geometry=None):
-        assert (not self.geo) or (geometry is not None),\
-            "classifier requires geometry but none is given"
-        v = self.makeInput(image,geometry)
-        w = self.classifier.outputs(v.reshape(1,len(v)))[0]
-        return self.i2c[argmax(w)]
-    def coutputs_batch(self,images,geometries=None):
-        # FIXME parallelize this
-        if geometries is None: geometries = [None]*len(images)
-        result = []
-        for i in range(len(images)):
-            try:
-                output = self.coutputs(images[i],geometries[i]) 
-            except:
-                print "recognition failed"
-                output = []
-            result.append(output)
-        return result
-    def save_component(self,path):
-        rows = self.rows
-        nrows = self.nrows
-        classes = self.classes
-        self.rows = None
-        self.classes = None
-        self.nrows = None
-        with open(path,"wb") as stream:
-            pickle.dump(self,stream,pickle_mode)
-        self.rows = rows
-        self.classes = classes
-        self.nrows = nrows
-
-class BboxFE(PyComponent):
-    def __init__(self,**kw):
-        self.r = 32
-        set_params(self,kw)
-    def extract(self,image):
-        v = array(docproc.isotropic_rescale(image,self.r),'f')
-        # v /= sqrt(sum(v**2))
-        return v
-
-class Classifier(PyComponent):
-    """An abstraction for a classifier.  This gets trained on training vectors and
-    returns vectors of posterior probabilities (or some other discriminant function.)
-    You usually save these objects by pickling them."""
-    def train(self,data,classes):
-        """Train the classifier on the given dataset."""
-        raise Exception("unimplemented")
-    def outputs(self,data):
-        """Compute the ouputs corresponding to each input data vector."""
-        raise Exception("unimplemented")
-
-    
