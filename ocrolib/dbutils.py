@@ -4,9 +4,8 @@ import numpy
 import docproc
 import utils
 
-verbose = os.getenv("dbtables_verbose")
+verbose = os.getenv("dbutils_verbose")
 if verbose!=None: verbose = int(verbose)
-verbose = 1
 
 def image2blob(image):
     # print image.shape,image.dtype

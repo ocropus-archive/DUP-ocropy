@@ -59,7 +59,7 @@ parser.add_option("-v","--verbose",help="verbose",action="store_true")
 parser.add_option("-t","--table",help="which table to edit",default=None)
 # use this with old (unflipped) cmodels trained from Python
 parser.add_option("-F","--flip",help="flip characters before handing to classifier",default=1,action="store_false")
-parser.add_option("-B","--batchsize",help="maximum number of characters loaded for display",type="int",default=50000)
+parser.add_option("-B","--batchsize",help="maximum number of characters loaded for display",type="int",default=5000)
 parser.add_option("-s","--select",help="initial character to select",default=None)
 (options,args) = parser.parse_args()
 
