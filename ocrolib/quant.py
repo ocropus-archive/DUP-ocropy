@@ -51,12 +51,16 @@ nmod.alldists.argtypes = [I,I,A1F,A1F,A2F]
 
 def alldists(v,data,out=None):
     if out is None: out = zeros(data.shape[0],'f')
+    assert v.ndim==1
+    assert data.ndim==2
     assert len(out)==data.shape[0]
     assert len(v)==data.shape[1]
     nmod.alldists(data.shape[0],data.shape[1],out,v,data)
     return out
 
 def argmindist2(v,data):
+    assert v.ndim==1
+    assert data.ndim==2
     assert len(v)==data.shape[1]
     ds = zeros(data.shape[0],'f')
     nmod.alldists(data.shape[0],data.shape[1],ds,v,data)
@@ -67,6 +71,7 @@ def kmeans(data,k,maxiter=100):
     """Regular k-means algorithm.  Computes k means from data."""
     print "# kmeans",data.shape,"k",k
     assert data.dtype==numpy.dtype('f')
+    assert data.ndim==2
     global verbose, CHECK
     n = len(data)
     d = len(data[0])

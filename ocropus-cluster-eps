@@ -54,14 +54,14 @@ class FastCluster:
         return " ".join([str(self.total),str(self.dc.length())])
     def save(self,file):
         table = dbtables.ClusterTable(file)
-        table.create(image="blob",cls="text",count="integer",classes="text")
+        table.create(image="blob",cls="text",count="integer",classes="text",cluster="integer")
         table.converter("image",dbtables.SmallImage())
         for i,v,count,key in self.biniter():
             image = array(v/amax(v)*255.0,'B')
             image.shape = (30,30)
             cls,count = self.cls(i)
             classes = repr(self.classes[i])
-            table.set(image=image,cls=cls,count=count,classes=classes)
+            table.set(image=image,cls=cls,count=count,classes=classes,cluster=i)
 
 (options,args) = parser.parse_args()
 
@@ -81,21 +81,42 @@ if os.path.exists(output):
 ion()
 show()
 
+# open the relevant tables
+
 table = dbtables.Table(input,options.table)
 table.converter("image",dbtables.SmallImage())
 table.create(image="blob",cluster="integer",cls="integer")
 
-total = 0
 binned = FastCluster(options.epsilon)
 total = 0
 for row in table.get():
+    # get the image and the class out of the record
     raw = row.image
     cls = row.cls
+
+    # don't store images that are too large
     if raw.shape[0]>255 or raw.shape[1]>255: continue
+
+    # make sure the maximum is 1.0
     raw = raw/float(amax(raw))
+
+    # add it to the binned clusterer
     cluster = binned.add(raw,cls)
+
+    # measure and report progress
     total+=1
-    if total%1000==0:
+    if total%1000==0: 
         print "#",total,"chars",binned.stats()
+
+    # record which cluster the character was assigned to
+    table.execute("update chars set cluster=? where id=?",[cluster,row.id])
+
+table.commit()
+table.close()
+
+# FIXME optionally perform k-means clustering here so that we can do 
+# everything in one step and keep the cluster labels updated more easily
+
+# save the clustered data
 print "#",binned.stats()
 binned.save(output)

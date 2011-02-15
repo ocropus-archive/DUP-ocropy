@@ -15,6 +15,7 @@ parser.add_option("-v","--verbose",help="verbose output")
 parser.add_option("-m","--minsize",help="minimum component width and height",type="int",default=8)
 parser.add_option("-a","--absolute",help="output absolute images",action="store_true")
 parser.add_option("-s","--segmenter",help="segmenter",default="SegmentLineByGCCS")
+parser.add_option("-n","--n",help="maximum number of chars",type=int,default=100000000)
 parser.add_option("-N","--nosource",help="do not record source info",action="store_true")
 #parser.add_option("-r","--raw",help="output unsegmented",action="store_true",default=True)
 #parser.add_option("-a","--maxage",help="output missegmented",default=10000000,type="int")
@@ -85,5 +86,7 @@ for raw,mask,cls,file,bbox,geo in chars(args):
               cluster=-1,lgeo="%g %g %g"%geo,rel="%g %g %g"%rel)
     total += 1
     if total%10000==0: table.commit()
+    if total>=options.n: break
 
 table.commit()
+table.close()
