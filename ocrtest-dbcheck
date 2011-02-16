@@ -1,0 +1,87 @@
+#!/usr/bin/python
+
+from pylab import *
+from ocrolib import dbutils
+from optparse import OptionParser
+
+parser = OptionParser(usage="""
+Check an OCR character database for consistency.
+""")
+parser.add_option("-t","--table",help="which table to check",default="chars")
+options,args = parser.parse_args()
+
+assert len(args)==1
+
+path = args[0]
+
+db = dbutils.chardb(path,options.table)
+
+dbutils.execute(db,"create index if not exists cls_index on %s (cls)"%options.table)
+
+def count(cls):
+    return dbutils.value_query(db,"select count(*) from %s where cls=?"%options.table,cls)
+
+def between(x,lo,hi):
+    assert lo<=hi
+    return x>=lo and x<=hi
+
+def property(cls,which,n=1000,summary=mean):
+    """Check rel column by class.
+    which is 0 for rel_ypos, 1 for rel_width, 2 for rel_height"""
+    def relconv(s): return map(float,s.split())
+    rels = map(relconv,list(dbutils.col_query(db,"select rel from chars where cls=? limit %s"%n,cls)))
+    items = map(lambda x:x[which],rels)
+    value = summary(items)
+    print "'%s' [%d] = %g"%(cls,which,value)
+    return value
+
+print "=== checking presence of characters"
+
+chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789,.?!'\""
+print chars
+for c in chars:
+    result = dbutils.tuple_query(db,"select * from chars where cls=? limit 10",c)
+    result = list(result)
+    if len(result)==0:
+        print "WARNING: no characters found for: %s"%c
+
+print "=== checking frequencies"
+
+assert count(".")>count("'")
+assert count(",")>count("'")
+assert count("e")>count("E")
+assert count("e")>count("z")
+assert count("e")>count("q")
+
+print "=== checking rel_ypos"
+
+assert between(property("0",0),0.1,0.5)
+assert between(property("y",0),-0.5,-0.1)
+assert between(property("p",0),-0.5,-0.1)
+assert between(property("m",0),-0.05,0.05)
+assert between(property("l",0),0.1,0.5)
+assert between(property(".",0),-0.5,-0.1)
+assert between(property(",",0),-0.5,-0.1)
+assert between(property("'",0),0.3,1.0)
+assert between(property("\"",0),0.3,1.0)
+
+print "=== checking rel_width"
+
+assert between(property("0",1),0.5,1.5)
+assert between(property("y",1),0.7,1.5)
+assert between(property("p",1),0.7,1.5)
+assert between(property("m",1),1.0,2.0)
+assert between(property("l",1),0.1,0.7)
+assert between(property("-",1),0.5,1.5)
+assert between(property(".",1),0.1,0.5)
+
+print "=== checking rel_height"
+
+assert between(property("0",2),1.0,2.0)
+assert between(property("y",2),1.0,2.0)
+assert between(property("p",2),1.0,2.0)
+assert between(property("m",2),0.7,1.5)
+assert between(property("l",2),1.0,2.0)
+assert between(property("-",2),0.1,0.5)
+assert between(property(".",2),0.1,0.5)
+

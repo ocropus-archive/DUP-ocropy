@@ -1561,7 +1561,7 @@ class BboxFE(PyComponent):
         set_params(self,kw)
     def extract(self,image):
         v = array(docproc.isotropic_rescale(image,self.r),'f')
-        if self.normalize is None:
+        if not hasattr(self,"normalize") or self.normalize is None:
             pass
         elif self.normalize=="euclidean":
             v /= sqrt(sum(v**2))

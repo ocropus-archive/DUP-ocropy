@@ -138,10 +138,10 @@ def tuple_query(db,query,*params):
 
 def value_query(db,q,*params):
     """Perform a query on the result yielding a single value as a result (or an error)."""
-    result = tquery(db,q,*params)
-    assert len(result==1),"query yielded more than one result: %s"%(result[:10],)
+    result = list(tuple_query(db,q,*params))
+    assert len(result)==1,"query yielded more than one result: %s"%(result[:10],)
     result = result[0]
-    assert len(result==1),"result row contains more than one element: %s"%(result[:10],)
+    assert len(result)==1,"result row contains more than one element: %s"%(result[:10],)
     return result[0]
 
 def update(db,table,where,*params,**assignments):
