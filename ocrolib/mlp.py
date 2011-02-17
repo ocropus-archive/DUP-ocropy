@@ -9,7 +9,7 @@ from random import sample as selection, shuffle, uniform
 from numpy import *
 from pylab import *
 from scipy import *
-import utils
+import utils,common
 
 import common as ocrolib
 from native import *
@@ -267,7 +267,7 @@ void backward_b(int n,int m,int l,float w1[m][n],float b1[m],float w2[l][m],floa
 
 nnet_native.forward.argtypes = [I,I,I,A2F,A1F,A2F,A1F, I,A2F,A2F]
 nnet_native.classify.argtypes = [I,I,I,A2F,A1F,A2F,A1F, I,A2F,A1I]
-nnet_native.backward.argtypes = [I,I,I,A2F,A1F,A2F,A1F, I,A2F,A1I,F,I]
+nnet_native.backward.argtypes = [I,I,I,A2F,A1F,A2F,A1F, I,A2F,A1I,F,I,I,A1I]
 
 nnet_native.forward_b.argtypes = [I,I,I,A2F,A1F,A2F,A1F, I,A2B,A2F]
 nnet_native.classify_b.argtypes = [I,I,I,A2F,A1F,A2F,A1F, I,A2B,A1I]
@@ -387,7 +387,7 @@ class MLP:
                                        len(data),data,cls,eta,batchsize,
                                        len(samples),samples)
             else:
-                raise Exception("data has unknown type")
+                raise Exception("data has unknown type (%s)"%data.dtype)
             err = error(self,data,cls)
             rate = err*1.0/len(data)
             if verbose:
