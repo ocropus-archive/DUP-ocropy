@@ -1800,6 +1800,14 @@ def load_component(file):
         return pickle.load(stream)
 
 def load_linerec(file,wrapper=CmodelLineRecognizer):
+    component = load_component(file)
+    if hasattr(component,"recognizeLine"):
+        return component
+    if hasattr(component,"coutputs"):
+        return wrapper(cmodel=component)
+    raise Exception("wanted linerec, got %s"%component)
+
+def load_linerec_old(file,wrapper=CmodelLineRecognizer):
     """Loads a line recognizer.  This handles a bunch of special cases
     due to the way OCRopus has evolved.  In the long term, .pymodel is the
     preferred format.
