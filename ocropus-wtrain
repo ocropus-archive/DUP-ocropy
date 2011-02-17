@@ -1,0 +1,79 @@
+#!/usr/bin/python
+import code,pickle,sys,os,re,traceback
+from optparse import OptionParser
+from pylab import *
+import ocrolib
+from ocrolib import dbtables,docproc,mlp,wmodel
+from scipy.ndimage import interpolation
+
+parser = OptionParser("""
+usage: %prog [options] .../.../010001.png ...
+
+Extract character images from OCR output and store them in a database file.  
+This assume that for each line.png, there is a line.cseg.gt.png and line.gt.txt file.
+""")
+
+parser.add_option("-o","--output",help="output file",default="space.model")
+parser.add_option("-u","--unmerged",help="unmerged output file",default=None)
+parser.add_option("-n","--nomissegmented",help="output no missegmented characters",action="store_true")
+parser.add_option("-r","--raw",help="output unlabeled characters",action="store_true")
+parser.add_option("-a","--maxage",help="output missegmented",default=10000000,type="int")
+parser.add_option("-D","--display",help="display chars",action="store_true")
+parser.add_option("-v","--verbose",help="verbose output",action="store_true")
+parser.add_option("-N","--nosource",help="do not record source info",action="store_true")
+parser.add_option("-c","--cerrors",help="continue even if errors are found",action="store_true")
+
+(options,args) = parser.parse_args()
+
+if len(args)<1:
+    parser.print_help()
+    sys.exit(0)
+
+if os.path.exists(options.output):
+    print options.output,"exists; please remove"
+    sys.exit(1)
+
+ion()
+show()
+gray()
+
+
+ntried = 0
+nfiles = 0
+total = 0
+
+ws = wmodel.WhitespaceModel()
+ws.startTraining()
+
+suffix = ".gt"
+
+for file in args:
+    segments = []
+    text = ""
+    ntried += 1
+
+    try:
+        base,_ = ocrolib.allsplitext(file)
+        image = ocrolib.read_image_gray(file)
+        image = 255-image
+        cseg = ocrolib.read_line_segmentation(base+".cseg"+suffix+".png")
+        with open(base+suffix+".txt") as stream: gt = stream.read()
+        gt = re.sub('\n','',gt)
+        nfiles += 1
+    except IOError,e:
+        print "ERROR",e
+        print "# cseg for",file,"not found (got %d of %d files)"%(nfiles,ntried)
+        continue
+    except Exception,e:
+        traceback.print_exc()
+        continue
+
+    try:
+        ws.trainLineAndCseg(image,cseg,gt)
+    except wmodel.BadGroundTruth:
+        print "# failed to add %s (got %d of %d files)"%(file,nfiles,ntried)
+    
+ws.updateModel()
+
+ocrolib.save_component(options.output,ws)
+

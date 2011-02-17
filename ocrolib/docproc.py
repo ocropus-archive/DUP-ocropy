@@ -1,6 +1,7 @@
 import scipy
 from scipy import stats
 from scipy.ndimage import measurements
+from pylab import *
 
 from common import *
 
@@ -26,7 +27,7 @@ def seg_boxes(seg,math=0):
             result += [(ys.start,ys.stop,xs.start,xs.stop)]
     return result
 
-def seg_geometry(segmentation):
+def seg_geometry(segmentation,math=1):
     """Given a line segmentation (either an rseg--preferably connected
     component based--or a cseg, return (mh,a,b), where mh is the
     medium component height, and y=a*x+b is a line equation (in
@@ -36,12 +37,14 @@ def seg_geometry(segmentation):
     bounding boxes relative to these estimates and add these as
     features to the input of a character classifier, allowing it to
     distinguish otherwise ambiguous pairs like ,/' and o/O."""
-    boxes = seg_boxes(segmentation,math=1)
+    boxes = seg_boxes(segmentation,math=math)
     heights = [(y1-y0) for (y0,y1,x0,x1) in boxes]
     mh = stats.scoreatpercentile(heights,per=40)
     centers = [(avg(y0,y1),avg(x0,x1)) for (y0,y1,x0,x1) in boxes]
-    xs = [x for y,x in centers]
-    ys = [y for y,x in centers]
+    xs = array([x for y,x in centers])
+    ys = array([y for y,x in centers])
+    if not math: plot(xs,ys,"g.")
+    else: plot(xs,segmentation.shape[0]-ys-1,"g.")
     a,b = polyfit(xs,ys,1)
     return mh,a,b
 
@@ -85,12 +88,16 @@ def bbox(image):
     c = cs[0]
     return (c[0].start,c[1].start,c[0].stop,c[1].stop)
 
-def extract(image,x0,y0,x1,y1):
+def extract(image,bbox):
     """Extract a subregion of the given image.  The limits do not have to
     be within the image."""
-    return scipy.ndimage.interpolation.affine_transform(image,diag([1,1]),
-                                                        offset=(x0,y0),
-                                                        output_shape=(x1-x0,y1-y0))
+    r0,c0,r1,c1 = bbox
+    assert r0<=r1 and c0<=c1,"%s"%(bbox,)
+    result = scipy.ndimage.interpolation.affine_transform(image,diag([1,1]),
+                                                          offset=(r0,c0),
+                                                          output_shape=(r1-r0,c1-c0))
+    assert result.shape == (r1-r0,c1-c0),"docproc.extract failed: %s != %s"%(result.shape,(r1-r0,c1-c0))
+    return result
 
 def isotropic_rescale(image,r=32):
     """Rescale the image such that the non-zero pixels fall within a box of size

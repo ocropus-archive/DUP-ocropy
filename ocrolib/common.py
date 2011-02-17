@@ -213,14 +213,17 @@ def lseg2narray(lseg):
     return lseg
 
 def rect2raster(r,h):
-    """Convert rectangles to raster coordinates."""
+    """Convert iulib rectangles to raster coordinates.  Raster coordinates are given
+    as (row0,col0,row1,col1).  Note that this is different from some other parts of
+    Python, which transpose the rows and columns."""
     (x0,y0,x1,y1) = (r.x0,r.y0,r.x1,r.y1)
     y1 = h-y1-1
     y0 = h-y0-1
     return (y1,x0,y0,x1)
 
 def raster2rect(r,h):
-    """Convert raster coordinates (row,col,row,col) to rectangles."""
+    """Convert raster coordinates (row,col,row,col) to iulib
+    rectangles.  Input is (row0,col0,row1,col1)."""
     (r0,c0,r1,c1) = r
     return iulib.rectangle(c0,h-r1-1,c1,h-r0-1)
 
@@ -1597,6 +1600,7 @@ class CmodelLineRecognizer(RecognizeLine):
         order to be added as a letter to the lattice."""
         self.cmodel = None
         self.debug = 0
+        self.whitespace = load_component("space.model")
         self.segmenter = SegmentLine().make("DpSegmenter")
         self.grouper = StandardGrouper()
         self.best = 3
@@ -1630,7 +1634,7 @@ class CmodelLineRecognizer(RecognizeLine):
         # compute the geometry (might have to use
         # CCS segmenter if this doesn't work well)
         geo = docproc.seg_geometry(rseg)
-        
+
         # compute the median segment height
         heights = []
         for i in range(self.grouper.length()):
@@ -1643,6 +1647,9 @@ class CmodelLineRecognizer(RecognizeLine):
         old = image
         image = 255-image
 
+        # initialize the whitespace estimator
+        self.whitespace.setLine(image,rseg)
+        
         # this holds the list of recognized characters if keep!=0
         self.chars = []
         
@@ -1677,6 +1684,11 @@ class CmodelLineRecognizer(RecognizeLine):
             outputs = [x for x in outputs if x[1]>self.min_probability]
             outputs = [(x[0],-log(x[1])) for x in outputs]
             self.chars.append(utils.Record(index=i,image=char,outputs=outputs))
+
+            # estimate the space cost
+            sc = self.whitespace.classifySpace(x1)
+            yes_space = min(5.0,-log(sc[1]))
+            no_space = min(5.0,-log(sc[0]))
             
             # add the top classes to the lattice
             outputs.sort(key=lambda x:x[1])
@@ -1698,7 +1710,7 @@ class CmodelLineRecognizer(RecognizeLine):
                 # for anything else, just add the classified character to the grouper
                 self.grouper.setClass(i,cls,min(cost,self.maxcost))
                 # FIXME better space handling
-                self.grouper.setSpaceCost(i,0.5,0.0)
+                self.grouper.setSpaceCost(i,float(yes_space),float(no_space))
 
         # extract the recognition lattice from the grouper
         lattice = self.grouper.getLattice()
