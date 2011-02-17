@@ -12,6 +12,8 @@ display_cls = 0
 if display_training or display_cls:
     ion(); gray()
 
+class BadImage(Exception):
+    pass
 class BadGroundTruth(Exception):
     pass
 
@@ -30,6 +32,7 @@ class WhitespaceModel:
             raw_input()
             clf()
     def setLine(self,image,cseg=None):
+        if amax(image)<1e-6: raise BadImage()
         self.image = array(image*(1.0/amax(image)),'f')
         self.cseg = cseg
         self.line_params = docproc.seg_geometry(cseg,math=0)
@@ -86,8 +89,10 @@ class WhitespaceModel:
                 print spc,cls
                 clf(); imshow(sub); draw()
                 raw_input()
+            if amax(sub)<1e-6: raise BadImage()
             sub = sub*(1.0/amax(sub))
-            assert sub.size==self.r*self.s*self.s,"unexpected size: %s (after %d samples)"%(sub.shape,len(self.data))
+            assert sub.size==self.r*self.s*self.s, \
+                "unexpected size: %s (after %d samples)"%(sub.shape,len(self.data))
             self.data.append(sub.ravel())
             self.classes.append(int(spc))
     def updateModel(self):

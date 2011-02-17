@@ -71,7 +71,9 @@ for file in args:
     try:
         ws.trainLineAndCseg(image,cseg,gt)
     except wmodel.BadGroundTruth:
-        print "# failed to add %s (got %d of %d files)"%(file,nfiles,ntried)
+        print "# failed to add %s (got %d of %d files), BadGroundTruth"%(file,nfiles,ntried)
+    except wmodel.BadImage:
+        print "# failed to add %s (got %d of %d files), BadImage"%(file,nfiles,ntried)
     
 ws.updateModel()
 

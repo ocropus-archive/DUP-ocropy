@@ -15,6 +15,29 @@ pickle_mode = 2
 ### smallish utilities
 ################################################################
 
+data_paths = [
+    ".",
+    "./models",
+    "./data",
+    "./gui",
+    "/usr/local/share/ocropus/models",
+    "/usr/local/share/ocropus/data",
+    "/usr/local/share/ocropus/gui",
+    "/usr/local/share/ocropus",
+]
+
+class OcropusFileNotFound:
+    def __init__(self,fname):
+        self.fname = fname
+    def __str__(self):
+        return "<OcropusFileNotFound "+self.fname+">"
+
+def ocropus_find_file(fname):
+    for path in data_paths:
+        full = path+"/"+fname
+        if os.path.exists(full): return full
+    raise OcropusFileNotFound(fname)
+
 def set_params(object,kw,warn=1):
     kw = kw.copy()
     for k,v in kw.items():
@@ -1600,7 +1623,8 @@ class CmodelLineRecognizer(RecognizeLine):
         order to be added as a letter to the lattice."""
         self.cmodel = None
         self.debug = 0
-        self.whitespace = load_component("space.model")
+        self.maxspacecost = 20.0
+        self.whitespace = load_component(ocropus_find_file("space.model"))
         self.segmenter = SegmentLine().make("DpSegmenter")
         self.grouper = StandardGrouper()
         self.best = 3
@@ -1687,8 +1711,8 @@ class CmodelLineRecognizer(RecognizeLine):
 
             # estimate the space cost
             sc = self.whitespace.classifySpace(x1)
-            yes_space = min(5.0,-log(sc[1]))
-            no_space = min(5.0,-log(sc[0]))
+            yes_space = min(self.maxspacecost,-log(sc[1]))
+            no_space = min(self.maxspacecost,-log(sc[0]))
             
             # add the top classes to the lattice
             outputs.sort(key=lambda x:x[1])
