@@ -6,7 +6,7 @@
 ### -- add editors for ground truth
 
 from optparse import OptionParser
-import re,os,glob,os.path
+import re,os,glob,os.path,traceback
 import sys
 import matplotlib 
 matplotlib.use('GTK') 
@@ -308,7 +308,8 @@ class LineWindow:
                         else:
                             self.detail(" [%s]  "%result[i])
                         if (i+1)%10==0: self.detail("\n")
-                    except None:
+                    except:
+                        traceback.print_exc()
                         self.detail(" [oops]   ")
                 self.detail("\n")
     def recognizer_update(self,*args):
