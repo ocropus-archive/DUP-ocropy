@@ -1774,6 +1774,10 @@ class CmodelLineRecognizer(RecognizeLine):
             sc = self.whitespace.classifySpace(x1)
             yes_space = min(self.maxspacecost,-log(sc[1]))
             no_space = min(self.maxspacecost,-log(sc[0]))
+
+            # add a transition on "_" that we can use to skip this character
+            # if the transcription contains a "~"
+            self.grouper.setClass(i,"_",20.0)
             
             # add the top classes to the lattice
             outputs.sort(key=lambda x:x[1])

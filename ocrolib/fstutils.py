@@ -61,35 +61,68 @@ class Costs:
     def __init__(self,**kw):
         self.__dict__.update(kw)
 
-default_costs = Costs(
+simple_costs = Costs(
                       # insertions of spaces relative to ground truth
-                      space_insert=10.0,
+                      space_insert=None,
                       # deletions of spaces relative to ground truth
-                      space_delete=10.0,
+                      space_delete=None,
                       # mismatches of characters relative to ground truth
-                      char_mismatch=10.0,
+                      char_mismatch=None,
                       # insertions of characters relative to ground truth
-                      char_insert=10.0,
+                      char_insert=None,
                       # deletions of characters relative to ground truth
-                      char_delete=10.0,
+                      char_delete=None,
                       # allow multiple character in transcript to be represented by one thing in lattice
                       # if they are known to be common ligatures
-                      ligatures2=0.0,
-                      ligatures3=0.0,
+                      ligatures2=None,
+                      ligatures3=None,
                       # allow multiple character in transcript to be represented by one thing in lattice
-                      misseg2=8.0,
+                      misseg2=None,
                       misseg3=None,
                       # add rejects as sigmas with a given cost
-                      reject_cost=1.0,
+                      reject=1.0,
                       # ligatures in both lattice and transcript
-                      add_l2l=0.0,
+                      add_l2l=None,
                       # ligatures as characters in both lattice and transcript
-                      add_c2c=0.0,
+                      add_c2c=None,
                       # ligatures in lattice, characters in transcript                      
-                      add_l2c=0.5,
+                      add_l2c=None,
                       # characters in lattice, ligatures in transcript
-                      add_c2l=0.5,
+                      add_c2l=None,
                       )
+
+def make_costs(err=5.0,space_err=5.0,ligature=None,reject=0.1):
+    return Costs(
+        # insertions of spaces relative to ground truth
+        space_insert=space_err,
+        # deletions of spaces relative to ground truth
+        space_delete=space_err,
+        # mismatches of characters relative to ground truth
+        char_mismatch=err,
+        # insertions of characters relative to ground truth
+        char_insert=err,
+        # deletions of characters relative to ground truth
+        char_delete=err,
+        # allow multiple character in transcript to be represented by one thing in lattice
+        # if they are known to be common ligatures
+        ligatures2=ligature,
+        ligatures3=ligature,
+        # allow multiple character in transcript to be represented by one thing in lattice
+        misseg2=None,
+        misseg3=None,
+        # add rejects as sigmas with a given cost
+        reject=reject,
+        # ligatures in both lattice and transcript
+        add_l2l=ligature,
+        # ligatures as characters in both lattice and transcript
+        add_c2c=ligature,
+        # ligatures in lattice, characters in transcript                      
+        add_l2c=ligature,
+        # characters in lattice, ligatures in transcript
+        add_c2l=ligature,
+        )
+
+default_costs = make_costs()
 
 def add_line_to_fst(fst,line,costs=default_costs,accept=0.0,lig=ligatures.lig,common=ligatures.common_ligatures):
     """Add a line (given as a list of strings) to an fst."""
@@ -122,7 +155,13 @@ def add_line_to_fst(fst,line,costs=default_costs,accept=0.0,lig=ligatures.lig,co
             continue
 
         if s=="~" and costs.reject is not None:
+            # FIXME -- There are several things wrong here: sigma isn't working,
+            # and more importantly, even if it were, we'd like to be able to 
+            # override (ignore) the cost on the input value here
+            fst.AddArc(start,lig.ord("_"),lig.ord("~"),costs.reject,next)
+            fst.AddArc(start,lig.ord("~"),lig.ord("~"),costs.reject,next)
             fst.AddArc(start,sigma,lig.ord("~"),costs.reject,next)
+            for i in range(32,128): fst.AddArc(start,i,lig.ord("~"),costs.reject,next)
             fst.AddArc(start,epsilon,lig.ord("~"),costs.reject,next)
             continue
 
@@ -229,21 +268,25 @@ def make_line_openfst(lines,lig=ligatures.lig,optimize=1):
             line = explode_transcription(line)
         count += 1
         add_line_to_fst(fst,line,lig=lig)
-    table = lig.SymbolTable(name="unicode")
     if not optimize:
         det = fst
     elif optimize==1:
+        fst.Write("_l_.fst")
         det = Fst()
+        mapper = openfst.StdEncodeMapper(openfst.kEncodeLabels,openfst.ENCODE)
+        openfst.Encode(fst,mapper)
         openfst.RmEpsilon(fst)
         openfst.Determinize(fst,det)
         openfst.Minimize(det)
         fst = det
+        openfst.Decode(fst,mapper)
     elif optimize==2:
         det = Fst()
         openfst.RmEpsilon(fst)
         openfst.Determinize(fst,det)
         openfst.Minimize(det)
         fst = det
+    table = lig.SymbolTable(name="unicode")
     fst.SetInputSymbols(table)
     fst.SetOutputSymbols(table)
     return det
@@ -276,7 +319,7 @@ def lines_of_file(file):
 
 def load_text_file_as_fst(file):
     """Use load_transcription instead."""
-    load_transcription(file)
+    return load_transcription(file)
     
 def load_transcription(file):
     """Load a text file as a transcription.  This handles

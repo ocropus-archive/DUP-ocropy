@@ -57,7 +57,7 @@ parser.add_option("-v","--verbose",help="verbose",action="store_true")
 parser.add_option("-t","--table",help="which table to edit",default=None)
 # use this with old (unflipped) cmodels trained from Python
 parser.add_option("-F","--flip",help="flip characters before handing to classifier",default=1,action="store_false")
-parser.add_option("-B","--batchsize",help="maximum number of characters loaded for display",type="int",default=5000)
+parser.add_option("-B","--batchsize",help="maximum number of characters loaded for display",type="int",default=10000)
 parser.add_option("-s","--select",help="initial character to select",default=None)
 (options,args) = parser.parse_args()
 
@@ -438,6 +438,13 @@ def cmd_nn(*args):
     db.commit()
     return 1
 
+def equivalent(c):
+    if c>="A" and c<="Z": return [c,c.lower()]
+    if c>="a" and c<="z": return [c,c.upper()]
+    if c in ["0","o","O"]: return ["0","o","O"]
+    if c in ["1","l","I","|"]: return ["1","l","I","|"]
+    return c
+
 def cmd_class(*args):
     """Highlight misclassified samples and sort by classifier confidence."""
     global grid,cluster_viewer,confidence
@@ -464,11 +471,11 @@ def cmd_class(*args):
         outputs.sort(key=lambda x:x[1])
         if len(outputs)<1: continue
         cls,cost = outputs[0]
-        if row[2].cls!=cls:
+        if row[2].cls not in equivalent(cls):
             cluster_viewer.select_path(i)
         pcost = 9999
         for cls,cost in outputs:
-            if cls==row[2].cls:
+            if row[2].cls in equivalent(cls):
                 pcost = cost
                 break
         dists.append(pcost)
