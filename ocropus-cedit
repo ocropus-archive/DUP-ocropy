@@ -103,12 +103,8 @@ if not os.path.exists(fname):
     print fname,"not found"
     sys.exit(1)
 
-class Row(sqlite3.Row):
-    def __getattr__(self,name):
-        return self[name]
-
 db = sqlite3.connect(fname,timeout=600.0)
-db.row_factory = Row
+db.row_factory = utils.DbRow
 db.text_factory = sqlite3.OptimizedUnicode
 db.execute("pragma synchronous=0")
 
@@ -190,7 +186,8 @@ def update_info():
     index = index[0][0]
     row = grid[index][2]
     rel = row.rel
-    rel = " ".join(["%.2f"%float(x) for x in row.rel.split()])
+    if rel!="" and rel is not None:
+        rel = " ".join(["%.2f"%float(x) for x in row.rel.split()])
     info = "%-7d: %s %s (%s)"%(row.id,row.classes,row.count,rel)
     info_area.set_text(info)
 

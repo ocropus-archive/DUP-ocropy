@@ -1,12 +1,11 @@
 #!/usr/bin/python
 
-import sys,os,re,glob,math,glob,signal,cPickle
+import sys,os,re,glob,math,glob,signal,sqlite3
 from pylab import *
 from optparse import OptionParser
 
 from ocrolib.fgen import *
 from ocrolib import utils
-from ocrolib import dbtables
 import ocrolib
 
 class unif:
@@ -15,6 +14,7 @@ class unif:
         self.hi = hi
     def __call__(self):
         return rand()*(self.hi-self.lo)+self.lo
+
 class bn:
     def __init__(self,m,s):
         self.m = m
@@ -24,6 +24,7 @@ class bn:
             x = randn()
             if x>-2 and x<2: break
         return x*self.s+self.m
+
 class c:
     def __init__(self,c):
         self.c = c
@@ -51,7 +52,7 @@ parser.add_option("-c","--classes",help="list of classes (one per line)",default
 parser.add_option("-s","--sizes",help="list of sizes (Python expression)",default="range(26,36)")
 parser.add_option("-f","--specs",help="list of font specs",default=None)
 parser.add_option("-n","--nvariants",help="number of variants",default=4,type=int)
-parser.add_option("-Q","--parallel",help="number of parallel processes",default=4,type=int)
+parser.add_option("-Q","--parallel",help="number of parallel processes",default=0,type=int)
 parser.add_option("-e","--eval",help="evaluate expressions (for additional options)",default="None")
 parser.add_option("-i","--inner",help="inner offset for degradation (<1: some broken chars)",default=1,type=float)
 (options,args) = parser.parse_args()
@@ -83,7 +84,11 @@ else:
     for family in families:
         for style in styles:
             specs.append(family+style)
-    print specs
+
+print "#specs",len(specs)
+print "#variants",options.nvariants
+print "sizes",options.sizes
+print 
 
 # quick run-through to make sure all the fonts exist
 for spec in specs:
@@ -93,12 +98,13 @@ if os.path.exists(options.output):
     print options.output,"exists; please remove"
     sys.exit(1)
 
-table = dbtables.Table(options.output,"chars")
-table.converter("image",dbtables.SmallImage())
-table.create(image="blob",cls="text",file="text",segid="integer",bbox="text",count="integer",classes="text")
-table.commit()
-del table
-table = None
+db = sqlite3.connect(options.output)
+db.row_factory = utils.DbRow
+db.text_factory = sqlite3.OptimizedUnicode
+utils.charcolumns(db,"chars")
+db.execute("create index if not exists cls_index on chars (cls)")
+db.commit()
+del db
 
 if options.display: ion(); show(); gray()
 jobs = []
@@ -108,8 +114,10 @@ for spec in specs:
         jobs.append((spec,size))
 
 def process_arg(arg):
-    table = dbtables.Table(options.output,"chars")
-    table.converter("image",dbtables.SmallImage())
+    db = sqlite3.connect(options.output)
+    db.row_factory = utils.DbRow
+    db.text_factory = sqlite3.OptimizedUnicode
+    db.execute("pragma synchronous=0")
     spec,size = arg
     print "loading",spec,size
     total = 0
@@ -132,12 +140,12 @@ def process_arg(arg):
             raw = array(image*255,'B')
             if options.record:
                 css = "s%ds%.2fa%.2fm%.2fn%.2fm%.2fi%.2fr%.2f"%(size,scl,asp,mrg,nse,mdl,inn,rot)
-                table.set(image=raw,cls=c,count=1,classes=css)
+                utils.dbinsert(db,"chars",image=utils.image2blob(raw),cls=c,count=1,classes=css)
             else:
-                table.set(image=raw,cls=c,count=1)
+                utils.dbinsert(db,"chars",image=utils.image2blob(raw),cls=c,count=1)
             total += 1
-            if total%1000==0: table.commit()
-    table.commit()
+            if total%1000==0: db.commit()
+    db.commit()
     sys.stdout.flush()
     return None
 

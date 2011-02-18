@@ -132,6 +132,12 @@ def write_text(file,s):
     with open(file,"w") as stream:
         stream.write(s)
 
+################################################################
+### simple database utilities        
+################################################################
+
+import sqlite3
+
 def image2blob(image):
     # print image.shape,image.dtype
     if image.dtype!=numpy.dtype('B'):
@@ -153,3 +159,59 @@ def blob2image(s):
     assert len(s)==d0*d1+2,(len(s),d0,d1)
     return numpy.frombuffer(s[2:],dtype='B').reshape(d0,d1)
 
+class DbRow(sqlite3.Row):
+    def __getattr__(self,name):
+        return self[name]
+
+def dbinsert(db,table,**assignments):
+    cols = ""
+    vals = ""
+    values = []
+    for k,v in assignments.items():
+        if cols!="": cols += ","
+        cols += k
+        if vals!="": vals += ","
+        vals += "?"
+        values.append(v)
+    cmd = "insert or replace into "+table+" ( "+cols+" ) values ( "+vals+" ) "
+    params = list(values)
+    cur = db.cursor()
+    cur.execute(cmd,params)
+    cur.close()
+    del cur
+
+def dbcolumns(con,table,**kw):
+    """Ensures that the table exists and that the given columns exist
+    in the table; adds columns as necessary.  Columns are specified as
+    colname="type" in the argument list."""
+    cur = con.cursor()
+    cols = list(cur.execute("pragma table_info("+table+")"))
+    colnames = [col[1] for col in cols]
+    if colnames==[]:
+        cmd = "create table "+table+" (id integer primary key"
+        for k,v in kw.items():
+            cmd += ", %s %s"%(k,v)
+        cmd += ")"
+        cur.execute(cmd)
+    else:
+        # table already exists; add any missing columns
+        for k,v in kw.items():
+            if not k in colnames:
+                cmd = "alter table "+table+" add column "+k+" "+v
+                cur.execute(cmd)
+    con.commit()
+    del cur
+
+def charcolumns(con,table):
+    dbcolumns(con,table,
+              count="integer",
+              rel="text",
+              image="blob",
+              lgeo="text",
+              segid="integer",
+              classes="text",
+              bbox="text",
+              file="text",
+              cls="text",
+              cluster="integer")
+              

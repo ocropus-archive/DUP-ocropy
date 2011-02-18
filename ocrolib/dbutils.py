@@ -39,31 +39,6 @@ def chardb(con,rw=1):
     con.text_factory = sqlite3.OptimizedUnicode
     return con
 
-def table(con,table,**kw):
-    """Ensures that the table exists and that the given columns exist
-    in the table; adds columns as necessary.  Columns are specified as
-    colname="type" in the argument list."""
-    cur = con.cursor()
-    cols = list(cur.execute("pragma table_info("+table+")"))
-    colnames = [col[1] for col in cols]
-    if colnames==[]:
-        cmd = "create table "+table+" (id integer primary key"
-        if verbose: print "#",cmd
-        for k,v in kw.items():
-            cmd += ", %s %s"%(k,v)
-        cmd += ")"
-        if verbose: print "SQL",cmd
-        cur.execute(cmd)
-    else:
-        # table already exists; add any missing columns
-        for k,v in kw.items():
-            if not k in colnames:
-                cmd = "alter table "+table+" add column "+k+" "+v
-                if verbose: print "SQL",cmd
-                cur.execute(cmd)
-    con.commit()
-    del cur
-
 def execute(db,query,*params):
     """Execute a query on the connection for side-effects."""
     cur = db.cursor()
