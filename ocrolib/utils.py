@@ -203,15 +203,30 @@ def dbcolumns(con,table,**kw):
     del cur
 
 def charcolumns(con,table):
+    """Set up the columns for a character or cluster table.  It is safe to call
+    this on existing tables; it will simply add any missing columns and indexes."""
     dbcolumns(con,table,
-              count="integer",
-              rel="text",
+              # basic classification
               image="blob",
-              lgeo="text",
-              segid="integer",
-              classes="text",
-              bbox="text",
-              file="text",
               cls="text",
-              cluster="integer")
+              cost="real",
+              # separate prediction
+              pred="text",
+              pcost="real",
+              # cluster information
+              cluster="integer",
+              count="integer",
+              classes="text",
+              # geometry
+              rel="text",
+              lgeo="text",
+              # line source
+              file="text",
+              segid="integer",
+              bbox="text",
+              )
+    con.execute("create index if not exists cls_index on %s (cls)"%table)
+    con.execute("create index if not exists cluster_index on %s (cluster)"%table)
+    con.execute("create index if not exists cost_index on %s (cost)"%table)
+    con.commit()
               

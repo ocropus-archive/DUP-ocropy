@@ -1,9 +1,9 @@
 #!/usr/bin/python
-import code,pickle,sys,os,re,traceback
+import code,pickle,sys,os,re,traceback,sqlite3
 from optparse import OptionParser
 from pylab import *
 import ocrolib
-from ocrolib import dbtables,docproc,Record
+from ocrolib import docproc,Record,utils
 
 parser = OptionParser("""
 usage: %prog [options] .../.../010001.png ...
@@ -21,6 +21,7 @@ parser.add_option("-D","--display",help="display chars",action="store_true")
 parser.add_option("-v","--verbose",help="verbose output",action="store_true")
 parser.add_option("-N","--nosource",help="do not record source info",action="store_true")
 parser.add_option("-c","--cerrors",help="continue even if errors are found",action="store_true")
+parser.add_option("-E","--extracost",help="cost for misaligned characters",type=float,default=0.0)
 
 (options,args) = parser.parse_args()
 
@@ -35,10 +36,14 @@ if os.path.exists(options.output):
     print options.output,"exists; please remove"
     sys.exit(1)
 
-table = dbtables.Table(options.output,"chars")
-table.converter("image",dbtables.SmallImage())
-table.create(image="blob",cls="text",file="text",segid="integer",bbox="text",
-             count="integer",classes="text",lgeo="text",rel="text")
+table = "chars"
+
+db = sqlite3.connect(options.output,timeout=600.0)
+db.row_factory = utils.DbRow
+db.text_factory = sqlite3.OptimizedUnicode
+db.execute("pragma synchronous=0")
+utils.charcolumns(db,table)
+db.commit()
 
 class BadGroundTruth(Exception):
     pass
@@ -50,6 +55,9 @@ def cseg_chars(file,suffix=".gt"):
     cseg = ocrolib.read_line_segmentation(base+".cseg"+suffix+".png")
     with open(base+suffix+".txt") as stream:
         gt = stream.read()
+    with open(base+suffix+".costs") as stream:
+        costs = array([float(s.split()[1]) for s in stream.readlines()])[1:]
+    assert len(gt)==len(costs),"gt and costs differ: %d != %d"%(len(gt),len(costs))
     gt = re.sub('\n','',gt)
     geo = docproc.seg_geometry(cseg)
     grouper = ocrolib.StandardGrouper()
@@ -62,10 +70,11 @@ def cseg_chars(file,suffix=".gt"):
             raise BadGroundTruth()
     for i in range(grouper.length()):
         cls = gt[i]
+        cost = costs[i]
         if cls==' ': continue
         raw,mask = grouper.extractWithMask(image,i,1)
         yield Record(raw=raw,mask=mask,cls=cls,index=i,bbox=grouper.boundingBox(i),
-                     bbox_m=grouper.bboxMath(i),lgeo=geo)
+                     bbox_m=grouper.bboxMath(i),lgeo=geo,cost=cost)
 
 def cseg_chars_all(file,suffix=".gt"):
     image = ocrolib.read_image_gray(file)
@@ -75,16 +84,22 @@ def cseg_chars_all(file,suffix=".gt"):
     rseg = ocrolib.read_line_segmentation(base+".rseg"+suffix+".png")
     with open(base+suffix+".txt") as stream:
         gt = stream.read()
+    with open(base+suffix+".costs") as stream:
+        costs = array([float(s.split()[1]) for s in stream.readlines()])[1:]
+    assert len(gt)<=len(costs),\
+        "gt and costs differ: %d != %d"%(len(gt),len(costs))
     gt = re.sub('\n','',gt)
     geo = docproc.seg_geometry(cseg)
     grouper = ocrolib.StandardGrouper()
     grouper.setSegmentationAndGt(rseg,cseg,gt)
     for i in range(grouper.length()):
+        index = grouper.getGtIndex(i)
         cls = grouper.getGtClass(i)
+        cost= costs[index] if index>=0 else options.extracost
         if cls==' ': continue
         raw,mask = grouper.extractWithMask(image,i,1)
         yield Record(raw=raw,mask=mask,cls=cls,index=grouper.getGtIndex(i),bbox=grouper.boundingBox(i),
-                     bbox_m=grouper.bboxMath(i),lgeo=geo)
+                     bbox_m=grouper.bboxMath(i),lgeo=geo,cost=cost)
 
 ntried = 0
 nfiles = 0
@@ -109,6 +124,7 @@ for file in args:
             traceback.print_exc()
             print "#",file,"failed",e
         else:
+            traceback.print_exc()
             raise e
     if options.verbose:
         print file,len(segments),len(text)
@@ -117,6 +133,7 @@ for file in args:
         raw = x.raw
         mask = x.mask
         cls = x.cls
+        cost = x.cost
         # print index,cls
         index += 1
         segments.append(raw)
@@ -138,7 +155,9 @@ for file in args:
         if options.verbose:
             print key,cls,raw.shape
         if options.nosource:
-            id = table.set(image=raw,
+            utils.dbinsert(db,table,
+                           image=utils.image2blob(raw),
+                           cost=cost,
                            cls=cls,
                            count=1,
                            lgeo="%g %g %g"%x.lgeo)
@@ -147,7 +166,9 @@ for file in args:
             rel = docproc.rel_char_geom((y0,y1,x0,x1),x.lgeo)
             ry,rw,rh = rel
             assert rw>0 and rh>0
-            id = table.set(image=raw,
+            utils.dbinsert(db,table,
+                           image=utils.image2blob(raw),
+                           cost=cost,
                            cls=cls,
                            count=1,
                            file=file,
@@ -160,5 +181,5 @@ for file in args:
             table.commit()
 
 
-table.commit()
+db.commit()
 print total,"chars"

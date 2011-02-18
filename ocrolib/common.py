@@ -40,6 +40,8 @@ class OcropusFileNotFound:
         return "<OcropusFileNotFound "+self.fname+">"
 
 def ocropus_find_file(fname):
+    if os.path.exists(fname):
+        return fname
     for path in data_paths:
         full = path+"/"+fname
         if os.path.exists(full): return full
