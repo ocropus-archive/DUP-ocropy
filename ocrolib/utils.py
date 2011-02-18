@@ -228,5 +228,6 @@ def charcolumns(con,table):
     con.execute("create index if not exists cls_index on %s (cls)"%table)
     con.execute("create index if not exists cluster_index on %s (cluster)"%table)
     con.execute("create index if not exists cost_index on %s (cost)"%table)
+    con.execute("create index if not exists countcost_index on %s (count,cost)"%table)
     con.commit()
               

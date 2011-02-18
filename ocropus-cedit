@@ -113,19 +113,23 @@ if options.table is None:
     options.table = names[0]
     print "defaulting to table",options.table
 
-db.execute("create index if not exists cls_index on %s (cls)"%options.table)
+utils.charcolumns(db,options.table)
 db.commit()
 
 def get_clusters(cls,limit=options.batchsize,table=options.table):
     print "get_clusters",cls
-    cur = db.execute("select * from %s where cls=? order by count desc limit %s"%(table,limit),[cls])
+    cur = db.execute("select * from %s where cls=? order by count,cost desc limit %s"%(table,limit),[cls])
     clusters = []
     for c in cur:
         image = utils.blob2image(c.image)/255.0
         cluster = utils.Record(id=c.id,
                                file=c.file,
-                               image=image,rel=c.rel,
-                               cls=c.cls,count=c.count,classes=c.classes,
+                               image=image,
+                               cost=c.cost,
+                               rel=c.rel,
+                               cls=c.cls,
+                               count=c.count,
+                               classes=c.classes,
                                cluster=c.cluster)
         if cluster.cls is None:
             cluster.cls = "_"
@@ -188,7 +192,7 @@ def update_info():
     rel = row.rel
     if rel!="" and rel is not None:
         rel = " ".join(["%.2f"%float(x) for x in row.rel.split()])
-    info = "%-7d: %s %s (%s)"%(row.id,row.classes,row.count,rel)
+    info = "%-7d: %s %s (%s) %.2f"%(row.id,row.classes,row.count,rel,row.cost)
     info_area.set_text(info)
 
 def get_extended():
