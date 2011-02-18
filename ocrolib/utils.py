@@ -4,8 +4,10 @@ from pylab import *
 
 class Record:
     def __init__(self,**kw):
-        for k in kw.keys():
-            self.__dict__[k] = kw[k]
+        self.__dict__.update(kw)
+    def like(self,obj):
+        self.__dict__.update(obj.__dict__)
+        return self
 
 def pad_to(image,w,h):
     """Symmetrically pad the image to the given width and height."""
@@ -129,4 +131,25 @@ def write_text(file,s):
     """Write the given string s to the output file."""
     with open(file,"w") as stream:
         stream.write(s)
+
+def image2blob(image):
+    # print image.shape,image.dtype
+    if image.dtype!=numpy.dtype('B'):
+        image = image*255.0+0.5
+        image = numpy.array(image,'B')
+    assert image.dtype==numpy.dtype('B'),image.dtype
+    d0,d1 = image.shape
+    assert d0>=0 and d0<256
+    assert d1>=0 and d1<256
+    s = numpy.zeros(d0*d1+2,'B')
+    s[0] = d0
+    s[1] = d1
+    s[2:] = image.flat
+    return buffer(s)
+
+def blob2image(s):
+    d0 = ord(s[0])
+    d1 = ord(s[1])
+    assert len(s)==d0*d1+2,(len(s),d0,d1)
+    return numpy.frombuffer(s[2:],dtype='B').reshape(d0,d1)
 

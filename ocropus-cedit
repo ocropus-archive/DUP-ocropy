@@ -4,12 +4,10 @@ from optparse import OptionParser
 import pygtk
 pygtk.require("2.0") 
 import gobject,gtk,gtk.glade
-import sys,pickle,os,glob,traceback
-import scipy
+import sys,pickle,os,glob,traceback,sqlite3,scipy
 from pylab import *
 import ocrolib
-from ocrolib import dbtables,docproc
-import sqlite3
+from ocrolib import docproc,utils
 
 def TODO():
     print """
@@ -99,34 +97,48 @@ def numpy2pixbuf(a,limit=40):
 ### load the cluster images
 
 print "opening table"
-file = "clusters.db"
-if len(args)>0: file = args[0]
-if not os.path.exists(file):
-    print file,"not found"
+fname = "clusters.db"
+if len(args)>0: fname = args[0]
+if not os.path.exists(fname):
+    print fname,"not found"
     sys.exit(1)
-if options.table is None:
-    db = sqlite3.connect(file)
-    cur = db.cursor()
-    names = cur.execute("select name from sqlite_master where type='table'")
-    options.table = list(names)[0][0]
-    print "defaulting to table",options.table
-table = dbtables.Table(file,options.table)
-table.converter("image",dbtables.SmallImage())
-print "done"
 
-def get_clusters(cls):
+class Row(sqlite3.Row):
+    def __getattr__(self,name):
+        return self[name]
+
+db = sqlite3.connect(fname,timeout=600.0)
+db.row_factory = Row
+db.text_factory = sqlite3.OptimizedUnicode
+db.execute("pragma synchronous=0")
+
+if options.table is None:
+    names = [r[0] for r in db.execute("select name from sqlite_master where type='table'")]
+    options.table = names[0]
+    print "defaulting to table",options.table
+
+db.execute("create index if not exists cls_index on %s (cls)"%options.table)
+db.commit()
+
+def get_clusters(cls,limit=options.batchsize,table=options.table):
     print "get_clusters",cls
-    clusters = list(table.get(cls=cls))
-    clusters.sort(key=lambda x:x.count,reverse=1)
-    for cluster in clusters:
+    cur = db.execute("select * from %s where cls=? order by count desc limit %s"%(table,limit),[cls])
+    clusters = []
+    for c in cur:
+        image = utils.blob2image(c.image)/255.0
+        cluster = utils.Record(id=c.id,
+                               file=c.file,
+                               image=image,rel=c.rel,
+                               cls=c.cls,count=c.count,classes=c.classes,
+                               cluster=c.cluster)
         if cluster.cls is None:
             cluster.cls = "_"
-        cluster.image = cluster.image/255.0
+        clusters.append(cluster)
     print "got",len(clusters),"clusters"
     return clusters
 
-def get_classes():
-    return list(table.get_keys("cls"))
+def get_classes(table=options.table):
+    return [r[0] for r in db.execute("select distinct(cls) from %s order by cls"%table)]
 
 def compute_combolist():
     """Compute the combolist from the current charlist."""
@@ -176,8 +188,11 @@ def update_info():
     index = cluster_viewer.get_cursor()
     if index is None: return
     index = index[0][0]
-    row = grid[index]
-    info_area.set_text(str(row[2].classes)+" "+str(row[2].count))
+    row = grid[index][2]
+    rel = row.rel
+    rel = " ".join(["%.2f"%float(x) for x in row.rel.split()])
+    info = "%-7d: %s %s (%s)"%(row.id,row.classes,row.count,rel)
+    info_area.set_text(info)
 
 def get_extended():
     """Get a string from a dialog box, used for extended labels."""
@@ -412,14 +427,14 @@ def cmd_nn(*args):
             cls,cost = outputs[0]
             row[1] = cls
             row[2].cls = cls
-            table.put(row[2],commit=0)
+            db.execute("update %s set cls=? where id=?",[row[2].cls,row[2].id])
         if count<10 or count%100==0:
             if len(outputs)>1:
                 print count,row[2].cls,outputs[0],type(row[2].cls),row[2].id
             else:
                 print count,"no output"
         count += 1
-    table.commit()
+    db.commit()
     return 1
 
 def cmd_class(*args):
@@ -496,7 +511,7 @@ def on_iconview1_button_press_event(widget,event):
             row = grid[item]
             row[1] = s
             row[2].cls = s
-            table.put(row[2])
+            db.execute("update %s set cls=? where id=?"%options.table,[row[2].cls,row[2].id])
 
 def on_iconview1_key_press_event(widget,event):
     item = cluster_viewer.get_cursor()
@@ -524,7 +539,9 @@ def on_iconview1_key_press_event(widget,event):
             s = get_extended()
         else:
             if s in ["\004"]: s = ""
-            if s in [" "]: s = "~"
+            elif s in ["`"]: s = "~" # switch ` and ~
+            elif s in ["~"]: s = "`"
+            elif s in [" "]: s = "_"
         items = cluster_viewer.get_selected_items()
         if items==[]:
             items = [widget.get_cursor()[0][0]]
@@ -534,8 +551,8 @@ def on_iconview1_key_press_event(widget,event):
             row = grid[item]
             row[1] = s
             row[2].cls = s
-            table.put(row[2],commit=0)
-        table.commit()
+            db.execute("update %s set cls=? where id=?"%options.table,[row[2].cls,row[2].id])
+        db.commit()
         cluster_viewer.unselect_all()
         move_to(last+1)
         return 1

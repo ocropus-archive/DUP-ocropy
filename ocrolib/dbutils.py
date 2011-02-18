@@ -3,30 +3,10 @@ import sqlite3
 import numpy
 import docproc
 import utils
+from utils import image2blob,blob2image
 
 verbose = os.getenv("dbutils_verbose")
 if verbose!=None: verbose = int(verbose)
-
-def image2blob(image):
-    # print image.shape,image.dtype
-    if image.dtype!=numpy.dtype('B'):
-        image = image*255.0+0.5
-        image = numpy.array(image,'B')
-    assert image.dtype==numpy.dtype('B'),image.dtype
-    d0,d1 = image.shape
-    assert d0>=0 and d0<256
-    assert d1>=0 and d1<256
-    s = numpy.zeros(d0*d1+2,'B')
-    s[0] = d0
-    s[1] = d1
-    s[2:] = image.flat
-    return buffer(s)
-
-def blob2image(s):
-    d0 = ord(s[0])
-    d1 = ord(s[1])
-    assert len(s)==d0*d1+2,(len(s),d0,d1)
-    return numpy.frombuffer(s[2:],dtype='B').reshape(d0,d1)
 
 class CharRow(sqlite3.Row):
     def __getattr__(self,name):
@@ -56,7 +36,7 @@ def chardb(con,rw=1):
     else:
         con = con
     con.row_factory = CharRow
-    con.text_factory = str
+    con.text_factory = sqlite3.OptimizedUnicode
     return con
 
 def table(con,table,**kw):
@@ -192,3 +172,32 @@ def get(db,table,id):
 def put(db,table,id,**kw):
     update(db,table,"id=?",id,**kw)
     
+class CharDB:
+    def __init__(self,fname):
+        self.db = chardb(fname)
+    def execute(self,query,*args):
+        execute(self.db,query,*args)
+    def query(self,query,*params):
+        return query(self.db,query,*params)
+    def value(self,query,*params):
+        return value_query(self.db,query,*params)
+    def tuple(self,query,*params):
+        return tuple_query(self.db,query,*params)
+    def col(self,query,*params):
+        return col_query(self.db,query,*params)
+    def row(self,query,*params):
+        return row_query(self,query,*params)
+    def update(self,table,where,*params,**assignments):
+        update(self.db,table,where,*params,**assigments)
+    def insert(self,table,**assignments):
+        insert(self.db,table,**assignments)
+    def ids(self,table):
+        return ids(self.db,table)
+    def get(self,table,id):
+        return get(self.db,table,id)
+    def put(self,table,id,**kw):
+        put(self.db,table,id,**kw)
+    def synchronous(self,on=1):
+        self.execute("pragma synchronous = %d"%on)
+    def commit(self):
+        self.db.commit()
