@@ -34,7 +34,7 @@ Common parameters for the model are:
 """)
 
 parser.add_option("-o","--output",help="output model name",default=None)
-parser.add_option("-m","--model",help="IModel name",default="=ocrolib.mlp.AutoMlpModel()")
+parser.add_option("-m","--model",help="IModel name",default="ocrolib.mlp.AutoMlpModel()")
 parser.add_option("-b","--bits",help="buffer training data with 1 bpp",action="store_true")
 parser.add_option("-t","--table",help="database table to use for training",default="chars")
 parser.add_option("-r","--noreject",help="disable reject class",action="store_true",default=False)
