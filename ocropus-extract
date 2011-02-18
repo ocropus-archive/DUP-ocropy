@@ -178,7 +178,7 @@ for file in args:
         total+=1
         if total%10000==0:
             print total,"chars"
-            table.commit()
+            db.commit()
 
 
 db.commit()
