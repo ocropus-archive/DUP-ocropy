@@ -43,7 +43,7 @@ parser.add_option("-D","--Display",help="display continuously",action="store_tru
 parser.add_option("-S","--suffix",help="suffix for writing results (e.g., '.gt')",default="")
 parser.add_option("-x","--gtextension",help="extension used for ground truth (ex: .txt, .gt.txt, .fst,...)",default=None)
 parser.add_option("-F","--filelist",help="list of input files",default=None)
-parser.add_option("-P","--parallel",type=int,default=number_of_processors(),help="number of parallel processes to use")
+parser.add_option("-Q","--parallel",type=int,default=number_of_processors(),help="number of parallel processes to use")
 
 (options,args) = parser.parse_args()
 
