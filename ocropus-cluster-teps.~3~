@@ -1,0 +1,148 @@
+#!/usr/bin/python
+import code,pickle,sys,os,re
+import random as pyrandom
+from pylab import *
+from optparse import OptionParser
+import ocrolib
+from ocrolib import dbtables,quant,utils
+
+parser = OptionParser("""
+usage: %prog [options] chars.db output.db
+
+""")
+
+parser.add_option("-D","--display",help="display chars",action="store_true")
+parser.add_option("-v","--verbose",help="verbose output",action="store_true")
+parser.add_option("-t","--table",help="table name",default="chars")
+parser.add_option("-e","--epsilon",help="epsilon",type=float,default=0.1)
+parser.add_option("-o","--overwrite",help="overwrite output if it exists",action="store_true")
+parser.add_option("-K","--nbuckets",help="number of buckets",type=int,default=1000)
+parser.add_option("-N","--nsamples",help="number of samples for clustering",type=int,default=100000)
+parser.add_option("-L","--limit",help="total number of samples",type=int,default=10000000)
+
+
+def showgrid(data,r=None,d=6):
+    print "showgrid",data.shape,amin(data),amax(data)
+    gray()
+    if r is None: r = int(sqrt(data.shape[1]))
+    for i in range(min(len(data),d*d)):
+        subplot(d,d,i+1)
+        imshow(data[i].reshape(r,r))
+    ginput(1,timeout=1)
+
+class FastCluster:
+    def __init__(self,eps=0.05):
+        self.eps = eps
+        self.dc = ocrolib.EdistComp()
+        self.classes = []
+        self.counts = []
+        self.total = 0
+    def add(self,c,cls=None):
+        self.total += 1
+        i = self.dc.find(v,self.eps)
+        if i<0:
+            self.dc.add(v)
+            self.classes.append({cls:1})
+            self.counts.append(1)
+            return len(self.counts)-1
+        else:
+            self.classes[i][cls] = self.classes[i].get(cls,0)+1
+            self.counts[i] += 1
+            self.dc.merge(i,v,1.0/self.counts[i])
+            return i
+    def biniter(self):
+        for i in range(self.dc.length()):
+            key = ""
+            v = self.dc.vector(i)
+            count = self.dc.counts(i)
+            yield i,v,count,key
+    def cls(self,i):
+        classes = list(self.classes[i].items())
+        classes.sort(reverse=1,key=lambda x:x[1])
+        # print i,self.classes[i],classes
+        return classes[0]
+    def stats(self):
+        return " ".join([str(self.total),str(self.dc.length())])
+    def items(self):
+        for i,v,count,key in self.biniter():
+            image = array(v/amax(v)*255.0,'B')
+            r = int(sqrt(len(image)))
+            image.shape = (r,r)
+            cls,count = self.cls(i)
+            classes = repr(self.classes[i])
+            yield utils.Record(image=image,cls=cls,count=count,classes=classes)
+
+(options,args) = parser.parse_args()
+
+if len(args)!=2:
+    parser.print_help()
+    sys.exit(0)
+
+if os.path.exists(args[1]):
+    if not options.overwrite:
+        sys.stderr.write("%s: already exists\n"%args[1])
+        sys.exit(1)
+    else:
+        os.unlink(output)
+
+extractor = ocrolib.BboxFE()
+def extract(v):
+    v /= sqrt(sum(v**2))
+    v = extractor.extract(v)
+    return v
+
+ion(); show(); gray()
+
+table = dbtables.OcroTable(args[0],options.table)
+table.create(image="blob",cluster="integer",cls="integer",count="integer")
+
+ids = table.keys()
+ids = ids[:options.limit]
+print "total",len(ids)
+sample = pyrandom.sample(ids,min(options.nsamples,len(ids)))
+
+data = []
+for id in sample:
+    row = table[id]
+    data.append(extract(row.float_image()).ravel())
+data = array(data,'f')
+
+showgrid(data)
+
+print "sampled",len(data)
+nbuckets = options.nbuckets
+means,counts = quant.kmeans(data,k=nbuckets)
+print counts
+
+showgrid(means)
+
+clusterers = [FastCluster(options.epsilon) for i in range(nbuckets)]
+
+total = 0
+for id in ids:
+    row = table[id]
+    v = extract(row.float_image()).ravel()
+    bucket,d = quant.argmindist2(v,means)
+    cluster = clusterers[bucket].add(v,row.cls)
+    cluster_id = cluster*nbuckets+bucket
+    print id,cluster_id
+    table.execute("update chars set cluster=? where id=?",[cluster_id,id])
+    total+=1
+    if total%1000==0:
+        print "#",total
+        print [c.stats() for c in clusterers]
+table.commit()
+
+with dbtables.ClusterTable(args[1]) as table:
+    table.create(image="blob",cls="text",count="integer",classes="text",cluster="integer")
+    table.converter("image",dbtables.SmallImage())
+    for bucket in range(len(clusterers)):
+        c = clusterers[bucket]
+        print bucket,
+        clusters = list(c.items())
+        for cluster in range(len(clusters)):
+            r = clusters[cluster]
+            cluster_id = cluster*nbuckets+bucket
+            table.set(image=r.image,cls=r.cls,count=r.count,classes=r.classes,cluster=cluster)
+    print
+

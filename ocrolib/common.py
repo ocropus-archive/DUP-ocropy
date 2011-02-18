@@ -12,6 +12,13 @@ import cPickle as pickle
 pickle_mode = 2
 
 ################################################################
+### exceptions
+################################################################
+
+class Unimplemented():
+    pass
+
+################################################################
 ### smallish utilities
 ################################################################
 
@@ -541,7 +548,7 @@ class SegmentPage(CommonComponent):
         iulib.write_image_gray("_seg_in.png",page)
         result = iulib.intarray()
         if obstacles not in [None,[]]:
-            raise Exception("unimplemented")
+            raise Unimplemented()
         else:
             self.comp.segment(result,page)
         # ocropus.make_page_segmentation_black(result)
@@ -851,10 +858,12 @@ class RecognizeLine(CommonComponent):
         self.comp.startTraining(type)
     def addTrainingLine(self,line,transcription):
         """Add a training line with a transcription."""
-        self.comp.addTrainingLine(line2narray(line),unicode2ustrg(transcription))
-    def addTrainingLine(self,segmentation,line,transcription):
+        if type(transcription)==list: transcription = "".join(transcription)
+        return self.comp.addTrainingLine(line2narray(line),unicode2ustrg(transcription))
+    def addTrainingLineSeg(self,segmentation,line,transcription):
         """Add a training line with a transcription and a given segmentation."""
-        raise Exception("unimplemented")
+        if type(transcription)==list: transcription = "".join(transcription)
+        return self.comp.addTrainingLine(narray2lseg(segmentation),line2narray(line),unicode2ustrg(transcription))
     def finishTraining(self):
         """Finish training (this may go away for a long time as the recognizer is
         being trained."""
@@ -863,11 +872,12 @@ class RecognizeLine(CommonComponent):
         """Align the given line image with the transcription.  Returns
         a list of aligned characters, a corresponding segmentation, and the
         corresponding costs."""
+        if type(transcription)==list: transcription = "".join(transcription)
         chars = ustrg()
         seg = iulib.intarray()
         costs = iulib.floatarray()
         self.comp.align(chars,seg,costs,line,transcription)
-        return (ustrg2unicode(chars),narray2lseg(seg),iulib.numpy(costs,'f'))
+        return Record(outs=ustrg2unicode(chars),cseg=narray2lseg(seg),costs=iulib.numpy(costs,'f'))
 
 class Linerec(RecognizeLine):
     """A line recognizer using neural networks and character size modeling.
@@ -1399,7 +1409,6 @@ def compute_alignment(lattice,rseg,lmodel,beam=1000,verbose=0):
             cseg[i,j] = rmap[rseg[i,j]]
 
     return utils.Record(output=result,
-                        raw=outs,
                         ins=ins,
                         outs=outs,
                         segs=segs,
@@ -1602,11 +1611,62 @@ class Classifier(PyComponent):
     You usually save these objects by pickling them."""
     def train(self,data,classes):
         """Train the classifier on the given dataset."""
-        raise Exception("unimplemented")
+        raise Unimplemented()
     def outputs(self,data):
         """Compute the ouputs corresponding to each input data vector."""
-        raise Exception("unimplemented")
+        raise Unimplemented()
 
+def check_transcription(transcription):
+    """Checks the syntax of transcriptions.  Transcriptions may have ligatures
+    enclosed like "a_ffi_ne", but the text between the ligatures may not be
+    longer than 4 characters (to catch typos)."""
+    groups = re.split(r'(_.*?_)',transcription)
+    for i in range(1,len(groups),2):
+        if len(groups[i])>6: raise BadTranscriptionSyntax()
+    return
+
+def explode_transcription(transcription):
+    """Explode a transcription into a list of strings.  Characters are usually
+    exploded into individual list elements, unless they are enclosed as in
+    "a_ffi_ne", in which case the string between the "_" is considered a ligature.
+    Backslash may be used to escape special characters, including "\" and "_"."""
+    if type(transcription)==list:
+        return transcription
+    elif type(transcription)==str or type(transcription)==unicode:
+        check_transcription(transcription)
+        transcription = transcription.replace("\\_","\0x4").replace("\\\\","\0x3")
+        groups = re.split(r'(_.{1,4}?_)',transcription)
+        for i in range(1,len(groups),2):
+            groups[i] = groups[i].strip("_")
+        result = []
+        for i in range(len(groups)):
+            if i%2==0:
+                s = groups[i]
+                for j in range(len(s)):
+                    result.append(s[j])
+            else:
+                result.append(groups[i])
+        result = transcription.replace("\0x4","_").replace("\0x3","\\")
+        return result
+    raise Exception("bad transcription type")
+
+def implode_transcription(transcription):
+    """Takes a list of characters or strings and implodes them into
+    a transcription."""
+    def quote(s):
+        assert len(s)<=4,"ligatures can consist of at most 4 characters"
+        if len(s)>1: return "_"+s+"_"
+        else: return s
+    return "".join([quote(s) for s in transcription])
+
+def make_alignment_fst(transcription):
+    """Takes a string or a list of strings that are transcriptions and
+    constructs an FST suitable for alignment."""
+    if isinstance(transcription,ocrolib.OcroFST):
+        return transcription
+    if type(transcription) in [str,unicode]:
+        transcription = [transcription]
+    transcription = [explode_transcription(s) for s in transcription]
     
 class CmodelLineRecognizer(RecognizeLine):
     def __init__(self,**kw):
@@ -1741,28 +1801,41 @@ class CmodelLineRecognizer(RecognizeLine):
         # return the raw segmentation as a result
         return lattice,rseg
 
-    def startTraining(self,type="adaptation"):
-        raise Exception("unimplemented")
-    def finishTraining(self):
-        raise Exception("unimplemented")
-    def addTrainingLine(self,image,transcription):
-        raise Exception("unimplemented")
-    def addTrainingLine(self,segmentation,image,transcription):
-        raise Exception("unimplemented")
-    def align(self,chars,seg,costs,image,transcription):
-        raise Exception("unimplemented")
-    def epoch(self,n):
-        raise Exception("unimplemented")
+    # align the text line image with the transcription
+
+    def align(self,image,transcription):
+        """Takes an image and a transcription and aligns the two.  Output is
+        an alignment record, which contains the following fields:
+        ins (input symbols), outs (output symbols), costs (corresponding costs)
+        cseg (aligned segmentation), rseg (raw segmentation), lattice (recognition lattice),
+        raw (raw recognized string without language model), cost (total cost)"""
+        lmodel = make_alignment_fst(transcription)
+        lattice,rseg = self.recognizeLineSeg(image)
+        raw = lattice.bestpath()
+        alignment = compute_alignment(lattice,rseg,lmodel)
+        alignment.raw = raw
+        return alignment
+
+    # saving and loading this component
+    
     def save(self,file):
-        assert ".pymodel" in file
         with open(file,"w") as stream:
             pickle.dump(self,stream)
     def load(self,file):
-        assert ".pymodel" in file
         with open(file,"r") as stream:
             obj = pickle.load(self,stream)
-        for k,v in obj.__dict__:
-            self.__dict__[k] = v
+        self.__dict__.update(obj.__dict__)
+
+    # training is handled separately
+
+    def startTraining(self,type="adaptation"):
+        raise Unimplemented()
+    def addTrainingLine(self,image,transcription):
+        raise Unimplemented()
+    def addTrainingLine(self,segmentation,image,transcription):
+        raise Unimplemented()
+    def finishTraining(self):
+        raise Unimplemented()
 
 ################################################################
 ### loading and saving components

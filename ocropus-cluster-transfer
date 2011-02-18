@@ -1,0 +1,25 @@
+#!/usr/bin/python
+import code,pickle,sys,os,re
+from pylab import *
+from optparse import OptionParser
+import ocrolib
+from ocrolib import dbtables
+
+parser = OptionParser("""
+usage: %prog [options] chars.db clusters.db
+
+Transfer cluster labels from a cluster database back to the original character database.
+""")
+
+(options,args) = parser.parse_args()
+
+if len(args)!=2:
+    parser.print_help()
+    sys.exit(0)
+
+chars = dbtables.Table(args[0],"chars")
+clusters = dbtables.Table(args[1],"clusters")
+
+for row in clusters.get():
+    pass
+

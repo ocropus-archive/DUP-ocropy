@@ -1,0 +1,17 @@
+#!/usr/bin/python
+
+from optparse import OptionParser
+import sys,os
+import ocrolib
+from ocrolib import fstutils
+
+parser = OptionParser(usage="""
+%prog [options] text
+""")
+parser.add_option("-o","--optimize",help="optimize the fst",action="store_true")
+(options,args) = parser.parse_args()
+
+s = " ".join(args)
+fst = fstutils.make_line_openfst([s],optimize=options.optimize)
+fst.Write("_temp_.fst")
+os.system("fstdraw --portrait _temp_.fst | dot -Tpng | display - ")

@@ -1,0 +1,31 @@
+#!/usr/bin/python
+import code,pickle,sys,os,re
+from pylab import *
+from optparse import OptionParser
+import ocrolib
+from ocrolib import dbtables
+
+parser = OptionParser("""
+usage: %prog [options] chars.db output.db
+
+""")
+
+parser.add_option("-D","--display",help="display chars",action="store_true")
+parser.add_option("-v","--verbose",help="verbose output",action="store_true")
+parser.add_option("-t","--table",help="table name",default="chars")
+parser.add_option("-e","--epsilon",help="epsilon",type=float,default=0.1)
+parser.add_option("-o","--overwrite",help="overwrite output if it exists",action="store_true")
+(options,args) = parser.parse_args()
+
+if len(args)!=2:
+    parser.print_help()
+    sys.exit(0)
+
+ion()
+show()
+
+table = dbtables.OcroTable(args[0],options.table)
+table.create(image="blob",cluster="integer",cls="integer")
+
+ids = table.keys()
+print ids[:10],len(ids)
