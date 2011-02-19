@@ -371,6 +371,8 @@ def mkpython(name):
     doesn't look like a Python class."""
     if type(name) is not str:
         return name()
+    elif name[0]=="=":
+        return pyconstruct(name[1:])
     elif "(" in name:
         return pyconstruct(name)
     else:
