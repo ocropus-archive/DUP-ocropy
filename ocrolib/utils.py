@@ -211,8 +211,10 @@ def charcolumns(con,table):
               cls="text",
               cost="real",
               # separate prediction
+              # pocost is the cost for the transcribed cls
               pred="text",
               pcost="real",
+              pocost="real",
               # cluster information
               cluster="integer",
               count="integer",

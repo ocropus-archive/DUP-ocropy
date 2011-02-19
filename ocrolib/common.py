@@ -1,4 +1,4 @@
-import os,os.path,re,numpy,unicodedata,sys
+import os,os.path,re,numpy,unicodedata,sys,warnings,inspect
 import numpy
 from numpy import *
 from scipy.misc import imsave
@@ -22,6 +22,12 @@ class Unimplemented():
 ### smallish utilities
 ################################################################
 
+class OcropusFileNotFound:
+    def __init__(self,fname):
+        self.fname = fname
+    def __str__(self):
+        return "<OcropusFileNotFound "+self.fname+">"
+
 data_paths = [
     ".",
     "./models",
@@ -33,13 +39,9 @@ data_paths = [
     "/usr/local/share/ocropus",
 ]
 
-class OcropusFileNotFound:
-    def __init__(self,fname):
-        self.fname = fname
-    def __str__(self):
-        return "<OcropusFileNotFound "+self.fname+">"
-
 def ocropus_find_file(fname):
+    """Search for OCRopus-related files in common OCRopus install
+    directories (as well as the current directory)."""
     if os.path.exists(fname):
         return fname
     for path in data_paths:
@@ -48,6 +50,10 @@ def ocropus_find_file(fname):
     raise OcropusFileNotFound(fname)
 
 def set_params(object,kw,warn=1):
+    """Given an object and a dictionary of keyword arguments,
+    set only those object properties that are already instance
+    variables of the given object.  Attempting to set other
+    values results in an error (or warning, if warn=1)."""
     kw = kw.copy()
     for k,v in kw.items():
         if hasattr(object,k):
@@ -59,29 +65,40 @@ def set_params(object,kw,warn=1):
         del kw[k]
     return kw
 
+def caller():
+    frame = sys._getframe(2)
+    info = inspect.getframeinfo(frame)
+    result = "%s:%d (%s)"%(info.filename,info.lineno,info.function)
+    del frame
+    return result
+
 def logging(message,*args):
+    """Write a log message (to stderr by default)."""
     message = message%args
     sys.stderr.write(message)
 
 def die(message,*args):
+    """Die with an error message."""
     message = message%args
-    message = "FATAL: "+message+"\n"
+    message = caller()+" FATAL "+message+"\n"
     sys.stderr.write(message)
     sys.exit(1)
 
 def warn(message,*args):
+    """Give a warning message."""
     message = message%args
-    message = "WARNING: "+message+"\n"
+    message = caller()+" WARNING "+message+"\n"
     sys.stderr.write(message)
-    sys.exit(1)
 
 already_warned = {}
 
 def warn_once(message,*args):
-    if message in already_warned: return
-    already_warned[message] = 1
+    """Give a warning message, but just once."""
+    c = caller()
+    if c in already_warned: return
+    already_warned[c] = 1
     message = message%args
-    message = "WARNING: "+message+"\n"
+    message = c+" WARNING "+message+"\n"
     sys.stderr.write(message)
 
 def quick_check_page_components(page_bin,dpi):
@@ -95,6 +112,19 @@ def quick_check_line_components(line_bin,dpi):
     reasonable.  Returns a value between 0 and 1; <0.5 means that
     there is probably something wrong."""
     return 1.0
+
+def deprecated(func):
+    """This is a decorator which can be used to mark functions
+    as deprecated. It will result in a warning being emmitted
+    when the function is used."""
+    def newFunc(*args, **kwargs):
+        warnings.warn("Call to deprecated function %s." % func.__name__,
+                      category=DeprecationWarning,stacklevel=2)
+        return func(*args, **kwargs)
+    newFunc.__name__ = func.__name__
+    newFunc.__doc__ = func.__doc__
+    newFunc.__dict__.update(func.__dict__)
+    return newFunc
 
 ################################################################
 ### conversion functions

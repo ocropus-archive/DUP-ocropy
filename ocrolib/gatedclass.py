@@ -1,14 +1,10 @@
 #!/usr/bin/python
-
-# DEPRECATED -- use gatedclass.py instead
-
 import random as pyrandom
 import code,pickle,sys,os,re,traceback,cPickle,os.path,glob
 from optparse import OptionParser
 from pylab import *
 from scipy import stats
 import common as ocrolib
-from common import deprecated
 import dbtables,quant,utils
 
 def average_outputs(os):
@@ -19,32 +15,26 @@ def average_outputs(os):
     n = 1.0*len(os)
     return [(k,v/n) for k,v in result.items()]
 
-class MultiClass:
-    @deprecated
+class GatedClass:
     def __init__(self):
         self.center_extractor = ocrolib.BboxFE()
-        self.vectors = []
-        self.cutoffs = []
+        self.gates = []
         self.models = []
-    def add(self,center,cutoff,model):
-        self.vectors.append(center)
-        self.cutoffs.append(cutoff)
-        self.models.append(model)
     def extract(self,image):
         v = self.center_extractor.extract(image)
         v /= sqrt(sum(v**2))
         return v
+    def add(self,gate,model):
+        self.gates.append(gate)
+        self.models.append(model)
     def coutputs(self,image,geometry=None):
         outputs = []
         v = self.extract(image)
-        def maybe_dist(v,c):
-            if c is None: return 0.0
-            return quant.dist(v.ravel(),c.ravel())
-        dists = array([maybe_dist(v,c) for c in self.vectors],'f')
-        for i in range(len(dists)):
-            if self.cutoffs[i] is None or dists[i]<self.cutoffs[i]:
-                output = self.models[i].coutputs(image,geometry=geometry)
-                outputs.append(output)
+        outputs = []
+        for i in range(len(self.gates)):
+            if not self.gates[i].check(v): continue
+            output = self.models[i].coutputs(image,geometry=geometry)
+            outputs.append(output)
         return average_outputs(outputs)
     def coutputs_batch(self,vs,geometries=None):
         outputs = []
@@ -57,7 +47,18 @@ class MultiClass:
     def setExtractor(self,extractor):
         ocrolib.warn_once("setExtractor called")
 
-def load_multiclass(mc,dir):
+class AlwaysGate:
+    def check(self,v):
+        return True
+
+class DistanceGate:
+    def __init__(self,center,cutoff):
+        self.center = center
+        self.cutoff = cutoff
+    def check(self,v):
+        return quant.dist(self.center.ravel(),v.ravel())<=self.cutoff
+
+def load_gatedclass(gated,dir,cutoff=0.75):
     paths = glob.glob(dir+"/*.cmodel") + glob.glob(dir+"/*.model") 
     print "# loading",len(paths),"models"
     for path in paths:
@@ -66,11 +67,10 @@ def load_multiclass(mc,dir):
         if os.path.exists(base+".info"):
             with open(base+".info","r") as stream:
                 info = cPickle.load(stream)
-            center = info.center
-            cutoff = info.cutoffs[int(len(info.cutoffs)*mc.cutoff)]
+            bins = len(info.cutoff)
+            d = info.cutoffs[int(bins*cutoff)]
+            gated.add(DistanceGate(info.center,d,model))
         else:
-            center = None
-            cutoff = 1e38
-        print "#",path,cutoff
-        mc.addClassifier(center,cutoff,model)
+            gated.add(AlwaysGate(model))
+    return gated
 
