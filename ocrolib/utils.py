@@ -132,6 +132,24 @@ def write_text(file,s):
     with open(file,"w") as stream:
         stream.write(s)
 
+def plotgrid(data,d=10,shape=(30,30)):
+    ion()
+    gray()
+    clf()
+    for i in range(min(d*d,len(data))):
+        subplot(d,d,i+1)
+        row = data[i]
+        if shape is not None: row = row.reshape(shape)
+        imshow(row)
+    ginput(1,timeout=1)
+
+def chist(l):
+    counts = {}
+    for c in l:
+        counts[c] = counts.get(c,0)+1
+    hist = [(v,k) for k,v in counts.items()]
+    return sorted(hist,reverse=1)
+
 ################################################################
 ### simple database utilities        
 ################################################################

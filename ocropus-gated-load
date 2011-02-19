@@ -1,0 +1,23 @@
+#!/usr/bin/env python
+
+from optparse import OptionParser
+import pygtk
+pygtk.require("2.0") 
+import gobject,gtk,gtk.glade
+import sys,pickle,os,glob,traceback,sqlite3,scipy,cPickle
+from pylab import *
+import ocrolib
+from ocrolib import docproc,utils,gatedmodel
+
+parser = OptionParser(usage="""
+%prog [options] [input.db]
+
+""")
+parser.add_option("-c","--cutoff",help="cutoff",type=float,default=0.75)
+parser.add_option("-o","--output",help="ouptut file",default="gated.cmodel")
+(options,args) = parser.parse_args()
+
+model = gatedmodel.GatedModel()
+gatedmodel.load_gatedmodel(model,args,cutoff=options.cutoff)
+with open(options.output,"wb") as stream:
+    cPickle.dump(model,stream)

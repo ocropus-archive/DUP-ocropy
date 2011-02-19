@@ -1,0 +1,133 @@
+#!/usr/bin/python
+import random as pyrandom
+import code,pickle,sys,os,re,traceback,cPickle
+from optparse import OptionParser
+from pylab import *
+from scipy import stats
+import ocrolib
+import heapq
+from ocrolib import dbtables,quant,utils,gatedmodel,lru,docproc,Record,mlp
+
+parser = OptionParser(usage="""
+%prog [options] input.db output-dir
+
+""")
+parser.add_option("-D","--display",help="display",action="store_true")
+parser.add_option("-N","--limit",help="limit training",type=int,default=20000)
+parser.add_option("-r","--rounds",help="mlp rounds",type=int,default=24)
+parser.add_option("-n","--ntrain",help="ntrain",type=int,default=5000)
+parser.add_option("-t","--table",help="table",default="chars")
+parser.add_option("-c","--cutoff",help="cutoff",type=float,default=0.75)
+parser.add_option("-o","--output",help="ouptut file",default="gated.cmodel")
+(options,args) = parser.parse_args()
+
+if len(args)!=3:
+    print "usage: ..."
+    sys.exit(1)
+
+table = options.table
+ntrain = options.ntrain
+ntest = 100000
+nrounds = 16
+
+print "opening db"
+db = utils.chardb(args[0],"chars")
+
+print "loading clasifier"
+model = ocrolib.load_component(args[1])
+if hasattr(model,'addGated') and hasattr(model,'coutputs'):
+    gated = model
+else:
+    gated = gatedmodel.GatedModel()
+    gated.addGated(gatedmodel.AlwaysGate(),model)
+del model
+
+print "creating output dir"
+if not os.path.exists(args[2]): os.mkdir(args[2])
+assert os.path.isdir(args[2])
+
+print "loading"
+classes = {}
+for r in db.execute("select id,cls from chars limit %d"%options.limit):
+    classes[r.id] = r.cls
+
+ids = sorted(classes.keys())
+
+@lru.lru_cache(maxsize=1000000)
+def getrow(id):
+    r = list(db.execute("select * from chars where id=?",(id,)))[0]
+    image = utils.blob2image(r.image)/255.0
+    rel = docproc.rel_geo_normalize(r.rel)
+    return Record(cls=r.cls,image=image,rel=rel)
+
+print "predicting"
+predictions = {}
+total = 0
+for i in ids:
+    if i%1000==0: sys.stderr.write("%8d / %8d\r"%(i,len(ids)))
+    row = getrow(i)
+    pred = gated.cclassify(row.image,geometry=row.rel)
+    predictions[i] = pred
+    total += 1
+
+print "\ngetrow hits",getrow.hits,"misses",getrow.misses
+
+def errors():
+    errors = []
+    for i in ids:
+        if predictions[i]!=classes[i]:
+            errors.append(i)
+    return errors
+
+bad = errors()
+print "\nerrors",len(bad)
+
+while 1:
+    center_id = pyrandom.sample(bad,1)[0]
+    print "=== training",center_id,"==="
+    row = getrow(center_id)
+    center = gated.extract(row.image)
+
+    print "sampling to determine cutoff"
+    samples = pyrandom.sample(ids,min(len(ids),100000))
+    dists = [quant.dist(center,gated.extract(getrow(i).image)) for i in samples]
+    if options.display:
+        clf(); hist(dists); ginput(1,timeout=1)
+    frac = ntrain*1.0/len(ids)
+    cutoff = stats.scoreatpercentile(dists,per=100.0*frac)
+    threshold = stats.scoreatpercentile(dists,per=75.0*frac)
+    print "cutoff",cutoff,threshold
+
+    print "getting training sample"
+    model = mlp.AutoMlpModel(max_rounds=options.rounds)
+    total = 0
+    testsamples = []
+    for i in ids:
+        row = getrow(i)
+        v = gated.extract(row.image)
+        d = quant.dist(center,v)
+        if d<cutoff:
+            model.cadd(row.image,row.cls,geometry=row.rel)
+            total += 1
+            if total%1000==0: sys.stderr.write("%8d\r"%total)
+        if d<threshold:
+            testsamples.append(i)
+    print "\ngot",total,"samples"
+
+    for progress in model.updateModel1():
+        sys.stderr.write("%s\r"%progress)
+
+    fname = args[2]+"/%08d.cmodel"%center_id
+    print "saving",fname
+    ocrolib.save_component(fname,model)
+
+    print "predicting"
+    gated.addGated(gatedmodel.DistanceGate(center,threshold),model)
+
+    for i in testsamples:
+        row = getrow(i)
+        predictions[i] = gated.cclassify(row.image,geometry=row.rel)
+
+    old = len(bad)
+    bad = errors()
+    print "nerrors",len(bad),"old",old

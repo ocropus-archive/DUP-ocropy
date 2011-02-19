@@ -352,7 +352,7 @@ class MLP:
         assert self.w1.shape[0]==self.w2.shape[1]
         return self.w1.shape[1],self.w1.shape[0],self.w2.shape[0]
     def train(self,data,cls,etas=[(0.1,100000)]*30,
-              nhidden=None,eps=1e-2,subset=None,verbose=1,samples=None):
+              nhidden=None,eps=1e-2,subset=None,verbose=0,samples=None):
         data = data.reshape(len(data),prod(data.shape[1:]))
         if subset is not None:
             data = take(data,subset,axis=0)
@@ -440,7 +440,7 @@ class AutoMLP(MLP):
     def __init__(self,**kw):
         # fairly conservative default settings that result
         # in reasonably good performance for many problems
-        self.verbose = 1
+        self.verbose = 0
         self.initial_nhidden = [20,40,60,80,120,160]
         self.initial_eta = (0.1,0.8)
         self.initial_epochs = 5
@@ -492,9 +492,10 @@ class AutoMLP(MLP):
                       verbose=(self.verbose>1),samples=training)
             # determine error on test set
             mlp.err = error(mlp,testset,testclasses)
-            print "AutoMLP pool",mlp.err,"%.4f"%(mlp.err*1.0/len(testset)),\
-                "(%.3f,%d)"%(mlp.eta,mlp.nhidden()),\
-                [x.err for x in pool]
+            if verbose:
+                print "AutoMLP pool",mlp.err,"%.4f"%(mlp.err*1.0/len(testset)),\
+                    "(%.3f,%d)"%(mlp.eta,mlp.nhidden()),\
+                    [x.err for x in pool]
             pool += [mlp]
             # to allow partial training, update this with the best model so far
             best = argmin([x.err+0.1*x.nhidden() for x in pool])
