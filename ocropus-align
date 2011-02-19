@@ -1,0 +1,110 @@
+#!/usr/bin/python
+
+# make the clustering class-specific
+
+import sys,os,re,glob,math,glob,signal,traceback
+if "DISPLAY" not in os.environ:
+    import matplotlib
+    matplotlib.use("AGG")
+from scipy.ndimage import interpolation
+from pylab import *
+from optparse import OptionParser
+from multiprocessing import Pool
+import ocrolib
+from ocrolib import number_of_processors,fstutils,die
+
+signal.signal(signal.SIGINT,lambda *args:sys.exit(1))
+
+parser = OptionParser("""
+usage: %prog [options] [text.txt langmod.fst image.png ...]
+
+""")
+
+parser.add_option("-g","--gt",help="kind of ground truth",default="pagegt")
+parser.add_option("-s","--suffix",help="input suffix",default=None)
+parser.add_option("-S","--osuffix",help="output suffix",default=None)
+parser.add_option("-O","--overwrite",help="overwrite outputs",action="store_true")
+parser.add_option("-Q","--parallel",type=int,default=0,help="number of parallel processes to use")
+(options,args) = parser.parse_args()
+
+suffix = options.suffix
+if not suffix: suffix = ""
+else: suffix = "."+suffix
+osuffix = options.osuffix
+if not osuffix: osuffix = suffix
+else: osuffix = "."+osuffix
+
+lfile = None
+lfst = None
+
+def safe_align1(t):
+    try:
+        align1(t)
+    except e:
+        traceback.print_exc()
+
+def align1(t):
+    global lfile,lfst
+    (fname,lmodel) = t
+    base,ext = ocrolib.allsplitext(fname)
+
+    fst_path = base+suffix+".fst"
+    if not os.path.exists(fst_path):
+        print fst_path,": does not exist"
+        return
+
+    fst = ocrolib.OcroFST()
+    fst.load(fst_path)
+
+    rseg_path = base+suffix+".png"
+    if not os.path.exists(rseg_path):
+        print rseg_path,": does not exist"
+        return
+    rseg = ocrolib.read_line_segmentation(rseg_path)
+
+    if lmodel!=lfile:
+        lfile = lmodel
+        lfst = fstutils.load_transcription(lmodel)
+    
+    r = ocrolib.compute_alignment(fst,rseg,lfst)
+
+    result = r.output
+    cseg = r.cseg
+    costs = r.costs
+
+    print fname,":",sum(costs),mean(costs)
+
+    cseg_file = base+".cseg"+osuffix+".png"
+
+    if not options.overwrite:
+        if os.path.exists(cseg_file): die(cseg_file,"already exists")
+
+    ocrolib.write_line_segmentation(cseg_file,cseg)
+
+    with open(base+osuffix+".costs","w") as stream:
+        for i in range(len(costs)):
+            stream.write("%d %g\n"%(i,costs[i]))
+
+    ocrolib.write_text(base+osuffix+".txt",result)
+
+jobs = []
+
+if options.gt=="pagegt":
+    for arg in args:
+        if not os.path.exists(arg):
+            print arg,"not found"
+            continue
+        d = re.sub(r'/[^/]*$','',arg)
+        p = d+".gt.txt"
+        if not os.path.exists(p):
+            print p,"not found"
+            continue
+        jobs.append((arg,p))
+else:
+    raise Exception("unknown gt type: "+options.gt)
+
+if options.parallel<2:
+    for arg in jobs: align1(arg)
+else:
+    pool = Pool(processes=options.parallel)
+    result = pool.map(safe_align1,jobs)

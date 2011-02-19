@@ -1,0 +1,119 @@
+#!/usr/bin/python
+import random as pyrandom
+import code,pickle,sys,os,re,traceback,cPickle
+from optparse import OptionParser
+from pylab import *
+from scipy import stats
+import ocrolib
+from ocrolib import dbtables,quant,utils
+
+input = "unlv.db"
+#input = "chars.db"
+table = "chars"
+output = "unlv-multi-model"
+ntrain = 150000
+mintrain = 100
+ntest = 100000
+nrounds = 16
+
+################################################################
+### utility functions
+################################################################
+
+extractor = ocrolib.ScaledFE()
+def extract(v):
+    v /= sqrt(sum(v**2))
+    v = extractor.extract(v)
+    return v
+
+def getdata(db,ids):
+    classes = []
+    images = []
+    for id in ids:
+        row = db[id]
+        images.append(extract(row.float_image()).ravel())
+        classes.append(row.cls)
+    return array(images,'f'),classes
+
+def plotgrid(data,d=10,shape=(30,30)):
+    ion()
+    gray()
+    clf()
+    for i in range(min(d*d,len(data))):
+        subplot(d,d,i+1)
+        row = data[i]
+        if shape is not None: row = row.reshape(shape)
+        imshow(row)
+    ginput(1,timeout=1)
+
+def chist(l):
+    counts = {}
+    for c in l:
+        counts[c] = counts.get(c,0)+1
+    hist = [(v,k) for k,v in counts.items()]
+    return sorted(hist,reverse=1)
+
+################################################################
+### main
+################################################################
+
+#os.system("rm -rf "+output)
+
+try: os.mkdir(output)
+except: pass
+
+ion()
+
+print "# loading database"
+db = dbtables.CharDB(input,table)
+ids = db.keys()
+total = len(ids)
+print "total",total
+frac = ntrain*1.0/total
+frac2 = ntest*1.0/total
+
+while 1:
+    center_id = pyrandom.sample(ids,1)[0]
+    center = extract(db[center_id].float_image())
+
+    print "# sampling to determine cutoff"
+    samples = pyrandom.sample(ids,100000)
+    dists = [quant.dist(center,extract(db[i].float_image())) for i in samples]
+    clf(); hist(dists); ginput(1,timeout=1)
+    cutoff = stats.scoreatpercentile(dists,per=100.0*frac)
+    cutoff2 = stats.scoreatpercentile(dists,per=100.0*frac2)
+    print "cutoff",cutoff,"cutoff2",cutoff2
+
+    print "# getting training sample"
+    data = []
+    classes = []
+    for i in ids:
+        row = db[i]
+        v = extract(row.float_image())
+        if quant.dist(center,v)<cutoff:
+            params = row.rel_lineparams()
+            v = concatenate([v.ravel(),params])
+            data.append(v)
+            classes.append(row.cls)
+            if len(data)%10000==0: print "got",len(data)
+    print "got",len(classes),"samples"
+    ch = chist(classes)
+    counts = {}
+    for c,k in ch: counts[k] = c
+    ch = [l for l in ch if l[0]>=mintrain]
+    print "classes",ch
+
+    print "# training"
+    model = ocrolib.AutoMlpClassifier()
+    for i in range(len(data)):
+        if counts[classes[i]]<mintrain: continue
+        model.cadd(data[i],classes[i])
+    model.pset("rounds",nrounds)
+    model.updateModel()
+
+    print "# writing %08d"%center_id
+    record = utils.Record(center_id=center_id,center=center,dists=dists,
+                          cutoff=cutoff,cutoff2=cutoff2,ntrain=len(classes))
+    with open(output+"/%08d.info"%center_id,"w") as stream:
+        cPickle.dump(record,stream,2)
+    ocrolib.save_component(output+"/%08d.model"%center_id,model)
