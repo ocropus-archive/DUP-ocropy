@@ -5,7 +5,7 @@ from optparse import OptionParser
 from pylab import *
 from scipy.ndimage import interpolation,filters
 import ocrolib
-from ocrolib import dbtables,docproc
+from ocrolib import docproc,utils,Record
 signal.signal(signal.SIGINT,lambda *args:sys.exit(1))
 
 parser = OptionParser(usage="""
@@ -147,12 +147,12 @@ skip3 = 0
 nreject = 0
 
 def iterate_dbs(args):
-    for db in args:
-        print "===",db,"==="
-        table = dbtables.ClusterTable(db,name=options.table)
-        clusters = table.get()
-        for cluster in clusters:
-            yield cluster
+    for arg in args:
+        print "===",arg,"==="
+        db = utils.chardb(arg,"chars")
+        clusters = db.execute("select image,cls from chars")
+        for c in clusters:
+            yield Record(image=utils.blob2image(c.image),cls=c.cls)
 
 for cluster in iterate_dbs(args):
 

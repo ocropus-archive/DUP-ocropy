@@ -231,3 +231,13 @@ def charcolumns(con,table):
     con.execute("create index if not exists countcost_index on %s (count,cost)"%table)
     con.commit()
               
+def chardb(fname,table=None):
+    db = sqlite3.connect(fname)
+    db.row_factory = DbRow
+    db.text_factory = sqlite3.OptimizedUnicode
+    if table is not None:
+        charcolumns(db,table)
+        db.commit()
+    db.execute("pragma synchronous=0")
+    return db
+
