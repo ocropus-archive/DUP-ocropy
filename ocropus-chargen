@@ -1,4 +1,5 @@
 #!/usr/bin/python
+# -*- encoding: utf-8 -*-
 
 import sys,os,re,glob,math,glob,signal,sqlite3
 from pylab import *
@@ -44,20 +45,47 @@ usage: %prog [options] ...
 
 Generates characters from TrueType fonts and stores them in a character database.
 """)
-parser.add_option("-o","--output",help="output file",default="chars.db")
+parser.add_option("-o","--output",help="output file",default="chargen.db")
 parser.add_option("-D","--display",help="display chars",action="store_true")
 parser.add_option("-R","--record",help="record parameter info in database",action="store_true")
 parser.add_option("-v","--verbose",help="verbose output",action="store_true")
 parser.add_option("-c","--classes",help="list of classes (one per line)",default=None)
-parser.add_option("-s","--sizes",help="list of sizes (Python expression)",default="range(26,36)")
+parser.add_option("-s","--sizes",help="list of sizes (Python expression)",default="range(24,38)")
 parser.add_option("-f","--specs",help="list of font specs",default=None)
-parser.add_option("-n","--nvariants",help="number of variants",default=4,type=int)
+parser.add_option("-n","--nvariants",help="number of variants",default=8,type=int)
 parser.add_option("-Q","--parallel",help="number of parallel processes",default=0,type=int)
 parser.add_option("-e","--eval",help="evaluate expressions (for additional options)",default="None")
 parser.add_option("-i","--inner",help="inner offset for degradation (<1: some broken chars)",default=1,type=float)
 (options,args) = parser.parse_args()
 
 exec options.eval
+
+latin_and_ligs = """
+!  " $ % & ' ( ) * + , - .  / 
+0 1 2 3 4 5 6 7 8 9 
+: ; < = > ?  @ 
+A B C D E F G H I J K L M N O P Q R S T U V W X Y Z 
+[ \ ] ^ ` 
+a b c d e f g h i j k l m n o p q r s t u v w x y z 
+{ | }
+
+ä ö ü Ä Ö Ü ß
+
+00 La Th ac ai ak al all am an ar as be bo ca co ct
+di dr ec ed ee es ff ffi fl fr ft gh gi gr gu hi il
+in ir is ki li ll ma mi mm ni oc oo pe po re ri rin
+rm rn ro r rs rt ru rv ry se so ta te th ti to tr
+ts tt tu ul um un ur vi wi wn
+
+a. c. e. m. n. t. z. A. C. E. K. L. M. N. R.
+a, c, e, m, n, t, z, A, C, E, K, L, M, N, R,
+a- b- e- d- g- m- n- o- p- u-
+
+"B "D "F "H "K "L "P "R "T "W "Z "b "h "l
+'B 'D 'F 'H 'K 'L 'P 'R 'T 'W 'Z 'b 'h 'l
+d" f" l" 
+d' f' l'
+"""
 
 if options.classes is not None:
     testset = []
@@ -66,7 +94,7 @@ if options.classes is not None:
             line = line[:-1]
             testset.append(line)
 else:
-    testset = sorted(list(set([chr(c) for c in range(33,127)])-set(["~","_","#"])))
+    testset = sorted(list(set(latin_and_ligs.split())))
 n = len(testset)
 
 sizes = eval(options.sizes)
@@ -127,7 +155,8 @@ def process_arg(arg):
             scl = scale()
             asp = aspect()
             rot = rotation()
-            image = pango_render_string(c,spec=spec,size=size,pad=10,markup=0,scale=scl,aspect=asp,rotation=rot)
+            image = pango_render_string(c,spec=spec,size=size,pad=10,
+                markup=0,scale=scl,aspect=asp,rotation=rot)
             image = average(image,axis=2)
             image = array(image,'f')
             image /= amax(image)
