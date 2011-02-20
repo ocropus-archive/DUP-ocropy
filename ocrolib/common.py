@@ -7,6 +7,8 @@ from scipy.ndimage import interpolation,measurements,morphology
 import iulib,ocropus
 import utils
 import docproc
+import ligatures
+import fstutils
 
 import cPickle as pickle
 pickle_mode = 2
@@ -130,14 +132,19 @@ def deprecated(func):
 ### conversion functions
 ################################################################
 
-def ustrg2unicode(u):
+def ustrg2unicode(u,lig=ligatures.lig):
     """Convert an iulib ustrg to a Python unicode string; the
     C++ version iulib.ustrg2unicode does weird things for special
     symbols like -3"""
     result = ""
     for i in range(u.length()):
         value = u.at(i)
-        if value>=0: result += unichr(value)
+        if value>=0:
+            c = lig.chr(value)
+            if c is not None:
+                result += c
+            else:
+                result += "<%d>"%value
     return result
 
 def isfp(a):
@@ -1332,10 +1339,23 @@ def intarray_as_unicode(a,skip0=1):
     result = u""
     for i in range(len(a)):
         if a[i]!=0:
+            assert a[i]>=0 and a[i]<0x110000,"%d (0x%x) character out of range"%(a[i],a[i])
             result += unichr(a[i])
     return result
     
-def rseg_map(inputs):
+def read_lmodel_or_textlines(file):
+    """Either reads a language model in .fst format, or reads a text file
+    and corresponds a language model out of its lines."""
+    if not os.path.exists(file): raise IOError(file)
+    if file[-4:]==".fst":
+        return OcroFST().load(file)
+    else:
+        import fstutils
+        result = fstutils.load_text_file_as_fst(file)
+        assert isinstance(result,OcroFST)
+        return result
+
+def OLD_rseg_map(inputs):
     """This takes an array of the input labels produced by a beam search.
     The input labels contain the correspondence
     between the rseg label and the character.  These are put into
@@ -1358,19 +1378,7 @@ def rseg_map(inputs):
             map[j] = count
     return map
 
-def read_lmodel_or_textlines(file):
-    """Either reads a language model in .fst format, or reads a text file
-    and corresponds a language model out of its lines."""
-    if not os.path.exists(file): raise IOError(file)
-    if file[-4:]==".fst":
-        return OcroFST().load(file)
-    else:
-        import fstutils
-        result = fstutils.load_text_file_as_fst(file)
-        assert isinstance(result,OcroFST)
-        return result
-
-def recognize_and_align(image,linerec,lmodel,beam=1000,nocseg=0):
+def OLD_recognize_and_align(image,linerec,lmodel,beam=1000,nocseg=0):
     """Perform line recognition with the given line recognizer and
     language model.  Outputs an object containing the result (as a
     Python string), the costs, the rseg, the cseg, the lattice and the
@@ -1408,7 +1416,7 @@ def recognize_and_align(image,linerec,lmodel,beam=1000,nocseg=0):
                         lattice=lattice,
                         cost=sum(costs))
 
-def compute_alignment(lattice,rseg,lmodel,beam=1000,verbose=0):
+def compute_alignment(lattice,rseg,lmodel,beam=1000,verbose=0,lig=ligatures.lig):
     """Given a lattice produced by a recognizer, a raw segmentation,
     and a language model, computes the best solution, the cseg, and
     the corresponding costs.  These are returned as Python data structures.
@@ -1416,42 +1424,89 @@ def compute_alignment(lattice,rseg,lmodel,beam=1000,verbose=0):
     (pairs of 16 bit numbers); SimpleGrouper produces such lattices."""
 
     v1,v2,ins,outs,costs = beam_search(lattice,lmodel,beam)
-    result = intarray_as_unicode(outs,skip0=0)
+
+    # useful for debugging
+
+    if 0:
+        for i in range(len(ins)):
+            print i,ins[i]>>16,ins[i]&0xffff,lig.chr(outs[i]),costs[i]
+
     assert len(ins)==len(outs)
     n = len(ins)
 
-    result = u""
+    # This is a little tricky because we need to deal with ligatures.
+    # For any transition followed by epsilon transitions on the
+    # output, we group all the segments of the epsilon transition with
+    # the preceding non-epsilon transition.
+
+    result_l = []
     segs = []
-    for i in range(n):
-        if outs[i]<=0: continue
+    i = 1
+    while i<n:
+        j = i+1
         start = ins[i]>>16
         end = ins[i]&0xffff
-        result += unichr(outs[i])
+        while j<n and outs[j]==0:
+            start = min(start,ins[j]>>16)
+            end = max(end,ins[j]&0xffff)
+            j = j+1
+        result_l.append(lig.chr(outs[i]))
         segs.append((start,end))
+        i = j
 
-    assert len(segs)>0
-    rmap = zeros(amax(segs)+1)
+    # Now run through the segments and create a table that maps rseg
+    # labels to the corresponding output element.
+
+    assert len(result_l)==len(segs)
+
+    rmap = zeros(amax(rseg)+1,'i')
     for i in range(len(segs)):
         start,end = segs[i]
         if verbose: print i+1,start,end,"'%s'"%result[i],costs.at(i)
         if end==0: continue
         rmap[start:end+1] = i+1
 
+    # Finally, to get the cseg, apply the rmap table from above.
+
     cseg = zeros(rseg.shape,'i')
     for i in range(cseg.shape[0]):
         for j in range(cseg.shape[1]):
             cseg[i,j] = rmap[rseg[i,j]]
 
-    return utils.Record(output=result,
-                        ins=ins,
-                        outs=outs,
-                        segs=segs,
-                        costs=costs,
-                        rseg=rseg,
-                        cseg=cseg,
-                        lattice=lattice,
-                        cost=sum(costs))
+    return utils.Record(
+        # characters of alignment
+        output="".join(result_l),
+        # alignment as a list
+        output_l=result_l,
+        # alignment encoded as a transcription
+        output_t=fstutils.implode_transcription(result_l),
+        # other information
+        ins=ins,
+        outs=outs,
+        segs=segs,
+        # costs
+        costs=costs,
+        cost=sum(costs),
+        # segmentation images
+        rseg=rseg,
+        cseg=cseg,
+        # the lattice
+        lattice=lattice,
+        )
 
+def recognize_and_align(image,linerec,lmodel,beam=1000,nocseg=0,lig=ligatures.lig):
+    """Perform line recognition with the given line recognizer and
+    language model.  Outputs an object containing the result (as a
+    Python string), the costs, the rseg, the cseg, the lattice and the
+    total cost.  The recognition lattice needs to have rseg's segment
+    numbers as inputs (pairs of 16 bit numbers); SimpleGrouper
+    produces such lattices.  cseg==None means that the connected
+    component renumbering failed for some reason."""
+
+    lattice,rseg = linerec.recognizeLineSeg(image)
+    v1,v2,ins,outs,costs = beam_search(lattice,lmodel,beam)
+    result = compute_alignment(lattice,rseg,lmodel,beam=beam,nocseg=0,lig=lig)
+    return result.output
 
 ################################################################
 ### new, pure Python components

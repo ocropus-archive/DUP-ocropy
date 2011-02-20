@@ -8,7 +8,8 @@
 from optparse import OptionParser
 import re,os,glob
 import sys
-import matplotlib 
+import matplotlib
+import traceback
 matplotlib.use('GTK') 
 from matplotlib.figure import Figure 
 from matplotlib.axes import Subplot 
@@ -115,6 +116,8 @@ def seg2pixbuf(rseg):
     return rseg
 
 def make_fst(s):
+    return fstutils.make_line_fst([s])
+    # obsolete
     fst = ocrolib.OcroFST()
     start = fst.newState()
     fst.setStart(start)
@@ -336,19 +339,31 @@ class LineWindow:
         else:
             self.detail("(load a language model for more details)\n")
         if gt is not None and gt!="":
-            print "# edit distance"
-            err = ocrolib.edit_distance(result,gt,
-                                        use_space=options.spaces,
-                                        case_sensitive=options.case)
-            self.detail("ground truth: %s\n\n"%gt)
-            self.detail("error: %f\n\n"%err)
-            fst2 = make_fst(gt)
-            s,cost2 = ocrolib.beam_search_simple(fst,fst2,options.beam)
-            self.detail("gt cost: %f\n\n"%cost2)
+            if 1:
+                # beam search gives the wrong result right now
+                self.detail("gt cost: FIXME\n\n")
+            else:
+                print "# edit distance"
+                err = ocrolib.edit_distance(result,gt,
+                                            use_space=options.spaces,
+                                            case_sensitive=options.case)
+                self.detail("ground truth: %s\n\n"%gt)
+                self.detail("error: %f\n\n"%err)
+                fst2 = make_fst(gt)
+                s,cost2 = ocrolib.beam_search_simple(fst,fst2,options.beam)
+                print "# edit distance",err
+                self.detail("gt cost: %f\n\n"%cost2)
         if gt is not None and self.lmodel is not None:
-            fst3 = make_fst(gt)
-            s,cost3 = ocrolib.beam_search_simple(fst3,lmodel,options.beam)
-            self.detail("lmodel cost: %f\n\n"%cost3)
+            if 1:
+                # beam search loops infinitely with the current settings; need to fix this some time
+                self.detail("lmodel cost: FIXME\n\n")
+            else:
+                print "# lmodel cost"
+                fst3 = make_fst(gt)
+                s,cost3 = ocrolib.beam_search_simple(fst3,lmodel,options.beam)
+                self.detail("lmodel cost: %f\n\n"%cost3)
+                print "# lmodel",cost3
+        print "# more"
         gtk_yield()
         self.detail("\n")
         self.detail("\nraw segmentation\n")
@@ -359,7 +374,7 @@ class LineWindow:
             print "# alignment"
             self.detail("\naligned segmentation\n")
             l = ocrolib.compute_alignment(fst,rseg,lmodel,beam=options.beam)
-            result = l.output
+            result = l.output_l
             cseg = l.cseg
             costs = l.costs
             if cseg is None:

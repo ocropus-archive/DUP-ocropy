@@ -5,11 +5,6 @@ from pylab import uint32,uint16,uint64
 import ocropus
 import openfst
 
-epsilon = openfst.epsilon
-assert epsilon==ocropus.L_EPSILON
-rho = ocropus.L_RHO
-sigma = ocropus.L_SIGMA
-phi = ocropus.L_PHI
 
 class LigatureTable:
     def __init__(self):
@@ -19,10 +14,10 @@ class LigatureTable:
         # show up a little more nicely in displays (we're using
         # non-standard greek letters here to avoid conflict with
         # greek alphabet
-        self.add("ϵ",epsilon)
-        self.add("ϱ",rho)
-        self.add("ϭ",sigma)
-        self.add("ϕ",phi)
+        self.add("<EPS>",0)
+        self.add("<RHO>",2)
+        self.add("<SIG>",3)
+        self.add("<PHI>",4)
         # ensure that ASCII is always present
         # note that "_" and "~" always have a special meaning
         # but are treated like other ASCII characters
@@ -49,9 +44,6 @@ class LigatureTable:
             for name,code in self.lig2code.items():
                 stream.write("%s %d\n"%(name,uint32(code)))
                     
-common_ligatures = """oo OO 00 000 fi ffi ffl st sz ar""".split()
-common_ligatures = {}.fromkeys(common_ligatures,1)
-
 lig = LigatureTable()
 ligcode = 0x200000
 

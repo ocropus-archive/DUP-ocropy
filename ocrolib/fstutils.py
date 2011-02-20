@@ -91,7 +91,7 @@ simple_costs = Costs(
                       add_c2l=None,
                       )
 
-def make_costs(err=5.0,space_err=5.0,ligature=None,reject=0.1):
+def make_costs(err=5.0,space_err=5.0,ligature=0.0,ligchange=1.0,reject=0.1):
     return Costs(
         # insertions of spaces relative to ground truth
         space_insert=space_err,
@@ -114,17 +114,17 @@ def make_costs(err=5.0,space_err=5.0,ligature=None,reject=0.1):
         reject=reject,
         # ligatures in both lattice and transcript
         add_l2l=ligature,
-        # ligatures as characters in both lattice and transcript
-        add_c2c=ligature,
-        # ligatures in lattice, characters in transcript                      
-        add_l2c=ligature,
         # characters in lattice, ligatures in transcript
         add_c2l=ligature,
+        # ligatures as characters in both lattice and transcript
+        add_c2c=ligchange,
+        # ligatures in lattice, characters in transcript                      
+        add_l2c=ligchange,
         )
 
 default_costs = make_costs()
 
-def add_line_to_fst(fst,line,costs=default_costs,accept=0.0,lig=ligatures.lig,common=ligatures.common_ligatures):
+def add_line_to_fst(fst,line,costs=default_costs,accept=0.0,lig=ligatures.lig,common={}):
     """Add a line (given as a list of strings) to an fst."""
     state = fst.Start()
     if state<0:
@@ -183,7 +183,6 @@ def add_line_to_fst(fst,line,costs=default_costs,accept=0.0,lig=ligatures.lig,co
         # insert characters or ligatures as single tokens
 
         if len(s)==1 or costs.add_l2l>=0:
-            c = c
             assert c is not None,"ligature [%s] not found in ligature table"%s
             cost = 0.0 if len(s)==1 else costs.add_l2l
             fst.AddArc(start,c,c,cost,next)
@@ -193,10 +192,10 @@ def add_line_to_fst(fst,line,costs=default_costs,accept=0.0,lig=ligatures.lig,co
         if len(s)>1 and costs.add_c2c>=0.0:
             state = start
             for j in range(len(s)):
-                c = lig.ord(s[j])
+                cc = lig.ord(s[j])
                 nstate = next if j==len(s)-1 else fst.AddState()
                 cost = costs.add_c2c if j==0 else 0.0
-                fst.AddArc(state,c,c,cost,nstate)
+                fst.AddArc(state,cc,cc,cost,nstate)
                 state = nstate
 
         # insert ligature-to-character
@@ -206,7 +205,7 @@ def add_line_to_fst(fst,line,costs=default_costs,accept=0.0,lig=ligatures.lig,co
             for j in range(len(s)):
                 cc = lig.ord(s[j])
                 nstate = next if j==len(s)-1 else fst.AddState()
-                cost = costs.add_l2c if j==0.0 else 0.0
+                cost = costs.add_l2c if j==0 else 0.0
                 fst.AddArc(state,c if j==0 else epsilon,cc,cost,nstate)
                 state = nstate
 
@@ -257,7 +256,7 @@ def add_line_to_fst(fst,line,costs=default_costs,accept=0.0,lig=ligatures.lig,co
 
     fst.SetFinal(states[-1],accept)
 
-def make_line_openfst(lines,lig=ligatures.lig,optimize=1):
+def make_line_openfst(lines,lig=ligatures.lig,optimize=0):
     """Given a list of text lines, construct a corresponding FST.
     Each text line is a list of strings."""
     assert type(lines)==list
@@ -289,6 +288,7 @@ def make_line_openfst(lines,lig=ligatures.lig,optimize=1):
     table = lig.SymbolTable(name="unicode")
     fst.SetInputSymbols(table)
     fst.SetOutputSymbols(table)
+    fst.Write("_temp.fst")
     return det
 
 def make_line_fst(lines):

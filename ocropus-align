@@ -20,7 +20,9 @@ usage: %prog [options] [text.txt langmod.fst image.png ...]
 
 """)
 
-parser.add_option("-g","--gt",help="kind of ground truth",default="pagegt")
+
+parser.add_option("-l","--langmod",help="language model",default=None)
+parser.add_option("-g","--gt",help="kind of ground truth (None,%.extension)",default=None)
 parser.add_option("-s","--suffix",help="input suffix",default=None)
 parser.add_option("-S","--osuffix",help="output suffix",default=None)
 parser.add_option("-O","--overwrite",help="overwrite outputs",action="store_true")
@@ -56,7 +58,7 @@ def align1(t):
     fst = ocrolib.OcroFST()
     fst.load(fst_path)
 
-    rseg_path = base+suffix+".png"
+    rseg_path = base+".rseg"+suffix+".png"
     if not os.path.exists(rseg_path):
         print rseg_path,": does not exist"
         return
@@ -68,16 +70,16 @@ def align1(t):
     
     r = ocrolib.compute_alignment(fst,rseg,lfst)
 
-    result = r.output
+    result = r.output_t
     cseg = r.cseg
     costs = r.costs
 
-    print fname,":",sum(costs),mean(costs)
+    print "%s: %.2f %.2f: %s"%(fname,sum(costs),mean(costs),result)
 
     cseg_file = base+".cseg"+osuffix+".png"
 
     if not options.overwrite:
-        if os.path.exists(cseg_file): die(cseg_file,"already exists")
+        if os.path.exists(cseg_file): die("%s: already exists",cseg_file)
 
     ocrolib.write_line_segmentation(cseg_file,cseg)
 
@@ -89,13 +91,20 @@ def align1(t):
 
 jobs = []
 
-if options.gt=="pagegt":
+if options.gt is None:
     for arg in args:
+        path,ext = os.path.splitext(arg)
         if not os.path.exists(arg):
             print arg,"not found"
             continue
-        d = re.sub(r'/[^/]*$','',arg)
-        p = d+".gt.txt"
+        jobs.append((arg,options.langmod))
+elif options.gt[0]=="%":
+    for arg in args:
+        path,ext = ocrolib.allsplitext(arg)
+        p = path+options.gt[1:]
+        if not os.path.exists(arg):
+            print arg,"not found"
+            continue
         if not os.path.exists(p):
             print p,"not found"
             continue
