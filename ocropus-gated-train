@@ -115,6 +115,8 @@ while 1:
         clf(); hist(dists); ginput(1,timeout=1)
     frac = ntrain*1.0/len(ids)
     cutoff = stats.scoreatpercentile(dists,per=100.0*frac)
+    cutoffs = [stats.scoreatpercentile(dists,per=100.0*frac*f) for f in linspace(0.0,1.0,100)]
+    cutoffs = array(cutoffs,'f')
     threshold = stats.scoreatpercentile(dists,per=frac*100.0*options.threshold)
     print "cutoff",cutoff,threshold
 
