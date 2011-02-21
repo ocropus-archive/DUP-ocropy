@@ -12,38 +12,6 @@ phi = ocropus.L_PHI
 
 import ligatures
 
-def printfst(fst):
-    for i in range(fst.nStates()):
-        tos,symbols,costs,inputs = fst.getTransitions(i)
-        n = len(tos)
-        for j in range(n):
-            print "%d -- %d:%d/%g --> %d"%(i,inputs[j],symbols[j],costs[j],tos[j])
-        
-def mkfst(accept,l,start=0):
-    m = -1
-    for r in l: m = max(m,r[0],r[1])
-    assert m<1000
-    fst = common.OcroFST()
-    while fst.newState()<m: pass
-    for r in l:
-        c = ligatures.lig.ord(r[2]) if type(r[2]) in [str,unicode] else r[2]
-        if len(r)==3:
-            fst.addTransition(r[0],r[1],c,0.0,c)
-        elif len(r)==4:
-            fst.addTransition(r[0],r[1],c,r[3],c)
-        elif len(r)==5:
-            c2 = ligatures.lig.ord(r[4]) if type(r[4]) in [str,unicode] else r[4]
-            fst.addTransition(r[0],r[1],c,r[3],c2)
-        else:
-            raise Exception("bad row in make_fst")
-    if type(accept)==int: accept = [accept]
-    for a in accept:
-        if type(a)==int:
-            fst.setAccept(a,0.0)
-        else:
-            fst.setAccept(*a)
-    return fst
-
 def check_transcription(transcription):
     """Checks the syntax of transcriptions.  Transcriptions may have ligatures
     enclosed like "a_ffi_ne", but the text between the ligatures may not be
