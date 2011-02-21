@@ -64,6 +64,9 @@ def cairo_render_string(s,fontname=None,fontfile=None,size=None,bg=(0.0,0.0,0.0)
     a = a[:,:,::-1]
     return a
 
+def cairo_render_gray(*args,**kw):
+    return mean(cairo_render_string(*args,**kw),axis=2)
+
 def pango_families():
         surface = cairo.ImageSurface(cairo.FORMAT_ARGB32,1,1)
         cr = cairo.Context(surface)
@@ -121,6 +124,9 @@ def pango_render_string(s,spec=None,fontfile=None,size=None,bg=(0.0,0.0,0.0),fg=
     if rotation!=0.0: a = rotate(a,rotation,order=1)
     a = zoom(a,(aspect/scale,1.0/scale/aspect,1.0),order=1)
     return a
+
+def pango_render_gray(*args,**kw):
+    return mean(pango_render_string(*args,**kw),axis=2)
 
 def gauss_degrade(image,margin=1.0,change=None,noise=0.02,minmargin=0.5,inner=1.0):
     if image.ndim==3: image = mean(image,axis=2)

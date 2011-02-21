@@ -20,6 +20,20 @@ pickle_mode = 2
 class Unimplemented():
     pass
 
+class BadClassLabel(Exception):
+    def __init__(self,s):
+        Exception.__init__(self,s)
+
+def check_valid_class_label(s):
+    if type(s)==unicode:
+        if re.search(r'[\0-\x20]',s):
+            raise BadClassLabel(s)
+    elif type(s)==str:
+        if re.search(r'[^\x21-\x7e]',s):
+            raise BadClassLabel(s)
+    else:
+        raise BadClassLabel(s)
+
 ################################################################
 ### smallish utilities
 ################################################################
@@ -54,17 +68,14 @@ def ocropus_find_file(fname):
 def set_params(object,kw,warn=1):
     """Given an object and a dictionary of keyword arguments,
     set only those object properties that are already instance
-    variables of the given object.  Attempting to set other
-    values results in an error (or warning, if warn=1)."""
+    variables of the given object.  Returns a new dictionary
+    without the key,value pairs that have been used.  If
+    all keywords have been used, afterwards, len(kw)==0."""
     kw = kw.copy()
     for k,v in kw.items():
         if hasattr(object,k):
-            print "setting",k,"=",v
             setattr(object,k,v)
-        else:
-            if warn:
-                warn_once("setting unknown parameter %s=%s on %s"%(k,v,object))
-        del kw[k]
+            del kw[k]
     return kw
 
 def caller():
@@ -964,6 +975,11 @@ class OmpClassifier:
         self.comp = ocropus.OmpClassifier()
         self.comp.load(file)
 
+def ocosts(l):
+    """Computes negative log probabilities for coutputs returned by a
+    Model and orders by cost."""
+    return sorted([(k,-log(v)) for k,v in l],key=lambda x:x[1])
+
 class Model(CommonComponent):
     """A character recognizer in general."""
     c_interface = "IModel"
@@ -997,7 +1013,7 @@ class Model(CommonComponent):
         The v argument can be rank 1 or larger.  If it is larger, it
         is assumed to be an image and converted from raster to mathematical
         coordinates."""
-        if geometry is not None: warn_once("geometry given to Model")
+        # if geometry is not None: warn_once("geometry given to Model")
         return self.comp.cadd(vector2narray(v),cls)
     def coutputs(self,v,geometry=None):
         """Compute the outputs for a given input vector v.  Outputs are
@@ -1005,7 +1021,7 @@ class Model(CommonComponent):
         The v argument can be rank 1 or larger.  If it is larger, it
         is assumed to be an image and converted from raster to mathematical
         coordinates."""
-        if geometry is not None: warn_once("geometry given to Model")
+        # if geometry is not None: warn_once("geometry given to Model")
         return self.comp.coutputs(vector2narray(v))
     def coutputs_batch(self,vs,geometries=None):
         if self.omp is None: 
@@ -1021,7 +1037,7 @@ class Model(CommonComponent):
         return result
     def cclassify(self,v,geometry=None):
         """Perform classification of the input vector v."""
-        if geometry is not None: warn_once("geometry given to Model")
+        # if geometry is not None: warn_once("geometry given to Model")
         return self.comp.cclassify(vector2narray(v))
 
 class OldAutoMlpModel(Model):
@@ -1521,6 +1537,16 @@ class PyComponent:
         return "%s"%self
     def description(self):
         return "%s"%self
+    def set(self,**kw):
+        kw = set_params(self,kw)
+        assert kw=={},"extra params to %s: %s"%(self,kw)
+    def pset(self,key,value):
+        if hasattr(self,key):
+            self.__dict__[key] = value
+    def pget(self,key):
+        return getattr(self,key)
+    def pgetf(self,key):
+        return float(getattr(self,key))
     
 class ClassifierModel(PyComponent):
     """Wraps all the necessary functionality around a classifier in order to
@@ -1530,14 +1556,19 @@ class ClassifierModel(PyComponent):
         self.minp = 1e-3
         self.classifier = self.makeClassifier()
         self.extractor = self.makeExtractor()
-        set_params(self,kw,warn=0)
-        set_params(self.classifier,kw,warn=0)
+        kw = set_params(self,kw)
+        kw = set_params(self.classifier,kw)
         self.rows = None
         self.nrows = 0
         self.classes = []
         self.c2i = {}
         self.i2c = []
         self.geo = None
+
+    def set(self,**kw):
+        kw = set_params(self,kw)
+        kw = set_params(self.classifier,kw)
+        assert kw=={},"extra parameters to %s: %s"%(self,kw)
 
     ## helper methods
 
@@ -1582,6 +1613,7 @@ class ClassifierModel(PyComponent):
         """Add a character to the model for training.  The image may be of variable size.
         c should be the corresponding class, a string.  If geometry is given, it must be
         given always and consistently."""
+        check_valid_class_label(c)
         if self.geo is None: 
             # first time around, remember whether this classifier uses geometry
             self.setupGeometry(geometry)

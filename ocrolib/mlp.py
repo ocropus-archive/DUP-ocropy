@@ -277,11 +277,11 @@ nverbose = c_int.in_dll(nnet_native,"verbose")
 maxthreads = c_int.in_dll(nnet_native,"maxthreads")
 maxthreads.value = min(8,utils.number_of_processors())
 
-class MLP:
+class MLP(common.PyComponent):
     def __init__(self,**kw):
         self.w1 = None
         self.verbose = 0
-        self.eta = 0.1
+        self.etas = [(0.1,100000)]*30
         common.set_params(self,kw,warn=0)
         self.err = -1
     def copy(self):
@@ -292,7 +292,6 @@ class MLP:
         mlp.b2 = self.b2.copy()
         mlp.verbose = self.verbose
         mlp.err = -1
-        mlp.eta = self.eta
         return mlp
     def checkWeightShape(self):
         """Ensure that the internal weights have the right shape and
@@ -351,8 +350,9 @@ class MLP:
     def shape(self):
         assert self.w1.shape[0]==self.w2.shape[1]
         return self.w1.shape[1],self.w1.shape[0],self.w2.shape[0]
-    def train(self,data,cls,etas=[(0.1,100000)]*30,
+    def train(self,data,cls,etas=None,
               nhidden=None,eps=1e-2,subset=None,verbose=0,samples=None):
+        if etas is None: etas = self.etas
         data = data.reshape(len(data),prod(data.shape[1:]))
         if subset is not None:
             data = take(data,subset,axis=0)

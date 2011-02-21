@@ -24,10 +24,11 @@ class LigatureTable:
         for i in range(32,127):
             self.add(unichr(i),i)
     def add(self,name,code,override=0):
+        assert type(name)==unicode or not re.search(r'[\x80-\xff]',name)
         if not override and self.ord(name)>=0:
             raise Exception("character '%s' (%d) already in ligature table"%(name,self.ord(name)))
         self.lig2code[name] = code
-        self.code2lig[code] = name
+        self.code2lig[code] = unicode(name)
     def ord(self,name):
         return self.lig2code.get(name,-1)
     def chr(self,code):
