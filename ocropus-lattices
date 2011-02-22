@@ -15,8 +15,10 @@ from ocrolib import number_of_processors,die
 signal.signal(signal.SIGINT,lambda *args:sys.exit(1))
 
 parser = OptionParser("""
-usage: %prog [options] [text.txt langmod.fst image.png ...]
+usage: %prog [options] image1.png image2.png ...
 
+Computes recognition lattices for text lines.  Also displays the bestpath
+result (recognition result without language model).
 """)
 
 # these options control alignment
@@ -64,6 +66,8 @@ def extract(t):
     if os.path.exists(rseg_file) and not options.overwrite:
         die("%s: %s",rseg_file,"already exists")
     ocrolib.write_line_segmentation(rseg_file,rseg)
+
+    ocrolib.fcleanup(fname,options.suffix,["cseg","txt","costs"])
 
     s = lattice.bestpath()
     print fname,":",s

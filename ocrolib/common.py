@@ -116,6 +116,11 @@ def fvariant(fname,kind,gt=None):
         return base+gt+".txt"
     raise Exception("unknown kind: %s"%kind)
 
+def fcleanup(fname,gt,kinds):
+    for kind in kinds:
+        s = ocrolib.fvariant(fname,kind,gt)
+        if os.path.exists(s): os.unlink(s)
+
 def ffind(fname,kind,gt=None):
     """Like fvariant, but throws an IOError if the file variant
     doesn't exist."""

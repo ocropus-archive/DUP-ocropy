@@ -19,11 +19,11 @@ parser = optparse.OptionParser(usage="""
 Puts together the result of OCR steps into an XHTML output file.
 Uses...
 
-- 0001.png 
-- 0001.bin.png
-- 0001.pseg.png
-- 0001/010001.txt
-- 0001/010001.cseg.png
+book/0001.png                # page image
+book/0001.bin.png            # binarized page image
+book/0001.pseg.png           # page segmentation
+book/0001/010001.txt         # recognizer output for lines
+book/0001/010001.cseg.png    # character segmentation for lines
 
 etc.
 """)

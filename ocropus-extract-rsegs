@@ -8,7 +8,18 @@ from ocrolib import dbtables,docproc
 
 signal.signal(signal.SIGINT,lambda s,f:sys.exit(1))
 
-parser = OptionParser()
+parser = OptionParser("""
+usage: %prog [options] .../.../010001.png ...
+
+Extract character images from raw text line files.  This uses a segmenter
+to get character candidates.  No model is used, instead it uses a connected
+component segmenter that will yield a lot of good characters on normal quality
+input data.
+
+Afterwards, it's useful to run a clustering step (ocropus-cluster-*) or a
+classification step (ocropus-dbclass).  Then, the images can be classified
+and edited in ocropus-cedit.
+""")
 parser.add_option("-o","--output",help="output file",default="chars.db")
 parser.add_option("-d","--display",help="display characters")
 parser.add_option("-v","--verbose",help="verbose output")

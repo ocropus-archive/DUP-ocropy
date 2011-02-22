@@ -8,7 +8,12 @@ from ocrolib import docproc,Record,utils
 parser = OptionParser("""
 usage: %prog [options] .../.../010001.png ...
 
-Extract character images from OCR output and store them in a database file.  
+Extract character images from text line image files using the cseg files
+left by the recognizer; character images are labeled by their corresponding 
+characters in the .txt files.  
+
+You must run ocropus-lattices and ocropus-align first to obtain the cseg 
+and txt files.  You can also manually create the cseg and txt files.
 """)
 
 parser.add_option("-g","--gtsuffix",help="ground truth suffix",default=None)

@@ -9,6 +9,7 @@ import sqlite3
 parser = OptionParser("""
 usage: %prog [options] database.db ...
 
+Show information about the given databases.
 """)
 
 parser.add_option("-f","--full",help="full class counts",action="store_true")

@@ -10,8 +10,10 @@ import ocrolib
 from ocrolib import docproc,utils,gatedmodel
 
 parser = OptionParser(usage="""
-%prog [options] [input.db]
+%prog -o gated.model input1.model input2.model ...
 
+Combine classifiers into a gated model.  Classifiers with a corresponding .info
+file are gated, while other classifiers are used unconditionally.
 """)
 parser.add_option("-c","--cutoff",help="cutoff",type=float,default=0.75)
 parser.add_option("-o","--output",help="ouptut file",default="gated.cmodel")

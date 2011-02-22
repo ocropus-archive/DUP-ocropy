@@ -25,6 +25,11 @@ from optparse import OptionParser
 parser = OptionParser(usage="""
 %prog [options] image1 image2 ...
 
+IMPORTANT: This is not the preferred way of running OCRopus.  Instead,
+use the ocropus-{binarize,pseg,lattice,align,hocr} commands.
+
+===
+
 Recognize pages using built-in OCRopus components.  This first
 uses the page cleaner, then the page segmenter, then the line
 recognizers, and finally the language model.

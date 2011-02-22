@@ -15,6 +15,16 @@ def log_progress(fmt,*args):
 parser = OptionParser(usage="""
 %prog [options] input.db 
 
+Apply a classifier to the characters in the database and store the classification
+results in the database.
+
+By default, stores the classification results in separate columns, pred and pcost.
+The cost of the actual character in cls is stored in pocost.  An overall error
+rate is returned.  If -e is given, only computes the error rate but stores nothing.
+
+Alternatively, can update the cls and cost columsn in the database themselves
+when the -C option is given.  This is useful, for example, on the output from
+ocropus-extract-rseg or clustered output.
 """)
 parser.add_option("-D","--display",help="display the characters",action="store_true")
 parser.add_option("-e","--error",help="only calculate error",action="store_true")

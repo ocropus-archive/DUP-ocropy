@@ -74,6 +74,10 @@ if options.display: ion()
 def process_arg(arg):
     print "===",arg
     base,_ = common.allsplitext(arg)
+    if os.path.exists(base):
+        print "# output directory",base,"already exists"
+        continue
+
     image = common.read_image_gray(arg,'B')
     h,w = image.shape
 
@@ -121,6 +125,7 @@ def process_arg(arg):
     if os.path.exists(base):
         print "# removing",base
         shutil.rmtree(base)
+
     os.mkdir(base)
 
     nregions = regions.length()

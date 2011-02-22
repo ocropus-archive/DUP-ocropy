@@ -13,10 +13,13 @@ def log_progress(fmt,*args):
     sys.stderr.write("\033[K\r")
 
 parser = OptionParser(usage="""
-%prog [options] input.db output-dir
+%prog [options] input.db dir
 
+Perform training of gated models.
 """)
 parser.add_option("-C","--cachesize",help="number of characters to be cached (1M approx 8Gbyte)",type=int,default=1000000)
+parser.add_option("-c","--cutoff",help="cutoff used for gating",type=float,default=0.75)
+parser.add_option("-m","--model",help"starter model",default=None)
 parser.add_option("-D","--display",help="display",action="store_true")
 parser.add_option("-N","--limit",help="limit training",type=int,default=100000000)
 parser.add_option("-S","--nsample",help="numer of samples for estimation",type=int,default=100000)
@@ -27,9 +30,11 @@ parser.add_option("-T","--threshold",help="cutoff",type=float,default=0.75)
 parser.add_option("-o","--output",help="ouptut file",default="gated.cmodel")
 (options,args) = parser.parse_args()
 
-if len(args)!=3:
-    print "usage: ..."
-    sys.exit(1)
+if len(args)!=2:
+    parser.print_help()
+    sys.exit(0)
+
+dbfile,cdir = args
 
 table = options.table
 ntrain = options.ntrain
@@ -37,20 +42,24 @@ ntest = 100000
 nrounds = 16
 
 print "opening db"
-db = utils.chardb(args[0],"chars")
+db = utils.chardb(dbfile,"chars")
 
-print "loading clasifier"
-model = ocrolib.load_component(args[1])
-if hasattr(model,'addGated') and hasattr(model,'coutputs'):
-    gated = model
+if options.model:
+    print "loading clasifier"
+    model = ocrolib.load_component(args[1])
+    if hasattr(model,'addGated') and hasattr(model,'coutputs'):
+        gated = model
+    else:
+        gated = gatedmodel.GatedModel()
+        gated.addGated(gatedmodel.AlwaysGate(),model)
+    del model
 else:
     gated = gatedmodel.GatedModel()
-    gated.addGated(gatedmodel.AlwaysGate(),model)
-del model
+    gatedmodel.load_gatedmodel(gated,glob.glob(cdir+"/*.model"),cutoff=options.cutoff)
 
 print "creating output dir"
-if not os.path.exists(args[2]): os.mkdir(args[2])
-assert os.path.isdir(args[2])
+if not os.path.exists(outdir): os.mkdir(cdir)
+assert os.path.isdir(outdir)
 
 # get the list of all samples
 
@@ -147,7 +156,7 @@ while 1:
 
     # write out the model
 
-    fname = args[2]+"/%08d.cmodel"%center_id
+    fname = cdir+"/%08d.cmodel"%center_id
     print "saving",fname
     ocrolib.save_component(fname,model)
     record = utils.Record(center_id=center_id,
@@ -158,7 +167,7 @@ while 1:
 
     # write out the corresponding info
 
-    fname = args[2]+"/%08d.info"%center_id
+    fname = cdir+"/%08d.info"%center_id
     with open(fname,"w") as stream:
         cPickle.dump(record,stream,2)
 
