@@ -6,8 +6,14 @@ import ocrolib
 from ocrolib import dbtables
 
 parser = OptionParser("""
-usage: %prog [options] chars.db output.db
+usage: %prog [options] chars.db cluster.db
 
+Perform fast clustering of characters in a database using a fixed distance
+measure.  The resulting cluster databases are often small enough to be 
+labeled directly, or they can be clustered further using k-means.
+
+This also updates the cluster id of the char in the original char.db to the id
+of the corresponding cluster.
 """)
 
 parser.add_option("-D","--display",help="display chars",action="store_true")

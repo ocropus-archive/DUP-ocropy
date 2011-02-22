@@ -51,6 +51,7 @@ def implode_transcription(transcription):
     a transcription."""
     def quote(s):
         assert len(s)<=4,"ligatures can consist of at most 4 characters"
+        s = re.sub(r'_','~',s)
         if len(s)>1: return "_"+s+"_"
         else: return s
     return "".join([quote(s) for s in transcription])
@@ -124,7 +125,9 @@ def make_costs(err=5.0,space_err=5.0,ligature=0.0,ligchange=1.0,reject=0.1):
 
 default_costs = make_costs()
 
-def add_line_to_fst(fst,line,costs=default_costs,accept=0.0,lig=ligatures.lig,common={}):
+def add_line_to_fst(fst,line,
+                costs=default_costs,accept=0.0,
+                lig=ligatures.lig):
     """Add a line (given as a list of strings) to an fst."""
     state = fst.Start()
     if state<0:
@@ -235,25 +238,6 @@ def add_line_to_fst(fst,line,costs=default_costs,accept=0.0,lig=ligatures.lig,co
             fst.AddArc(state1,epsilon,sigma,0.0,state2)
             fst.AddArc(state2,epsilon,sigma,0.0,states[i+3])
 
-        # allow segmentation error with two characters
-        
-        if i<len(line)-2 and costs.ligatures2 is not None:
-            s = "".join(line[i:i+2])
-            if s in common:
-                state1 = fst.AddState()
-                fst.AddArc(start,c,lig.ord(s[0]),costs.ligatures2,state1)
-                fst.AddArc(state1,epsilon,lig.ord(s[1]),0.0,states[i+2])
-
-        # allow segmentation error with three characters
-        
-        if i<len(line)-3 and costs.ligatures3 is not None:
-            s = "".join(line[i:i+3])
-            if s in common:
-                state1,state2 = (fst.AddState(),fst.AddState())
-                fst.AddArc(start,c,lig.ord(s[0]),costs.ligatures3,state1)
-                fst.AddArc(state1,epsilon,lig.ord(s[1]),0.0,state2)
-                fst.AddArc(state2,epsilon,lig.ord(s[1]),0.0,states[i+3])
-
     fst.SetFinal(states[-1],accept)
 
 def make_line_openfst(lines,lig=ligatures.lig,optimize=0):
@@ -300,6 +284,38 @@ def make_line_fst(lines):
     os.unlink(temp)
     return result
 
+def lines_of_file(file):
+    """Returns the lines contained in a textfile as a list
+    of unicode strings."""
+    for line in open(file).readlines():
+        if line[-1]=="\n": line = line[:-1]
+        if line=="": continue
+        line = line.strip()
+        line = re.sub(r'[ 	]+',' ',line)
+        try:
+            u = unicode(line,"utf-8")
+        except:
+            raise Exception("bad unicode in transcription: %s: %s"%(file,line))
+        yield u
+
+def load_text_file_as_fst(file):
+    """Use load_transcription instead."""
+    return load_transcription(file)
+    
+def load_transcription(file,use_ligatures=0):
+    """Load a text file as a transcription.  This handles
+    notation like "a_ffi_ne" for ligatures, "\" escapes, and
+    and "~" for reject characters."""
+    if file[-4:]==".fst":
+        fst = common.OcroFST()
+        fst.load(file)
+        return fst
+    else:
+        lines = list(lines_of_file(file))
+        if not use_ligatures:
+            lines = [re.sub(r'_','~',l) for l in lines]
+        return make_line_fst(lines)
+
 def make_alignment_fst(transcriptions):
     """Takes a string or a list of strings that are transcriptions and
     constructs an FST suitable for alignment."""
@@ -310,22 +326,3 @@ def make_alignment_fst(transcriptions):
     transcriptions = [explode_transcription(s) for s in transcriptions]
     return transcriptions
     
-def lines_of_file(file):
-    """Returns the lines contained in a textfile as a list
-    of unicode strings."""
-    for line in open(file).readlines():
-        if line[-1]=="\n": line = line[:-1]
-        if line=="": continue
-        yield unicode(line,"utf-8")
-
-def load_text_file_as_fst(file):
-    """Use load_transcription instead."""
-    return load_transcription(file)
-    
-def load_transcription(file):
-    """Load a text file as a transcription.  This handles
-    notation like "a_ffi_ne" for ligatures, "\" escapes, and
-    and "~" for reject characters."""
-    lines = list(lines_of_file(file))
-    return make_line_fst(lines)
-

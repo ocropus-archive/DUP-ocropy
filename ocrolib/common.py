@@ -6,6 +6,7 @@ from scipy.ndimage import interpolation,measurements,morphology
 
 import iulib,ocropus
 import utils
+from utils import allsplitext,write_text
 import docproc
 import ligatures
 import fstutils
@@ -64,6 +65,63 @@ def ocropus_find_file(fname):
         full = path+"/"+fname
         if os.path.exists(full): return full
     raise OcropusFileNotFound(fname)
+
+def fexists(fname):
+    if os.path.exists(fname): return fname
+    return None
+
+def gtext(fname):
+    """Given a file name, determines the ground truth suffix."""
+    g = re.search(r'\.(rseg|cseg)\.([^./]+)\.png$',fname)
+    if g:
+        return g.group(2)
+    g = re.search(r'\.([^./]+)\.(rseg|cseg)\.png$',fname)
+    if g:
+        return g.group(1)
+    g = re.search(r'\.([^./]+)\.(png|costs|fst|txt)$',fname)
+    if g:
+        return g.group(1)
+    return ""
+
+def fvariant(fname,kind,gt=None):
+    """Find the file variant corresponding to the given file name.
+    Possible fil variants are line (or png), rseg, cseg, fst, costs, and txt.
+    Ground truth files have an extra suffix (usually something like "gt",
+    as in 010001.gt.txt or 010001.rseg.gt.png).  By default, the variant
+    with the same ground truth suffix is produced.  The non-ground-truth
+    version can be produced with gt="", the ground truth version can
+    be produced with gt="gt" (or some other desired suffix)."""
+    if gt is None:
+        gt = gtext(fname)
+    elif gt!="":
+        gt = "."+gt
+    base,ext = allsplitext(fname)
+    if kind=="line" or kind=="png":
+        return base+gt+".png"
+    if kind=="rseg":
+        return base+".rseg"+gt+".png"
+    if kind=="cseg":
+        return base+".cseg"+gt+".png"
+    if kind=="costs":
+        return base+gt+".costs"
+    if kind=="fst":
+        return base+gt+".fst"
+    if kind=="txt":
+        return base+gt+".txt"
+    raise Exception("unknown kind: %s"%kind)
+
+def ffind(fname,kind,gt=None):
+    """Like fvariant, but throws an IOError if the file variant
+    doesn't exist."""
+    s = fvariant(fname,kind,gt=gt)
+    if not os.path.exists(s):
+        raise IOError(s)
+    return s
+
+def fopen(fname,kind,gt,mode="r"):
+    """Like fvariant, but opens the file."""
+    return open(fvariant(fname,kind,gt),mode)
+
 
 def set_params(object,kw,warn=1):
     """Given an object and a dictionary of keyword arguments,
@@ -1894,9 +1952,9 @@ class CmodelLineRecognizer(RecognizeLine):
             yes_space = min(self.maxspacecost,-log(sc[1]))
             no_space = min(self.maxspacecost,-log(sc[0]))
 
-            # add a transition on "_" that we can use to skip this character
-            # if the transcription contains a "~"
-            self.grouper.setClass(i,"_",20.0)
+            # maybe add a transition on "_" that we can use to skip 
+            # this character if the transcription contains a "~"
+            # self.grouper.setClass(i,"_",20.0)
             
             # add the top classes to the lattice
             outputs.sort(key=lambda x:x[1])

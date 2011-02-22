@@ -12,6 +12,7 @@ Extract character images from OCR output and store them in a database file.
 This assume that for each line.png, there is a line.cseg.gt.png and line.gt.txt file.
 """)
 
+parser.add_option("-g","--gtsuffix",help="ground truth suffix",default=None)
 parser.add_option("-o","--output",help="output file",default="chars.db")
 parser.add_option("-u","--unmerged",help="unmerged output file",default=None)
 parser.add_option("-n","--nomissegmented",help="output no missegmented characters",action="store_true")
@@ -32,6 +33,11 @@ if len(args)<1:
 ion()
 show()
 
+if options.gtsuffix is None:
+    options.gtsuffix =""
+else:
+    options.gtsuffix = "."+options.gtsuffix
+
 if os.path.exists(options.output):
     print options.output,"exists; please remove"
     sys.exit(1)
@@ -48,7 +54,7 @@ db.commit()
 class BadGroundTruth(Exception):
     pass
 
-def cseg_chars(file,suffix=".gt"):
+def cseg_chars(file,suffix=options.gtsuffix):
     image = ocrolib.read_image_gray(file)
     image = 255-image
     base,_ = ocrolib.allsplitext(file)
@@ -76,7 +82,7 @@ def cseg_chars(file,suffix=".gt"):
         yield Record(raw=raw,mask=mask,cls=cls,index=i,bbox=grouper.boundingBox(i),
                      bbox_m=grouper.bboxMath(i),lgeo=geo,cost=cost)
 
-def cseg_chars_all(file,suffix=".gt"):
+def cseg_chars_all(file,suffix=options.gtsuffix):
     image = ocrolib.read_image_gray(file)
     image = 255-image
     base,_ = ocrolib.allsplitext(file)
@@ -123,6 +129,7 @@ for file in args:
         if options.cerrors:
             traceback.print_exc()
             print "#",file,"failed",e
+            continue
         else:
             traceback.print_exc()
             raise e

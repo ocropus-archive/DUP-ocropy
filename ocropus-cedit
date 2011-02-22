@@ -428,7 +428,7 @@ def cmd_nn(*args):
             cls,cost = outputs[0]
             row[1] = cls
             row[2].cls = cls
-            db.execute("update %s set cls=? where id=?",[row[2].cls,row[2].id])
+            db.execute("update %s set cls=? where id=?"%options.table,[row[2].cls,row[2].id])
         if count<10 or count%100==0:
             if len(outputs)>1:
                 print count,row[2].cls,outputs[0],type(row[2].cls),row[2].id

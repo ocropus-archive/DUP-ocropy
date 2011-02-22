@@ -37,7 +37,7 @@ aspect = unif(0.9,1.1)
 margin = unif(0.0,2.0)
 noise = unif(0.0,0.1)
 maxdelta = unif(0.0,2.0)
-rotation = unif(-4.0,4.0) # in degrees
+rotation = unif(-1.0,1.0) # in degrees
 inner = c(1.0)
 
 parser = OptionParser("""
@@ -45,9 +45,8 @@ usage: %prog [options] ...
 
 Generates characters from TrueType fonts and stores them in a character database.
 """)
-parser.add_option("-o","--output",help="output file",default="chargen.db")
+parser.add_option("-o","--output",help="output file",default="temp_chargen.db")
 parser.add_option("-D","--display",help="display chars",action="store_true")
-parser.add_option("-r","--rel",help="output geometry information",action="store_true")
 parser.add_option("-R","--record",help="record parameter info in database",action="store_true")
 parser.add_option("-v","--verbose",help="verbose output",action="store_true")
 parser.add_option("-c","--classes",help="list of classes (one per line)",default=None)
@@ -56,6 +55,7 @@ parser.add_option("-f","--specs",help="list of font specs",default=None)
 parser.add_option("-n","--nvariants",help="number of variants",default=8,type=int)
 parser.add_option("-Q","--parallel",help="number of parallel processes",default=0,type=int)
 parser.add_option("-e","--eval",help="evaluate expressions (for additional options)",default="None")
+parser.add_option("-g","--geo",help="estimate line geometry",action="store_false",default=True)
 parser.add_option("-i","--inner",help="inner offset for degradation (<1: some broken chars)",default=1,type=float)
 (options,args) = parser.parse_args()
 
@@ -72,7 +72,7 @@ a b c d e f g h i j k l m n o p q r s t u v w x y z
 
 ä ö ü Ä Ö Ü ß
 
-000 00 La Th ac ai ak al all am an ar as be bo ca co ct
+00 La Th ac ai ak al all am an ar as be bo ca co ct
 di dr ec ed ee es ff ffi fl fr ft gh gi gr gu hi il
 in ir is ki li ll ma mi mm ni oc oo pe po re ri rin
 rm rn ro r rs rt ru rv ry se so ta te th ti to tr
@@ -87,10 +87,6 @@ a- b- e- d- g- m- n- o- p- u-
 d" f" l" 
 d' f' l'
 """
-
-if options.rel:
-    print "geometry information not yet implemented in chargen"
-    sys.exit(1)
 
 if options.classes is not None:
     testset = []
@@ -111,7 +107,8 @@ if options.specs is not None:
             line = line[:-1]
             specs.append(line)
 else:
-    families = ['DejaVu Sans', 'DejaVu Sans Mono', 'DejaVu Serif', 'FreeMono', 'FreeSans', 'FreeSerif', 'cmr10']
+    families = ['DejaVu Sans', 'DejaVu Sans Mono', 'DejaVu Serif', 
+                'FreeMono', 'FreeSans', 'FreeSerif', 'cmr10']
     styles = [ '', ' italic', ' bold' ]
     specs = []
     for family in families:
@@ -160,8 +157,13 @@ def process_arg(arg):
             scl = scale()
             asp = aspect()
             rot = rotation()
-            image = pango_render_string(c,spec=spec,size=size,pad=10,
-                markup=0,scale=scl,aspect=asp,rotation=rot)
+            if options.geo:
+                c1 = "Hello, good world    "+c+"    how are you now?"
+                image = pango_render_string(c1,spec=spec,size=size,pad=10,
+                                             markup=0,scale=scl,aspect=asp,rotation=rot)
+            else:
+                image = pango_render_string(c,spec=spec,size=size,pad=10,
+                                            markup=0,scale=scl,aspect=asp,rotation=rot)
             image = average(image,axis=2)
             image = array(image,'f')
             image /= amax(image)
@@ -171,6 +173,11 @@ def process_arg(arg):
             image = gauss_degrade(image,margin=mrg,noise=nse,inner=inn)
             mdl = maxdelta()
             image = gauss_distort([image],maxdelta=mdl)[0]
+            if options.display:
+                clf(); imshow(image); draw()
+            if options.geo:
+                center = image.shape[1]/2
+                image = image[:,center-100:center+100]
             raw = array(image*255,'B')
             if options.record:
                 css = "s%ds%.2fa%.2fm%.2fn%.2fm%.2fi%.2fr%.2f"%(size,scl,asp,mrg,nse,mdl,inn,rot)

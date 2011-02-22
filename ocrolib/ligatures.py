@@ -14,7 +14,7 @@ class LigatureTable:
         # show up a little more nicely in displays (we're using
         # non-standard greek letters here to avoid conflict with
         # greek alphabet
-        self.add("<EPS>",0)
+        self.add("",0)
         self.add("<RHO>",2)
         self.add("<SIG>",3)
         self.add("<PHI>",4)

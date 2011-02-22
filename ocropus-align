@@ -16,13 +16,50 @@ from ocrolib import number_of_processors,fstutils,die
 signal.signal(signal.SIGINT,lambda *args:sys.exit(1))
 
 parser = OptionParser("""
-usage: %prog [options] [text.txt langmod.fst image.png ...]
+usage: 
+    %prog [-l langmod] *.fst
+    %prog [-g extension] *.fst
+
+Aligns recognition lattices (stored in .fst files) with language models and/or
+ground truth.  If -g extension is given, each foo.fst file is aligned with a
+corresponding foo.extension file.  
+
+Language models and ground truth files may be given either as FST files or 
+text files.  If they are given as text files, an FST is constructed by using
+the fstutils.add_line_to_fst function, using the fstutils.default_costs
+costs.  These can be overridden using the -c costfile flag, which can
+be used to specify a Python file that sets different costs or
+a different load_transcription function.
+
+Costs are relative to the ground truth, i.e., to change the ground truth
+into the OCR output:
+
+costs.reject                       # cost for matching reject in gt against a character
+cost.space_insert                  # cost for inserting an extra space anywhere
+costs.space_delete                 # cost for deleting a space 
+costs.char_mismatch                # cost for a single character mismatch
+costs.char_insert                  # cost for inserting a character
+costs.char_delete                  # cost for deleting a character
+costs.misseg2                      # cost for matching 1 OCR character against two gt characters
+costs.misseg3                      # cost for macthing 1 OCR character against three gt characters
+
+The following apply only when there are ligatures in the ground truth; there are four 
+possibilities, according to whether ligatures are represented in the ground truth and/or
+in the OCR output.  The choice depends on whether ligatures are marked in the
+ground truth, whether the classifier recognizes ligatures, and whether the aligned output
+is supposed to contain ligatures:
+
+costs.add_l2l                      # cost for ligature-to-ligature matches
+costs.add_c2l                      # cost for character-to-ligature matches of ligatures
+costs.add_c2c                      # cost for character-to-character matches of ligatures
+costs add_l2c                      # cost for ligature-to-character macthes of ligatures
 
 """)
 
 
 parser.add_option("-l","--langmod",help="language model",default=None)
-parser.add_option("-g","--gt",help="kind of ground truth (None,%.extension)",default=None)
+parser.add_option("-g","--gt",help="extension for ground truth",default=None)
+parser.add_option("-c","--costs",help="costs file",default=None)
 parser.add_option("-s","--suffix",help="input suffix",default=None)
 parser.add_option("-S","--osuffix",help="output suffix",default=None)
 parser.add_option("-O","--overwrite",help="overwrite outputs",action="store_true")
@@ -36,6 +73,16 @@ osuffix = options.osuffix
 if not osuffix: osuffix = suffix
 else: osuffix = "."+osuffix
 
+def load_transcription(file):
+    return fstutils.load_transcription(file)
+
+costs = fstutils.default_costs
+
+if options.costs is not None:
+    execfile(options.costs)
+
+fstutils.default_costs = costs
+
 lfile = None
 lfst = None
 
@@ -48,21 +95,10 @@ def safe_align1(t):
 def align1(t):
     global lfile,lfst
     (fname,lmodel) = t
-    base,ext = ocrolib.allsplitext(fname)
-
-    fst_path = base+suffix+".fst"
-    if not os.path.exists(fst_path):
-        print fst_path,": does not exist"
-        return
 
     fst = ocrolib.OcroFST()
-    fst.load(fst_path)
-
-    rseg_path = base+".rseg"+suffix+".png"
-    if not os.path.exists(rseg_path):
-        print rseg_path,": does not exist"
-        return
-    rseg = ocrolib.read_line_segmentation(rseg_path)
+    fst.load(ocrolib.ffind(fname,"fst"))
+    rseg = ocrolib.read_line_segmentation(ocrolib.ffind(fname,"rseg"))
 
     if lmodel!=lfile:
         lfile = lmodel
@@ -76,41 +112,34 @@ def align1(t):
 
     print "%s: %.2f %.2f: %s"%(fname,sum(costs),mean(costs),result)
 
-    cseg_file = base+".cseg"+osuffix+".png"
-
+    cseg_file = ocrolib.fvariant(fname,"cseg",options.suffix)
     if not options.overwrite:
         if os.path.exists(cseg_file): die("%s: already exists",cseg_file)
 
     ocrolib.write_line_segmentation(cseg_file,cseg)
-
-    with open(base+osuffix+".costs","w") as stream:
+    ocrolib.write_text(ocrolib.fvariant(fname,"txt",options.suffix),result)
+    with ocrolib.fopen(fname,"costs",options.suffix,mode="w") as stream:
         for i in range(len(costs)):
             stream.write("%d %g\n"%(i,costs[i]))
 
-    ocrolib.write_text(base+osuffix+".txt",result)
-
 jobs = []
 
-if options.gt is None:
+if options.langmod is not None:
     for arg in args:
-        path,ext = os.path.splitext(arg)
-        if not os.path.exists(arg):
-            print arg,"not found"
-            continue
         jobs.append((arg,options.langmod))
-elif options.gt[0]=="%":
+elif options.gt is not None:
     for arg in args:
         path,ext = ocrolib.allsplitext(arg)
-        p = path+options.gt[1:]
+        p = path+options.gt
         if not os.path.exists(arg):
             print arg,"not found"
             continue
-        if not os.path.exists(p):
+        if not os.path.exists(p): 
             print p,"not found"
             continue
         jobs.append((arg,p))
 else:
-    raise Exception("unknown gt type: "+options.gt)
+    raise Exception("give either -l or -c options")
 
 if options.parallel<2:
     for arg in jobs: align1(arg)

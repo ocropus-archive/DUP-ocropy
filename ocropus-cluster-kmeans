@@ -7,8 +7,11 @@ import ocrolib
 from ocrolib import dbtables,quant
 
 parser = OptionParser("""
-usage: %prog [options] chars.db output.db
+usage: %prog [options] chars.db clusters.db
 
+Perform kmeans clustering of characters in a database.  This is fairly slow, loads
+all characters into memory, and can't be applied to big databases.  It is usually
+applied after epsilon clustering if a further reduction in size is desired.
 """)
 
 parser.add_option("-D","--display",help="display chars",action="store_true")
