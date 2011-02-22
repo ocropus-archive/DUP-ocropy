@@ -50,6 +50,8 @@ else:
 def extract(t):
     fname = t
     image = ocrolib.read_image_gray(fname)
+    ocrolib.fcleanup(fname,options.suffix,["cseg","txt","costs","fst"])
+
     if options.display:
         clf()
         gray()
@@ -66,8 +68,6 @@ def extract(t):
     if os.path.exists(rseg_file) and not options.overwrite:
         die("%s: %s",rseg_file,"already exists")
     ocrolib.write_line_segmentation(rseg_file,rseg)
-
-    ocrolib.fcleanup(fname,options.suffix,["cseg","txt","costs"])
 
     s = lattice.bestpath()
     print fname,":",s

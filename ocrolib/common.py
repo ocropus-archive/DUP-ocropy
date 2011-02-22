@@ -118,7 +118,7 @@ def fvariant(fname,kind,gt=None):
 
 def fcleanup(fname,gt,kinds):
     for kind in kinds:
-        s = ocrolib.fvariant(fname,kind,gt)
+        s = fvariant(fname,kind,gt)
         if os.path.exists(s): os.unlink(s)
 
 def ffind(fname,kind,gt=None):
@@ -1852,7 +1852,7 @@ def implode_transcription(transcription):
 def make_alignment_fst(transcription):
     """Takes a string or a list of strings that are transcriptions and
     constructs an FST suitable for alignment."""
-    if isinstance(transcription,ocrolib.OcroFST):
+    if isinstance(transcription,OcroFST):
         return transcription
     if type(transcription) in [str,unicode]:
         transcription = [transcription]

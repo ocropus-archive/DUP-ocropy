@@ -12,13 +12,28 @@ from optparse import OptionParser
 from multiprocessing import Pool
 import ocrolib
 from ocrolib import number_of_processors,fstutils,die
+from scipy import stats
 
 signal.signal(signal.SIGINT,lambda *args:sys.exit(1))
 
 parser = OptionParser("""
 usage: 
-    %prog [-l langmod] *.fst
-    %prog [-g extension] *.fst
+%prog [-s gt] [-l langmod] [options] file.fst ...
+
+    Align each file.fst with language model and output the result into
+    file.cseg.png, file.costs, and file.txt.  With -s gt, writes the
+    results into file.cseg.gt.png, file.gt.costs, and file.gt.txt 
+    instead.
+
+%prog [-s gt] [-g extension] [options] *.fst
+
+    Align with groundtruth files.  For each x.fst, looks for the ground truth
+    in x.extension
+
+%prog [-s gt] [-p] [options] *.gt.txt
+
+    Align with page-level ground truth.  For each page.gt.txt, looks in
+    page/??????.png for the image data.
 
 Aligns recognition lattices (stored in .fst files) with language models and/or
 ground truth.  If -g extension is given, each foo.fst file is aligned with a
@@ -35,7 +50,7 @@ Costs are relative to the ground truth, i.e., to change the ground truth
 into the OCR output:
 
 costs.reject                       # cost for matching reject in gt against a character
-cost.space_insert                  # cost for inserting an extra space anywhere
+costs.space_insert                  # cost for inserting an extra space anywhere
 costs.space_delete                 # cost for deleting a space 
 costs.char_mismatch                # cost for a single character mismatch
 costs.char_insert                  # cost for inserting a character
@@ -59,20 +74,16 @@ costs add_l2c                      # cost for ligature-to-character macthes of l
 
 parser.add_option("-l","--langmod",help="language model",default=None)
 parser.add_option("-g","--gt",help="extension for ground truth",default=None)
+parser.add_option("-p","--pagegt",help="arguments are page ground truth",action="store_true")
 parser.add_option("-c","--costs",help="costs file",default=None)
-parser.add_option("-s","--suffix",help="input suffix",default=None)
-parser.add_option("-S","--osuffix",help="output suffix",default=None)
+parser.add_option("-s","--suffix",help="output suffix for writing result",default=None)
 parser.add_option("-O","--overwrite",help="overwrite outputs",action="store_true")
 parser.add_option("-Q","--parallel",type=int,default=0,help="number of parallel processes to use")
+parser.add_option("-P","--perc",help="cost percentile",type=float,default=90.0)
+parser.add_option("-M","--maxperc",help="maximum cost at percentile",type=float,default=2.0)
+parser.add_option("-A","--maxavg",help="maximum average cost",type=float,default=3.0)
 (options,args) = parser.parse_args()
 args = ocrolib.expand_args(args)
-
-suffix = options.suffix
-if not suffix: suffix = ""
-else: suffix = "."+suffix
-osuffix = options.osuffix
-if not osuffix: osuffix = suffix
-else: osuffix = "."+osuffix
 
 def load_transcription(file):
     return fstutils.load_transcription(file)
@@ -96,36 +107,59 @@ def safe_align1(t):
 def align1(t):
     global lfile,lfst
     (fname,lmodel) = t
+    ocrolib.fcleanup(fname,options.suffix,["txt","costs"])
 
-    fst = ocrolib.OcroFST()
-    fst.load(ocrolib.ffind(fname,"fst"))
-    rseg = ocrolib.read_line_segmentation(ocrolib.ffind(fname,"rseg"))
+    try:
+        fst = ocrolib.OcroFST()
+        fst.load(ocrolib.ffind(fname,"fst"))
+        rseg = ocrolib.read_line_segmentation(ocrolib.ffind(fname,"rseg"))
 
-    if lmodel!=lfile:
-        lfile = lmodel
-        lfst = fstutils.load_transcription(lmodel)
-    
-    r = ocrolib.compute_alignment(fst,rseg,lfst)
+        if lmodel!=lfile:
+            lfile = lmodel
+            lfst = fstutils.load_transcription(lmodel)
+        
+        r = ocrolib.compute_alignment(fst,rseg,lfst)
 
-    result = r.output_t
-    cseg = r.cseg
-    costs = r.costs
+        result = r.output_t
+        cseg = r.cseg
+        costs = r.costs
 
-    print "%s: %.2f %.2f: %s"%(fname,sum(costs),mean(costs),result)
+        perc = stats.scoreatpercentile(costs,options.perc)
+        avg = mean(costs)
+        skip = perc>options.maxperc or avg>options.maxavg
 
-    cseg_file = ocrolib.fvariant(fname,"cseg",options.suffix)
-    if not options.overwrite:
-        if os.path.exists(cseg_file): die("%s: already exists",cseg_file)
+        print "%-1s %s: %5.2f %5.2f: %s"%("*" if skip else "",fname,perc,avg,result)
 
-    ocrolib.write_line_segmentation(cseg_file,cseg)
-    ocrolib.write_text(ocrolib.fvariant(fname,"txt",options.suffix),result)
-    with ocrolib.fopen(fname,"costs",options.suffix,mode="w") as stream:
-        for i in range(len(costs)):
-            stream.write("%d %g\n"%(i,costs[i]))
+        cseg_file = ocrolib.fvariant(fname,"cseg",options.suffix)
+        if not options.overwrite:
+            if os.path.exists(cseg_file): die("%s: already exists",cseg_file)
+
+        ocrolib.write_line_segmentation(cseg_file,cseg)
+        ocrolib.write_text(ocrolib.fvariant(fname,"txt",options.suffix),result)
+        with ocrolib.fopen(fname,"costs",options.suffix,mode="w") as stream:
+            for i in range(len(costs)):
+                stream.write("%d %g\n"%(i,costs[i]))
+    except IOError,e:
+        print "# not found:",e
 
 jobs = []
 
-if options.langmod is not None:
+if options.pagegt is not None:
+    for arg in args:
+        if not os.path.exists(arg):
+            print "# %s: not found"%arg
+            continue
+        base,_ = ocrolib.allsplitext(arg)
+        if not os.path.exists(base):
+            print "# %s: not found"%base
+            continue
+        if not os.path.isdir(base):
+            print "# %s: not a directory"%base
+            continue
+        lines = glob.glob(base+"/??????.png")
+        for line in lines:
+            jobs.append((line,arg))
+elif options.langmod is not None:
     for arg in args:
         jobs.append((arg,options.langmod))
 elif options.gt is not None:
@@ -140,7 +174,7 @@ elif options.gt is not None:
             continue
         jobs.append((arg,p))
 else:
-    raise Exception("give either -l or -c options")
+    raise Exception("you need to specify what kind of groundtruth you want to align with (-p, -l, -g)")
 
 if options.parallel<2:
     for arg in jobs: align1(arg)

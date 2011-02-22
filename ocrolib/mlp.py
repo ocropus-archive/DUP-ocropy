@@ -65,7 +65,7 @@ inline double max(double x,double y) {
 void forward(int n,int m,int l,float w1[m][n],float b1[m],float w2[l][m],float b2[l],
              int k,float data[k][n],float outputs[k][l]) {
     if(verbose) printf("forward %d:%d:%d (%d)\n",n,m,l,k);
-#pragma omp parallel for
+#pragma omp parallel for num_threads (maxthreads)
     for(int row=0;row<k;row++) {
         float *x = data[row];
         float y[m];
@@ -97,7 +97,7 @@ int argmax(int k,float z[k]) {
 void classify(int n,int m,int l,float w1[m][n],float b1[m],float w2[l][m],float b2[l],
              int k,float data[k][n],int classes[k]) {
     if(verbose) printf("classify %d:%d:%d (%d)\n",n,m,l,k);
-#pragma omp parallel for
+#pragma omp parallel for num_threads (maxthreads)
     for(int row=0;row<k;row++) {
         float *x = data[row];
         float y[m];
@@ -173,7 +173,7 @@ typedef signed char byte;
 void forward_b(int n,int m,int l,float w1[m][n],float b1[m],float w2[l][m],float b2[l],
                int k,byte data[k][n],float outputs[k][l]) {
     if(verbose) printf("forward %d:%d:%d (%d)\n",n,m,l,k);
-#pragma omp parallel for
+#pragma omp parallel for num_threads (maxthreads)
     for(int row=0;row<k;row++) {
         byte *x = data[row];
         float y[m];
@@ -194,7 +194,7 @@ void forward_b(int n,int m,int l,float w1[m][n],float b1[m],float w2[l][m],float
 void classify_b(int n,int m,int l,float w1[m][n],float b1[m],float w2[l][m],float b2[l],
                 int k,byte data[k][n],int classes[k]) {
     if(verbose) printf("classify %d:%d:%d (%d)\n",n,m,l,k);
-#pragma omp parallel for
+#pragma omp parallel for num_threads (maxthreads)
     for(int row=0;row<k;row++) {
         byte *x = data[row];
         float y[m];
@@ -283,7 +283,9 @@ class MLP(common.PyComponent):
         self.verbose = 0
         self.etas = [(0.1,100000)]*30
         common.set_params(self,kw,warn=0)
-        self.err = -1
+        self.eta = 0.1
+        self.error_rate = 0
+        self.training_log = []
     def copy(self):
         mlp = MLP()
         mlp.w1 = self.w1.copy()
@@ -394,6 +396,7 @@ class MLP(common.PyComponent):
                 print "error",rate,err,len(data)
                 print "ranges",amin(self.w1),amax(self.w1),amin(self.w2),amax(self.w2)
             self.error_rate = rate
+            self.training_log.append((eta,batchsize,self.error_rate))
     def outputs(self,data,subset=None):
         data = data.reshape(len(data),prod(data.shape[1:]))
         assert data.shape[1]==self.w1.shape[1],\
@@ -508,7 +511,7 @@ class AutoMLP(MLP):
             if verbose: print "progress",progress
     def assign(self,mlp):
         for k,v in mlp.__dict__.items():
-            if k[0]=="_": continue
+            if k[0]=="_" or k[-1]=="_": continue
             setattr(self,k,v)
 
 def test():
