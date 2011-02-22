@@ -1,4 +1,4 @@
-import os,os.path,re,numpy,unicodedata,sys,warnings,inspect
+import os,os.path,re,numpy,unicodedata,sys,warnings,inspect,glob
 import numpy
 from numpy import *
 from scipy.misc import imsave
