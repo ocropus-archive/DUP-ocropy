@@ -32,6 +32,8 @@ class WhitespaceModel:
             raw_input()
             clf()
     def setLine(self,image,cseg=None):
+        # print "WS",image.shape,cseg.shape
+        # ocrolib.write_image_gray("_wmodel.png",image)
         if amax(image)<1e-6: raise BadImage()
         self.image = array(image*(1.0/amax(image)),'f')
         self.cseg = cseg

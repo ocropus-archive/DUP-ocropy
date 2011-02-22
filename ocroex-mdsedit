@@ -103,7 +103,7 @@ def load_clusters():
         c.mds = array([float(x) for x in c.mds.split()])
 
 def run(Widget):
-    gladefile = ocrolib.findfile("gui/ocropus-mdsedit.glade")
+    gladefile = ocrolib.findfile("gui/ocroex-mdsedit.glade")
     windowname = "window1" 
     main_widget_tree = gtk.glade.XML(gladefile)
     window = main_widget_tree.get_widget("window1")

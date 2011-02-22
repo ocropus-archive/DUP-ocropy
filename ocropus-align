@@ -65,6 +65,7 @@ parser.add_option("-S","--osuffix",help="output suffix",default=None)
 parser.add_option("-O","--overwrite",help="overwrite outputs",action="store_true")
 parser.add_option("-Q","--parallel",type=int,default=0,help="number of parallel processes to use")
 (options,args) = parser.parse_args()
+args = ocrolib.expand_args(args)
 
 suffix = options.suffix
 if not suffix: suffix = ""

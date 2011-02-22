@@ -4,9 +4,9 @@ import sys,os,re,glob,cPickle,signal
 from pylab import *
 from multiprocessing import Pool
 
+import ocrolib
 from ocrolib import number_of_processors
 from ocrolib import plotutils,fstutils
-import ocrolib as common
 
 signal.signal(signal.SIGINT,lambda *args:sys.exit(1))
 
@@ -41,7 +41,7 @@ parser.add_option("-v","--verbose",help="verbose",action="store_true")
 parser.add_option("-d","--display",help="display result",action="store_true")
 parser.add_option("-D","--Display",help="display continuously",action="store_true")
 parser.add_option("-S","--suffix",help="suffix for writing results (e.g., '.gt')",default="")
-parser.add_option("-x","--gtextension",help="extension used for ground truth (ex: .txt, .gt.txt, .fst,...)",default=None)
+parser.add_option("-x","--gtextension",help="extension used for ground truth",default=None)
 parser.add_option("-F","--filelist",help="list of input files",default=None)
 parser.add_option("-Q","--parallel",type=int,default=number_of_processors(),help="number of parallel processes to use")
 
@@ -62,11 +62,11 @@ assert options.lweight==1.0,"other language model weights not implemented yet"
 if options.Display: options.display = 1
 if options.display: ion()
 
-linerec = common.load_linerec(options.linerec)
+linerec = ocrolib.load_linerec(options.linerec)
 if options.verbose: linerec.info()
 
 # Load the default language model (can be overridden on the command line.).
-default_lmodel = common.OcroFST()
+default_lmodel = ocrolib.OcroFST()
 default_lmodel.load(options.langmod)
 default_lmodel_path = options.langmod
 
@@ -76,40 +76,39 @@ current_lmodel = None
 def process_line(job):
     global current_lmodel_name,current_lmodel
     line,lmodel_name = job
-    base,allext = common.allsplitext(line)
-    _,ext = os.path.splitext(line)
 
     # if we can find a specific language model for it then perform alignment
     if options.gtextension is not None:
-        path = base+options.gtextension
+        path = ocrolib.fvariant(line,"txt",options.gtextension)
         if os.path.exists(path):
             if options.verbose: print "# gt",path
-            lmodel = common.read_lmodel_or_textlines(path)
+            lmodel = ocrolib.read_lmodel_or_textlines(path)
         else:
             if options.verbose: print "# ground truth missing",path
             return
     else:
         if lmodel_name!=current_lmodel_name:
-            current_lmodel = common.read_lmodel_or_textlines(lmodel_name)
+            current_lmodel = ocrolib.read_lmodel_or_textlines(lmodel_name)
             current_lmodel_name = lmodel_name
         if options.verbose: print "# lmodel",lmodel_name
         lmodel = current_lmodel
 
     # recognize the image with the given line recognizer and language model
     # FIXME read the .bin.png file if it exists.
-    image = common.read_image_gray(line)
-    l = common.recognize_and_align(image,linerec,lmodel)
+    image = ocrolib.read_image_gray(line)
+    l = ocrolib.recognize_and_align(image,linerec,lmodel)
     print "%6.2f\t%3d\t'%s'"%(l.cost,len(l.output),l.output)
-    base,_ = common.allsplitext(line)
 
     # write the resulting files to disk
-    with open(base+options.suffix+".txt","w") as stream:
-        stream.write(l.output)
-    l.lattice.save(base+options.suffix+".fst")
-    common.write_line_segmentation(base+".rseg"+options.suffix+".png",l.rseg)
+    ocrolib.write_text(ocrolib.fvariant(line,"txt",options.suffix),l.output)
+    l.lattice.save(ocrolib.fvariant(line,"fst",options.suffix))
+    rseg_file = ocrolib.fvariant(line,"rseg",options.suffix)
+    ocrolib.write_line_segmentation(rseg_file,l.rseg)
     if l.cseg is not None:
-        common.write_line_segmentation(base+".cseg"+options.suffix+".png",l.cseg)
-    with open(base+".costs","w") as stream:
+        cseg_file = ocrolib.fvariant(line,"cseg",options.suffix)
+        ocrolib.write_line_segmentation(cseg_file,l.cseg)
+    cost_file = ocrolib.fvariant(line,"costs",options.suffix)
+    with open(cost_file,"w") as stream:
         for i in range(len(l.costs)):
             stream.write("%d %g\n"%(i+1,l.costs[i]))
 
@@ -127,7 +126,7 @@ lmodel_name = options.langmod
 
 jobs = []
 for line in args:
-    base,allext = common.allsplitext(line)
+    base,allext = ocrolib.allsplitext(line)
     _,ext = os.path.splitext(line)
     if ext=="txt" or ext=="fst":
         lmodel_name = line

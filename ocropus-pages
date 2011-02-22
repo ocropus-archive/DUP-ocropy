@@ -22,7 +22,6 @@ def alert(*args):
     sys.stderr.write("\n")
 
 from optparse import OptionParser
-prefix = "/usr/local/share/ocropus/models/"
 parser = OptionParser(usage="""
 %prog [options] image1 image2 ...
 
@@ -71,8 +70,8 @@ the constructor.
 parser.add_option("-C","--clean",help="page cleaner",default="StandardPreprocessing")
 parser.add_option("-P","--pseg",help="line segmenter",default="SegmentPageByRAST")
 parser.add_option("-T","--ticlass",help="text image segmenter",default=None)
-parser.add_option("-m","--linerec",help="linerec model",default=prefix+"default.model")
-parser.add_option("-l","--langmod",help="langmod",default=prefix+"default.fst")
+parser.add_option("-m","--linerec",help="linerec model",default="default.model")
+parser.add_option("-l","--langmod",help="langmod",default="default.fst")
 parser.add_option("-w","--lweight",help="weight for the language model",type="float",default=1.0)
 parser.add_option("-v","--verbose",help="verbose",action="store_true")
 parser.add_option("-x","--hocr",help="output XHTML+hOCR",action="store_true")
@@ -110,12 +109,12 @@ segmenter = ocrolib.make_ISegmentPage(options.pseg)
 # You can pass x.model, x.cmodel, and x.pymodel, which loads a C++
 # line recognizer, a C++ character recognizer, or a pickled Python line
 # recognizer respectively.
-linerec = ocrolib.load_linerec(options.linerec)
+linerec = ocrolib.load_linerec(ocrolib.ocropus_find_file(options.linerec))
 alert("[note]","line recognizer:",linerec)
 
 # The language model, loaded from disk.
 lmodel = ocrolib.OcroFST()
-lmodel.load(options.langmod)
+lmodel.load(ocrolib.ocropus_find_file(options.langmod))
 
 # The text/image segmenter, if given.
 ticlass = None
@@ -160,8 +159,8 @@ for page_gray,pagefile in ocrolib.page_iterator(args):
     if options.display: 
         clf()
         axis = subplot(111)
-        axis.imshow(NI(page_bin),cmap=cm.gray)
-        plotutils.draw_pseg(page_seg,axis)
+        axis.imshow(page_bin,cmap=cm.gray)
+        # plotutils.draw_pseg(page_seg,axis)
         draw()
         if not options.Display: 
             raw_input("hit ENTER to continue")
@@ -183,9 +182,9 @@ for page_gray,pagefile in ocrolib.page_iterator(args):
     alert("[note]",pagefile,"lines:",regions.length())
     for i in range(1,regions.length()):
         # Extract the line image and optionally display it.
-        line = regions.extract(page_bin,i,1) # might use page_gray
+        line = regions.extract(page_bin,i,1)
         if options.display and options.displaylines:
-            clf(); subplot(111); imshow(NI(line),cmap=cm.gray); ginput(1,timeout=0.1)
+            clf(); subplot(111); imshow(line,cmap=cm.gray); ginput(1,timeout=0.1)
 
         # Perform some simple sanity checks on the text line image; skip anything
         # that doesn't look like a real text line.
@@ -196,6 +195,7 @@ for page_gray,pagefile in ocrolib.page_iterator(args):
         # Now perform the actual text line recognition.  The variables fst and rseg
         # hold the recognition lattice and raw segmentation that the line recognizer
         # computes.
+
         try:
             fst,rseg = linerec.recognizeLineSeg(line)
         except:
@@ -228,9 +228,8 @@ for page_gray,pagefile in ocrolib.page_iterator(args):
         # If display is on, we show the recognized line.  (Note that this slows
         # down recognition considerably because Matplotlib isn't very fast.)
         if options.display and options.displaylines:
-            clf()
             axis = subplot(111)
-            plotutils.draw_linerec(line,fst,rseg,lmodel,axis)
+            # plotutils.draw_linerec(line,fst,rseg,lmodel,axis)
             if not options.Display: 
                 raw_input("hit ENTER to continue")
             else:

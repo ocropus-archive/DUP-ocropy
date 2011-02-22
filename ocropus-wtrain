@@ -41,24 +41,23 @@ total = 0
 ws = wmodel.WhitespaceModel()
 ws.startTraining()
 
-suffix = "."+options.suffix if options.suffix!="" else ""
-
-for file in args:
+for fname in args:
     segments = []
     text = ""
     ntried += 1
 
     try:
-        base,_ = ocrolib.allsplitext(file)
-        image = ocrolib.read_image_gray(file)
+        image = ocrolib.read_image_gray(fname)
         image = 255-image
-        cseg = ocrolib.read_line_segmentation(base+".cseg"+suffix+".png")
-        with open(base+suffix+".txt") as stream: gt = stream.read()
+        cseg_file = ocrolib.ffind(fname,"cseg".options.suffix)
+        cseg = ocrolib.read_line_segmentation(cseg_file)
+        txt_file = ocrolib.ffind(fname,"txt",options.suffix)
+        with open(txt_file) as stream: gt = stream.read()
         gt = re.sub('\n','',gt)
         nfiles += 1
     except IOError,e:
         print "ERROR",e
-        print "# cseg for",file,"not found (got %d of %d files)"%(nfiles,ntried)
+        print "# cseg for",fname,"not found (got %d of %d files)"%(nfiles,ntried)
         continue
     except Exception,e:
         traceback.print_exc()
@@ -67,9 +66,9 @@ for file in args:
     try:
         ws.trainLineAndCseg(image,cseg,gt)
     except wmodel.BadGroundTruth:
-        print "# failed to add %s (got %d of %d files), BadGroundTruth"%(file,nfiles,ntried)
+        print "# failed to add %s (got %d of %d files), BadGroundTruth"%(fname,nfiles,ntried)
     except wmodel.BadImage:
-        print "# failed to add %s (got %d of %d files), BadImage"%(file,nfiles,ntried)
+        print "# failed to add %s (got %d of %d files), BadImage"%(fname,nfiles,ntried)
     
 ws.updateModel()
 

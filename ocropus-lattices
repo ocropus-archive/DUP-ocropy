@@ -4,7 +4,7 @@
 
 import sys,os,re,glob,math,glob,signal,traceback
 import matplotlib
-matplotlib.use("AGG")
+# matplotlib.use("AGG")
 from scipy.ndimage import interpolation
 from pylab import *
 from optparse import OptionParser
@@ -25,19 +25,34 @@ parser.add_option("-s","--segmenter",help="segmenter",default="DpSegmenter")
 parser.add_option("-S","--suffix",help="suffix for writing rseg/cseg files",default=None)
 parser.add_option("-O","--overwrite",help="overwrite rseg/cseg files",action="store_true")
 parser.add_option("-Q","--parallel",type=int,default=0,help="number of parallel processes to use")
+parser.add_option("-d","--display",help="display progress",action="store_true")
 (options,args) = parser.parse_args()
 
 if len(args)==0:
     parser.print_help()
     sys.exit(0)
 
+if options.display:
+    ion()
+
 cmodel = ocrolib.load_component(ocrolib.ocropus_find_file(options.model))
 assert cmodel is not None
-linerec = ocrolib.CmodelLineRecognizer(cmodel=cmodel)
+if hasattr(cmodel,'recognizeLine'):
+    linerec = cmodel
+else:
+    if hasattr(cmodel,'coutputs'):
+        linerec = ocrolib.CmodelLineRecognizer(cmodel=cmodel)
+    else:
+        print "%s (%s): don't know what kind of model this is"%(options.model,cmodel)
 
 def extract(t):
     fname = t
     image = ocrolib.read_image_gray(fname)
+    if options.display:
+        clf()
+        gray()
+        imshow(image)
+        ginput(1,timeout=1)
     lattice,rseg = linerec.recognizeLineSeg(image)
 
     lattice_file = ocrolib.fvariant(fname,"fst",options.suffix)
@@ -47,7 +62,7 @@ def extract(t):
 
     rseg_file = ocrolib.fvariant(fname,"rseg",options.suffix)
     if os.path.exists(rseg_file) and not options.overwrite:
-        die(rseg_file,"already exists")
+        die("%s: %s",rseg_file,"already exists")
     ocrolib.write_line_segmentation(rseg_file,rseg)
 
     s = lattice.bestpath()

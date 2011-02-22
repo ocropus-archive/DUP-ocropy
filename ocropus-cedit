@@ -60,6 +60,7 @@ parser.add_option("-F","--flip",help="flip characters before handing to classifi
 parser.add_option("-B","--batchsize",help="maximum number of characters loaded for display",type="int",default=10000)
 parser.add_option("-s","--select",help="initial character to select",default=None)
 (options,args) = parser.parse_args()
+args = ocrolib.expand_args(args)
 
 ion()
 

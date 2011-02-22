@@ -9,7 +9,6 @@ parser = OptionParser("""
 usage: %prog [options] .../.../010001.png ...
 
 Extract character images from OCR output and store them in a database file.  
-This assume that for each line.png, there is a line.cseg.gt.png and line.gt.txt file.
 """)
 
 parser.add_option("-g","--gtsuffix",help="ground truth suffix",default=None)
@@ -25,6 +24,7 @@ parser.add_option("-c","--cerrors",help="continue even if errors are found",acti
 parser.add_option("-E","--extracost",help="cost for misaligned characters",type=float,default=0.0)
 
 (options,args) = parser.parse_args()
+args = ocrolib.expand_args(args)
 
 if len(args)<1:
     parser.print_help()
@@ -32,11 +32,6 @@ if len(args)<1:
 
 ion()
 show()
-
-if options.gtsuffix is None:
-    options.gtsuffix =""
-else:
-    options.gtsuffix = "."+options.gtsuffix
 
 if os.path.exists(options.output):
     print options.output,"exists; please remove"
@@ -57,11 +52,11 @@ class BadGroundTruth(Exception):
 def cseg_chars(file,suffix=options.gtsuffix):
     image = ocrolib.read_image_gray(file)
     image = 255-image
-    base,_ = ocrolib.allsplitext(file)
-    cseg = ocrolib.read_line_segmentation(base+".cseg"+suffix+".png")
-    with open(base+suffix+".txt") as stream:
+    cseg_file = ocrolib.ffind(file,"cseg")
+    cseg = ocrolib.read_line_segmentation(cseg_file)
+    with ocrolib.fopen(file,"txt") as stream:
         gt = stream.read()
-    with open(base+suffix+".costs") as stream:
+    with ocrolib.fopen(file,"costs") as stream:
         costs = array([float(s.split()[1]) for s in stream.readlines()])[1:]
     assert len(gt)==len(costs),"gt and costs differ: %d != %d"%(len(gt),len(costs))
     gt = re.sub('\n','',gt)
@@ -85,12 +80,13 @@ def cseg_chars(file,suffix=options.gtsuffix):
 def cseg_chars_all(file,suffix=options.gtsuffix):
     image = ocrolib.read_image_gray(file)
     image = 255-image
-    base,_ = ocrolib.allsplitext(file)
-    cseg = ocrolib.read_line_segmentation(base+".cseg"+suffix+".png")
-    rseg = ocrolib.read_line_segmentation(base+".rseg"+suffix+".png")
-    with open(base+suffix+".txt") as stream:
+    cseg_file = ocrolib.ffind(file,"cseg")
+    rseg_file = ocrolib.ffind(file,"rseg")
+    cseg = ocrolib.read_line_segmentation(cseg_file)
+    rseg = ocrolib.read_line_segmentation(rseg_file)
+    with ocrolib.fopen(file,"txt") as stream:
         gt = stream.read()
-    with open(base+suffix+".costs") as stream:
+    with ocrolib.fopen(file,"costs") as stream:
         costs = array([float(s.split()[1]) for s in stream.readlines()])[1:]
     assert len(gt)<=len(costs),\
         "gt and costs differ: %d != %d"%(len(gt),len(costs))

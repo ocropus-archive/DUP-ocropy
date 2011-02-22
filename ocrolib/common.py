@@ -36,8 +36,14 @@ def check_valid_class_label(s):
         raise BadClassLabel(s)
 
 ################################################################
-### smallish utilities
+### file name manipulation
 ################################################################
+
+def expand_args(args):
+    if len(args)==1 and os.path.isdir(args[0]):
+        return glob.glob(args[0]+"/????/??????.png")
+    else:
+        return args
 
 class OcropusFileNotFound:
     def __init__(self,fname):
@@ -118,7 +124,7 @@ def ffind(fname,kind,gt=None):
         raise IOError(s)
     return s
 
-def fopen(fname,kind,gt,mode="r"):
+def fopen(fname,kind,gt=None,mode="r"):
     """Like fvariant, but opens the file."""
     return open(fvariant(fname,kind,gt),mode)
 
@@ -1579,8 +1585,8 @@ def recognize_and_align(image,linerec,lmodel,beam=1000,nocseg=0,lig=ligatures.li
 
     lattice,rseg = linerec.recognizeLineSeg(image)
     v1,v2,ins,outs,costs = beam_search(lattice,lmodel,beam)
-    result = compute_alignment(lattice,rseg,lmodel,beam=beam,nocseg=0,lig=lig)
-    return result.output
+    result = compute_alignment(lattice,rseg,lmodel,beam=beam,lig=lig)
+    return result
 
 ################################################################
 ### new, pure Python components
@@ -1887,6 +1893,11 @@ class CmodelLineRecognizer(RecognizeLine):
         rseg: intarray where the raw segmentation will be put
         image: line image to be recognized"""
 
+        # FIXME for some reason, something down below
+        # depends on this being a bytearray image, so
+        # we're normalizing it here to that type
+        image = array(image*255.0/amax(image),'B')
+
         # compute the raw segmentation
         rseg = self.segmenter.charseg(image)
         if self.debug: show_segmentation(rseg) # FIXME
@@ -1907,7 +1918,7 @@ class CmodelLineRecognizer(RecognizeLine):
 
         # invert the input image (make a copy first)
         old = image
-        image = 255-image
+        image = amax(image)-image
 
         # initialize the whitespace estimator
         self.whitespace.setLine(image,rseg)

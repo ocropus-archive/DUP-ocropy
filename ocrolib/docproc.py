@@ -27,6 +27,8 @@ def seg_boxes(seg,math=0):
             result += [(ys.start,ys.stop,xs.start,xs.stop)]
     return result
 
+seg_geometry_display = 0
+
 def seg_geometry(segmentation,math=1):
     """Given a line segmentation (either an rseg--preferably connected
     component based--or a cseg, return (mh,a,b), where mh is the
@@ -43,8 +45,9 @@ def seg_geometry(segmentation,math=1):
     centers = [(avg(y0,y1),avg(x0,x1)) for (y0,y1,x0,x1) in boxes]
     xs = array([x for y,x in centers])
     ys = array([y for y,x in centers])
-    if not math: plot(xs,ys,"g.")
-    else: plot(xs,segmentation.shape[0]-ys-1,"g.")
+    if seg_geometry_display:
+        if not math: plot(xs,ys,"g.")
+        else: plot(xs,segmentation.shape[0]-ys-1,"g.")
     a,b = polyfit(xs,ys,1)
     return mh,a,b
 

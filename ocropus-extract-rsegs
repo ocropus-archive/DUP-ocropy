@@ -44,13 +44,13 @@ ion()
 show()
 
 def chars(files):
-    for file in files:
-        print "# loading",file
-        binfile = re.sub(r'.png','.bin.png',file)
+    for fname in files:
+        print "# loading",fname
+        binfile = re.sub(r'.png','.bin.png',fname)
         if os.path.exists(binfile):
             image = ocrolib.read_image_gray(binfile)
         else:
-            image = ocrolib.read_image_gray(file)
+            image = ocrolib.read_image_gray(fname)
         try:
             segmentation = segmenter.charseg(image)
         except:
@@ -64,10 +64,10 @@ def chars(files):
         for i in range(grouper.length()):
             cls = None
             raw,mask = grouper.extractWithMask(image,i,1)
-            yield raw,mask,cls,file,grouper.bboxMath(i),geo
+            yield raw,mask,cls,fname,grouper.bboxMath(i),geo
 
 total = 0
-for raw,mask,cls,file,bbox,geo in chars(args):
+for raw,mask,cls,fname,bbox,geo in chars(args):
     clf()
     if raw.shape[0]>255 or raw.shape[1]>255: continue
     if raw.shape[0]<options.minsize or raw.shape[1]<options.minsize: continue
@@ -82,7 +82,7 @@ for raw,mask,cls,file,bbox,geo in chars(args):
         traceback.print_exc()
     ry,rw,rh = rel
     assert rw>0 and rh>0
-    table.set(image=raw,cls="_",count=1,file=file,bbox="%g %g %g %g"%bbox,
+    table.set(image=raw,cls="_",count=1,file=fname,bbox="%g %g %g %g"%bbox,
               cluster=-1,lgeo="%g %g %g"%geo,rel="%g %g %g"%rel)
     total += 1
     if total%10000==0: table.commit()
