@@ -26,6 +26,7 @@ Alternatively, can update the cls and cost columsn in the database themselves
 when the -C option is given.  This is useful, for example, on the output from
 ocropus-extract-rseg or clustered output.
 """)
+
 parser.add_option("-D","--display",help="display the characters",action="store_true")
 parser.add_option("-e","--error",help="only calculate error",action="store_true")
 parser.add_option("-C","--setclass",help="set class, not pred",action="store_true")
@@ -80,14 +81,20 @@ for row in db.execute("select * from %s"%(options.table,)):
         print row.id,cls,pocost,pred,pcost,outputs[:3]
         raw_input()
     if options.setclass:
-        db.execute("update chars set cls=?,cost=?,pred=NULL,pcost=NULL where id=?",(pred,pcost,row.id))
-        if total%100==0: sys.stderr.write("%8d of %8d\r"%(total,target))
+        db.execute("update chars set cls=?,cost=?,pred=NULL,pcost=NULL where id=?",
+            (pred,pcost,row.id))
     else:
         if pred!=cls: errors += 1
-        db.execute("update chars set pred=?,pcost=?,pocost=? where id=?",(pred,pcost,pocost,row.id))
-        if total%100==0: sys.stderr.write("%8d %8d (%.5f)\r"%(total,errors,errors*1.0/total))
+        db.execute("update chars set pred=?,pcost=?,pocost=? where id=?",
+            (pred,pcost,pocost,row.id))
+    if total%100==0: 
+        sys.stderr.write("%8d %8d (%.5f)\r"%(total,errors,errors*1.0/total))
     if total%1000==0: db.commit()
     if total>=options.limit: break
+
+print
+if not options.setclass:
+    print "%8d %8d (%.5f)"%(total,errors,errors*1.0/total)
 
 db.commit()
 db.close()
