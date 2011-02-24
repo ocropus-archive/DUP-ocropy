@@ -7,7 +7,7 @@ from scipy.ndimage import interpolation
 from pylab import *
 from optparse import OptionParser
 import ocrolib
-from ocrolib import fstutils
+from ocrolib import fstutils,ligatures
 
 signal.signal(signal.SIGINT,lambda *args:sys.exit(1))
 
@@ -18,5 +18,19 @@ usage: %prog text.txt langmod.fst
 
 (options,args) = parser.parse_args()
 
-lmodel = fstutils.load_text_file_as_fst(args[0])
-lmodel.save(args[1])
+print "# loading"
+fst = fstutils.load_text_file_as_fst(args[0])
+
+if 1:
+    print "# minimizing"
+    det = openfst.StdVectorFst()
+    openfst.Determinize(fst,det)
+    openfst.Minimize(det)
+    fst = det
+
+print "# adding symbol table"
+symtab = ligatures.lig.SymbolTable()
+fst.SetInputSymbols(symtab)
+fst.SetOutputSymbols(symtab)
+print "# writing"
+fst.Write(options.output)

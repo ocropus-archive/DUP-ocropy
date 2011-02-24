@@ -117,6 +117,7 @@ def align1(t):
         if lmodel!=lfile:
             lfile = lmodel
             lfst = fstutils.load_transcription(lmodel)
+            lfst.save("_.fst")
         
         r = ocrolib.compute_alignment(fst,rseg,lfst)
 

@@ -2,7 +2,7 @@
 
 import signal
 signal.signal(signal.SIGINT,lambda *args:sys.exit(1))
-import sys,os,re,optparse,shutil
+import sys,os,re,optparse,shutil,glob
 from matplotlib import patches
 from pylab import *
 from scipy.stats.stats import trim1
@@ -62,6 +62,8 @@ parser.add_option("-Q","--parallel",type=int,default=number_of_processors(),
                   help="number of parallel processes to use")
 options,args = parser.parse_args()
 
+if len(args)==1 and os.path.isdir(args[0]):
+    args = glob.glob(args[0]+"/????.png")
 
 preproc = common.Binarize().make(options.preproc)
 segmenter = common.SegmentPage().make(options.segmenter)
@@ -76,7 +78,7 @@ def process_arg(arg):
     base,_ = common.allsplitext(arg)
     if os.path.exists(base):
         print "# output directory",base,"already exists"
-        continue
+        return
 
     image = common.read_image_gray(arg,'B')
     h,w = image.shape

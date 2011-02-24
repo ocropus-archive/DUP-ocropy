@@ -5,6 +5,25 @@ from pylab import uint32,uint16,uint64
 import ocropus
 import openfst
 
+common_ligature_table = """
+000 00 La Th ac ai ak al all am an ar as be bo ca ch co ct
+di dr ec ed ee es ff ffi fl fr ft gh gi gr gu hi il
+in ir is ki li ll ma mi mm ni oc oo pe po re ri rin
+rm rn ro r rs rt ru rv ry se sl so ss st ta te th ti to tr
+ts tt tu ul um un ur vi wi wn
+a. c. e. m. n. t. z. A. C. E. K. L. M. N. R.
+a, c, e, m, n, t, z, A, C, E, K, L, M, N, R,
+a- b- e- d- g- m- n- o- p- u-
+"B "D "F "H "K "L "P "R "T "W "Z "b "h "l
+'B 'D 'F 'H 'K 'L 'P 'R 'T 'W 'Z 'b 'h 'l
+d" f" l" 
+"""
+
+def common_ligatures(s):
+    if len(s)>=2 and s[:2] in common_ligature_table:
+        yield s[:2]
+    if len(s)>=3 and s[:3] in common_ligature_table:
+        yield s[:3]
 
 class LigatureTable:
     def __init__(self):
@@ -36,6 +55,7 @@ class LigatureTable:
         return result
     def chr(self,code):
         result = self.code2lig.get(code,None)
+        if code<0: return u"~"
         if code<0x10000 and result is None: return unichr(code)
         return result
     def SymbolTable(self,name="ligature_table"):

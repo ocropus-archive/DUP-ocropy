@@ -22,7 +22,10 @@ result (recognition result without language model).
 """)
 
 # these options control alignment
-parser.add_option("-m","--model",help="model file",default="unlv.model")
+parser.add_option("-m","--model",help="model file",default="default.model")
+parser.add_option("-L","--noligatures",help="don't output ligatures",action="store_true")
+parser.add_option("-N","--nbest",help="use the nbest results from classifier",type=int,default=5)
+parser.add_option("-C","--maxcost",help="maximum cost to be considered",type=float,default=10.0)
 parser.add_option("-s","--segmenter",help="segmenter",default="DpSegmenter")
 parser.add_option("-S","--suffix",help="suffix for writing rseg/cseg files",default=None)
 parser.add_option("-O","--overwrite",help="overwrite rseg/cseg files",action="store_true")
@@ -44,6 +47,9 @@ if hasattr(cmodel,'recognizeLine'):
 else:
     if hasattr(cmodel,'coutputs'):
         linerec = ocrolib.CmodelLineRecognizer(cmodel=cmodel)
+        linerec.use_ligatures = not options.noligatures
+        linerec.maxcost = options.maxcost
+        linerec.nbest = options.nbest
     else:
         print "%s (%s): don't know what kind of model this is"%(options.model,cmodel)
 

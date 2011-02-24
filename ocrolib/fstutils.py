@@ -1,3 +1,5 @@
+# -*- encoding: utf-8 -*-
+
 import sys,os,re
 import openfst
 import ocropus,iulib
@@ -7,10 +9,17 @@ space = ord(" ")
 epsilon = openfst.epsilon
 assert epsilon==ocropus.L_EPSILON
 rho = ocropus.L_RHO
-sigma = ocropus.L_SIGMA
+sigma = ocropus.L_RHO
 phi = ocropus.L_PHI
 
 import ligatures
+
+def line_cleanup(s):
+    s = s.strip()
+    s = re.sub('ſ','s',s)
+    s = re.sub('„',',,',s)
+    s = re.sub('“',"''",s)
+    return s
 
 def check_transcription(transcription):
     """Checks the syntax of transcriptions.  Transcriptions may have ligatures
@@ -92,8 +101,10 @@ simple_costs = Costs(
                       add_c2l=None,
                       )
 
-def make_costs(err=5.0,space_err=5.0,ligature=0.0,ligchange=1.0,reject=0.1):
+def make_costs(err=5.0,space_err=5.0,ligature=0.0,ligchange=0.0,reject=0.1):
     return Costs(
+        # output used to indicate that something is wrong
+        error="~",
         # insertions of spaces relative to ground truth
         space_insert=space_err,
         # deletions of spaces relative to ground truth
@@ -110,17 +121,23 @@ def make_costs(err=5.0,space_err=5.0,ligature=0.0,ligchange=1.0,reject=0.1):
         ligatures3=ligature,
         # allow multiple character in transcript to be represented by one thing in lattice
         misseg2=None,
+        misseg2_out="~~",
         misseg3=None,
-        # add rejects as sigmas with a given cost
+        misseg3_out="~~~",
+        # add ground truth rejects as sigmas with a given cost
         reject=reject,
+        # add classifier rejects as sigmas with low cost (the classifier cost is added anyway)
+        classifier_reject=1.0,
+        # ligatures as characters in both lattice and transcript
+        add_c2c=ligchange,
         # ligatures in both lattice and transcript
         add_l2l=ligature,
         # characters in lattice, ligatures in transcript
         add_c2l=ligature,
-        # ligatures as characters in both lattice and transcript
-        add_c2c=ligchange,
-        # ligatures in lattice, characters in transcript                      
+        # ligatures in lattice, ligature-characters in transcript                      
         add_l2c=ligchange,
+        # junk in lattice, ligature-characters in transcript                      
+        add_junk2c=ligchange,
         )
 
 default_costs = make_costs()
@@ -142,6 +159,14 @@ def add_line_to_fst(fst,line,
         start = states[i]
         next = states[i+1]
 
+        # insert characters or ligatures as single tokens
+
+        if len(s)==1 or costs.add_l2l>=0:
+            assert c is not None,"ligature [%s] not found in ligature table"%s
+            cost = 0.0 if len(s)==1 else costs.add_l2l
+            fst.AddArc(start,c,c,cost,next)
+            fst.AddArc(start,lig.ord("~"),c,costs.classifier_reject,next)
+
         # allow insertion of spaces with some cost
                 
         if costs.space_insert is not None:
@@ -161,7 +186,6 @@ def add_line_to_fst(fst,line,
             # FIXME -- There are several things wrong here: sigma isn't working,
             # and more importantly, even if it were, we'd like to be able to 
             # override (ignore) the cost on the input value here
-            fst.AddArc(start,lig.ord("_"),lig.ord("~"),costs.reject,next)
             fst.AddArc(start,lig.ord("~"),lig.ord("~"),costs.reject,next)
             fst.AddArc(start,sigma,lig.ord("~"),costs.reject,next)
             for i in range(32,128): fst.AddArc(start,i,lig.ord("~"),costs.reject,next)
@@ -171,46 +195,17 @@ def add_line_to_fst(fst,line,
         # allow insertion of a character relative to ground truth
         
         if costs.char_insert is not None:
-            fst.AddArc(start,sigma,epsilon,costs.char_insert,start)
+            fst.AddArc(start,sigma,lig.ord(costs.error),costs.char_insert,start)
 
         # allow character mismatches
 
         if costs.char_mismatch is not None:
-            fst.AddArc(start,sigma,c,costs.char_mismatch,next)
+            fst.AddArc(start,sigma,lig.ord(costs.error),costs.char_mismatch,next)
 
         # allow deletion of a character relative to ground truth
 
         if costs.char_delete is not None:
-            fst.AddArc(start,epsilon,c,costs.char_insert,next)
-
-        # insert characters or ligatures as single tokens
-
-        if len(s)==1 or costs.add_l2l>=0:
-            assert c is not None,"ligature [%s] not found in ligature table"%s
-            cost = 0.0 if len(s)==1 else costs.add_l2l
-            fst.AddArc(start,c,c,cost,next)
-
-        # insert ligatures as exploded list of characters with some cost
-
-        if len(s)>1 and costs.add_c2c>=0.0:
-            state = start
-            for j in range(len(s)):
-                cc = lig.ord(s[j])
-                nstate = next if j==len(s)-1 else fst.AddState()
-                cost = costs.add_c2c if j==0 else 0.0
-                fst.AddArc(state,cc,cc,cost,nstate)
-                state = nstate
-
-        # insert ligature-to-character
-
-        if len(s)>1 and costs.add_l2c>=0.0:
-            state = start
-            for j in range(len(s)):
-                cc = lig.ord(s[j])
-                nstate = next if j==len(s)-1 else fst.AddState()
-                cost = costs.add_l2c if j==0 else 0.0
-                fst.AddArc(state,c if j==0 else epsilon,cc,cost,nstate)
-                state = nstate
+            fst.AddArc(start,epsilon,lig.ord(costs.error),costs.char_insert,next)
 
         # insert character-to-ligature
 
@@ -223,20 +218,30 @@ def add_line_to_fst(fst,line,
                 fst.AddArc(state,cc,c if j==0 else epsilon,cost,nstate)
                 state = nstate
 
+        # insert ligature-to-characters
+
+        if costs.add_l2c>=0.0:
+            candidate = "".join(line[i:i+4])
+            for s in ligatures.common_ligatures(candidate):
+                cc = lig.ord(s)
+                nnext = states[i+len(s)]
+                fst.AddArc(state,cc,cc,costs.add_l2c,nnext)
+                fst.AddArc(state,lig.ord("~"),cc,costs.add_junk2c,nnext)
+
         # allow segmentation error with two characters
 
         if i<len(line)-2 and " " not in line[i:i+2] and costs.misseg2 is not None:
             state1 = fst.AddState()
-            fst.AddArc(start,lig.ord("~"),sigma,costs.misseg2,state1)
-            fst.AddArc(state1,epsilon,sigma,0.0,states[i+2])
+            fst.AddArc(start,sigma,lig.ord(costs.misseg2_out[0]),costs.misseg2,state1)
+            fst.AddArc(state1,sigma,lig.ord(costs.misseg2_out[1]),0.0,states[i+2])
 
         # allow segmentation error with three characters in ground truth
 
         if i<len(line)-3 and " " not in line[i:i+3] and costs.misseg3 is not None:
             state1,state2 = (fst.AddState(),fst.AddState())
-            fst.AddArc(start,lig.ord("~"),sigma,costs.misseg3,state1)
-            fst.AddArc(state1,epsilon,sigma,0.0,state2)
-            fst.AddArc(state2,epsilon,sigma,0.0,states[i+3])
+            fst.AddArc(start,sigma,lig.ord(costs.misseg3_out[0]),costs.misseg3,state1)
+            fst.AddArc(state1,sigma,lig.ord(costs.misseg3_out[1]),0.0,state2)
+            fst.AddArc(state2,sigma,lig.ord(costs.misseg3_out[2]),0.0,states[i+3])
 
     fst.SetFinal(states[-1],accept)
 
@@ -248,13 +253,13 @@ def make_line_openfst(lines,lig=ligatures.lig,optimize=0):
     count = 0
     for line in lines:
         if type(line) in [str,unicode]:
+            line = line_cleanup(line)
             line = explode_transcription(line)
         count += 1
         add_line_to_fst(fst,line,lig=lig)
     if not optimize:
         det = fst
     elif optimize==1:
-        fst.Write("_l_.fst")
         det = Fst()
         mapper = openfst.StdEncodeMapper(openfst.kEncodeLabels,openfst.ENCODE)
         openfst.Encode(fst,mapper)
@@ -302,7 +307,7 @@ def load_text_file_as_fst(file):
     """Use load_transcription instead."""
     return load_transcription(file)
     
-def load_transcription(file,use_ligatures=0):
+def load_transcription(file,use_ligatures=1):
     """Load a text file as a transcription.  This handles
     notation like "a_ffi_ne" for ligatures, "\" escapes, and
     and "~" for reject characters."""
@@ -313,7 +318,7 @@ def load_transcription(file,use_ligatures=0):
     else:
         lines = list(lines_of_file(file))
         if not use_ligatures:
-            lines = [re.sub(r'_','~',l) for l in lines]
+            lines = [re.sub(r'_','',l) for l in lines]
         return make_line_fst(lines)
 
 def make_alignment_fst(transcriptions):
@@ -328,6 +333,7 @@ def make_alignment_fst(transcriptions):
     
 def simple_line_fst(line,lig=ligatures.lig):
     """Add a line (given as a list of strings) to an fst."""
+    line = line_cleanup(line)
     fst = common.OcroFST()
     state = fst.newState()
     fst.setStart(state)

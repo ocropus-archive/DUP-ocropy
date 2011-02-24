@@ -6,5 +6,4 @@ __all__ = [
 
 from utils import *
 from common import *
-from gmodel import *
 from mlp import MlpModel,AutoMlpModel,MLP,AutoMLP

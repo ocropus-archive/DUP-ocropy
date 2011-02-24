@@ -863,6 +863,7 @@ class Grouper(CommonComponent):
     def getSegments(self,i):
         """Get a list of all the segments making up this group."""
         l = iulib.intarray()
+        self.comp.getSegments(l,i)
         return [l.at(i) for i in range(l.length())]
     def extract(self,source,dflt,i,grow=0,dtype='f'):
         """Extract the image corresponding to group i.  Background pixels are
@@ -954,7 +955,7 @@ class Grouper(CommonComponent):
     def getGtClass(self,i):
         cls = self.comp.getGtClass(i)
         if cls==-1: return "~"
-        return ocropus.multichr(cls)
+        return ligatures.lig.chr(cls)
 
 class StandardGrouper(Grouper):
     """The grouper usually used for printed OCR."""
@@ -1876,13 +1877,16 @@ class CmodelLineRecognizer(RecognizeLine):
         self.whitespace = load_component(ocropus_find_file("space.model"))
         self.segmenter = SegmentLine().make("DpSegmenter")
         self.grouper = StandardGrouper()
-        self.best = 3
+        self.nbest = 3
         self.min_probability = 0.1 
         self.maxcost = 10.0
+        self.reject_cost = self.maxcost
         self.min_height = 0.5
         self.rho_scale = 1.0
         self.maxdist = 10
         self.maxrange = 5
+        self.use_ligatures = 1
+        self.add_rho = 0
         set_params(self,kw)
         self.grouper.pset("maxdist",self.maxdist)
         self.grouper.pset("maxrange",self.maxrange)
@@ -1954,7 +1958,8 @@ class CmodelLineRecognizer(RecognizeLine):
             # This ensures that the lattice is at least connected.
             # Note that for typical character widths, this is going
             # to be much larger than any per-charcter cost.
-            self.grouper.setClass(i,ocropus.L_RHO,self.rho_scale*raw.shape[1])
+            if self.add_rho:
+                self.grouper.setClass(i,ocropus.L_RHO,self.rho_scale*raw.shape[1])
 
             # compute the classifier output for this character
             # FIXME parallelize this
@@ -1970,13 +1975,13 @@ class CmodelLineRecognizer(RecognizeLine):
 
             # maybe add a transition on "_" that we can use to skip 
             # this character if the transcription contains a "~"
-            # self.grouper.setClass(i,"_",20.0)
+            self.grouper.setClass(i,"~",self.reject_cost)
             
             # add the top classes to the lattice
             outputs.sort(key=lambda x:x[1])
-            for cls,cost in outputs[:self.best]:
-                # don't add the reject class (written as "~")
-                if cls=="~": continue
+            for cls,cost in outputs[:self.nbest]:
+                # don't add anything with a cost above maxcost
+                if cost>self.maxcost and cls!="~": continue
 
                 # letters are never small, so we skip small bounding boxes that
                 # are categorized as letters; this is an ugly special case, but
@@ -1990,8 +1995,11 @@ class CmodelLineRecognizer(RecognizeLine):
                     continue
 
                 # for anything else, just add the classified character to the grouper
-                self.grouper.setClass(i,cls,min(cost,self.maxcost))
-                # FIXME better space handling
+                if self.use_ligatures:
+                    ccode = ligatures.lig.ord(cls)
+                else:
+                    ccode = cls
+                self.grouper.setClass(i,ccode,cost)
                 self.grouper.setSpaceCost(i,float(yes_space),float(no_space))
 
         # extract the recognition lattice from the grouper
