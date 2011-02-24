@@ -25,14 +25,19 @@ class LigatureTable:
             self.add(unichr(i),i)
     def add(self,name,code,override=0):
         assert type(name)==unicode or not re.search(r'[\x80-\xff]',name)
-        if not override and self.ord(name)>=0:
+        if not override and self.lig2code.get(name) is not None:
             raise Exception("character '%s' (%d) already in ligature table"%(name,self.ord(name)))
         self.lig2code[name] = code
         self.code2lig[code] = unicode(name)
     def ord(self,name):
-        return self.lig2code.get(name,-1)
+        result = self.lig2code.get(name,-1)
+        # fall back for non-ligature unicode characters
+        if result<0 and len(name)==1: return ord(name)
+        return result
     def chr(self,code):
-        return self.code2lig.get(code)
+        result = self.code2lig.get(code,None)
+        if code<0x10000 and result is None: return unichr(code)
+        return result
     def SymbolTable(self,name="ligature_table"):
         result = openfst.SymbolTable(name)
         for name,code in self.lig2code.items():

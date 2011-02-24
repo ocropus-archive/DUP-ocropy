@@ -1,4 +1,5 @@
 #!/usr/bin/python
+# -*- encoding: utf-8 -*-
 
 # make the clustering class-specific
 
@@ -22,6 +23,8 @@ usage:
 
 """)
 
+parser.add_option("-g","--grep",help="show matching lines",action="store_true")
+parser.add_option("-n","--nonmatching",help="show nonmatching lines",action="store_true")
 parser.add_option("-l","--langmod",help="language model",default=None)
 parser.add_option("-b","--beam",help="beam width",type=int,default=1000)
 (options,args) = parser.parse_args()
@@ -38,8 +41,12 @@ lmodel.load(options.langmod)
 for fname in args:
     with open(fname) as stream:
         for line in stream.readlines():
-            count += 1
             line = line[:-1]
+            line = unicode(line.decode("utf-8"))
+            line = line.strip()
+            line = re.sub(ur'\s+',' ',line)
+            line = re.sub(ur'[_~]','',line)
+            count += 1
             chars += len(line)
 
             lattice = fstutils.simple_line_fst(line)
@@ -50,8 +57,12 @@ for fname in args:
             if cost>1e38:
                 fail += 1
                 cfail += len(line)
+                if options.nonmatching:
+                    print "%8.2f"%cost,line.encode("utf-8")
             else:
                 totalcost += cost
+                if options.grep:
+                    print "%8.2f"%cost,line.encode("utf-8")
 
 print "count",count
 print "chars",chars
