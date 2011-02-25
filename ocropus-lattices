@@ -33,7 +33,7 @@ parser.add_option("-Q","--parallel",type=int,default=0,help="number of parallel 
 parser.add_option("-d","--display",help="display progress",action="store_true")
 (options,args) = parser.parse_args()
 if len(args)==1 and os.path.isdir(args[0]):
-    args = glob.glob(args[0]+"/????/??????.png")
+    args = sorted(glob.glob(args[0]+"/????/??????.png"))
 
 if len(args)==0:
     parser.print_help()
@@ -78,7 +78,7 @@ def extract(t):
     ocrolib.write_line_segmentation(rseg_file,rseg)
 
     s = lattice.bestpath()
-    print fname,":",s
+    print fname,":",repr(s)
 
 if options.parallel<2:
     for arg in args: extract(arg)
