@@ -41,7 +41,7 @@ def check_valid_class_label(s):
 
 def expand_args(args):
     if len(args)==1 and os.path.isdir(args[0]):
-        return glob.glob(args[0]+"/????/??????.png")
+        return sorted(glob.glob(args[0]+"/????/??????.png"))
     else:
         return args
 
@@ -1995,7 +1995,6 @@ class CmodelLineRecognizer(RecognizeLine):
             for cls,cost in outputs[:self.nbest]:
                 # don't add anything with a cost above maxcost
                 # if cost>self.maxcost and cls!="~": continue
-                if cost>self.maxcost: continue
                 if cls=="~": continue
 
                 # letters are never small, so we skip small bounding boxes that
