@@ -3,7 +3,7 @@ import code,pickle,sys,os,re,traceback,sqlite3
 from optparse import OptionParser
 from pylab import *
 import ocrolib
-from ocrolib import docproc,Record,utils
+from ocrolib import docproc,Record,utils,fstutils
 
 parser = OptionParser("""
 usage: %prog [options] .../.../010001.png ...
@@ -65,6 +65,7 @@ def cseg_chars(file,suffix=options.gtsuffix):
         costs = array([float(s.split()[1]) for s in stream.readlines()])[1:]
     assert len(gt)==len(costs),"gt and costs differ: %d != %d"%(len(gt),len(costs))
     gt = re.sub('\n','',gt)
+    gt = fstutils.explode_transcription(gt)
     geo = docproc.seg_geometry(cseg)
     grouper = ocrolib.StandardGrouper()
     grouper.pset("maxrange",1)
@@ -89,13 +90,17 @@ def cseg_chars_all(file,suffix=options.gtsuffix):
     rseg_file = ocrolib.ffind(file,"rseg")
     cseg = ocrolib.read_line_segmentation(cseg_file)
     rseg = ocrolib.read_line_segmentation(rseg_file)
-    with ocrolib.fopen(file,"txt") as stream:
-        gt = stream.read()
+    with ocrolib.fopen(file,"txt") as stream: gt = stream.read()
+    gt = gt.decode("utf-8")
+    gt = re.sub('\n','',gt)
+    gt = fstutils.explode_transcription(gt)
+    costs = [None]*(1+len(gt))
     with ocrolib.fopen(file,"costs") as stream:
-        costs = array([float(s.split()[1]) for s in stream.readlines()])[1:]
+        for line in stream.readlines():
+            f = line.split()
+            costs[int(f[0])] = float(f[1])
     assert len(gt)<=len(costs),\
         "gt and costs differ: %d != %d"%(len(gt),len(costs))
-    gt = re.sub('\n','',gt)
     geo = docproc.seg_geometry(cseg)
     grouper = ocrolib.StandardGrouper()
     grouper.setSegmentationAndGt(rseg,cseg,gt)
@@ -105,7 +110,8 @@ def cseg_chars_all(file,suffix=options.gtsuffix):
         cost= costs[index] if index>=0 else options.extracost
         if cls==' ': continue
         raw,mask = grouper.extractWithMask(image,i,1)
-        yield Record(raw=raw,mask=mask,cls=cls,index=grouper.getGtIndex(i),bbox=grouper.boundingBox(i),
+        yield Record(raw=raw,mask=mask,cls=cls,index=grouper.getGtIndex(i),
+                     bbox=grouper.boundingBox(i),
                      bbox_m=grouper.bboxMath(i),lgeo=geo,cost=cost)
 
 ntried = 0

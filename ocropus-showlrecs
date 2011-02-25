@@ -390,6 +390,7 @@ class LineWindow:
                 for i in range(grouper.length()):
                     try:
                         if result[i]==' ': continue
+                        if grouper.isEmpty(i): continue
                         raw,mask = grouper.extractWithMask(reverse,i,1)
                         img = 1.0-mask/255.0
                         self.detail_pixbuf(numpy2pixbuf(img))

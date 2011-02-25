@@ -71,80 +71,42 @@ class Costs:
     def __init__(self,**kw):
         self.__dict__.update(kw)
 
-simple_costs = Costs(
-                      # insertions of spaces relative to ground truth
-                      space_insert=None,
-                      # deletions of spaces relative to ground truth
-                      space_delete=None,
-                      # mismatches of characters relative to ground truth
-                      char_mismatch=None,
-                      # insertions of characters relative to ground truth
-                      char_insert=None,
-                      # deletions of characters relative to ground truth
-                      char_delete=None,
-                      # allow multiple character in transcript to be represented by one thing in lattice
-                      # if they are known to be common ligatures
-                      ligatures2=None,
-                      ligatures3=None,
-                      # allow multiple character in transcript to be represented by one thing in lattice
-                      misseg2=None,
-                      misseg3=None,
-                      # add rejects as sigmas with a given cost
-                      reject=1.0,
-                      # ligatures in both lattice and transcript
-                      add_l2l=None,
-                      # ligatures as characters in both lattice and transcript
-                      add_c2c=None,
-                      # ligatures in lattice, characters in transcript                      
-                      add_l2c=None,
-                      # characters in lattice, ligatures in transcript
-                      add_c2l=None,
-                      )
-
-def make_costs(err=5.0,space_err=5.0,ligature=0.0,ligchange=0.0,reject=0.1):
-    return Costs(
+default_costs = Costs(
         # output used to indicate that something is wrong
-        error="~",
+        error="#",
         # insertions of spaces relative to ground truth
-        space_insert=space_err,
+        space_insert=None,
         # deletions of spaces relative to ground truth
-        space_delete=space_err,
+        space_delete=None,
         # mismatches of characters relative to ground truth
-        char_mismatch=err,
+        char_mismatch=10.0,
         # insertions of characters relative to ground truth
-        char_insert=err,
+        char_insert=None,
         # deletions of characters relative to ground truth
-        char_delete=err,
-        # allow multiple character in transcript to be represented by one thing in lattice
-        # if they are known to be common ligatures
-        ligatures2=ligature,
-        ligatures3=ligature,
+        char_delete=None,
+        # deletions of characters relative to ground truth
         # allow multiple character in transcript to be represented by one thing in lattice
         misseg2=None,
-        misseg2_out="~~",
+        misseg2_out="$$",
         misseg3=None,
-        misseg3_out="~~~",
+        misseg3_out="@@@",
         # add ground truth rejects as sigmas with a given cost
-        reject=reject,
-        # add classifier rejects as sigmas with low cost (the classifier cost is added anyway)
-        classifier_reject=1.0,
-        # ligatures as characters in both lattice and transcript
-        add_c2c=ligchange,
+        reject=None,
+        # add classifier rejects as sigmas
+        classifier_reject=None,
         # ligatures in both lattice and transcript
-        add_l2l=ligature,
+        add_l2l=0.0,
         # characters in lattice, ligatures in transcript
-        add_c2l=ligature,
+        add_c2l=0.0,
         # ligatures in lattice, ligature-characters in transcript                      
-        add_l2c=ligchange,
+        add_l2c=0.0,
         # junk in lattice, ligature-characters in transcript                      
-        add_junk2c=ligchange,
+        add_junk2c=None,
         )
 
-default_costs = make_costs()
-
-def add_line_to_fst(fst,line,
-                costs=default_costs,accept=0.0,
-                lig=ligatures.lig):
+def add_line_to_fst(fst,line,costs=default_costs,
+                    accept=0.0,
+                    lig=ligatures.lig):
     """Add a line (given as a list of strings) to an fst."""
     state = fst.Start()
     if state<0:
@@ -161,11 +123,12 @@ def add_line_to_fst(fst,line,
 
         # insert characters or ligatures as single tokens
 
-        if len(s)==1 or costs.add_l2l>=0:
+        if len(s)==1 or costs.add_l2l is not None:
             assert c is not None,"ligature [%s] not found in ligature table"%s
             cost = 0.0 if len(s)==1 else costs.add_l2l
             fst.AddArc(start,c,c,cost,next)
-            fst.AddArc(start,lig.ord("~"),c,costs.classifier_reject,next)
+            if costs.classifier_reject is not None:
+                fst.AddArc(start,lig.ord("~"),c,costs.classifier_reject,next)
 
         # allow insertion of spaces with some cost
                 
@@ -183,12 +146,8 @@ def add_line_to_fst(fst,line,
             continue
 
         if s=="~" and costs.reject is not None:
-            # FIXME -- There are several things wrong here: sigma isn't working,
-            # and more importantly, even if it were, we'd like to be able to 
-            # override (ignore) the cost on the input value here
             fst.AddArc(start,lig.ord("~"),lig.ord("~"),costs.reject,next)
             fst.AddArc(start,sigma,lig.ord("~"),costs.reject,next)
-            for i in range(32,128): fst.AddArc(start,i,lig.ord("~"),costs.reject,next)
             fst.AddArc(start,epsilon,lig.ord("~"),costs.reject,next)
             continue
 
@@ -209,7 +168,7 @@ def add_line_to_fst(fst,line,
 
         # insert character-to-ligature
 
-        if len(s)>1 and costs.add_c2l>=0.0:
+        if len(s)>1 and costs.add_c2l is not None:
             state = start
             for j in range(len(s)):
                 cc = lig.ord(s[j])
@@ -220,13 +179,14 @@ def add_line_to_fst(fst,line,
 
         # insert ligature-to-characters
 
-        if costs.add_l2c>=0.0:
+        if costs.add_l2c is not None:
             candidate = "".join(line[i:i+4])
             for s in ligatures.common_ligatures(candidate):
                 cc = lig.ord(s)
                 nnext = states[i+len(s)]
-                fst.AddArc(state,cc,cc,costs.add_l2c,nnext)
-                fst.AddArc(state,lig.ord("~"),cc,costs.add_junk2c,nnext)
+                fst.AddArc(start,cc,cc,costs.add_l2c,nnext)
+                if costs.add_junk2c is not None:
+                    fst.AddArc(start,lig.ord("~"),cc,costs.add_junk2c,nnext)
 
         # allow segmentation error with two characters
 

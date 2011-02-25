@@ -838,16 +838,21 @@ class Grouper(CommonComponent):
         return self.comp.length()
     def getMask(self,i,margin=0):
         """Get the mask image for group i."""
+        if self.isEmpty(i): return None
         rect = rectangle()
         mask = iulib.bytearray()
         self.comp.getMask(rect,mask,i,margin)
         return (rect2raster(rect,self.h),narray2numpy(mask,'f'))
     def getMaskAt(self,i,rect):
         """Get the mask for group i and contained in the given rectangle."""
+        if self.isEmpty(i): return None
         rect = raster2rect(rect,self.h)
         mask = iulib.bytearray()
         self.comp.getMaskAt(mask,i,rect)
         return narray2numpy(mask,'f')
+    def isEmpty(self,i):
+        y0,x0,y1,x1 = self.boundingBox(i)
+        return y0>=y1 or x0>=x1
     def boundingBox(self,i):
         """Get the bounding box for group i."""
         return rect2raster(self.comp.boundingBox(i),self.h)
@@ -868,6 +873,7 @@ class Grouper(CommonComponent):
     def extract(self,source,dflt,i,grow=0,dtype='f'):
         """Extract the image corresponding to group i.  Background pixels are
         filled in with dflt."""
+        if self.isEmpty(i): return None
         checknp(source)
         if isfp(source):
             out = iulib.floatarray()
@@ -879,6 +885,7 @@ class Grouper(CommonComponent):
             return narray2numpy(out,'B')
     def extractWithMask(self,source,i,grow=0):
         """Extract the image and mask corresponding to group i"""
+        if self.isEmpty(i): return None
         checknp(source)
         if isfp(source):
             out = iulib.floatarray()
@@ -893,6 +900,7 @@ class Grouper(CommonComponent):
     def extractSliced(self,source,dflt,i,grow=0):
         """Extract the image and mask corresponding to group i, slicing through the entire input
         line.  Background pixels are filled with dflt."""
+        if self.isEmpty(i): return None
         if isfp(source):
             out = iulib.floatarray()
             self.comp.extractSliced(out,numpy2narray(source,'f'),dflt,i,grow)
@@ -904,6 +912,7 @@ class Grouper(CommonComponent):
     def extractSlicedWithMask(self,source,i,grow=0):
         """Extract the image and mask corresponding to group i, slicing through the entire
         input line."""
+        if self.isEmpty(i): return None
         if isfp(source):
             out = iulib.floatarray()
             mask = iulib.bytearray()
@@ -948,14 +957,17 @@ class Grouper(CommonComponent):
     def setSegmentationAndGt(self,rseg,cseg,gt):
         """Set the line segmentation."""
         assert rseg.shape==cseg.shape
-        self.comp.setSegmentationAndGt(lseg2narray(rseg),lseg2narray(cseg),iulib.unicode2ustrg(unicode(gt)))
+        self.gt = gt
+        u = iulib.ustrg()
+        u.assign("?"*len(gt))
+        self.comp.setSegmentationAndGt(lseg2narray(rseg),lseg2narray(cseg),u)
         self.h = rseg.shape[0]
     def getGtIndex(self,i):
         return self.comp.getGtIndex(i)
     def getGtClass(self,i):
-        cls = self.comp.getGtClass(i)
-        if cls==-1: return "~"
-        return ligatures.lig.chr(cls)
+        index = self.getGtIndex(i)
+        if index<0: return "~"
+        return self.gt[index-1]
 
 class StandardGrouper(Grouper):
     """The grouper usually used for printed OCR."""
@@ -1526,6 +1538,7 @@ def compute_alignment(lattice,rseg,lmodel,beam=1000,verbose=0,lig=ligatures.lig)
     # the preceding non-epsilon transition.
 
     result_l = []
+    costs_l = [0.0]
     segs = []
     i = 1
     while i<n:
@@ -1537,6 +1550,7 @@ def compute_alignment(lattice,rseg,lmodel,beam=1000,verbose=0,lig=ligatures.lig)
             end = max(end,ins[j]&0xffff)
             j = j+1
         result_l.append(lig.chr(outs[i]))
+        costs_l.append(sum(costs[i:j]))
         segs.append((start,end))
         i = j
 
@@ -1544,6 +1558,7 @@ def compute_alignment(lattice,rseg,lmodel,beam=1000,verbose=0,lig=ligatures.lig)
     # labels to the corresponding output element.
 
     assert len(result_l)==len(segs)
+    assert len(costs_l)-1==len(segs)
 
     rmap = zeros(amax(rseg)+1,'i')
     for i in range(len(segs)):
@@ -1571,8 +1586,8 @@ def compute_alignment(lattice,rseg,lmodel,beam=1000,verbose=0,lig=ligatures.lig)
         outs=outs,
         segs=segs,
         # costs
-        costs=costs,
-        cost=sum(costs),
+        costs=array(costs_l,'f'),
+        cost=sum(costs_l),
         # segmentation images
         rseg=rseg,
         cseg=cseg,
@@ -1877,9 +1892,8 @@ class CmodelLineRecognizer(RecognizeLine):
         self.whitespace = load_component(ocropus_find_file("space.model"))
         self.segmenter = SegmentLine().make("DpSegmenter")
         self.grouper = StandardGrouper()
-        self.nbest = 3
-        self.min_probability = 0.1 
-        self.maxcost = 10.0
+        self.nbest = 5
+        self.maxcost = 15.0
         self.reject_cost = self.maxcost
         self.min_height = 0.5
         self.rho_scale = 1.0
@@ -1964,7 +1978,6 @@ class CmodelLineRecognizer(RecognizeLine):
             # compute the classifier output for this character
             # FIXME parallelize this
             outputs = self.cmodel.coutputs(char,geometry=rel)
-            outputs = [x for x in outputs if x[1]>self.min_probability]
             outputs = [(x[0],-log(x[1])) for x in outputs]
             self.chars.append(utils.Record(index=i,image=char,outputs=outputs))
 
