@@ -75,21 +75,15 @@ default_costs = Costs(
         # output used to indicate that something is wrong
         error="#",
         # insertions of spaces relative to ground truth
-        space_insert=None,
+        space_insert=20.0,
         # deletions of spaces relative to ground truth
-        space_delete=None,
+        space_delete=20.0,
         # mismatches of characters relative to ground truth
-        char_mismatch=10.0,
+        char_mismatch=20.0,
         # insertions of characters relative to ground truth
-        char_insert=None,
+        char_insert=20.0,
         # deletions of characters relative to ground truth
-        char_delete=None,
-        # deletions of characters relative to ground truth
-        # allow multiple character in transcript to be represented by one thing in lattice
-        misseg2=None,
-        misseg2_out="$$",
-        misseg3=None,
-        misseg3_out="@@@",
+        char_delete=20.0,
         # add ground truth rejects as sigmas with a given cost
         reject=None,
         # add classifier rejects as sigmas
@@ -100,8 +94,11 @@ default_costs = Costs(
         add_c2l=0.0,
         # ligatures in lattice, ligature-characters in transcript                      
         add_l2c=0.0,
-        # junk in lattice, ligature-characters in transcript                      
-        add_junk2c=None,
+        # these ligatures are allowed to match junk characters
+        # in transcript; this is useful for getting models for new
+        # ligatures
+        exceptional_ligatures = [],
+        exceptional_cost = 0.0,
         )
 
 def add_line_to_fst(fst,line,costs=default_costs,
@@ -185,23 +182,14 @@ def add_line_to_fst(fst,line,costs=default_costs,
                 cc = lig.ord(s)
                 nnext = states[i+len(s)]
                 fst.AddArc(start,cc,cc,costs.add_l2c,nnext)
-                if costs.add_junk2c is not None:
-                    fst.AddArc(start,lig.ord("~"),cc,costs.add_junk2c,nnext)
 
-        # allow segmentation error with two characters
-
-        if i<len(line)-2 and " " not in line[i:i+2] and costs.misseg2 is not None:
-            state1 = fst.AddState()
-            fst.AddArc(start,sigma,lig.ord(costs.misseg2_out[0]),costs.misseg2,state1)
-            fst.AddArc(state1,sigma,lig.ord(costs.misseg2_out[1]),0.0,states[i+2])
-
-        # allow segmentation error with three characters in ground truth
-
-        if i<len(line)-3 and " " not in line[i:i+3] and costs.misseg3 is not None:
-            state1,state2 = (fst.AddState(),fst.AddState())
-            fst.AddArc(start,sigma,lig.ord(costs.misseg3_out[0]),costs.misseg3,state1)
-            fst.AddArc(state1,sigma,lig.ord(costs.misseg3_out[1]),0.0,state2)
-            fst.AddArc(state2,sigma,lig.ord(costs.misseg3_out[2]),0.0,states[i+3])
+        if costs.exceptional_cost is not None:
+            candidate = "".join(line[i:i+4])
+            for s in costs.exceptional_ligatures:
+                if candidate.startswith(s):
+                    cc = lig.ord(s)
+                    nnext = states[i+len(s)]
+                    fst.AddArc(start,lig.ord("~"),cc,costs.add_l2c,nnext)
 
     fst.SetFinal(states[-1],accept)
 
