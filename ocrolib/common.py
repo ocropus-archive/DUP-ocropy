@@ -1994,7 +1994,9 @@ class CmodelLineRecognizer(RecognizeLine):
             outputs.sort(key=lambda x:x[1])
             for cls,cost in outputs[:self.nbest]:
                 # don't add anything with a cost above maxcost
-                if cost>self.maxcost and cls!="~": continue
+                # if cost>self.maxcost and cls!="~": continue
+                if cost>self.maxcost: continue
+                if cls=="~": continue
 
                 # letters are never small, so we skip small bounding boxes that
                 # are categorized as letters; this is an ugly special case, but

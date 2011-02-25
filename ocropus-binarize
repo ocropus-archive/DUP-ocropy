@@ -6,10 +6,10 @@
 # -- parallelize TIFF images
 
 from multiprocessing import Pool
-import signal
+import signal,fcntl
 signal.signal(signal.SIGINT,lambda *args:sys.exit(1))
 from pylab import *
-import sys,os,re,optparse
+import sys,os,re,optparse,shutil
 from scipy.ndimage import measurements
 from scipy.misc import imsave
 from PIL import Image
@@ -44,7 +44,8 @@ parser.add_option("-W","--width",help="width parameter (40)",default=40,type=flo
 parser.add_option("-r","--dpi",help="resolution (DPI) (300)",default=300,type=float)
 parser.add_option("-q","--silent",action="store_true",help="disable warnings")
 parser.add_option("-P","--parallel",type=int,default=number_of_processors(),help="number of parallel processes to use")
-parser.add_option("-B","--binarizer",default="StandardPreprocessing")
+parser.add_option("-B","--binarizer",help="binarization component to be used",default="StandardPreprocessing")
+parser.add_option("-g","--gtextension",help="ground truth extension for copying in ground truth",default=None)
 options,args = parser.parse_args()
 
 if len(args)<1:
@@ -72,8 +73,11 @@ if options.Output:
 if not options.Output and os.path.exists(options.output):
     print "%s: already exists; please remove"%options.output
     sys.exit(0)
+
+files = None
 if not options.Output:
     os.mkdir(options.output)
+    files = open(options.output+"/FILES","w")
 
 def process_image(image,arg,count):
     if options.display: 
@@ -109,6 +113,14 @@ def process_image(image,arg,count):
         print "# writing",dest,gray.shape,bin.shape
         imsave(dest+".png",gray)
         imsave(dest+".bin.png",bin)
+        if options.gtextension is not None:
+            base,_ = ocrolib.allsplitext(arg)
+            shutil.copyfile(base+options.gtextension,dest+".gt.txt")
+        if files is not None:
+            fcntl.flock(files,fcntl.LOCK_EX)
+            files.write("%04d\t%s\n"%(count,arg))
+            files.flush()
+            fcntl.flock(files,fcntl.LOCK_UN)
 
 def process1(t):
     arg,count = t
@@ -130,3 +142,6 @@ else:
     jobs = []
     for i in range(len(args)): jobs += [(args[i],i+1)]
     result = pool.map(process1,jobs)
+
+if files is not None:
+    files.close()

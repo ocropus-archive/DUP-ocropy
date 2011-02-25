@@ -63,7 +63,7 @@ parser.add_option("-Q","--parallel",type=int,default=number_of_processors(),
 options,args = parser.parse_args()
 
 if len(args)==1 and os.path.isdir(args[0]):
-    args = glob.glob(args[0]+"/????.png")
+    args = sorted(glob.glob(args[0]+"/????.png"))
 
 preproc = common.Binarize().make(options.preproc)
 segmenter = common.SegmentPage().make(options.segmenter)

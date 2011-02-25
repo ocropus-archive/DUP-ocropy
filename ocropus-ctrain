@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-import sys,os,re,glob,math,glob,signal
+import sys,os,re,glob,math,glob,signal,traceback
 from optparse import OptionParser
 from pylab import *
 from scipy.ndimage import interpolation,filters
@@ -30,7 +30,7 @@ implementors of IExtractor.
 
 Common parameters for the model are:
 
--m AutoMlpClassifier:miters=8:rounds=8:nensemble=4
+-m '=ocrolib.mlp.AutoMlpModel()'
 """)
 
 parser.add_option("-o","--output",help="output model name",default=None)
@@ -61,7 +61,7 @@ def pad(image,dx,dy,bgval=None):
     result[dx:-dx,dy:-dy] = image
     return result
 
-def distort(nimage,sx,sy,sigma=10.0):
+def distort(image,sx,sy,sigma=10.0):
     """Distort the image by generating smoothed noise for the
     x and y displacement vectors.  The displacement amounts sx and
     sy are in terms of fractions of the image width and height.
@@ -181,6 +181,8 @@ for cluster in iterate_dbs(args):
     # add the image to the classifier
     image = cluster.image/255.0
     if options.display and nchar%1000==0: show_char(image,cls)
+    if min(image.shape)<3: continue
+    if amax(image)==amin(image): continue
     if geometry is not None:
         classifier.cadd(image,cls,geometry=geometry)
     else:
@@ -195,8 +197,15 @@ for cluster in iterate_dbs(args):
         sy = options.distortion
         distorted = distort(image,sx,sy)
         if options.display and nchar%1000==0: show_char(distorted,cls)
-        classifier.cadd(distorted,cls)
-        count += 1
+        try:
+            if geometry is not None:
+                classifier.cadd(image,cls,geometry=geometry)
+            else:
+                classifier.cadd(image,cls)
+            count += 1
+        except:
+            traceback.print_exc()
+            continue
     nchar += 1
     if nchar%10000==0: print "training",nchar,count
 

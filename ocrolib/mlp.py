@@ -445,7 +445,7 @@ class AutoMLP(MLP):
         # in reasonably good performance for many problems
         self.verbose = 0
         self.initial_nhidden = [20,40,60,80,120,160]
-        self.initial_eta = (0.1,0.8)
+        self.initial_eta = (0.1,0.5)
         self.initial_epochs = 5
         self.initial_ntrain = 1000000
         self.log_eta_var = 0.2
