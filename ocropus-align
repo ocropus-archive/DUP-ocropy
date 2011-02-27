@@ -73,6 +73,7 @@ costs add_l2c                      # cost for ligature-to-character macthes of l
 
 
 parser.add_option("-l","--langmod",help="language model",default=None)
+parser.add_option("-L","--noligatures",help="don't use ligature syntax in transcriptions",action="store_true")
 parser.add_option("-g","--gt",help="extension for ground truth",default=None)
 parser.add_option("-p","--pagegt",help="arguments are page ground truth",action="store_true")
 parser.add_option("-c","--costs",help="costs file",default=None)
@@ -116,7 +117,7 @@ def align1(t):
 
         if lmodel!=lfile:
             lfile = lmodel
-            lfst = fstutils.load_transcription(lmodel)
+            lfst = fstutils.load_transcription(lmodel,not options.noligatures)
             lfst.save("_.fst")
         
         r = ocrolib.compute_alignment(fst,rseg,lfst)

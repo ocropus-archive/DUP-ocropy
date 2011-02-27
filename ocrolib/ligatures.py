@@ -49,6 +49,7 @@ class LigatureTable:
         self.lig2code[name] = code
         self.code2lig[code] = unicode(name)
     def ord(self,name):
+        if name=="": return 0 # epsilon
         result = self.lig2code.get(name,-1)
         # fall back for non-ligature unicode characters
         if result<0 and len(name)==1: return ord(name)

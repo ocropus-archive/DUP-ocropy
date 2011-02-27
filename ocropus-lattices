@@ -78,7 +78,10 @@ def extract(t):
     ocrolib.write_line_segmentation(rseg_file,rseg)
 
     s = lattice.bestpath()
-    print fname,":",repr(s)
+    try:
+        print fname,":",s
+    except:
+        print fname,":",repr(s)
 
 if options.parallel<2:
     for arg in args: extract(arg)

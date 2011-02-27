@@ -14,12 +14,8 @@ phi = ocropus.L_PHI
 
 import ligatures
 
-def line_cleanup(s):
-    s = s.strip()
-    s = re.sub('ſ','s',s)
-    s = re.sub('„',',,',s)
-    s = re.sub('“',"''",s)
-    return s
+class BadTranscriptionSyntax:
+    pass
 
 def check_transcription(transcription):
     """Checks the syntax of transcriptions.  Transcriptions may have ligatures
@@ -74,16 +70,18 @@ class Costs:
 default_costs = Costs(
         # output used to indicate that something is wrong
         error="#",
+        insert="",
+        delete="",
         # insertions of spaces relative to ground truth
         space_insert=20.0,
         # deletions of spaces relative to ground truth
         space_delete=20.0,
         # mismatches of characters relative to ground truth
-        char_mismatch=20.0,
+        char_mismatch=40.0,
         # insertions of characters relative to ground truth
-        char_insert=20.0,
+        char_insert=40.0,
         # deletions of characters relative to ground truth
-        char_delete=20.0,
+        char_delete=40.0,
         # add ground truth rejects as sigmas with a given cost
         reject=None,
         # add classifier rejects as sigmas
@@ -151,7 +149,7 @@ def add_line_to_fst(fst,line,costs=default_costs,
         # allow insertion of a character relative to ground truth
         
         if costs.char_insert is not None:
-            fst.AddArc(start,sigma,lig.ord(costs.error),costs.char_insert,start)
+            fst.AddArc(start,sigma,lig.ord(costs.insert),costs.char_insert,start)
 
         # allow character mismatches
 
@@ -161,7 +159,7 @@ def add_line_to_fst(fst,line,costs=default_costs,
         # allow deletion of a character relative to ground truth
 
         if costs.char_delete is not None:
-            fst.AddArc(start,epsilon,lig.ord(costs.error),costs.char_insert,next)
+            fst.AddArc(start,epsilon,lig.ord(costs.delete),costs.char_delete,next)
 
         # insert character-to-ligature
 
@@ -201,7 +199,6 @@ def make_line_openfst(lines,lig=ligatures.lig,optimize=0):
     count = 0
     for line in lines:
         if type(line) in [str,unicode]:
-            line = line_cleanup(line)
             line = explode_transcription(line)
         count += 1
         add_line_to_fst(fst,line,lig=lig)
@@ -269,15 +266,19 @@ def load_transcription(file,use_ligatures=1):
             lines = [re.sub(r'_','',l) for l in lines]
         return make_line_fst(lines)
 
-def make_alignment_fst(transcriptions):
+def make_alignment_fst(transcriptions,use_ligatures=1):
     """Takes a string or a list of strings that are transcriptions and
     constructs an FST suitable for alignment."""
     if isinstance(transcriptions,ocrolib.OcroFST):
         return transcriptions
     if type(transcriptions) in [str,unicode]:
         transcriptions = [transcriptions]
-    transcriptions = [explode_transcription(s) for s in transcriptions]
-    return transcriptions
+    if use_ligatures:
+        transcriptions = [explode_transcription(s) for s in transcriptions]
+    else:
+        transcriptions = [list(s) for s in transcriptions]
+    fst = make_line_fst(transcriptions)
+    return fst
     
 def simple_line_fst(line,lig=ligatures.lig):
     """Add a line (given as a list of strings) to an fst."""
