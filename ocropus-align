@@ -153,7 +153,7 @@ if options.pagegt is not None:
             continue
         base,_ = ocrolib.allsplitext(arg)
         if not os.path.exists(base):
-            print "# %s: not found"%base
+            print "# %s: base dir not found"%base
             continue
         if not os.path.isdir(base):
             print "# %s: not a directory"%base

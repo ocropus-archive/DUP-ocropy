@@ -19,6 +19,8 @@ a- b- e- d- g- m- n- o- p- u-
 d" f" l" 
 """
 
+common_chars = [ u'„', u'“' ]
+
 def common_ligatures(s):
     if len(s)>=2 and s[:2] in common_ligature_table:
         yield s[:2]
@@ -40,9 +42,11 @@ class LigatureTable:
         # ensure that ASCII is always present
         # note that "_" and "~" always have a special meaning
         # but are treated like other ASCII characters
-        for i in range(32,127):
+        for i in range(32,1024):
             self.add(unichr(i),i)
-    def add(self,name,code,override=0):
+        for c in common_chars:
+            self.add(c,ord(c))
+    def add(self,name,code,override=1):
         assert type(name)==unicode or not re.search(r'[\x80-\xff]',name)
         if not override and self.lig2code.get(name) is not None:
             raise Exception("character '%s' (%d) already in ligature table"%(name,self.ord(name)))

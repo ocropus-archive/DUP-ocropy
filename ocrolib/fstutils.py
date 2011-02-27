@@ -97,9 +97,32 @@ default_costs = Costs(
         # ligatures
         exceptional_ligatures = [],
         exceptional_cost = 0.0,
+        # list of rewrites
+        rewrites = [ 
+            ('f',u'ſ',1.0),
+            ('s',u'ſ',0.0),
+            (',,',u'„',0.0),
+            ("''",u'“',0.0),
+        ],
+
         )
 
-def add_line_to_fst(fst,line,costs=default_costs,
+def add_between(fst,frm,to,l1,l2,cost,lig=ligatures.lig):
+    if type(l1)!=list: l1 = explode_transcription(l1)
+    if type(l2)!=list: l2 = explode_transcription(l2)
+    state = frm
+    n = max(len(l1),len(l2))
+    for i in range(n):
+        a = lig.ord(l1[i]) if i<len(l1) else 0
+        b = lig.ord(l2[i]) if i<len(l2) else 0
+        c = cost if i==0 else 0.0
+        next = to if i==n-1 else fst.AddState()
+        # print [(x,type(x)) for x in state,a,b,c,next]
+        fst.AddArc(state,a,b,c,next)
+        state = next
+
+def add_line_to_fst(fst,line,
+                    costs=default_costs,
                     accept=0.0,
                     lig=ligatures.lig):
     """Add a line (given as a list of strings) to an fst."""
@@ -124,6 +147,13 @@ def add_line_to_fst(fst,line,costs=default_costs,
             fst.AddArc(start,c,c,cost,next)
             if costs.classifier_reject is not None:
                 fst.AddArc(start,lig.ord("~"),c,costs.classifier_reject,next)
+
+        # insert rewrites
+
+        if costs.rewrites is not None:
+            for s,gt,c in costs.rewrites:
+                add_between(fst,start,next,s,gt,c,lig=lig)
+                # FIXME replace the rest of the loops below with add_between as well
 
         # allow insertion of spaces with some cost
                 
@@ -164,13 +194,7 @@ def add_line_to_fst(fst,line,costs=default_costs,
         # insert character-to-ligature
 
         if len(s)>1 and costs.add_c2l is not None:
-            state = start
-            for j in range(len(s)):
-                cc = lig.ord(s[j])
-                nstate = next if j==len(s)-1 else fst.AddState()
-                cost = costs.add_c2l if j==0.0 else 0.0
-                fst.AddArc(state,cc,c if j==0 else epsilon,cost,nstate)
-                state = nstate
+            add_between(fst,start,next,list(s),[s],costs.add_c2l,lig=lig)
 
         # insert ligature-to-characters
 
@@ -191,7 +215,7 @@ def add_line_to_fst(fst,line,costs=default_costs,
 
     fst.SetFinal(states[-1],accept)
 
-def make_line_openfst(lines,lig=ligatures.lig,optimize=0):
+def make_line_openfst(lines,lig=ligatures.lig,optimize=0,symtab="default"):
     """Given a list of text lines, construct a corresponding FST.
     Each text line is a list of strings."""
     assert type(lines)==list
@@ -219,9 +243,13 @@ def make_line_openfst(lines,lig=ligatures.lig,optimize=0):
         openfst.Determinize(fst,det)
         openfst.Minimize(det)
         fst = det
-    table = lig.SymbolTable(name="unicode")
-    fst.SetInputSymbols(table)
-    fst.SetOutputSymbols(table)
+    if symtab=="default":
+        table = lig.SymbolTable(name="unicode")
+    elif symtab is not None:
+        table = symtab
+    if symtab is not None:
+        fst.SetInputSymbols(table)
+        fst.SetOutputSymbols(table)
     fst.Write("_temp.fst")
     return det
 
@@ -264,6 +292,7 @@ def load_transcription(file,use_ligatures=1):
         lines = list(lines_of_file(file))
         if not use_ligatures:
             lines = [re.sub(r'_','',l) for l in lines]
+        lines = [line.strip() for line in lines]
         return make_line_fst(lines)
 
 def make_alignment_fst(transcriptions,use_ligatures=1):
