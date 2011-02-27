@@ -130,6 +130,7 @@ def allsplitext(path):
 def write_text(file,s):
     """Write the given string s to the output file."""
     with open(file,"w") as stream:
+        if type(s)==unicode: s = s.encode("utf-8")
         stream.write(s)
 
 def plotgrid(data,d=10,shape=(30,30)):

@@ -12,6 +12,6 @@ parser.add_option("-o","--optimize",help="optimize the fst",action="store_true")
 (options,args) = parser.parse_args()
 
 s = " ".join(args)
-fst = fstutils.make_line_openfst([s],optimize=options.optimize)
+fst = fstutils.make_line_openfst([s],optimize=options.optimize,symtab=None)
 fst.Write("_temp_.fst")
 os.system("fstdraw --portrait _temp_.fst | dot -Tpng | display - ")
