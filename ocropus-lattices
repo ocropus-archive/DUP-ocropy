@@ -23,6 +23,7 @@ result (recognition result without language model).
 
 # these options control alignment
 parser.add_option("-m","--model",help="model file",default="default.model")
+parser.add_option("-w","--whitespace",help="space model file",default="space.model")
 parser.add_option("-c","--cont",help="continue even when unexpected errors occur",action="store_true")
 parser.add_option("-L","--noligatures",help="don't output ligatures",action="store_true")
 parser.add_option("-N","--nbest",help="use the nbest results from classifier",type=int,default=5)
@@ -49,7 +50,7 @@ if hasattr(cmodel,'recognizeLine'):
     linerec = cmodel
 else:
     if hasattr(cmodel,'coutputs'):
-        linerec = ocrolib.CmodelLineRecognizer(cmodel=cmodel)
+        linerec = ocrolib.CmodelLineRecognizer(cmodel=cmodel,whitespace=options.whitespace)
         linerec.use_ligatures = not options.noligatures
         linerec.maxcost = options.maxcost
         linerec.nbest = options.nbest

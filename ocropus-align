@@ -43,36 +43,6 @@ Language models and ground truth files may be given either as FST files or
 text files.  If they are given as text files, an FST is constructed by using
 the fstutils.add_line_to_fst function.
 
-Costs can be specified using the -c flag, which takes some standard
-costs as arguments (lenient, default, strict).
-
-These can also be overridden using the -C costfile flag, which can
-be used to specify a Python file that sets different costs or
-a different load_transcription function.
-
-Costs are relative to the ground truth, i.e., to change the ground truth
-into the OCR output:
-
-costs.reject                       # cost for matching reject in gt against a character
-costs.space_insert                  # cost for inserting an extra space anywhere
-costs.space_delete                 # cost for deleting a space 
-costs.char_mismatch                # cost for a single character mismatch
-costs.char_insert                  # cost for inserting a character
-costs.char_delete                  # cost for deleting a character
-costs.misseg2                      # cost for matching 1 OCR character against two gt characters
-costs.misseg3                      # cost for macthing 1 OCR character against three gt characters
-
-The following apply only when there are ligatures in the ground truth; there are four 
-possibilities, according to whether ligatures are represented in the ground truth and/or
-in the OCR output.  The choice depends on whether ligatures are marked in the
-ground truth, whether the classifier recognizes ligatures, and whether the aligned output
-is supposed to contain ligatures:
-
-costs.add_l2l                      # cost for ligature-to-ligature matches
-costs.add_c2l                      # cost for character-to-ligature matches of ligatures
-costs.add_c2c                      # cost for character-to-character matches of ligatures
-costs add_l2c                      # cost for ligature-to-character macthes of ligatures
-
 """)
 
 
@@ -82,8 +52,6 @@ parser.add_option("-B","--beam",help="size of beam",type=int,default=1000)
 parser.add_option("-N","--noligatures",help="don't expand ligature notation in transcriptions",action="store_true")
 parser.add_option("-g","--gt",help="extension for ground truth",default=None)
 parser.add_option("-p","--pagegt",help="arguments are page ground truth",action="store_true")
-parser.add_option("-c","--costs",help="kind of costs",default=None)
-parser.add_option("-C","--costfile",help="kind of costs",default=None)
 parser.add_option("-s","--suffix",help="output suffix for writing result",default=None)
 parser.add_option("-O","--overwrite",help="overwrite outputs",action="store_true")
 parser.add_option("-Q","--parallel",type=int,default=0,help="number of parallel processes to use")
@@ -93,11 +61,7 @@ parser.add_option("-A","--maxavg",help="maximum average cost",type=float,default
 (options,args) = parser.parse_args()
 args = ocrolib.expand_args(args)
 
-if options.costs is None:
-    costs = fstutils.default_costs["default"]
-else:
-    costs = fstutils.default_costs[options.costs]
-if options.costfile is not None: execfile(options.costfile)
+aligner = fstutils.DefaultAligner()
 
 lfile = None
 lfst = None
@@ -121,7 +85,7 @@ def align1(t):
         if lmodel!=lfile:
             lfile = lmodel
             nolig = not options.noligatures
-            lfst = fstutils.load_transcription(lmodel,nolig,costs=options.costs)
+            lfst = aligner.ocroFstForFile(lmodel)
         
         r = ocrolib.compute_alignment(fst,rseg,lfst)
 

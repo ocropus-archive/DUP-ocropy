@@ -1840,58 +1840,6 @@ class Classifier(PyComponent):
         """Compute the ouputs corresponding to each input data vector."""
         raise Unimplemented()
 
-def check_transcription(transcription):
-    """Checks the syntax of transcriptions.  Transcriptions may have ligatures
-    enclosed like "a_ffi_ne", but the text between the ligatures may not be
-    longer than 4 characters (to catch typos)."""
-    groups = re.split(r'(_.*?_)',transcription)
-    for i in range(1,len(groups),2):
-        if len(groups[i])>6: raise BadTranscriptionSyntax()
-    return
-
-def explode_transcription(transcription):
-    """Explode a transcription into a list of strings.  Characters are usually
-    exploded into individual list elements, unless they are enclosed as in
-    "a_ffi_ne", in which case the string between the "_" is considered a ligature.
-    Backslash may be used to escape special characters, including "\" and "_"."""
-    if type(transcription)==list:
-        return transcription
-    elif type(transcription)==str or type(transcription)==unicode:
-        check_transcription(transcription)
-        transcription = transcription.replace("\\_","\0x4").replace("\\\\","\0x3")
-        groups = re.split(r'(_.{1,4}?_)',transcription)
-        for i in range(1,len(groups),2):
-            groups[i] = groups[i].strip("_")
-        result = []
-        for i in range(len(groups)):
-            if i%2==0:
-                s = groups[i]
-                for j in range(len(s)):
-                    result.append(s[j])
-            else:
-                result.append(groups[i])
-        result = transcription.replace("\0x4","_").replace("\0x3","\\")
-        return result
-    raise Exception("bad transcription type")
-
-def implode_transcription(transcription):
-    """Takes a list of characters or strings and implodes them into
-    a transcription."""
-    def quote(s):
-        assert len(s)<=4,"ligatures can consist of at most 4 characters"
-        if len(s)>1: return "_"+s+"_"
-        else: return s
-    return "".join([quote(s) for s in transcription])
-
-def make_alignment_fst(transcription):
-    """Takes a string or a list of strings that are transcriptions and
-    constructs an FST suitable for alignment."""
-    if isinstance(transcription,OcroFST):
-        return transcription
-    if type(transcription) in [str,unicode]:
-        transcription = [transcription]
-    transcription = [explode_transcription(s) for s in transcription]
-    
 class CmodelLineRecognizer(RecognizeLine):
     def __init__(self,**kw):
         """Initialize a line recognizer that works from character models.
@@ -1907,7 +1855,7 @@ class CmodelLineRecognizer(RecognizeLine):
         self.cmodel = None
         self.debug = 0
         self.maxspacecost = 20.0
-        self.whitespace = load_component(ocropus_find_file("space.model"))
+        self.whitespace = "space.model"
         self.segmenter = SegmentLine().make("DpSegmenter")
         self.grouper = StandardGrouper()
         self.nbest = 5
@@ -1920,6 +1868,8 @@ class CmodelLineRecognizer(RecognizeLine):
         self.use_ligatures = 1
         self.add_rho = 0
         set_params(self,kw)
+        if type(self.whitespace)==str:
+            self.whitespace = load_component(ocropus_find_file(self.whitespace))
         self.grouper.pset("maxdist",self.maxdist)
         self.grouper.pset("maxrange",self.maxrange)
 
