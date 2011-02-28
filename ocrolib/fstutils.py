@@ -67,21 +67,59 @@ class Costs:
     def __init__(self,**kw):
         self.__dict__.update(kw)
 
-default_costs = Costs(
+default_costs = {}
+
+default_costs["strict"] = Costs(
         # output used to indicate that something is wrong
         error="#",
         insert="",
         delete="",
         # insertions of spaces relative to ground truth
-        space_insert=20.0,
+        space_insert=None,
         # deletions of spaces relative to ground truth
-        space_delete=20.0,
+        space_delete=None,
         # mismatches of characters relative to ground truth
-        char_mismatch=40.0,
+        char_mismatch=50.0,
         # insertions of characters relative to ground truth
-        char_insert=40.0,
+        char_insert=None,
         # deletions of characters relative to ground truth
-        char_delete=40.0,
+        char_delete=None,
+        # add ground truth rejects as sigmas with a given cost
+        reject=None,
+        # add classifier rejects as sigmas
+        classifier_reject=None,
+        # ligatures in both lattice and transcript
+        add_l2l=0.0,
+        # characters in lattice, ligatures in transcript
+        add_c2l=None,
+        # ligatures in lattice, ligature-characters in transcript                      
+        add_l2c=0.0,
+        # these ligatures are allowed to match junk characters
+        # in transcript; this is useful for getting models for new
+        # ligatures
+        exceptional_ligatures = [],
+        exceptional_cost = 0.0,
+        # list of rewrites
+        rewrites = [ ],
+        # output transcription rather than error
+        sigout = False,
+        )
+
+default_costs["default"] = Costs(
+        # output used to indicate that something is wrong
+        error="#",
+        insert="",
+        delete="",
+        # insertions of spaces relative to ground truth
+        space_insert=7.0,
+        # deletions of spaces relative to ground truth
+        space_delete=7.0,
+        # mismatches of characters relative to ground truth
+        char_mismatch=10.0,
+        # insertions of characters relative to ground truth
+        char_insert=7.0,
+        # deletions of characters relative to ground truth
+        char_delete=7.0,
         # add ground truth rejects as sigmas with a given cost
         reject=None,
         # add classifier rejects as sigmas
@@ -98,13 +136,81 @@ default_costs = Costs(
         exceptional_ligatures = [],
         exceptional_cost = 0.0,
         # list of rewrites
-        rewrites = [ 
-            # ('f',u'ſ',1.0),
-            # ('s',u'ſ',0.0),
-            # (',,',u'„',0.0),
-            # ("''",u'“',0.0),
-        ],
+        rewrites = [ ],
+        # output transcription rather than error
+        sigout = True,
+        )
 
+default_costs["flexible"] = Costs(
+        # output used to indicate that something is wrong
+        error="#",
+        insert="",
+        delete="",
+        # insertions of spaces relative to ground truth
+        space_insert=3.0,
+        # deletions of spaces relative to ground truth
+        space_delete=3.0,
+        # mismatches of characters relative to ground truth
+        char_mismatch=10.0,
+        # insertions of characters relative to ground truth
+        char_insert=3.0,
+        # deletions of characters relative to ground truth
+        char_delete=3.0,
+        # add ground truth rejects as sigmas with a given cost
+        reject=None,
+        # add classifier rejects as sigmas
+        classifier_reject=None,
+        # ligatures in both lattice and transcript
+        add_l2l=0.0,
+        # characters in lattice, ligatures in transcript
+        add_c2l=0.0,
+        # ligatures in lattice, ligature-characters in transcript                      
+        add_l2c=0.0,
+        # these ligatures are allowed to match junk characters
+        # in transcript; this is useful for getting models for new
+        # ligatures
+        exceptional_ligatures = [],
+        exceptional_cost = 0.0,
+        # list of rewrites
+        rewrites = [ ],
+        # output transcription rather than error
+        sigout = True,
+        )
+
+default_costs["lenient"] = Costs(
+        # output used to indicate that something is wrong
+        error="#",
+        insert="",
+        delete="",
+        # insertions of spaces relative to ground truth
+        space_insert=5.0,
+        # deletions of spaces relative to ground truth
+        space_delete=5.0,
+        # mismatches of characters relative to ground truth
+        char_mismatch=5.0,
+        # insertions of characters relative to ground truth
+        char_insert=5.0,
+        # deletions of characters relative to ground truth
+        char_delete=5.0,
+        # add ground truth rejects as sigmas with a given cost
+        reject=None,
+        # add classifier rejects as sigmas
+        classifier_reject=None,
+        # ligatures in both lattice and transcript
+        add_l2l=0.0,
+        # characters in lattice, ligatures in transcript
+        add_c2l=0.0,
+        # ligatures in lattice, ligature-characters in transcript                      
+        add_l2c=0.0,
+        # these ligatures are allowed to match junk characters
+        # in transcript; this is useful for getting models for new
+        # ligatures
+        exceptional_ligatures = [],
+        exceptional_cost = 0.0,
+        # list of rewrites
+        rewrites = [ ],
+        # output transcription rather than error
+        sigout = True,
         )
 
 def add_between(fst,frm,to,l1,l2,cost,lig=ligatures.lig):
@@ -122,11 +228,15 @@ def add_between(fst,frm,to,l1,l2,cost,lig=ligatures.lig):
         state = next
 
 def add_line_to_fst(fst,line,
-                    costs=default_costs,
+                    costs="default",
                     accept=0.0,
                     lig=ligatures.lig):
     """Add a line (given as a list of strings) to an fst."""
     state = fst.Start()
+    if costs is None:
+        costs = "default"
+    if type(costs)==str: 
+        costs = default_costs[costs]
     if state<0:
         state = fst.AddState()
         fst.SetStart(state)
@@ -184,7 +294,10 @@ def add_line_to_fst(fst,line,
         # allow character mismatches
 
         if costs.char_mismatch is not None:
-            fst.AddArc(start,sigma,lig.ord(costs.error),costs.char_mismatch,next)
+            if costs.sigout:
+                fst.AddArc(start,sigma,lig.ord(s),costs.char_mismatch,next)
+            else:
+                fst.AddArc(start,sigma,lig.ord(costs.error),costs.char_mismatch,next)
 
         # allow deletion of a character relative to ground truth
 
@@ -215,7 +328,7 @@ def add_line_to_fst(fst,line,
 
     fst.SetFinal(states[-1],accept)
 
-def make_line_openfst(lines,lig=ligatures.lig,optimize=0,symtab="default"):
+def make_line_openfst(lines,lig=ligatures.lig,optimize=0,symtab="default",costs=None):
     """Given a list of text lines, construct a corresponding FST.
     Each text line is a list of strings."""
     assert type(lines)==list
@@ -225,7 +338,7 @@ def make_line_openfst(lines,lig=ligatures.lig,optimize=0,symtab="default"):
         if type(line) in [str,unicode]:
             line = explode_transcription(line)
         count += 1
-        add_line_to_fst(fst,line,lig=lig)
+        add_line_to_fst(fst,line,lig=lig,costs=costs)
     if not optimize:
         det = fst
     elif optimize==1:
@@ -253,8 +366,8 @@ def make_line_openfst(lines,lig=ligatures.lig,optimize=0,symtab="default"):
     fst.Write("_temp.fst")
     return det
 
-def make_line_fst(lines):
-    openfst = make_line_openfst(lines)
+def make_line_fst(lines,costs=None):
+    openfst = make_line_openfst(lines,costs=costs)
     temp = "/tmp/%d.fst"%os.getpid()
     openfst.Write(temp)
     result = common.OcroFST()
@@ -280,7 +393,7 @@ def load_text_file_as_fst(file):
     """Use load_transcription instead."""
     return load_transcription(file)
     
-def load_transcription(file,use_ligatures=1):
+def load_transcription(file,use_ligatures=1,costs=None):
     """Load a text file as a transcription.  This handles
     notation like "a_ffi_ne" for ligatures, "\" escapes, and
     and "~" for reject characters."""
@@ -293,7 +406,7 @@ def load_transcription(file,use_ligatures=1):
         if not use_ligatures:
             lines = [re.sub(r'_','',l) for l in lines]
         lines = [line.strip() for line in lines]
-        return make_line_fst(lines)
+        return make_line_fst(lines,costs=costs)
 
 def make_alignment_fst(transcriptions,use_ligatures=1):
     """Takes a string or a list of strings that are transcriptions and

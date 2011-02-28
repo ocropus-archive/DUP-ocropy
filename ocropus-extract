@@ -27,6 +27,9 @@ parser.add_option("-v","--verbose",help="verbose output",action="store_true")
 parser.add_option("-N","--nosource",help="do not record source info",action="store_true")
 parser.add_option("-c","--cerrors",help="continue even if errors are found",action="store_true")
 parser.add_option("-E","--extracost",help="cost for misaligned characters",type=float,default=0.0)
+parser.add_option("-P","--perc",help="cost percentile",type=float,default=90.0)
+parser.add_option("-M","--maxperc",help="maximum cost at percentile",type=float,default=2.0)
+parser.add_option("-A","--maxavg",help="maximum average cost",type=float,default=3.0)
 
 (options,args) = parser.parse_args()
 args = ocrolib.expand_args(args)
@@ -99,6 +102,12 @@ def cseg_chars_all(file,suffix=options.gtsuffix):
         for line in stream.readlines():
             f = line.split()
             costs[int(f[0])] = float(f[1])
+
+    perc = stats.scoreatpercentile(costs[1:],options.perc)
+    avg = mean(costs[1:])
+    skip = perc>options.maxperc or avg>options.maxavg
+    if skip return
+
     assert len(gt)<=len(costs),\
         "gt and costs differ: %d != %d"%(len(gt),len(costs))
     geo = docproc.seg_geometry(cseg)

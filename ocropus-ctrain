@@ -42,12 +42,17 @@ parser.add_option("-u","--unlabeled",help="treat unlabeled ('_') as reject",acti
 parser.add_option("-n","--limit",help="limit training to n samples",default=999999999,type="int")
 parser.add_option("-1","--single",help="train only single chars",action="store_true")
 parser.add_option("-v","--verbose",help="verbose",action="store_true")
+parser.add_option("-P","--perclasslimit",help="max # of samples per class",type=int,default=100000000)
+parser.add_option("-R","--rejectlimit",help="max # of samples for the reject class",type=int,default=None)
 parser.add_option("-E","--extractor",help="feature extractor",default="StandardExtractor")
 parser.add_option("-N","--nvariants",help="number of variants to generate",default=0,type="int")
 parser.add_option("-D","--distortion",help="maximum distortion",default=0.2,type="float")
 parser.add_option("-d","--display",help="debug display",action="store_true")
 parser.add_option("-g","--nogeometry",help="do not add geometric information",action="store_true")
 (options,args) = parser.parse_args()
+
+if options.rejectlimit is None:
+    options.rejectlimit = 20*options.perclasslimit
 
 # some utility functions we're going to need later
 
@@ -147,14 +152,27 @@ def iterate_dbs(args):
         for c in clusters:
             yield Record(image=utils.blob2image(c.image),cls=c.cls,rel=c.rel)
 
+
+class Counter(dict):
+    def __getitem__(self,index):
+        return self.setdefault(index,0)
+
+counter = Counter()
+
 for cluster in iterate_dbs(args):
 
     # check whether we already have enough characters
-    if count>options.limit: break
+    if count>options.limit: 
+        break
 
-    # FIXME this needs to be made unicode-capable
     cls = cluster.cls
-    if cls is None: cls = "_"
+    if cls is None: 
+        cls = "_"
+
+    if counter[cls]>options.perclasslimit: 
+        continue
+    counter[cls] += 1
+
     # empty strings have no class at all, so we skip them
     if len(cls)==0:
         skip0 += 1

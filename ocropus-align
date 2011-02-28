@@ -41,8 +41,12 @@ corresponding foo.extension file.
 
 Language models and ground truth files may be given either as FST files or 
 text files.  If they are given as text files, an FST is constructed by using
-the fstutils.add_line_to_fst function, using the fstutils.default_costs
-costs.  These can be overridden using the -c costfile flag, which can
+the fstutils.add_line_to_fst function.
+
+Costs can be specified using the -c flag, which takes some standard
+costs as arguments (lenient, default, strict).
+
+These can also be overridden using the -C costfile flag, which can
 be used to specify a Python file that sets different costs or
 a different load_transcription function.
 
@@ -74,28 +78,26 @@ costs add_l2c                      # cost for ligature-to-character macthes of l
 
 parser.add_option("-l","--langmod",help="language model",default=None)
 parser.add_option("-L","--ligatures",help="output ligatures in aligned text",action="store_true")
+parser.add_option("-B","--beam",help="size of beam",type=int,default=1000)
 parser.add_option("-N","--noligatures",help="don't expand ligature notation in transcriptions",action="store_true")
 parser.add_option("-g","--gt",help="extension for ground truth",default=None)
 parser.add_option("-p","--pagegt",help="arguments are page ground truth",action="store_true")
-parser.add_option("-c","--costs",help="costs file",default=None)
+parser.add_option("-c","--costs",help="kind of costs",default=None)
+parser.add_option("-C","--costfile",help="kind of costs",default=None)
 parser.add_option("-s","--suffix",help="output suffix for writing result",default=None)
 parser.add_option("-O","--overwrite",help="overwrite outputs",action="store_true")
 parser.add_option("-Q","--parallel",type=int,default=0,help="number of parallel processes to use")
-parser.add_option("-P","--perc",help="cost percentile",type=float,default=90.0)
+parser.add_option("-P","--perc",help="percentile for reporting statistics",type=float,default=90.0)
 parser.add_option("-M","--maxperc",help="maximum cost at percentile",type=float,default=2.0)
 parser.add_option("-A","--maxavg",help="maximum average cost",type=float,default=3.0)
 (options,args) = parser.parse_args()
 args = ocrolib.expand_args(args)
 
-def load_transcription(file):
-    return fstutils.load_transcription(file)
-
-costs = fstutils.default_costs
-
-if options.costs is not None:
-    execfile(options.costs)
-
-fstutils.default_costs = costs
+if options.costs is None:
+    costs = fstutils.default_costs["default"]
+else:
+    costs = fstutils.default_costs[options.costs]
+if options.costfile is not None: execfile(options.costfile)
 
 lfile = None
 lfst = None
@@ -118,7 +120,8 @@ def align1(t):
 
         if lmodel!=lfile:
             lfile = lmodel
-            lfst = fstutils.load_transcription(lmodel,not options.noligatures)
+            nolig = not options.noligatures
+            lfst = fstutils.load_transcription(lmodel,nolig,costs=options.costs)
         
         r = ocrolib.compute_alignment(fst,rseg,lfst)
 
@@ -131,14 +134,18 @@ def align1(t):
 
         perc = stats.scoreatpercentile(costs,options.perc)
         avg = mean(costs)
-        skip = perc>options.maxperc or avg>options.maxavg
+        skip = (perc > options.maxperc or avg>options.maxavg)
 
-        print "%-1s %s: %5.2f %5.2f: %s"%("*" if skip else "",fname,perc,avg,result)
+        if len(r.output)==0:
+            print "* %s: *****"%(fname,)
+            return
+        else:
+            print "%-1s %s: %5.2f %5.2f: %s"%("*" if skip else " ",fname,perc,avg,result)
+            if skip: return
 
         cseg_file = ocrolib.fvariant(fname,"cseg",options.suffix)
         if not options.overwrite:
             if os.path.exists(cseg_file): die("%s: already exists",cseg_file)
-
         ocrolib.write_line_segmentation(cseg_file,cseg)
         ocrolib.write_text(ocrolib.fvariant(fname,"txt",options.suffix),result)
         with ocrolib.fopen(fname,"costs",options.suffix,mode="w") as stream:

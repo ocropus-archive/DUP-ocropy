@@ -275,7 +275,11 @@ nnet_native.backward_b.argtypes = [I,I,I,A2F,A1F,A2F,A1F, I,A2B,A1I,F,I,I,A1I]
 
 nverbose = c_int.in_dll(nnet_native,"verbose")
 maxthreads = c_int.in_dll(nnet_native,"maxthreads")
-maxthreads.value = min(8,utils.number_of_processors())
+
+if os.getenv("mlp_maxthreads") is not None:
+    maxthreads.value = int(os.getenv("mlp_maxthreads"))
+else:
+    maxthreads.value = min(8,utils.number_of_processors())
 
 class MLP(common.PyComponent):
     def __init__(self,**kw):

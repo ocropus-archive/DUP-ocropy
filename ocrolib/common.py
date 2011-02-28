@@ -19,7 +19,8 @@ pickle_mode = 2
 ################################################################
 
 class Unimplemented():
-    pass
+    def __init__(self,s):
+        Exception.__init__(self,inspect.stack()[1][3])
 
 class BadClassLabel(Exception):
     def __init__(self,s):
@@ -34,6 +35,23 @@ def check_valid_class_label(s):
             raise BadClassLabel(s)
     else:
         raise BadClassLabel(s)
+
+def summary(x):
+    if type(x)==numpy.ndarray:
+        return "<ndarray %s %s>"%(x.shape,x.dtype)
+    if type(x)==str and len(x)>10:
+        return '"%s..."'%x
+    if type(x)==list and len(x)>10:
+        return '%s...'%x
+    return str(x)
+
+class RecognitionError(Exception):
+    def __init__(self,explanation,**kw):
+        self.context = kw
+        s = [explanation]
+        s += ["%s=%s"%(k,summary(kw[k])) for k in kw]
+        message = " ".join(s)
+        Exception.__init__(self,message)
 
 ################################################################
 ### file name manipulation
@@ -1916,6 +1934,17 @@ class CmodelLineRecognizer(RecognizeLine):
         rseg: intarray where the raw segmentation will be put
         image: line image to be recognized"""
 
+        # first check whether the input dimensions are reasonable
+
+        if image.shape[0]<10:
+            raise RecognitionError("line image not high enough (maybe rescale?)",image=image)
+        if image.shape[0]>200:
+            raise RecognitionError("line image too high (maybe rescale?)",image=image)
+        if image.shape[1]<10:
+            raise RecognitionError("line image not wide enough (segmentation error?)",image=image)
+        if image.shape[1]>10000:
+            raise RecognitionError("line image too wide???",image=image)
+
         # FIXME for some reason, something down below
         # depends on this being a bytearray image, so
         # we're normalizing it here to that type
@@ -1925,6 +1954,8 @@ class CmodelLineRecognizer(RecognizeLine):
         rseg = self.segmenter.charseg(image)
         if self.debug: show_segmentation(rseg) # FIXME
         rseg = renumber_labels(rseg,1) # FIXME
+        if amax(rseg)<3: 
+            raise RecognitionError("not enough segments in raw segmentation",rseg=rseg)
         self.grouper.setSegmentation(rseg)
 
         # compute the geometry (might have to use
@@ -1937,6 +1968,10 @@ class CmodelLineRecognizer(RecognizeLine):
             (y0,x0,y1,x1) = self.grouper.boundingBox(i)
             heights.append(y1-y0)
         mheight = median(array(heights))
+        if mheight<8:
+            raise RecognitionError("median line height too small (maybe rescale prior to recognition)",mheight=mheight)
+        if mheight>100:
+            raise RecognitionError("median line height too large (maybe rescale prior to recognition)",mheight=mheight)
         self.mheight = mheight
 
         # invert the input image (make a copy first)
