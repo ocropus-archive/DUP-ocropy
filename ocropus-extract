@@ -4,6 +4,7 @@ from optparse import OptionParser
 from pylab import *
 import ocrolib
 from ocrolib import docproc,Record,utils,fstutils
+from scipy import stats
 
 parser = OptionParser("""
 usage: %prog [options] .../.../010001.png ...
@@ -106,7 +107,7 @@ def cseg_chars_all(file,suffix=options.gtsuffix):
     perc = stats.scoreatpercentile(costs[1:],options.perc)
     avg = mean(costs[1:])
     skip = perc>options.maxperc or avg>options.maxavg
-    if skip return
+    if skip: return
 
     assert len(gt)<=len(costs),\
         "gt and costs differ: %d != %d"%(len(gt),len(costs))

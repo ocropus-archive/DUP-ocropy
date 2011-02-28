@@ -45,7 +45,7 @@ parser.add_option("-r","--dpi",help="resolution (DPI) (300)",default=300,type=fl
 parser.add_option("-q","--silent",action="store_true",help="disable warnings")
 parser.add_option("-P","--parallel",type=int,default=number_of_processors(),help="number of parallel processes to use")
 parser.add_option("-B","--binarizer",help="binarization component to be used",default="StandardPreprocessing")
-parser.add_option("-g","--gtextension",help="ground truth extension for copying in ground truth",default=None)
+parser.add_option("-g","--gtextension",help="ground truth extension for copying in ground truth (include all dots)",default=None)
 options,args = parser.parse_args()
 
 if len(args)<1:
