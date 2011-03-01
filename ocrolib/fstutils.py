@@ -98,6 +98,21 @@ def add_default_symtab(fst):
     fst.SetOutputSymbols(table)
     return fst
 
+
+def add_between(fst,frm,to,l1,l2,cost,lig=ligatures.lig):
+    assert type(l1)==list
+    assert type(l2)==list
+    state = frm
+    n = max(len(l1),len(l2))
+    for i in range(n):
+        a = lig.ord(l1[i]) if i<len(l1) else 0
+        b = lig.ord(l2[i]) if i<len(l2) else 0
+        c = cost if i==0 else 0.0
+        next = to if i==n-1 else fst.AddState()
+        # print [(x,type(x)) for x in state,a,b,c,next]
+        fst.AddArc(state,a,b,c,next)
+        state = next
+
 class AlignerMixin:
     def getOcroFst(self):
         fst = self.getFst()
@@ -133,12 +148,10 @@ class DefaultAligner(AlignerMixin):
         self.add_l2l=0.0
         self.add_c2l=0.0
         self.add_l2c=0.0
-        self.exceptional_ligatures = []
-        self.exceptional_cost = 0.0
-        self.rewrites = [ ]
+        self.rewrites = []
         self.lig = ligatures.lig
-        self.sigout = True
         self.optimize = 0
+        self.sigout = True
     def startFst(self):
         self.fst = openfst.StdVectorFst()
     def getFst(self):
@@ -228,17 +241,8 @@ class DefaultAligner(AlignerMixin):
             if self.add_l2c is not None:
                 candidate = "".join(line[i:i+4])
                 for s in ligatures.common_ligatures(candidate):
-                    cc = lig.ord(s)
-                    nnext = states[i+len(s)]
-                    fst.AddArc(start,cc,cc,self.add_l2c,nnext)
-
-            if self.exceptional_cost is not None:
-                candidate = "".join(line[i:i+4])
-                for s in self.exceptional_ligatures:
-                    if candidate.startswith(s):
-                        cc = lig.ord(s)
-                        nnext = states[i+len(s)]
-                        fst.AddArc(start,lig.ord("~"),cc,self.add_l2c,nnext)
+                    if len(s)<2 or i+len(s)>len(states): continue
+                    add_between(fst,start,next,[s],list(s),self.add_l2c)
 
         # also allow junk at the end
 

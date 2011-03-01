@@ -6,6 +6,7 @@ from pylab import *
 from scipy.ndimage import interpolation,filters
 import ocrolib
 from ocrolib import docproc,utils,Record
+from scipy import stats
 signal.signal(signal.SIGINT,lambda *args:sys.exit(1))
 
 parser = OptionParser(usage="""
@@ -42,13 +43,14 @@ parser.add_option("-u","--unlabeled",help="treat unlabeled ('_') as reject",acti
 parser.add_option("-n","--limit",help="limit training to n samples",default=999999999,type="int")
 parser.add_option("-1","--single",help="train only single chars",action="store_true")
 parser.add_option("-v","--verbose",help="verbose",action="store_true")
-parser.add_option("-P","--perclasslimit",help="max # of samples per class",type=int,default=100000000)
-parser.add_option("-R","--rejectlimit",help="max # of samples for the reject class",type=int,default=None)
 parser.add_option("-E","--extractor",help="feature extractor",default="StandardExtractor")
 parser.add_option("-N","--nvariants",help="number of variants to generate",default=0,type="int")
 parser.add_option("-D","--distortion",help="maximum distortion",default=0.2,type="float")
 parser.add_option("-d","--display",help="debug display",action="store_true")
 parser.add_option("-g","--nogeometry",help="do not add geometric information",action="store_true")
+parser.add_option("-M","--minperclass",help="min # samples per class",type=int,default=20)
+parser.add_option("-P","--perclasslimit",help="max # of samples per class",type=int,default=100000000)
+parser.add_option("-R","--rejectlimit",help="max # of samples for the reject class",type=int,default=None)
 (options,args) = parser.parse_args()
 
 if options.rejectlimit is None:
@@ -144,88 +146,129 @@ skip0 = 0
 skip3 = 0
 nreject = 0
 
-def iterate_dbs(args):
-    for arg in args:
-        print "===",arg,"==="
-        db = utils.chardb(arg,"chars")
-        clusters = db.execute("select image,cls,rel from chars")
-        for c in clusters:
-            yield Record(image=utils.blob2image(c.image),cls=c.cls,rel=c.rel)
-
+def iterate_db(arg):
+    print "===",arg,"==="
 
 class Counter(dict):
     def __getitem__(self,index):
         return self.setdefault(index,0)
 
-counter = Counter()
+totals = Counter()
+actual = Counter()
 
-for cluster in iterate_dbs(args):
+for arg in args:
+    db = utils.chardb(arg,options.table)
+    print "total",db.execute("select count(*) from chars").next()[0]
+    classes = [tuple(x) for x in db.execute("select cls,count(cls) from chars group by cls")]
+    print classes
+    for cls,n in classes: totals[cls] += n
+    db.close()
+    del db
 
-    # check whether we already have enough characters
-    if count>options.limit: 
-        break
+print "ignoring:",
+for cls,n in totals.items():
+    if n<options.minperclass: print "'%s' (%d)"%(cls,n),
+print
 
-    cls = cluster.cls
-    if cls is None: 
-        cls = "_"
+for arg in args:
+    print "===",arg
+    db = utils.chardb(arg,options.table)
+    print "total",db.execute("select count(*) from chars").next()[0]
 
-    if counter[cls]>options.perclasslimit: 
-        continue
-    counter[cls] += 1
+    counter = Counter()
 
-    # empty strings have no class at all, so we skip them
-    if len(cls)==0:
-        skip0 += 1
-        continue
-    # can't train transcriptions longer than three characters
-    if len(cls)>3:
-        skip3 += 1
-        continue
-    # if the user requested only single character training, skip multi-character transcriptions
-    if options.single and len(cls)>1: continue
-    # if the user requested it, treat unlabeled samples ("_") as reject classes
-    if options.unlabeled and cls=="_": cls = "~"
-    # if the user didn't want reject training, skip all reject classes
-    if options.noreject and cls=="~": continue
-    # skip any remaining unlabeled samples
-    if cls=="_": continue
+    clusters = db.execute("select image,cls,rel from chars")
 
-    if cls=="~": nreject += 1
+    for c in clusters:
 
-    geometry=None
-    if not options.nogeometry:
-        geometry = docproc.rel_geo_normalize(cluster.rel)
+        cluster = Record(image=utils.blob2image(c.image),cls=c.cls,rel=c.rel)
 
-    # add the image to the classifier
-    image = cluster.image/255.0
-    if options.display and nchar%1000==0: show_char(image,cls)
-    if min(image.shape)<3: continue
-    if amax(image)==amin(image): continue
-    if geometry is not None:
-        classifier.cadd(image,cls,geometry=geometry)
-    else:
-        classifier.cadd(image,cls)
-    count += 1
+        # check whether we already have enough characters
+        if count>options.limit: 
+            break
 
-    # if the user requested automatically generated variants,
-    # generate them and add them to the classifier as well
-    for i in range(options.nvariants):
-        if count>options.limit: break
-        sx = options.distortion
-        sy = options.distortion
-        distorted = distort(image,sx,sy)
-        if options.display and nchar%1000==0: show_char(distorted,cls)
-        try:
-            if geometry is not None:
-                classifier.cadd(image,cls,geometry=geometry)
-            else:
-                classifier.cadd(image,cls)
-            count += 1
-        except:
-            traceback.print_exc()
+        cls = cluster.cls
+        if totals[cls]<options.minperclass:
             continue
-    nchar += 1
-    if nchar%10000==0: print "training",nchar,count
+        if cls is None: 
+            cls = "_"
+
+        if counter[cls]>options.perclasslimit: 
+            continue
+        counter[cls] += 1
+        totals[cls] += 1
+
+        # empty strings have no class at all, so we skip them
+        if len(cls)==0:
+            skip0 += 1
+            continue
+        # can't train transcriptions longer than three characters
+        if len(cls)>3:
+            skip3 += 1
+            continue
+        # if the user requested only single character training, skip multi-character transcriptions
+        if options.single and len(cls)>1: continue
+        # if the user requested it, treat unlabeled samples ("_") as reject classes
+        if options.unlabeled and cls=="_": cls = "~"
+        # if the user didn't want reject training, skip all reject classes
+        if options.noreject and cls=="~": continue
+        # skip any remaining unlabeled samples
+        if cls=="_": continue
+
+        if cls=="~": nreject += 1
+
+        # count the actually trained samples
+        actual[cls] += 1
+
+        geometry=None
+        if not options.nogeometry:
+            geometry = docproc.rel_geo_normalize(cluster.rel)
+
+        # add the image to the classifier
+        image = cluster.image/255.0
+        if options.display and nchar%1000==0: show_char(image,cls)
+        if min(image.shape)<3: continue
+        if amax(image)==amin(image): continue
+        if geometry is not None:
+            classifier.cadd(image,cls,geometry=geometry)
+        else:
+            classifier.cadd(image,cls)
+        count += 1
+
+        # if the user requested automatically generated variants,
+        # generate them and add them to the classifier as well
+        for i in range(options.nvariants):
+            if count>options.limit: break
+            sx = options.distortion
+            sy = options.distortion
+            distorted = distort(image,sx,sy)
+            if options.display and nchar%1000==0: show_char(distorted,cls)
+            try:
+                if geometry is not None:
+                    classifier.cadd(image,cls,geometry=geometry)
+                else:
+                    classifier.cadd(image,cls)
+                count += 1
+            except:
+                traceback.print_exc()
+                continue
+        nchar += 1
+        if nchar%10000==0: print "training",nchar,count
+
+print
+print "summary statistics:"
+print sorted(list(actual.items()))
+print
+print "training",count,"variants representing",nchar,"training characters"
+if skip0>0: print "skipped",skip0,"zero-length transcriptions"
+if skip3>0: print "skipped",skip3,"transcriptions that were more than three characters long"
+print
+
+# provide some feedback about the training process
+
+if options.verbose:
+    classifier.info()
+    classifier.getExtractor().info()
 
 # now perform the actual training
 # (usually, this is AutoMLP, a multi-threaded, long-running stochastic
@@ -238,17 +281,13 @@ for progress in classifier.updateModel1(verbose=1):
     ocrolib.save_component("_temp_%03d.pymodel"%round,classifier)
     round += 1
 
+# provide some feedback about the training process
+
+if options.verbose:
+    classifier.info()
+
 # save the resulting model
 
 print "saving",output
 ocrolib.save_component(output,classifier)
 
-# provide some feedback about the training process
-
-if options.verbose:
-    classifier.info()
-    classifier.getExtractor().info()
-
-print "trained",count,"variants representing",nchar,"training characters"
-if skip0>0: print "skipped",skip0,"zero-length transcriptions"
-if skip3>0: print "skipped",skip3,"transcriptions that were more than three characters long"

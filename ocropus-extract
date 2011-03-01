@@ -26,7 +26,7 @@ parser.add_option("-a","--maxage",help="output missegmented",default=10000000,ty
 parser.add_option("-D","--display",help="display chars",action="store_true")
 parser.add_option("-v","--verbose",help="verbose output",action="store_true")
 parser.add_option("-N","--nosource",help="do not record source info",action="store_true")
-parser.add_option("-c","--cerrors",help="continue even if errors are found",action="store_true")
+parser.add_option("-c","--cont",help="continue even if errors are found",action="store_true")
 parser.add_option("-E","--extracost",help="cost for misaligned characters",type=float,default=0.0)
 parser.add_option("-P","--perc",help="cost percentile",type=float,default=90.0)
 parser.add_option("-M","--maxperc",help="maximum cost at percentile",type=float,default=2.0)
@@ -143,7 +143,7 @@ for file in args:
         print "# cseg for",file,"not found (got %d of %d files)"%(nfiles,ntried)
         continue
     except Exception,e:
-        if options.cerrors:
+        if options.cont:
             traceback.print_exc()
             print "#",file,"failed",e
             continue
