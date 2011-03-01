@@ -85,7 +85,10 @@ def align1(t):
         if lmodel!=lfile:
             lfile = lmodel
             nolig = not options.noligatures
-            lfst = aligner.ocroFstForFile(lmodel)
+            if lmodel.endswith(".fst"):
+                lfst = ocrolib.OcroFST().load(lmodel)
+            else:
+                lfst = aligner.ocroFstForFile(lmodel)
         
         r = ocrolib.compute_alignment(fst,rseg,lfst)
 
