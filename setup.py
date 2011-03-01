@@ -9,6 +9,7 @@ from distutils.core import setup, Extension
 from distutils.command.install_data import install_data
 
 class smart_install_data(install_data):
+    # not currently used
     def run(self):
         os.system("cd data; for i in *.gz; do gunzip < $i > $(basename $i .gz); done")
         return install_data.run(self)
@@ -26,5 +27,4 @@ setup (name = 'ocropy',
                    ('share/ocropus/models', glob.glob("data/*model")),
                    ('share/ocropus/models', glob.glob("data/*.fst")),
                    ],
-       cmdclass = {'install_data': smart_install_data},
        )
