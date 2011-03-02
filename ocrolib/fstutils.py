@@ -128,11 +128,17 @@ class AlignerMixin:
             self.addTranscription(line)
         return self.getOcroFst()
     def fstForFile(self,file):
-        with codecs.open(file,"r","utf-8") as stream:
-            return self.fstForLines(stream.readlines())
+        try:
+            with codecs.open(file,"r","utf-8") as stream:
+                return self.fstForLines(stream.readlines())
+        except UnicodeDecodeError,e:
+            raise Exception("bad unicode in "+file)
     def ocroFstForFile(self,file):
-        with codecs.open(file,"r","utf-8") as stream:
-            return self.ocroFstForLines(stream.readlines())
+        try:
+            with codecs.open(file,"r","utf-8") as stream:
+                return self.ocroFstForLines(stream.readlines())
+        except UnicodeDecodeError,e:
+            raise Exception("bad unicode in "+file)
 
 class DefaultAligner(AlignerMixin):
     def __init__(self):

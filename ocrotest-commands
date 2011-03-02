@@ -13,7 +13,6 @@ TEST() {
     echo
 }
 
-if false; then
 rm -rf _test _test.*
 
 TEST binarize
@@ -26,7 +25,6 @@ ocropus-pseg _test/????.png || die
 TEST linerec
 ocropus-lattices -O -m models/2m2-reject.cmodel _test/????/??????.png || die
 ocropus-align -O -l models/default.fst _test/????/??????.png || die
-fi
 
 TEST align-with-groundtruth
 for i in _test/????; do 

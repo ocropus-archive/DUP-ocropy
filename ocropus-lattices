@@ -72,7 +72,7 @@ def extract(t):
     except ocrolib.RecognitionError,e:
         print fname,"*** %s ***"%e
         return
-    except e:
+    except:
         traceback.print_exc()
         if not options.cont: die("internal error")
         return
