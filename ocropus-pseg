@@ -7,7 +7,7 @@ from matplotlib import patches
 from pylab import *
 from scipy.stats.stats import trim1
 from multiprocessing import Pool
-from scipy.ndimage import measurements
+from scipy.ndimage import measurements,interpolation
 from scipy.misc import imsave
 import traceback
 
@@ -40,6 +40,18 @@ ignoring the map).
 """)
 parser.add_option("-g","--gray",action="store_true",
                   help="output grayscale images + binary masks")
+parser.add_option("-u","--upscale",type=int,default=32,
+                  help="upscale lines shorter than this to the given target height")
+parser.add_option("-t","--target",type=int,default=64,
+                  help="downscale lines taller than this to the given target height")
+parser.add_option("-L","--low",type=int,default=16,
+                  help="lower limit for text line height")
+parser.add_option("-H","--high",type=int,default=100,
+                  help="upper limit for text line height")
+parser.add_option("-W","--width",type=int,default=20,
+                  help="lower limit for text line width")
+parser.add_option("-v","--verbose",action="store_true",
+                  help="output additional information")
 parser.add_option("-p","--pad",default=1,type=int,
                   help="pad lines by this amount")
 parser.add_option("-d","--display",action="store_true",
@@ -140,6 +152,27 @@ def process_arg(arg):
 
     for i in range(1,regions.length()):
         line = regions.extractMasked(page_bin,i,0,255,options.pad)
+        if line.shape[0]<options.low:
+            if options.verbose: print "# skipping %06x"%regions.id(i),", not tall enough:",line.shape[0]
+            continue
+        if line.shape[0]>options.high: 
+            if options.verbose: print "# skipping %06x"%regions.id(i),", too tall:",line.shape[0]
+            continue
+        if line.shape[1]<options.width:
+            if options.verbose: print "# skipping %06x"%regions.id(i),", not wide enough:",line.shape[1]
+            continue
+        if options.upscale>0 and line.shape[0]<options.upscale:
+            scale = options.upscale*1.0/line.shape[0]
+            if options.verbose:
+                print "# upscaling %06x"%regions.id(i),"by",scale
+            line = interpolation.zoom(line,(scale,scale),order=1)
+            assert abs(line.shape[0]-options.upscale)<2,line.shape
+        elif options.target>0 and line.shape[0]>options.target:
+            scale = options.target*1.0/line.shape[0]
+            if options.verbose:
+                print "# downscaling %06x"%regions.id(i),"by",scale
+            line = interpolation.zoom(line,(scale,scale),order=1)
+            assert abs(line.shape[0]-options.target)<2,line.shape
         if not options.silent:
             if common.quick_check_line_components(line,dpi=options.dpi)<0.5:
                 continue
@@ -172,3 +205,4 @@ else:
     pool = Pool(processes=options.parallel)
     jobs = args
     result = pool.map(process_arg_safe,jobs)
+
