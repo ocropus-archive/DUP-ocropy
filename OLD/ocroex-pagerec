@@ -1,0 +1,51 @@
+#!/usr/bin/python
+
+import signal
+signal.signal(signal.SIGINT,lambda *args:sys.exit(1))
+from pylab import *
+import sys,os,re,optparse
+from scipy.ndimage import measurements
+from scipy.misc import imsave
+from PIL import Image
+import ocrolib
+
+parser = optparse.OptionParser(usage="""
+""")
+options,args = parser.parse_args()
+
+binarizer = ocrolib.make_IBinarize("StandardPreprocessing")
+model = ocrolib.load_component("2m2-reject.cmodel")
+
+ion(); gray()
+
+sizes = {}
+
+for arg in args:
+    image = ocrolib.read_image_gray(arg)
+    print image.shape,image.dtype
+    bin,gray = binarizer.binarize(image)
+    h,w = bin.shape
+    bin = amax(bin)-bin
+    imshow(bin); ginput(1,timeout=1)
+
+    labels,n = measurements.label(array(bin,'uint32'))
+    imshow(labels); ginput(1,timeout=1)
+
+    print labels.shape,n
+
+    objects = measurements.find_objects(labels)[1:] 
+    for s in objects:
+        bbox = (s[0].start,s[0].stop,s[1].start,s[1].stop)
+        char = bin[s]
+        classifications = model.coutputs(char)
+        classifications.sort(key=lambda x:-x[1])
+        for k,v in classifications:
+            if k=="~":
+                reject_p = v
+                break
+        cost = -log(reject_p)
+
+        remaining = classifications[:]
+        remaining.remove(("~",reject_p))
+        cls,p = remaining[0]
+        print bbox,cls,p

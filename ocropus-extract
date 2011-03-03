@@ -73,7 +73,7 @@ def cseg_chars_all(file,suffix=options.gtsuffix):
     gt = gt.decode("utf-8")
     gt = re.sub('\n','',gt)
     gt = fstutils.explode_transcription(gt)
-    costs = [None]*(1+len(gt))
+    costs = [0.0]*(1+len(gt))
     with ocrolib.fopen(file,"costs") as stream:
         for line in stream.readlines():
             f = line.split()

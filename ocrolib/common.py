@@ -288,7 +288,7 @@ def numpy2narray(page,type='B'):
     if isfp(page) and not isfp(type):
         page = array(255*page,dtype='B')
     elif not isfp(page) and isfp(type):
-        page = a/255.0
+        page = page/255.0
     page = page.transpose([1,0]+range(2,page.ndim))[:,::-1,...]
     return iulib.narray(page,type=type)
 
@@ -879,10 +879,10 @@ class Grouper(CommonComponent):
         return rect2math(self.comp.boundingBox(i))
     def start(self,i):
         """Get the identifier of the character segment starting this group."""
-        return self.start(i)
+        return self.comp.start(i)
     def end(self,i):
         """Get the identifier of the character segment ending this group."""
-        return self.end(i)
+        return self.comp.end(i)
     def getSegments(self,i):
         """Get a list of all the segments making up this group."""
         l = iulib.intarray()
@@ -899,7 +899,7 @@ class Grouper(CommonComponent):
             return narray2numpy(out,'f')
         else:
             out = iulib.bytearray()
-            self.comp.extract(out,numpy2narray(source,'f'),dflt,i,grow)
+            self.comp.extract(out,numpy2narray(source,'B'),dflt,i,grow)
             return narray2numpy(out,'B')
     def extractWithMask(self,source,i,grow=0):
         """Extract the image and mask corresponding to group i"""
@@ -1532,6 +1532,11 @@ def OLD_recognize_and_align(image,linerec,lmodel,beam=1000,nocseg=0):
                         lattice=lattice,
                         cost=sum(costs))
 
+def rect_union(rectangles):
+    if len(rectangles)<1: return (0,0,-1,-1)
+    r = array(rectangles)
+    return (amin(r[:,0]),amax(r[:,0]),amin(r[:,1]),amax(r[:1]))
+
 def compute_alignment(lattice,rseg,lmodel,beam=1000,verbose=0,lig=ligatures.lig):
     """Given a lattice produced by a recognizer, a raw segmentation,
     and a language model, computes the best solution, the cseg, and
@@ -1572,11 +1577,14 @@ def compute_alignment(lattice,rseg,lmodel,beam=1000,verbose=0,lig=ligatures.lig)
         segs.append((start,end))
         i = j
 
+    rseg_boxes = docproc.seg_boxes(rseg)
+
     # Now run through the segments and create a table that maps rseg
     # labels to the corresponding output element.
 
     assert len(result_l)==len(segs)
     assert len(costs_l)-1==len(segs)
+    bboxes = []
 
     rmap = zeros(amax(rseg)+1,'i')
     for i in range(len(segs)):
@@ -1584,6 +1592,7 @@ def compute_alignment(lattice,rseg,lmodel,beam=1000,verbose=0,lig=ligatures.lig)
         if verbose: print i+1,start,end,"'%s'"%result[i],costs.at(i)
         if end==0: continue
         rmap[start:end+1] = i+1
+        bboxes.append(rect_union(rseg_boxes[start:end+1]))
 
     # Finally, to get the cseg, apply the rmap table from above.
 
@@ -1611,6 +1620,8 @@ def compute_alignment(lattice,rseg,lmodel,beam=1000,verbose=0,lig=ligatures.lig)
         cseg=cseg,
         # the lattice
         lattice=lattice,
+        # bounding boxes
+        bboxes=bboxes,
         )
 
 def recognize_and_align(image,linerec,lmodel,beam=1000,nocseg=0,lig=ligatures.lig):

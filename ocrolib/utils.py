@@ -194,6 +194,7 @@ def dbinsert(db,table,**assignments):
         values.append(v)
     cmd = "insert or replace into "+table+" ( "+cols+" ) values ( "+vals+" ) "
     params = list(values)
+    # print cmd,params
     cur = db.cursor()
     cur.execute(cmd,params)
     cur.close()

@@ -2,7 +2,7 @@
 
 # make the clustering class-specific
 
-import sys,os,re,glob,math,glob,signal,traceback
+import sys,os,re,glob,math,glob,signal,traceback,sqlite3
 if "DISPLAY" not in os.environ:
     import matplotlib
     matplotlib.use("AGG")
@@ -11,7 +11,7 @@ from pylab import *
 from optparse import OptionParser
 from multiprocessing import Pool
 import ocrolib
-from ocrolib import number_of_processors,fstutils,die
+from ocrolib import number_of_processors,fstutils,die,utils,docproc
 from scipy import stats
 
 signal.signal(signal.SIGINT,lambda *args:sys.exit(1))
@@ -47,6 +47,8 @@ the fstutils.add_line_to_fst function.
 
 
 parser.add_option("-l","--langmod",help="language model",default=None)
+parser.add_option("-x","--extract",help="extract characters",default=None)
+parser.add_option("-X","--noextract",help="don't actually write files",action="store_true")
 parser.add_option("-L","--ligatures",help="output ligatures in aligned text",action="store_true")
 parser.add_option("-B","--beam",help="size of beam",type=int,default=1000)
 parser.add_option("-N","--noligatures",help="don't expand ligature notation in transcriptions",action="store_true")
@@ -61,6 +63,23 @@ parser.add_option("-A","--maxavg",help="maximum average cost",type=float,default
 (options,args) = parser.parse_args()
 args = ocrolib.expand_args(args)
 
+if os.path.exists(options.extract):
+    print "output file already exists:",options.extract
+    sys.exit(1)
+
+db = None
+
+def dbopen():
+    global db
+    if db is not None: return
+    if options.extract:
+        db = sqlite3.connect(options.extract,timeout=600.0)
+        db.row_factory = utils.DbRow
+        db.text_factory = sqlite3.OptimizedUnicode
+        db.execute("pragma synchronous=0")
+        utils.charcolumns(db,"chars")
+        db.commit()
+
 aligner = fstutils.DefaultAligner()
 
 lfile = None
@@ -73,6 +92,7 @@ def safe_align1(t):
         traceback.print_exc()
 
 def align1(t):
+    dbopen()
     global lfile,lfst
     (fname,lmodel) = t
     ocrolib.fcleanup(fname,options.suffix,["txt","costs"])
@@ -110,16 +130,51 @@ def align1(t):
             print "%-1s %s: %5.2f %5.2f: %s"%("*" if skip else " ",fname,perc,avg,result)
             if skip: return
 
-        cseg_file = ocrolib.fvariant(fname,"cseg",options.suffix)
-        if not options.overwrite:
-            if os.path.exists(cseg_file): die("%s: already exists",cseg_file)
-        ocrolib.write_line_segmentation(cseg_file,cseg)
-        ocrolib.write_text(ocrolib.fvariant(fname,"txt",options.suffix),result)
-        with ocrolib.fopen(fname,"costs",options.suffix,mode="w") as stream:
-            for i in range(len(costs)):
-                stream.write("%d %g\n"%(i,costs[i]))
+        if not options.noextract:
+            cseg_file = ocrolib.fvariant(fname,"cseg",options.suffix)
+            if not options.overwrite:
+                if os.path.exists(cseg_file): die("%s: already exists",cseg_file)
+            ocrolib.write_line_segmentation(cseg_file,cseg)
+            ocrolib.write_text(ocrolib.fvariant(fname,"txt",options.suffix),result)
+            with ocrolib.fopen(fname,"costs",options.suffix,mode="w") as stream:
+                for i in range(len(costs)):
+                    stream.write("%d %g\n"%(i,costs[i]))
+
+        if db is not None:
+            line = ocrolib.read_image_gray(ocrolib.ffind(fname,"png"))
+            line = amax(line)-line
+            lgeo = docproc.seg_geometry(rseg)
+            grouper = ocrolib.StandardGrouper()
+            grouper.setSegmentation(rseg)
+            for i in range(grouper.length()):
+                raw = grouper.extract(line,0,i,dtype='B')
+                start = grouper.start(i)
+                end = grouper.end(i)
+                bbox = grouper.boundingBox(i)
+                y0,x0,y1,x1 = bbox
+                rel = docproc.rel_char_geom((y0,y1,x0,x1),lgeo)
+                ry,rw,rh = rel
+                assert rw>0 and rh>0
+                if (start,end) in r.segs:
+                    index = r.segs.index((start,end))
+                    cls = r.output_l[index]
+                    cost = r.costs[index]
+                else:
+                    cls = "~"
+                    cost = 0.0
+                utils.dbinsert(db,"chars",
+                               image=utils.image2blob(raw),
+                               cost=float(cost),
+                               cls=cls,
+                               count=1,
+                               file= fname,
+                               lgeo="%g %g %g"%lgeo,
+                               rel="%g %g %g"%rel,
+                               bbox="%d %d %d %d"%bbox)
     except IOError,e:
         print "# not found:",e
+    db.commit()
+
 
 jobs = []
 

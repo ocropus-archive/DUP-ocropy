@@ -46,7 +46,7 @@ parser.add_option("-t","--target",type=int,default=64,
                   help="downscale lines taller than this to the given target height")
 parser.add_option("-L","--low",type=int,default=16,
                   help="lower limit for text line height")
-parser.add_option("-H","--high",type=int,default=100,
+parser.add_option("-H","--high",type=int,default=200,
                   help="upper limit for text line height")
 parser.add_option("-W","--width",type=int,default=20,
                   help="lower limit for text line width")
@@ -77,8 +77,10 @@ options,args = parser.parse_args()
 if len(args)==1 and os.path.isdir(args[0]):
     args = sorted(glob.glob(args[0]+"/????.png"))
 
-preproc = common.Binarize().make(options.preproc)
-segmenter = common.SegmentPage().make(options.segmenter)
+preproc = common.make_IBinarize(options.preproc)
+
+segmenter = common.make_ISegmentPage(options.segmenter)
+
 if options.descender>0:
     segmenter.pset("max_descender",options.descender)
 
