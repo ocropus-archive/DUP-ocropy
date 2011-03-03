@@ -193,7 +193,7 @@ def update_info():
     rel = row.rel
     if rel!="" and rel is not None:
         rel = " ".join(["%.2f"%float(x) for x in row.rel.split()])
-    info = "%-7d: %s %s (%s) %.2f"%(row.id,row.classes,row.count,rel,row.cost)
+    info = "%-7d: %s %s (%s) %s"%(row.id,row.classes,row.count,rel,row.cost)
     info_area.set_text(info)
 
 def get_extended():

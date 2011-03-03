@@ -1,4 +1,4 @@
-import os,os.path,re,numpy,unicodedata,sys,warnings,inspect,glob
+import os,os.path,re,numpy,unicodedata,sys,warnings,inspect,glob,traceback
 import numpy
 from numpy import *
 from scipy.misc import imsave
@@ -1941,7 +1941,11 @@ class CmodelLineRecognizer(RecognizeLine):
 
             # compute relative geometry
             aspect = (y1-y0)*1.0/(x1-x0)
-            rel = docproc.rel_char_geom((y0,y1,x0,x1),geo)
+            try:
+                rel = docproc.rel_char_geom((y0,y1,x0,x1),geo)
+            except:
+                traceback.print_exc()
+                raise RecognitionError("bad line geometry",geo=geo)
             ry,rw,rh = rel
             assert rw>0 and rh>0,"error: rw=%g rh=%g"%(rw,rh)
             rel = docproc.rel_geo_normalize(rel)

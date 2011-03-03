@@ -46,7 +46,8 @@ nnet_native = compile_and_load(r'''
 #include <omp.h>
 
 int verbose = 0;
-int maxthreads = 4;
+int maxthreads = 1;
+int maxthreads_train = 4;
 
 double sigmoid(double x);
 double max(double x,double y);
@@ -219,7 +220,7 @@ void backward_b(int n,int m,int l,float w1[m][n],float b1[m],float w2[l][m],floa
     if(verbose) printf("backward %d:%d:%d (%d)\n",n,m,l,k);
     assert(eta>0.0);
     assert(eta<10.0);
-#pragma omp parallel for num_threads (maxthreads)
+#pragma omp parallel for num_threads (maxthreads_train)
     for(int trial=0;trial<ntrain;trial++) {
         int row;
         if(nsamples>0) row = samples[(unsigned)(19.73*k*sin(trial))%nsamples];
@@ -275,11 +276,13 @@ nnet_native.backward_b.argtypes = [I,I,I,A2F,A1F,A2F,A1F, I,A2B,A1I,F,I,I,A1I]
 
 nverbose = c_int.in_dll(nnet_native,"verbose")
 maxthreads = c_int.in_dll(nnet_native,"maxthreads")
+maxthreads_train = c_int.in_dll(nnet_native,"maxthreads_train")
 
 if os.getenv("mlp_maxthreads") is not None:
     maxthreads.value = int(os.getenv("mlp_maxthreads"))
-else:
-    maxthreads.value = min(8,utils.number_of_processors())
+
+if os.getenv("mlp_maxthreads_train") is not None:
+    maxthreads_train.value = int(os.getenv("mlp_maxthreads_train"))
 
 class MLP(common.PyComponent):
     def __init__(self,**kw):

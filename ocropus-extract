@@ -1,5 +1,5 @@
 #!/usr/bin/python
-import code,pickle,sys,os,re,traceback,sqlite3
+import code,pickle,sys,os,re,traceback,sqlite3,warnings
 from optparse import OptionParser
 from pylab import *
 import ocrolib
@@ -17,7 +17,8 @@ You must run ocropus-lattices and ocropus-align first to obtain the cseg
 and txt files.  You can also manually create the cseg and txt files.
 """)
 
-parser.add_option("-g","--gtsuffix",help="ground truth suffix",default=None)
+parser.add_option("-G","--gtsuffix",help="ground truth suffix",default=None)
+parser.add_option("-g","--nogeo",help="don't extract geometry",action="store_true")
 parser.add_option("-o","--output",help="output file",default="chars.db")
 parser.add_option("-u","--unmerged",help="unmerged output file",default=None)
 parser.add_option("-n","--nomissegmented",help="output no missegmented characters",action="store_true")
@@ -58,35 +59,6 @@ db.commit()
 class BadGroundTruth(Exception):
     pass
 
-def cseg_chars(file,suffix=options.gtsuffix):
-    image = ocrolib.read_image_gray(file)
-    image = 255-image
-    cseg_file = ocrolib.ffind(file,"cseg")
-    cseg = ocrolib.read_line_segmentation(cseg_file)
-    with ocrolib.fopen(file,"txt") as stream:
-        gt = stream.read()
-    with ocrolib.fopen(file,"costs") as stream:
-        costs = array([float(s.split()[1]) for s in stream.readlines()])[1:]
-    assert len(gt)==len(costs),"gt and costs differ: %d != %d"%(len(gt),len(costs))
-    gt = re.sub('\n','',gt)
-    gt = fstutils.explode_transcription(gt)
-    geo = docproc.seg_geometry(cseg)
-    grouper = ocrolib.StandardGrouper()
-    grouper.pset("maxrange",1)
-    grouper.setSegmentation(cseg)
-    # print grouper.length(),len(gt),len(re.sub(' ','',gt))
-    if len(gt)!=grouper.length():
-        gt = re.sub(' ','',gt)
-        if len(gt)!=grouper.length():
-            raise BadGroundTruth()
-    for i in range(grouper.length()):
-        cls = gt[i]
-        cost = costs[i]
-        if cls==' ': continue
-        raw,mask = grouper.extractWithMask(image,i,1)
-        yield Record(raw=raw,mask=mask,cls=cls,index=i,bbox=grouper.boundingBox(i),
-                     bbox_m=grouper.bboxMath(i),lgeo=geo,cost=cost)
-
 def cseg_chars_all(file,suffix=options.gtsuffix):
     image = ocrolib.read_image_gray(file)
     image = 255-image
@@ -94,6 +66,9 @@ def cseg_chars_all(file,suffix=options.gtsuffix):
     rseg_file = ocrolib.ffind(file,"rseg")
     cseg = ocrolib.read_line_segmentation(cseg_file)
     rseg = ocrolib.read_line_segmentation(rseg_file)
+    if amax(rseg)<3:
+        print "%s: not enough segments"%file
+        return
     with ocrolib.fopen(file,"txt") as stream: gt = stream.read()
     gt = gt.decode("utf-8")
     gt = re.sub('\n','',gt)
@@ -103,15 +78,22 @@ def cseg_chars_all(file,suffix=options.gtsuffix):
         for line in stream.readlines():
             f = line.split()
             costs[int(f[0])] = float(f[1])
-
     perc = stats.scoreatpercentile(costs[1:],options.perc)
     avg = mean(costs[1:])
     skip = perc>options.maxperc or avg>options.maxavg
-    if skip: return
+    if skip: 
+        print "%s: cost too high"%file
+        return
 
-    assert len(gt)<=len(costs),\
-        "gt and costs differ: %d != %d"%(len(gt),len(costs))
-    geo = docproc.seg_geometry(cseg)
+    if len(gt)>len(costs):
+        print "%s: gt and costs differ: %d != %d"%(file,len(gt),len(costs))
+        return
+    if not options.nogeo:
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            geo = docproc.seg_geometry(rseg)
+    else:
+        geo = None
     grouper = ocrolib.StandardGrouper()
     grouper.setSegmentationAndGt(rseg,cseg,gt)
     for i in range(grouper.length()):

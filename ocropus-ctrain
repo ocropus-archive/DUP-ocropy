@@ -5,7 +5,7 @@ from optparse import OptionParser
 from pylab import *
 from scipy.ndimage import interpolation,filters
 import ocrolib
-from ocrolib import docproc,utils,Record
+from ocrolib import docproc,utils,Record,mlp
 from scipy import stats
 signal.signal(signal.SIGINT,lambda *args:sys.exit(1))
 
@@ -51,7 +51,11 @@ parser.add_option("-g","--nogeometry",help="do not add geometric information",ac
 parser.add_option("-M","--minperclass",help="min # samples per class",type=int,default=20)
 parser.add_option("-P","--perclasslimit",help="max # of samples per class",type=int,default=100000000)
 parser.add_option("-R","--rejectlimit",help="max # of samples for the reject class",type=int,default=None)
+parser.add_option("-Q","--maxthreads",help="max # of threads for training",type=int,default=4)
 (options,args) = parser.parse_args()
+
+mlp.maxthreads.value = options.maxthreads
+mlp.maxthreads_train.value = options.maxthreads
 
 if options.rejectlimit is None:
     options.rejectlimit = 20*options.perclasslimit
