@@ -27,29 +27,18 @@ ocropus-lattices -O -m models/2m2-reject.cmodel _test/????/??????.png || die
 ocropus-align -O -l models/default.fst _test/????/??????.png || die
 
 TEST align-with-groundtruth
-for i in _test/????; do 
-    echo $i.gt.txt
-    ocropus-align -O -s gt -l $i.gt.txt $i/??????.png || die
-done
-
-TEST extract
-ocropus-extract -o _test.db _test/????/??????.png > _test.cextract 2>&1 || die
+ocropus-align -p _test/*.gt.txt -X -x _test.db
 ocropus-dbinfo _test.db
 ocrotest-dbcheck _test.db
-head _test.cextract
-tail _test.cextract
 
 TEST training
 ocropus-ctrain -o _test.cmodel _test.db || die
 
 TEST reclassifying
-ocropus-linerec -m _test.cmodel _test/????/??????.png || die
+ocropus-lattices -m _test.cmodel _test/????/??????.png || die
 
 TEST extract-rseg
 ocropus-extract-rsegs _test/????/??????.png -o _test/rsegs.db || die
-
-TEST extract-cseg
-ocropus-extract _test/????/??????.png -o _test/csegs.db || die
 
 TEST cluster-eps
 ocropus-cluster-eps _test/rsegs.db _test/rsegs-eps.db || die
