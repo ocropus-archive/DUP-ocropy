@@ -39,6 +39,7 @@ Common parameters for the model are:
 
 parser.add_option("-o","--output",help="output model name",default=None)
 parser.add_option("-m","--model",help="IModel name",default="ocrolib.mlp.AutoMlpModel()")
+parser.add_option("-K","--nrounds",help="number of training rounds",type=int,default=48)
 parser.add_option("-b","--bits",help="buffer training data with 1 bpp",action="store_true")
 parser.add_option("-t","--table",help="database table to use for training",default="chars")
 parser.add_option("-r","--noreject",help="disable reject class",action="store_true",default=False)
@@ -56,6 +57,10 @@ parser.add_option("-P","--perclasslimit",help="max # of samples per class",type=
 parser.add_option("-R","--rejectlimit",help="max # of samples for the reject class",type=int,default=None)
 parser.add_option("-Q","--maxthreads",help="max # of threads for training",type=int,default=4)
 (options,args) = parser.parse_args()
+
+if len(args)<1:
+    parser.print_help()
+    sys.exit(0)
 
 mlp.maxthreads.value = options.maxthreads
 mlp.maxthreads_train.value = options.maxthreads
@@ -285,8 +290,10 @@ print "starting classifier training"
 round = 0
 for progress in classifier.updateModel1(verbose=1):
     print "ocropus-ctrain:",round,progress
-    ocrolib.save_component("_temp_%03d.pymodel"%round,classifier)
+    modelbase,_ = os.path.splitext(options.output)
+    ocrolib.save_component("%s.%03d.pymodel"%(modelbase,round),classifier)
     round += 1
+    if round>=options.nrounds: break
 
 # provide some feedback about the training process
 

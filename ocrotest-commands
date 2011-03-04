@@ -32,10 +32,10 @@ ocropus-dbinfo _test.db
 ocrotest-dbcheck _test.db
 
 TEST training
-ocropus-ctrain -o _test.cmodel _test.db || die
+ocropus-ctrain -K 8 -o _test.cmodel _test.db || die
 
 TEST reclassifying
-ocropus-lattices -m _test.cmodel _test/????/??????.png || die
+ocropus-lattices -O -m _test.cmodel _test/????/??????.png || die
 
 TEST extract-rseg
 ocropus-extract-rsegs _test/????/??????.png -o _test/rsegs.db || die

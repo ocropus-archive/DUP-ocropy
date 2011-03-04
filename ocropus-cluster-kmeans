@@ -23,7 +23,7 @@ parser.add_option("-v","--verbose",help="verbose output",action="store_true")
 parser.add_option("-t","--table",help="table name",default="chars")
 parser.add_option("-k","--k",help="k",type=int,default=300)
 parser.add_option("-m","--minvecs",help="minimum number of vectors in a cluster",type=int,default=3)
-parser.add_option("-M","--minchange",help="minimum number of changes (fraction)",type=float,default=0.005)
+# parser.add_option("-M","--minchange",help="minimum number of changes (fraction)",type=float,default=0.005)
 parser.add_option("-n","--niter",help="max number of iterations",type=int,default=100)
 parser.add_option("-O","--outlier",help="outlier range",type=float,default=3.0)
 
@@ -66,8 +66,8 @@ for row in table.get():
 print "clustering"
 data = array(data,'f')
 print "data",data.shape
-minchange=max(1,int(options.minchange*len(data)))
-means,counts = quant.kmeans(data,k=options.k,maxiter=options.niter,minchange=minchange,
+# minchange=max(1,int(options.minchange*len(data)))
+means,counts = quant.kmeans(data,k=options.k,maxiter=options.niter,
                             outlier=options.outlier,minvecs=options.minvecs)
 
 print "writing"
