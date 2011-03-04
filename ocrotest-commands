@@ -29,7 +29,7 @@ ocropus-align -O -l models/default.fst _test/????/??????.png || die
 TEST align-with-groundtruth
 for i in _test/????; do 
     echo $i.gt.txt
-    ocropus-align -O -S gt -l $i.gt.txt $i/??????.png || die
+    ocropus-align -O -s gt -l $i.gt.txt $i/??????.png || die
 done
 
 TEST extract

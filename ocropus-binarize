@@ -5,11 +5,14 @@
 # -- page frame removal, noise removal, ...
 # -- parallelize TIFF images
 
+import sys,os,re,optparse,shutil
+import matplotlib
+if "DISPLAY" not in os.environ: matplotlib.use("AGG")
+else: matplotlib.use("GTK")
 from multiprocessing import Pool
 import signal,fcntl
 signal.signal(signal.SIGINT,lambda *args:sys.exit(1))
 from pylab import *
-import sys,os,re,optparse,shutil
 from scipy.ndimage import measurements
 from scipy.misc import imsave
 from PIL import Image

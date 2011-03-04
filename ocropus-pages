@@ -1,15 +1,15 @@
 #!/usr/bin/python
 
+import sys,os,re,glob
 import matplotlib
-matplotlib.rcParams["interactive"] = 1
-matplotlib.use('TkAgg') # Qt4Agg
+if "DISPLAY" not in os.environ: matplotlib.use("AGG")
+else: matplotlib.use("GTK")
 from pylab import *
 import traceback
 
 import resource 
 resource.setrlimit(resource.RLIMIT_DATA,(2e9,2e9))
 
-import sys,os,re,glob
 import ocrolib
 from ocrolib import plotutils
 from ocrolib import hocr

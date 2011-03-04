@@ -3,9 +3,9 @@
 # make the clustering class-specific
 
 import sys,os,re,glob,math,glob,signal,traceback,sqlite3
-if "DISPLAY" not in os.environ:
-    import matplotlib
-    matplotlib.use("AGG")
+import matplotlib
+if "DISPLAY" not in os.environ: matplotlib.use("AGG")
+else: matplotlib.use("GTK")
 from scipy.ndimage import interpolation
 from pylab import *
 from optparse import OptionParser
@@ -56,7 +56,7 @@ parser.add_option("-g","--gt",help="extension for ground truth",default=None)
 parser.add_option("-p","--pagegt",help="arguments are page ground truth",action="store_true")
 parser.add_option("-s","--suffix",help="output suffix for writing result",default=None)
 parser.add_option("-O","--overwrite",help="overwrite outputs",action="store_true")
-parser.add_option("-Q","--parallel",type=int,default=0,help="number of parallel processes to use")
+parser.add_option("-Q","--parallel",type=int,default=number_of_processors(),help="number of parallel processes to use")
 parser.add_option("-P","--perc",help="percentile for reporting statistics",type=float,default=90.0)
 parser.add_option("-M","--maxperc",help="maximum cost at percentile",type=float,default=2.0)
 parser.add_option("-A","--maxavg",help="maximum average cost",type=float,default=3.0)
@@ -71,7 +71,19 @@ if options.extract is not None and os.path.exists(options.extract):
     print "output file already exists:",options.extract
     sys.exit(1)
 
+# Database handling is a bit tricky because of concurrency.
+# First create the database and update the columns if necessary.
+# Then close the db descriptor.  Reopen it in each multiprocessing
+# subtask if necessary.
+
 db = None
+
+if options.extract:
+    db = sqlite3.connect(options.extract,timeout=600.0)
+    utils.charcolumns(db,"chars")
+    db.commit()
+    db.close()
+    db = None
 
 def dbopen():
     global db
@@ -81,8 +93,10 @@ def dbopen():
         db.row_factory = utils.DbRow
         db.text_factory = sqlite3.OptimizedUnicode
         db.execute("pragma synchronous=0")
-        utils.charcolumns(db,"chars")
         db.commit()
+
+# We can potentially use different kinds of aligners; need an option to configure
+# this.
 
 aligner = fstutils.DefaultAligner()
 

@@ -4,7 +4,8 @@
 
 import sys,os,re,glob,math,glob,signal,traceback
 import matplotlib
-# matplotlib.use("AGG")
+if "DISPLAY" not in os.environ: matplotlib.use("AGG")
+else: matplotlib.use("GTK")
 from scipy.ndimage import interpolation
 from pylab import *
 from optparse import OptionParser
@@ -36,12 +37,12 @@ parser.add_option("-Q","--parallel",type=int,default=number_of_processors(),help
 parser.add_option("-d","--display",help="display progress",action="store_true")
 (options,args) = parser.parse_args()
 
-if len(args)==1 and os.path.isdir(args[0]):
-    args = sorted(glob.glob(args[0]+"/????/??????.png"))
-
 if len(args)==0:
     parser.print_help()
     sys.exit(0)
+
+if len(args)==1 and os.path.isdir(args[0]):
+    args = sorted(glob.glob(args[0]+"/????/??????.png"))
 
 if options.display:
     ion()

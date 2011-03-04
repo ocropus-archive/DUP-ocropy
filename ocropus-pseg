@@ -1,8 +1,11 @@
 #!/usr/bin/python
 
+import sys,os,re,optparse,shutil,glob
+import matplotlib
+if "DISPLAY" not in os.environ: matplotlib.use("AGG")
+else: matplotlib.use("GTK")
 import signal
 signal.signal(signal.SIGINT,lambda *args:sys.exit(1))
-import sys,os,re,optparse,shutil,glob
 from matplotlib import patches
 from pylab import *
 from scipy.stats.stats import trim1

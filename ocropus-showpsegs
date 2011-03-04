@@ -3,11 +3,10 @@
 ### FIXME
 ### replace comboboxes with file menu
 
+import re,sys,os
 from optparse import OptionParser
-import re
-import sys
-import matplotlib 
-matplotlib.use('GTK') 
+import matplotlib
+matplotlib.use("GTK")
 from matplotlib.figure import Figure 
 from matplotlib.axes import Subplot 
 from matplotlib.backends.backend_gtk import FigureCanvasGTK, NavigationToolbar 

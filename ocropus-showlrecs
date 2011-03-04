@@ -5,12 +5,11 @@
 ### -- check for "path exists"
 ### -- add editors for ground truth
 
-from optparse import OptionParser
-import re,os,glob
-import sys
+import sys,re,os,glob,traceback
 import matplotlib
-import traceback
-matplotlib.use('GTK') 
+if "DISPLAY" not in os.environ: matplotlib.use("AGG")
+else: matplotlib.use("GTK")
+from optparse import OptionParser
 from matplotlib.figure import Figure 
 from matplotlib.axes import Subplot 
 from matplotlib.backends.backend_gtk import FigureCanvasGTK, NavigationToolbar 
@@ -24,7 +23,6 @@ from pylab import *
 import gnome
 from matplotlib import patches
 import scipy
-
 import ocrolib
 from ocrolib import fstutils
 

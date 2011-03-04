@@ -1,5 +1,9 @@
 #!/usr/bin/python
+
 import code,pickle,sys,os,re
+import matplotlib
+if "DISPLAY" not in os.environ: matplotlib.use("AGG")
+else: matplotlib.use("GTK")
 from pylab import *
 from optparse import OptionParser
 from scipy import stats
