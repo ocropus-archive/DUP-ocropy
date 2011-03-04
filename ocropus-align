@@ -63,7 +63,11 @@ parser.add_option("-A","--maxavg",help="maximum average cost",type=float,default
 (options,args) = parser.parse_args()
 args = ocrolib.expand_args(args)
 
-if os.path.exists(options.extract):
+if len(args)==0:
+    parser.print_help()
+    sys.exit(0)
+
+if options.extract is not None and os.path.exists(options.extract):
     print "output file already exists:",options.extract
     sys.exit(1)
 
@@ -173,7 +177,8 @@ def align1(t):
                                bbox="%d %d %d %d"%bbox)
     except IOError,e:
         print "# not found:",e
-    db.commit()
+    if db is not None:
+        db.commit()
 
 
 jobs = []
