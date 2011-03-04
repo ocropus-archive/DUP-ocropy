@@ -682,7 +682,7 @@ class TextImageClassification(CommonComponent):
 class SegmentPage(CommonComponent):
     """Segment a page into columns and lines (layout analysis)."""
     c_interface = "ISegmentPage"
-    def segment(self,page,obstacles=None):
+    def segment(self,page,obstacles=None,black=0):
         page = page2narray(page,'B')
         iulib.write_image_gray("_seg_in.png",page)
         result = iulib.intarray()
@@ -690,8 +690,8 @@ class SegmentPage(CommonComponent):
             raise Unimplemented()
         else:
             self.comp.segment(result,page)
-        # ocropus.make_page_segmentation_black(result)
-        iulib.write_image_packed("_seg_out.png",result)
+        if black: ocropus.make_page_segmentation_black(result)
+        # iulib.write_image_packed("_seg_out.png",result)
         return narray2pseg(result)
 
 class SegmentPageByRAST(SegmentPage):
