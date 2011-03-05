@@ -256,3 +256,18 @@ class DefaultAligner(AlignerMixin):
             fst.AddArc(states[-1],sigma,lig.ord(self.insert),self.char_insert,states[-1])
 
         fst.SetFinal(states[-1],accept)
+
+class UW3Aligner(DefaultAligner):
+    def explodeTranscription(self,gt):
+        gt = re.sub(r'\n',' ',gt)
+        gt = re.sub(r'\\\^{(.*?)}','\1',gt)
+        gt = re.sub(r'\\ast','*',gt)
+        gt = re.sub(r'\\dagger','+',gt)
+        gt = re.sub(r'\\[a-zA-Z]+','~',gt)
+        gt = re.sub(r'\\_','',gt)
+        gt = re.sub(r'[{}]','',gt)
+        gt = re.sub(r'_+','~',gt)
+        gt = re.sub(r'[ ~]+',' ',gt)
+        gt = re.sub(r'^[ ~]*','',gt)
+        gt = re.sub(r'[ ~]*$','',gt)
+        return list(gt)

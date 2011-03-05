@@ -60,6 +60,7 @@ parser.add_option("-Q","--parallel",type=int,default=number_of_processors(),help
 parser.add_option("-P","--perc",help="percentile for reporting statistics",type=float,default=90.0)
 parser.add_option("-M","--maxperc",help="maximum cost at percentile",type=float,default=2.0)
 parser.add_option("-A","--maxavg",help="maximum average cost",type=float,default=3.0)
+parser.add_option("-a","--aligner",help="choose the aligner to use",default="=ocrolib.DefaultAligner()")
 (options,args) = parser.parse_args()
 args = ocrolib.expand_args(args)
 
@@ -98,7 +99,8 @@ def dbopen():
 # We can potentially use different kinds of aligners; need an option to configure
 # this.
 
-aligner = fstutils.DefaultAligner()
+# aligner = fstutils.DefaultAligner()
+aligner = ocrolib.load_component(options.aligner)
 
 lfile = None
 lfst = None
@@ -191,6 +193,8 @@ def align1(t):
                                bbox="%d %d %d %d"%bbox)
     except IOError,e:
         print "# not found:",e
+    except:
+        traceback.print_exc()
     if db is not None:
         db.commit()
 
