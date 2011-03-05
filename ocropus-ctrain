@@ -108,9 +108,10 @@ if len(args)<1:
     sys.exit(1)
 
 output = options.output
+
 if output is None:
-    print "please specify output with -o argument"
-    sys.exit(1)
+    output= os.splitext(args[0])[0]+".cmodel"
+    print "output to",output
 
 if os.path.exists(output):
     print output,"already exists"
@@ -303,7 +304,7 @@ round = 0
 for progress in classifier.updateModel1(verbose=1):
     print "ocropus-ctrain:",round,progress
     modelbase,_ = os.path.splitext(options.output)
-    ocrolib.save_component("%s.%03d.pymodel"%(modelbase,round),classifier)
+    ocrolib.save_component("%s.%03d.cmodel"%(modelbase,round),classifier)
     round += 1
     if round>=options.nrounds: break
 
