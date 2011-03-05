@@ -4,6 +4,7 @@ import sys,os,re,glob,math,glob,signal,traceback
 import matplotlib
 if "DISPLAY" not in os.environ: matplotlib.use("AGG")
 else: matplotlib.use("GTK")
+import random as pyrandom
 from optparse import OptionParser
 from pylab import *
 from scipy.ndimage import interpolation,filters
@@ -44,7 +45,6 @@ parser.add_option("-b","--bits",help="buffer training data with 1 bpp",action="s
 parser.add_option("-t","--table",help="database table to use for training",default="chars")
 parser.add_option("-r","--noreject",help="disable reject class",action="store_true",default=False)
 parser.add_option("-u","--unlabeled",help="treat unlabeled ('_') as reject",action="store_true")
-parser.add_option("-n","--limit",help="limit training to n samples",default=999999999,type="int")
 parser.add_option("-1","--single",help="train only single chars",action="store_true")
 parser.add_option("-v","--verbose",help="verbose",action="store_true")
 parser.add_option("-E","--extractor",help="feature extractor",default="StandardExtractor")
@@ -52,10 +52,12 @@ parser.add_option("-N","--nvariants",help="number of variants to generate",defau
 parser.add_option("-D","--distortion",help="maximum distortion",default=0.2,type="float")
 parser.add_option("-d","--display",help="debug display",action="store_true")
 parser.add_option("-g","--nogeometry",help="do not add geometric information",action="store_true")
-parser.add_option("-M","--minperclass",help="min # samples per class",type=int,default=20)
-parser.add_option("-P","--perclasslimit",help="max # of samples per class",type=int,default=100000000)
-parser.add_option("-R","--rejectlimit",help="max # of samples for the reject class",type=int,default=None)
 parser.add_option("-Q","--maxthreads",help="max # of threads for training",type=int,default=4)
+# the following are for limiting training samples
+parser.add_option("-n","--limit",help="limit total training to n samples",default=999999999,type="int")
+parser.add_option("-T","--threshold",help="threshold for estimating ntrain (either a percentile or a class)",default="70")
+parser.add_option("-R","--rejectfactor",help="multiple of per class ntrain",type=float,default=20.0)
+parser.add_option("-P","--perclasslimit",help="max # of samples per class",type=int,default=100000000)
 (options,args) = parser.parse_args()
 
 if len(args)<1:
@@ -64,9 +66,6 @@ if len(args)<1:
 
 mlp.maxthreads.value = options.maxthreads
 mlp.maxthreads_train.value = options.maxthreads
-
-if options.rejectlimit is None:
-    options.rejectlimit = 20*options.perclasslimit
 
 # some utility functions we're going to need later
 
@@ -169,30 +168,47 @@ totals = Counter()
 actual = Counter()
 
 for arg in args:
-    db = utils.chardb(arg,options.table)
-    print "total",db.execute("select count(*) from chars").next()[0]
-    classes = [tuple(x) for x in db.execute("select cls,count(cls) from chars group by cls")]
-    print classes
-    for cls,n in classes: totals[cls] += n
-    db.close()
-    del db
-
-print "ignoring:",
-for cls,n in totals.items():
-    if n<options.minperclass: print "'%s' (%d)"%(cls,n),
-print
-
-for arg in args:
     print "===",arg
     db = utils.chardb(arg,options.table)
     print "total",db.execute("select count(*) from chars").next()[0]
 
+    print "# determining per-class cutoff"
+
+    classes = [tuple(x) for x in db.execute("select cls,count(*) from chars group by cls")]
+    counts= array([x[1] for x in classes],'f')
+    threshold = options.threshold
+    if re.match(r'[0-9][0-9.]+',threshold):
+        threshold = float(threshold)
+        ntrain = int(stats.scoreatpercentile(counts,threshold))
+    else:
+        for k,v in classes:
+            if k==threshold:
+                ntrain = v
+                break
+        if ntrain is None:
+            print "class not found:",threshold
+    print "classes",len(counts),"stats",amin(counts),median(counts),mean(counts),amax(counts),"ntrain",ntrain
+
+    print "# sampling the classes"
+
+    all_ids = []
+    for k,v in classes:
+        ids = list(db.execute("select id from chars where cls=?",[k]))
+        ids = [x[0] for x in ids]
+        if k=="" or ord(k[0])<33: continue
+        if k=="_": continue
+        if k=="~": ntrain = int(ntrain*options.rejectfactor)
+        if len(ids)>ntrain: ids = pyrandom.sample(ids,ntrain)
+        print " %s:%d"%(k,len(ids)),; sys.stdout.flush()
+        all_ids += ids
+    print
+
     counter = Counter()
 
-    clusters = db.execute("select image,cls,rel from chars")
+    print "# training",len(all_ids)
 
-    for c in clusters:
-
+    for id in all_ids:
+        c = db.execute("select image,cls,rel from chars where id=?",[id]).next()
         cluster = Record(image=utils.blob2image(c.image),cls=c.cls,rel=c.rel)
 
         # check whether we already have enough characters
@@ -200,13 +216,9 @@ for arg in args:
             break
 
         cls = cluster.cls
-        if totals[cls]<options.minperclass:
-            continue
         if cls is None: 
             cls = "_"
 
-        if counter[cls]>options.perclasslimit: 
-            continue
         counter[cls] += 1
         totals[cls] += 1
 
