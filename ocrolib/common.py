@@ -1569,8 +1569,9 @@ def compute_alignment(lattice,rseg,lmodel,beam=1000,verbose=0,lig=ligatures.lig)
         start = ins[i]>>16
         end = ins[i]&0xffff
         while j<n and outs[j]==0:
-            start = min(start,ins[j]>>16)
-            end = max(end,ins[j]&0xffff)
+            if ins[j]!=0:
+                start = min(start,ins[j]>>16)
+                end = max(end,ins[j]&0xffff)
             j = j+1
         result_l.append(lig.chr(outs[i]))
         costs_l.append(sum(costs[i:j]))
@@ -1878,6 +1879,8 @@ class CmodelLineRecognizer(RecognizeLine):
         self.maxrange = 5
         self.use_ligatures = 1
         self.add_rho = 0
+        self.verbose = 0
+        self.debug_cls = []
         set_params(self,kw)
         if type(self.whitespace)==str:
             self.whitespace = load_component(ocropus_find_file(self.whitespace))
@@ -1996,6 +1999,9 @@ class CmodelLineRecognizer(RecognizeLine):
                 # don't add anything with a cost above maxcost
                 # if cost>self.maxcost and cls!="~": continue
                 if cls=="~": continue
+                if cls in self.debug_cls:
+                    print "debug",self.grouper.start(i),self.grouper.end(i),"cls",cls,"cost",cost,\
+                        "y %.2f w %.2f h %.2f"%(rel[0],rel[1],rel[2])
 
                 # letters are never small, so we skip small bounding boxes that
                 # are categorized as letters; this is an ugly special case, but

@@ -12,34 +12,21 @@ sigma = ocropus.L_RHO
 Fst = openfst.StdVectorFst
 
 def add_string(fst,start,end,s,cost=0.0):
+    assert type(s)==str or type(s)==unicode
     for i in range(len(s)):
         c = ord(s[i])
         next = fst.AddState() if i<len(s)-1 else end
         fst.AddArc(start,c,c,cost if i==0 else 0.0,next)
         start = next
 
-class ARC:
-    def __init__(self,label,cost):
-        self.label = label
-        self.cost = cost
-    def generate(self,fst,start,end):
-        fst.AddArc(start,self.label,self.label,self.cost,end)
-
-class COST:
-    def __init__(self,expr,cost):
-        self.expr = expr
-        self.cost = cost
-    def generate(self,fst,start,end):
-        state = fst.AddState()
-        self.generate(fst,start,state)
-        self.AddArc(state,epsilon,epsilon,self.cost,end)
-
 class STR:
     """Add a string to an FST."""
     def __init__(self,s,cost=0.0):
+        assert type(s)==str or type(s)==unicode
         self.s = s
         self.cost = cost
     def generate(self,fst,start,end):
+        assert type(start)==int and type(end)==int and hasattr(fst,'AddArc'),(start,end,fst)
         add_string(fst,start,end,self.s,self.cost)
 
 def asgen(s):
@@ -49,24 +36,67 @@ def asgen(s):
     else:
         return s
 
+class TRANS:
+    def __init__(self,u,v=None,cost=0.0):
+        assert type(u)==str or type(u)==unicode
+        assert type(v)==str or type(v)==unicode
+        self.u = u
+        if v is None: v = u
+        self.v = v
+        self.cost = cost
+    def generate(self,fst,start,end):
+        assert type(start)==int and type(end)==int and hasattr(fst,'AddArc'),(start,end,fst)
+        n = max(len(self.u),len(self.v))
+        for i in range(n):
+            next = fst.AddState() if i<n-1 else end
+            l = self.u[i] if i<len(self.u) else epsilon
+            l = ord(l) if type(l)==str else l
+            m = self.v[i] if i<len(self.v) else epsilon
+            m = ord(m) if type(m)==str else m
+            c = self.cost if i==0 else 0.0
+            fst.AddArc(start,l,m,c,next)
+            start = next
+
+class ARC:
+    def __init__(self,label,cost):
+        assert type(label)==int
+        self.label = label
+        self.cost = cost
+    def generate(self,fst,start,end):
+        assert type(start)==int and type(end)==int and hasattr(fst,'AddArc'),(start,end,fst)
+        fst.AddArc(start,self.label,self.label,self.cost,end)
+
+class COST:
+    def __init__(self,expr,cost):
+        self.expr = asgen(expr)
+        self.cost = cost
+    def generate(self,fst,start,end):
+        assert type(start)==int and type(end)==int and hasattr(fst,'AddArc'),(start,end,fst)
+        state = fst.AddState()
+        self.expr.generate(fst,start,state)
+        self.AddArc(state,epsilon,epsilon,self.cost,end)
+
 class SEQ:
     """A sequence of FSTs.  Example: SEQ("AB","C","DEF")==STR("ABCDEF")."""
     def __init__(self,*args):
-        self.args = args
+        self.args = [asgen(arg) for arg in args]
     def generate(self,fst,start,end):
+        assert type(start)==int and type(end)==int and hasattr(fst,'AddArc'),(start,end,fst)
         args = self.args
         for i in range(len(args)):
             next = fst.AddState() if i<len(args)-1 else end
-            asgen(args[i]).generate(fst,start,next)
+            args[i].generate(fst,start,next)
             start = next
 
 class Y:
     """A range of characters, as in Y("A-Za-z,.!0-9"), similar to regular expressions."""
     def __init__(self,s,cost=0.0,condition=lambda x:True):
+        assert type(s)==str or type(s)==unicode
         self.s = s
         self.cost = cost
         self.condition = condition
     def generate(self,fst,start,end):
+        assert type(start)==int and type(end)==int and hasattr(fst,'AddArc'),(start,end,fst)
         s = self.s
         i = 0
         while i<len(s):
@@ -89,10 +119,13 @@ ASCII = Y("@-~")
 class RANGE:
     """A range of characters, as in RANGE("A","Z")."""
     def __init__(self,lo,hi,cost=0.0):
+        assert type(lo)==str or type(lo)==unicode
+        assert type(hi)==str or type(hi)==unicode
         self.lo = lo
         self.hi = hi
         self.cost = cost
     def generate(self,fst,start,end):
+        assert type(start)==int and type(end)==int and hasattr(fst,'AddArc'),(start,end,fst)
         for c in range(ord(self.lo),ord(self.hi)+1):
             fst.AddArc(start,c,c,self.cost,end)
 
@@ -100,38 +133,51 @@ class ALT:
     """An set of alternatives.  ALT("A","B","C") is one of
     the three strings, written as A|B|C in regular expressions."""
     def __init__(self,*args):
-        self.args = args
+        self.args = [asgen(arg) for arg in args]
         self.cost = 0.0
     def generate(self,fst,start,end):
+        assert type(start)==int and type(end)==int and hasattr(fst,'AddArc'),(start,end,fst)
         for arg in self.args:
             if type(arg)==str or type(arg)==unicode:
-                arg = STR(arg,cost=cost)
-            asgen(arg).generate(fst,start,end)
+                arg = STR(arg,cost=self.cost)
+            arg.generate(fst,start,end)
+
+class OPT:
+    """Zero or one repetitions.  OPT("A") is the analog
+    of A? in regular expressions."""
+    def __init__(self,expr):
+        self.expr = asgen(expr)
+    def generate(self,fst,start,end):
+        assert type(start)==int and type(end)==int and hasattr(fst,'AddArc')
+        self.expr.generate(fst,start,end)
+        fst.AddArc(start,epsilon,epsilon,0.0,end)
 
 class STAR:
     """Zero or more repetitions.  STAR("A") is the analog
     of A* in regular expressions."""
     def __init__(self,expr,cost=0.0):
-        self.expr = expr
+        self.expr = asgen(expr)
         self.cost = cost
     def generate(self,fst,start,end):
+        assert type(start)==int and type(end)==int and hasattr(fst,'AddArc')
         start2 = fst.AddState()
         fst.AddArc(start,epsilon,epsilon,0.0,start2)
         fst.AddArc(start2,epsilon,epsilon,0.0,end)
-        asgen(self.expr).generate(fst,start2,start2)
+        self.expr.generate(fst,start2,start2)
 
 class PLUS:
     """One or more repetitions.  PLUS("A") is the analog
     of A+ in regular expressions."""
     def __init__(self,expr,cost=0.0):
-        self.expr = expr
+        self.expr = asgen(expr)
         self.cost = cost
     def generate(self,fst,start,end):
+        assert type(start)==int and type(end)==int and hasattr(fst,'AddArc')
         start2 = fst.AddState()
         end2 = fst.AddState()
         fst.AddArc(start,epsilon,epsilon,0.0,start2)
         fst.AddArc(end2,epsilon,epsilon,0.0,end)
-        asgen(self.expr).generate(fst,start2,end2)
+        self.expr.generate(fst,start2,end2)
         fst.AddArc(end2,epsilon,epsilon,0.0,start2)
 
 class DICTIONARY:
@@ -141,8 +187,10 @@ class DICTIONARY:
     of the form "cost\ttext\n", then the cost is associated
     with the line, otherwise the cost is 0."""
     def __init__(self,fname):
+        assert type(fname)==str and os.path.exists(fname),fname
         self.fname = fname
     def generate(self,fst,start,end):
+        assert type(start)==int and type(end)==int and hasattr(fst,'AddArc')
         with open(fname) as stream:
             for line in stream.readlines():
                 cost = 0.0
@@ -154,8 +202,10 @@ class DICTIONARY:
 class LOADFST:
     """Load an existing FST and splice it into this FST."""
     def __init__(self,fname):
+        assert type(fname)==str and os.path.exists(fname),fname
         raise Exception("unimplemented")
     def generate(self,fst,start,end):
+        assert type(start)==int and type(end)==int and hasattr(fst,'AddArc')
         raise Exception("unimplemented")
 
 def GEN(expr):

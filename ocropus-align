@@ -61,6 +61,7 @@ parser.add_option("-P","--perc",help="percentile for reporting statistics",type=
 parser.add_option("-M","--maxperc",help="maximum cost at percentile",type=float,default=2.0)
 parser.add_option("-A","--maxavg",help="maximum average cost",type=float,default=3.0)
 parser.add_option("-a","--aligner",help="choose the aligner to use",default="=ocrolib.fstutils.DefaultAligner()")
+parser.add_option("-Y","--debug_cls",help="select classes for debugging",default="")
 (options,args) = parser.parse_args()
 
 if len(args)==0:
@@ -136,6 +137,7 @@ def align1(t):
         else:
             result = r.output
         cseg = r.cseg
+        assert amin(cseg)==0
         costs = r.costs
 
         perc = stats.scoreatpercentile(costs,options.perc)
@@ -181,6 +183,9 @@ def align1(t):
                 else:
                     cls = "~"
                     cost = 0.0
+                if cls in options.debug_cls:
+                    print "debug",start,end,"cls",cls,"cost",cost,\
+                        "y %.2f w %.2f h %.2f"%(rel[0],rel[1],rel[2])
                 utils.dbinsert(db,"chars",
                                image=utils.image2blob(raw),
                                cost=float(cost),

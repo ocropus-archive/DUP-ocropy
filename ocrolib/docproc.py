@@ -76,9 +76,9 @@ def rel_geo_normalize(rel):
         rel = [float(x) for x in rel.split()]
     ry,rw,rh = rel
     assert rw>0 and rh>0
-    ry = clip(2*ry,-1,1)
-    rw = clip(log(rw),-1,1)
-    rh = clip(log(rh),-1,1)
+    ry = clip(2*ry,-1.0,1.0)
+    rw = clip(log(rw),-1.0,1.0)
+    rh = clip(log(rh),-1.0,1.0)
     geometry = array([ry,rw,rh],'f')
     return geometry
 
