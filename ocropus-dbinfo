@@ -23,6 +23,8 @@ if len(args)<1:
     parser.print_help()
     sys.exit(0)
 
+fw = int(amax([len(s) for s in args]))
+
 for dbfile in args:
     db = sqlite3.connect(dbfile)
     cur = db.cursor()
@@ -30,18 +32,27 @@ for dbfile in args:
     tables = [row[0] for row in names]
 
     for table in tables:
-        sql = cur.execute("select sql from sqlite_master where type='table' and name='%s'"%(table))
-        print
-        print "===",dbfile,":",table,"==="
-        print
-        print list(sql)[0][0]
         counts = cur.execute("select cls,count(*) from %s group by cls order by cls"%(table))
         if options.full:
             print
+            print "===",dbfile,":",table,"==="
+            print
+            sql = cur.execute("select sql from sqlite_master where type='table' and name='%s'"%(table))
+            print list(sql)[0][0]
+            print
             for count in counts:
                 print "%6s\t%6d"%("[%s]"%count[0],count[1])
+            print "empty",empty
+            print "space",space
+            print "control",control
+            print "reject",reject
+            print "unlabeled",unlabeled
+            print "upper",upper
+            print "lower",lower
+            print "digit",digit
+            print "nonascii",nonascii
+            print "multi",multi
         else:
-            print
             empty = 0
             space = 0
             control = 0
@@ -64,13 +75,6 @@ for dbfile in args:
                 elif re.match('[A-Z]',cls): upper += n
                 elif re.match('[0-9]',cls): digit += n
                 elif ord(cls[0])>=128: nonascii += n
-            print "empty",empty
-            print "space",space
-            print "control",control
-            print "reject",reject
-            print "unlabeled",unlabeled
-            print "upper",upper
-            print "lower",lower
-            print "digit",digit
-            print "nonascii",nonascii
-            print "multi",multi
+            print "%*s: "%(fw,dbfile),
+            sys.stdout.flush()
+            print "rej %7d uc %7d lc %7d dig %7d na %7d _ %7d lig %7d"%(reject,upper,lower,digit,nonascii,unlabeled,multi)

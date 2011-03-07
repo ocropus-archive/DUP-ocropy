@@ -60,9 +60,8 @@ parser.add_option("-Q","--parallel",type=int,default=number_of_processors(),help
 parser.add_option("-P","--perc",help="percentile for reporting statistics",type=float,default=90.0)
 parser.add_option("-M","--maxperc",help="maximum cost at percentile",type=float,default=2.0)
 parser.add_option("-A","--maxavg",help="maximum average cost",type=float,default=3.0)
-parser.add_option("-a","--aligner",help="choose the aligner to use",default="=ocrolib.DefaultAligner()")
+parser.add_option("-a","--aligner",help="choose the aligner to use",default="=ocrolib.fstutils.DefaultAligner()")
 (options,args) = parser.parse_args()
-args = ocrolib.expand_args(args)
 
 if len(args)==0:
     parser.print_help()
@@ -202,24 +201,27 @@ def align1(t):
 jobs = []
 
 if options.pagegt is not None:
+    if len(args)==1 and os.path.isdir(args[0]):
+        args = glob.glob(args[0]+"/*.gt.txt")
     for arg in args:
         if not os.path.exists(arg):
             print "# %s: not found"%arg
             continue
         base,_ = ocrolib.allsplitext(arg)
-        if not os.path.exists(base):
-            print "# %s: base dir not found"%base
-            continue
-        if not os.path.isdir(base):
-            print "# %s: not a directory"%base
+        if not os.path.exists(base) or not os.path.isdir(base):
+            print "?"+base,
+            sys.stdout.flush()
             continue
         lines = glob.glob(base+"/??????.png")
         for line in lines:
             jobs.append((line,arg))
+    print
 elif options.langmod is not None:
     for arg in args:
         jobs.append((arg,options.langmod))
 elif options.gt is not None:
+    if len(args)==1 and (os.path.isdir(args[0]) or os.path.islink(args[0])):
+        args = glob.glob(args[0]+"/????/??????.png")
     for arg in args:
         path,ext = ocrolib.allsplitext(arg)
         p = path+options.gt

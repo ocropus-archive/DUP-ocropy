@@ -110,7 +110,7 @@ if len(args)<1:
 output = options.output
 
 if output is None:
-    output= os.splitext(args[0])[0]+".cmodel"
+    output= os.path.splitext(args[0])[0]+".cmodel"
     print "output to",output
 
 if os.path.exists(output):
@@ -247,6 +247,10 @@ for arg in args:
 
         geometry=None
         if not options.nogeometry:
+            if cluster.rel is None or len(cluster.rel)<2:
+                print "training with geometry requested, but",arg,"lacks geometry information"
+                print "use the -g flag to turn off training with geometry"
+                sys.exit(1)
             geometry = docproc.rel_geo_normalize(cluster.rel)
 
         # add the image to the classifier

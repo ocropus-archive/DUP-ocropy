@@ -167,7 +167,7 @@ class DefaultAligner(AlignerMixin):
         return fst
     def explodeTranscription(self,line):
         line = line.strip()
-        line = re.sub(r'[ ~]+',' ',line)
+        line = re.sub(r'[ ~\t\n]+',' ',line)
         return explode_transcription(line)
     def addTranscription(self,line):
         line = self.explodeTranscription(line)
@@ -187,6 +187,17 @@ class DefaultAligner(AlignerMixin):
             c = lig.ord(s)
             start = states[i]
             next = states[i+1]
+
+            # space is special (since we use separate skip/insertion self)
+
+            if s==" ":
+                # space transition
+                fst.AddArc(start,space,space,0.0,next)
+                fst.AddArc(next,space,space,0.0,next) 
+                # space skip transition
+                if self.space_delete is not None:
+                    fst.AddArc(start,epsilon,space,self.space_delete,next)
+                continue
 
             # insert characters or ligatures as single tokens
 
@@ -208,16 +219,6 @@ class DefaultAligner(AlignerMixin):
 
             if self.space_insert is not None:
                 fst.AddArc(next,epsilon,space,self.space_insert,next)
-
-            # space is special (since we use separate skip/insertion self)
-
-            if s==" ":
-                # space transition
-                fst.AddArc(start,space,space,0.0,next)
-                # space skip transition
-                if self.space_delete is not None:
-                    fst.AddArc(start,epsilon,space,self.space_delete,next)
-                continue
 
             # allow insertion of a character relative to ground truth
 

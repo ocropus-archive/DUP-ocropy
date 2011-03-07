@@ -142,7 +142,9 @@ def get_clusters(cls,limit=options.batchsize,table=options.table):
     return clusters
 
 def get_classes(table=options.table):
+    print "getting class list"
     return [r[0] for r in db.execute("select distinct(cls) from %s order by cls"%table)]
+    print "done"
 
 def compute_combolist():
     """Compute the combolist from the current charlist."""
@@ -196,7 +198,7 @@ def update_info():
     rel = row.rel
     if rel!="" and rel is not None:
         rel = " ".join(["%.2f"%float(x) for x in row.rel.split()])
-    info = "%-7d: %s %s (%s) %s"%(row.id,row.classes,row.count,rel,row.cost)
+    info = "%-7d: %s %s (%s) %s %s"%(row.id,row.classes,row.count,rel,row.cost,row.file[-20:])
     info_area.set_text(info)
 
 def get_extended():
@@ -333,7 +335,8 @@ def classifier_menu(cmd):
     menu = gtk.Menu()
     group = None
     activated = 0
-    models = glob.glob("*.cmodel") + glob.glob("*.model") + glob.glob("*.pymodel")
+    models = ["None"]
+    models += glob.glob("*.cmodel") + glob.glob("*.model") + glob.glob("*.pymodel")
     try:
         modeldir = ocrolib.finddir("models")
         models += glob.glob(modeldir+"/*.cmodel")
@@ -343,14 +346,10 @@ def classifier_menu(cmd):
         pass
     for model in models:
         item = gtk.RadioMenuItem(group=group,label=model)
-        if "default" in model:
-            item.activate()
-            activated = 1
         group = item
         item.connect("toggled",cmd,model)
         menu.append(item)
-    if not activated: 
-        item.activate() # activate the last one if there is no default
+        if model==None: item.activate()
     return menu
 
 def cmd_sel_class(item,which):
@@ -365,6 +364,9 @@ class NoException:
 
 def load_classifier(which=options.model):
     global classifier
+    if which is None:
+        classifier = None
+        return
     try:
         classifier = ocrolib.load_component(which)
         # classifier.info()
@@ -375,7 +377,7 @@ def load_classifier(which=options.model):
         print "loading",options.model,"failed"
         classifier = None
 
-load_classifier()
+# load_classifier()
 
 # confidence 
 
@@ -383,6 +385,9 @@ confidence = None
 
 def load_confidence(which=options.model):
     global confidence
+    if which is None:
+        confidence = None
+        return
     try:
         confidence = ocrolib.load_component(which)
         # confidence.info()
@@ -393,7 +398,7 @@ def load_confidence(which=options.model):
         print "loading",options.model,"failed"
         confidence = None
 
-load_confidence()
+# load_confidence()
 
 def cmd_sel_conf(item,which):
     if item.get_active():

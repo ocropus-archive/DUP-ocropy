@@ -684,7 +684,7 @@ class SegmentPage(CommonComponent):
     c_interface = "ISegmentPage"
     def segment(self,page,obstacles=None,black=0):
         page = page2narray(page,'B')
-        iulib.write_image_gray("_seg_in.png",page)
+        # iulib.write_image_gray("_seg_in.png",page)
         result = iulib.intarray()
         if obstacles not in [None,[]]:
             raise Unimplemented()
@@ -759,7 +759,7 @@ class RegionExtractor:
         ndim==3, dtype=='B'.  This iterates over the lines."""
         self.h = image.shape[0]
         image = pseg2narray(image)
-        iulib.write_image_packed("_seg.png",image)
+        # iulib.write_image_packed("_seg.png",image)
         self.comp.setPageLines(image)
     def id(self,i):
         """Return the RGB pixel value for this segment."""
