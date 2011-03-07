@@ -8,8 +8,6 @@ import ligatures
 
 epsilon = openfst.epsilon
 sigma = ocropus.L_RHO
-space = ligatures.lig.ord(" ")
-reject = ligatures.lig.ord("~")
 
 Fst = openfst.StdVectorFst
 
@@ -19,6 +17,22 @@ def add_string(fst,start,end,s,cost=0.0):
         next = fst.AddState() if i<len(s)-1 else end
         fst.AddArc(start,c,c,cost if i==0 else 0.0,next)
         start = next
+
+class ARC:
+    def __init__(self,label,cost):
+        self.label = label
+        self.cost = cost
+    def generate(self,fst,start,end):
+        fst.AddArc(start,self.label,self.label,self.cost,end)
+
+class COST:
+    def __init__(self,expr,cost):
+        self.expr = expr
+        self.cost = cost
+    def generate(self,fst,start,end):
+        state = fst.AddState()
+        self.generate(fst,start,state)
+        self.AddArc(state,epsilon,epsilon,self.cost,end)
 
 class STR:
     """Add a string to an FST."""
@@ -51,6 +65,7 @@ class Y:
     def __init__(self,s,cost=0.0,condition=lambda x:True):
         self.s = s
         self.cost = cost
+        self.condition = condition
     def generate(self,fst,start,end):
         s = self.s
         i = 0
@@ -63,7 +78,7 @@ class Y:
             else:
                 i += 1
             for c in range(ord(lo),ord(hi)+1):
-                if condition(unichr(c)):
+                if self.condition(unichr(c)):
                     fst.AddArc(start,c,c,self.cost,end)
 
 DIGITS = Y("0-9")
@@ -103,7 +118,7 @@ class STAR:
         start2 = fst.AddState()
         fst.AddArc(start,epsilon,epsilon,0.0,start2)
         fst.AddArc(start2,epsilon,epsilon,0.0,end)
-        asgen(self.expr).generate(fst,start2,star2)
+        asgen(self.expr).generate(fst,start2,start2)
 
 class PLUS:
     """One or more repetitions.  PLUS("A") is the analog
@@ -153,6 +168,7 @@ def GEN(expr):
     expr.generate(fst,start,end)
     return fst
 
-fst = GEN(PLUS(ALT(PLUS("A"),PLUS("B"))))
-fst.Write("test.fst")
+if __name__=="__main__":
+    fst = GEN(PLUS(ALT(PLUS("A"),PLUS("B"))))
+    fst.Write("test.fst")
 
