@@ -142,23 +142,10 @@ class AlignerMixin:
         except UnicodeDecodeError,e:
             raise Exception("bad unicode in "+file)
 
-common_segmentation_errors = """
-000 00 II IM La Th VL OC EX EP MP ME WM Ma Me
-ac ai ak al all am an ar as be bo ca ch ci co ct
-di dr ec ed ee es ff fi fl fr ft gh gi gr gu hi il
-in ir is ki li ll ma mi mm ni oc oo pe po re ri rin
-rm rn ro r rs rt ru rv ry se sl so ss st 
-ta te th ti to tr ts tt tu 
-ul um un ur vi wi wn
-a. c. e. m. n. t. z. A. C. E. K. L. M. N. R.
-a, c, e, m, n, t, z, A, C, E, K, L, M, N, R,
-a- b- e- d- g- m- n- o- p- u-
-"T "W 'T 'W d" f" @@""".split()
-
 common_segmentation_errors = [ "ff", "fi", "00", "st", "ry" ]
 
 class DefaultAligner(AlignerMixin):
-    def __init__(self):
+    def __init__(self,**kw):
         self.error="#"
         self.insert=""
         self.delete=""
@@ -310,3 +297,28 @@ class UW3Aligner(DefaultAligner):
         gt = re.sub(r'^[ ~]*','',gt)
         gt = re.sub(r'[ ~]*$','',gt)
         return list(gt)
+
+more_segmentation_errors = """
+000 00 II IM La Th VL OC EX EP MP ME WM Ma Me
+ac ai ak al all am an ar as be bo ca ch ci co ct
+di dr ec ed ee es ff fi fl fr ft gh gi gr gu hi il
+in ir is ki li ll ma mi mm ni oc oo pe po re ri rin
+rm rn ro r rs rt ru rv ry se sl so ss st 
+ta te th ti to tr ts tt tu 
+ul um un ur vi wi wn
+a. c. e. m. n. t. z. A. C. E. K. L. M. N. R.
+a, c, e, m, n, t, z, A, C, E, K, L, M, N, R,
+a- b- e- d- g- m- n- o- p- u-
+"T "W 'T 'W d" f" @@""".split()
+
+class LenientAligner(DefaultAligner):
+    def __init__(self,**kw):
+        DefaultAligner.__init__(self)
+        self.combine = more_segmentation_errors
+        kw = set_params(self,kw)
+
+class UW3LenientAligner(UW3Aligner):
+    def __init__(self,**kw):
+        UW3Aligner.__init__(self)
+        self.combine = more_segmentation_errors
+        kw = set_params(self,kw)

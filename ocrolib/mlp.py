@@ -9,8 +9,6 @@ from random import sample as selection, shuffle, uniform
 from numpy import *
 from pylab import *
 from scipy import *
-import utils,common
-
 import common as ocrolib
 from native import *
 
@@ -284,12 +282,12 @@ if os.getenv("mlp_maxthreads") is not None:
 if os.getenv("mlp_maxthreads_train") is not None:
     maxthreads_train.value = int(os.getenv("mlp_maxthreads_train"))
 
-class MLP(common.PyComponent):
+class MLP(ocrolib.PyComponent):
     def __init__(self,**kw):
         self.w1 = None
         self.verbose = 0
         self.etas = [(0.1,100000)]*30
-        common.set_params(self,kw,warn=0)
+        ocrolib.set_params(self,kw,warn=0)
         self.eta = 0.1
         self.error_rate = 0
         self.training_log = []
@@ -462,7 +460,7 @@ class AutoMLP(MLP):
         self.epochs_per_round = 5
         self.max_rounds = 48
         self.max_pool = 3
-        common.set_params(self,kw,warn=0)
+        ocrolib.set_params(self,kw,warn=0)
         self.kw = kw
     def train1(self,data,classes,verbose=0):
         n = len(data)
@@ -539,7 +537,7 @@ class MlpModel(ocrolib.ClassifierModel):
     makeClassifier = MLP
     makeExtractor = ocrolib.BboxFE
     def __init__(self,**kw):
-        common.ClassifierModel.__init__(self,**kw)
+        ocrolib.ClassifierModel.__init__(self,**kw)
     def name(self):
         return str(self)
     def setExtractor(self,e):
