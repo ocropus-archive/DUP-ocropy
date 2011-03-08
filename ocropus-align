@@ -202,7 +202,6 @@ def align1(t):
                                bbox="%d %d %d %d"%bbox)
     except IOError,e:
         print "# not found:",e
-        if not options.cont: raise e
     except:
         if not options.cont: raise
         traceback.print_exc()

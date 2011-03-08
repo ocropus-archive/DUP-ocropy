@@ -166,14 +166,14 @@ class DefaultAligner(AlignerMixin):
         self.space_delete=5.0
         self.char_mismatch=8.0
         self.char_insert=2.0
-        self.char_delete=10.0
+        self.char_delete=20.0
         self.classifier_reject=None
         self.add_l2l=0.0
         self.add_c2l=0.0
         self.add_l2c=0.0
         self.rewrites = []
         self.combine = common_segmentation_errors
-        self.combine_cost = 3.0
+        self.combine_cost = 6.0
         self.lig = ligatures.lig
         self.optimize = 0
         self.sigout = True
@@ -238,19 +238,15 @@ class DefaultAligner(AlignerMixin):
             # insert character combinations
 
             for q in self.combine:
-                q = tuple(q)
-                if q==tuple(line[i:i+len(q)]):
-                    if len(line)==i+len(q):
-                        # we're at the end of the string, do nothing special
+                if tuple(q)==tuple(line[i:i+len(q)]):
+                    if i+len(q)==len(line):
                         skip = states[i+len(q)]
-                        add_between(fst,start,skip,[sigma],list(q),self.combine_cost,lig=lig)
+                        l = lig.ord(q)
+                        add_between(fst,start,skip,[sigma],[l],self.combine_cost,lig=lig)
                     else:
-                        # otherwise, add an extra character so that we don't get cascades of ligatures
                         skip = states[i+len(q)+1]
-                        nc = line[i+len(q)]
-                        p = [sigma]+[epsilon]*(len(q)-1)+[nc]
-                        q = list(q)+[nc]
-                        add_between(fst,start,skip,p,q,self.combine_cost,lig=lig)
+                        nc = lig.ord(line[i+len(q)])
+                        add_between(fst,start,skip,[sigma,nc],[lig.ord(q),nc],self.combine_cost,lig=lig)
 
             # FIXME replace the rest of the loops below with add_between as well
 
