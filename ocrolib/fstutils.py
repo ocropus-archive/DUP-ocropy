@@ -105,8 +105,10 @@ def add_between(fst,frm,to,l1,l2,cost,lig=ligatures.lig):
     state = frm
     n = max(len(l1),len(l2))
     for i in range(n):
-        a = lig.ord(l1[i]) if i<len(l1) else 0
-        b = lig.ord(l2[i]) if i<len(l2) else 0
+        a = l1[i] if i<len(l1) else 0
+        if type(a) in [str,unicode]: a = lig.ord(a)
+        b = l2[i] if i<len(l2) else 0
+        if type(b) in [str,unicode]: b = lig.ord(b)
         c = cost if i==0 else 0.0
         next = to if i==n-1 else fst.AddState()
         # print [(x,type(x)) for x in state,a,b,c,next]
@@ -140,6 +142,21 @@ class AlignerMixin:
         except UnicodeDecodeError,e:
             raise Exception("bad unicode in "+file)
 
+common_segmentation_errors = """
+000 00 II IM La Th VL 
+ac ai ak al all am an ar as be bo ca ch ci co ct
+di dr ec ed ee es ff fi fl fr ft gh gi gr gu hi il
+in ir is ki li ll ma mi mm ni oc oo pe po re ri rin
+rm rn ro r rs rt ru rv ry se sl so ss st 
+ta te th ti to tr ts tt tu 
+ul um un ur vi wi wn
+a. c. e. m. n. t. z. A. C. E. K. L. M. N. R.
+a, c, e, m, n, t, z, A, C, E, K, L, M, N, R,
+a- b- e- d- g- m- n- o- p- u-
+"T "W 'T 'W d" f" @@""".split()
+
+# common_segmentation_errors = ["st","tr","re"]
+
 class DefaultAligner(AlignerMixin):
     def __init__(self):
         self.error="#"
@@ -155,6 +172,8 @@ class DefaultAligner(AlignerMixin):
         self.add_c2l=0.0
         self.add_l2c=0.0
         self.rewrites = []
+        self.combine = common_segmentation_errors
+        self.combine_cost = 3.0
         self.lig = ligatures.lig
         self.optimize = 0
         self.sigout = True
@@ -188,6 +207,8 @@ class DefaultAligner(AlignerMixin):
             start = states[i]
             next = states[i+1]
 
+            # FIXME split this up into several loops/methods
+
             # space is special (since we use separate skip/insertion self)
 
             if s==" ":
@@ -208,12 +229,30 @@ class DefaultAligner(AlignerMixin):
                 if self.classifier_reject is not None:
                     fst.AddArc(start,lig.ord("~"),c,self.classifier_reject,next)
 
-            # insert rewrites
+            # insert rewrites (s:gt with cost c)
 
             if self.rewrites is not None:
                 for s,gt,c in self.rewrites:
-                    add_between(fst,start,next,s,gt,c,lig=lig)
-                    # FIXME replace the rest of the loops below with add_between as well
+                    add_between(fst,start,next,list(s),list(gt),c,lig=lig)
+
+            # insert character combinations
+
+            for q in self.combine:
+                q = tuple(q)
+                if q==tuple(line[i:i+len(q)]):
+                    if len(line)==i+len(q):
+                        # we're at the end of the string, do nothing special
+                        skip = states[i+len(q)]
+                        add_between(fst,start,skip,[sigma],list(q),self.combine_cost,lig=lig)
+                    else:
+                        # otherwise, add an extra character so that we don't get cascades of ligatures
+                        skip = states[i+len(q)+1]
+                        nc = line[i+len(q)]
+                        p = [sigma]+[epsilon]*(len(q)-1)+[nc]
+                        q = list(q)+[nc]
+                        add_between(fst,start,skip,p,q,self.combine_cost,lig=lig)
+
+            # FIXME replace the rest of the loops below with add_between as well
 
             # allow insertion of spaces with some cost
 
@@ -250,6 +289,9 @@ class DefaultAligner(AlignerMixin):
                 for s in ligatures.common_ligatures(candidate):
                     if len(s)<2 or i+len(s)>len(states): continue
                     add_between(fst,start,next,[s],list(s),self.add_l2c)
+
+            # make sure nobody messed up these variables
+            assert start==states[i] and next==states[i+1]
 
         # also allow junk at the end
 

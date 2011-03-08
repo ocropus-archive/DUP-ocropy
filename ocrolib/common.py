@@ -1560,20 +1560,27 @@ def compute_alignment(lattice,rseg,lmodel,beam=1000,verbose=0,lig=ligatures.lig)
     # output, we group all the segments of the epsilon transition with
     # the preceding non-epsilon transition.
 
-    result_l = []
+    result_l = [""]
     costs_l = [0.0]
-    segs = []
-    i = 1
+    segs = [(0,0)]
+
+    i = 0
     while i<n:
         j = i+1
         start = ins[i]>>16
         end = ins[i]&0xffff
-        while j<n and outs[j]==0:
+        cls = [outs[i]]
+        # print "  %4d (%2d,%2d) %3d %s"%(i,start,end,outs[i],unichr(outs[i]))
+        while j<n and ((ins[j]==0 and outs[j]!=32) or outs[j]==0):
+            # print " +%4d (%2d,%2d) %3d %s"%(i,ins[j]>>16,ins[j]&0xffff,outs[j],unichr(outs[j]))
             if ins[j]!=0:
                 start = min(start,ins[j]>>16)
                 end = max(end,ins[j]&0xffff)
+            if outs[j]!=0:
+                cls.append(outs[j])
             j = j+1
-        result_l.append(lig.chr(outs[i]))
+        cls = "".join([lig.chr(x) for x in cls])
+        result_l.append(cls)
         costs_l.append(sum(costs[i:j]))
         segs.append((start,end))
         i = j
@@ -1584,16 +1591,17 @@ def compute_alignment(lattice,rseg,lmodel,beam=1000,verbose=0,lig=ligatures.lig)
     # labels to the corresponding output element.
 
     assert len(result_l)==len(segs)
-    assert len(costs_l)-1==len(segs)
+    assert len(costs_l)==len(segs)
     bboxes = []
 
     rmap = zeros(amax(rseg)+1,'i')
-    for i in range(len(segs)):
+    for i in range(1,len(segs)):
         start,end = segs[i]
         if verbose: print i+1,start,end,"'%s'"%result[i],costs.at(i)
-        if end==0: continue
+        if start==0 or end==0: continue
         rmap[start:end+1] = i+1
         bboxes.append(rect_union(rseg_boxes[start:end+1]))
+    assert rmap[0]==0
 
     # Finally, to get the cseg, apply the rmap table from above.
 
@@ -1602,20 +1610,19 @@ def compute_alignment(lattice,rseg,lmodel,beam=1000,verbose=0,lig=ligatures.lig)
         for j in range(cseg.shape[1]):
             cseg[i,j] = rmap[rseg[i,j]]
 
+    assert len(segs)==len(result_l) and len(segs)==len(costs_l)
     return utils.Record(
-        # characters of alignment
-        output="".join(result_l),
-        # alignment as a list
+        # alignment output; these all have the same lengths
         output_l=result_l,
-        # alignment encoded as a transcription
+        segs=segs,
+        costs=array(costs_l,'f'),
+        # other convenient output representation
+        output="".join(result_l),
         output_t=fstutils.implode_transcription(result_l),
-        # other information
+        cost=sum(costs_l),
+        # raw beam search output
         ins=ins,
         outs=outs,
-        segs=segs,
-        # costs
-        costs=array(costs_l,'f'),
-        cost=sum(costs_l),
         # segmentation images
         rseg=rseg,
         cseg=cseg,

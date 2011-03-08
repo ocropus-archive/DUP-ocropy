@@ -58,13 +58,16 @@ class TRANS:
             start = next
 
 class ARC:
-    def __init__(self,label,cost):
+    def __init__(self,label,olabel=None,cost=0.0):
         assert type(label)==int
+        if type(label) in [str,unicode]: label = ord(label)
+        if type(olabel) in [str,unicode]: olabel = ord(olabel)
         self.label = label
+        self.olabel = label if olabel is None else olabel
         self.cost = cost
     def generate(self,fst,start,end):
         assert type(start)==int and type(end)==int and hasattr(fst,'AddArc'),(start,end,fst)
-        fst.AddArc(start,self.label,self.label,self.cost,end)
+        fst.AddArc(start,self.label,self.olabel,self.cost,end)
 
 class COST:
     def __init__(self,expr,cost):

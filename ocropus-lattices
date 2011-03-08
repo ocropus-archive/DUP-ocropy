@@ -23,7 +23,7 @@ result (recognition result without language model).
 """)
 
 # these options control alignment
-parser.add_option("-m","--model",help="model file",default="default.model")
+parser.add_option("-m","--model",help="model file",default="default.cmodel")
 parser.add_option("-w","--whitespace",help="space model file",default="space.model")
 parser.add_option("-c","--cont",help="continue even when unexpected errors occur",action="store_true")
 parser.add_option("-R","--maxrange",help="max range for grouping",type=int,default=4)
