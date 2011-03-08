@@ -143,7 +143,7 @@ class AlignerMixin:
             raise Exception("bad unicode in "+file)
 
 common_segmentation_errors = """
-000 00 II IM La Th VL 
+000 00 II IM La Th VL OC EX EP MP ME WM Ma Me
 ac ai ak al all am an ar as be bo ca ch ci co ct
 di dr ec ed ee es ff fi fl fr ft gh gi gr gu hi il
 in ir is ki li ll ma mi mm ni oc oo pe po re ri rin
@@ -155,7 +155,7 @@ a, c, e, m, n, t, z, A, C, E, K, L, M, N, R,
 a- b- e- d- g- m- n- o- p- u-
 "T "W 'T 'W d" f" @@""".split()
 
-# common_segmentation_errors = ["st","tr","re"]
+common_segmentation_errors = [ "ff", "fi", "00", "st", "ry" ]
 
 class DefaultAligner(AlignerMixin):
     def __init__(self):
