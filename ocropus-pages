@@ -75,7 +75,7 @@ the constructor.
 parser.add_option("-C","--clean",help="page cleaner",default="StandardPreprocessing")
 parser.add_option("-P","--pseg",help="line segmenter",default="SegmentPageByRAST")
 parser.add_option("-T","--ticlass",help="text image segmenter",default=None)
-parser.add_option("-m","--linerec",help="linerec model",default="default.model")
+parser.add_option("-m","--linerec",help="linerec model",default="default.cmodel")
 parser.add_option("-l","--langmod",help="langmod",default="default.fst")
 parser.add_option("-w","--lweight",help="weight for the language model",type="float",default=1.0)
 parser.add_option("-v","--verbose",help="verbose",action="store_true")

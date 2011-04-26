@@ -57,7 +57,6 @@ parser.add_option("-Q","--maxthreads",help="max # of threads for training",type=
 parser.add_option("-n","--limit",help="limit total training to n samples",default=999999999,type="int")
 parser.add_option("-T","--threshold",help="threshold for estimating ntrain (either a percentile or a class)",default="70")
 parser.add_option("-R","--rejectfactor",help="multiple of per class ntrain",type=float,default=20.0)
-parser.add_option("-P","--perclasslimit",help="max # of samples per class",type=int,default=100000000)
 (options,args) = parser.parse_args()
 
 if len(args)<1:
