@@ -1562,7 +1562,7 @@ def compute_alignment(lattice,rseg,lmodel,beam=1000,verbose=0,lig=ligatures.lig)
 
     result_l = [""]
     costs_l = [0.0]
-    segs = [(0,0)]
+    segs = [(-1,-1)]
 
     i = 0
     while i<n:
@@ -1581,9 +1581,10 @@ def compute_alignment(lattice,rseg,lmodel,beam=1000,verbose=0,lig=ligatures.lig)
                 cls.append(outs[j])
             j = j+1
         cls = "".join([lig.chr(x) for x in cls])
-        result_l.append(cls)
-        costs_l.append(sum(costs[i:j]))
-        segs.append((start,end))
+        if cls!="":
+            result_l.append(cls)
+            costs_l.append(sum(costs[i:j]))
+            segs.append((start,end))
         i = j
 
     rseg_boxes = docproc.seg_boxes(rseg)
@@ -1600,7 +1601,7 @@ def compute_alignment(lattice,rseg,lmodel,beam=1000,verbose=0,lig=ligatures.lig)
         start,end = segs[i]
         if verbose: print i+1,start,end,"'%s'"%result[i],costs.at(i)
         if start==0 or end==0: continue
-        rmap[start:end+1] = i+1
+        rmap[start:end+1] = i
         bboxes.append(rect_union(rseg_boxes[start:end+1]))
     assert rmap[0]==0
 
@@ -1611,7 +1612,16 @@ def compute_alignment(lattice,rseg,lmodel,beam=1000,verbose=0,lig=ligatures.lig)
         for j in range(cseg.shape[1]):
             cseg[i,j] = rmap[rseg[i,j]]
 
-    assert len(segs)==len(result_l) and len(segs)==len(costs_l)
+    if 0:
+        print len(rmap),rmap
+        print len(segs),segs
+        print len(result_l),result_l
+        print len(costs_l),costs_l
+        print amin(cseg),amax(cseg)
+
+    # assert len(segs)==len(rmap) 
+    assert len(segs)==len(result_l) 
+    assert len(segs)==len(costs_l)
     return utils.Record(
         # alignment output; these all have the same lengths
         output_l=result_l,
