@@ -68,7 +68,8 @@ data = array(data,'f')
 print "data",data.shape
 # minchange=max(1,int(options.minchange*len(data)))
 means,counts = quant.kmeans(data,k=options.k,maxiter=options.niter,
-                            outlier=options.outlier,minvecs=options.minvecs)
+                            # outlier=options.outlier,minvecs=options.minvecs
+                            )
 
 print "writing"
 table = dbtables.ClusterTable(output)

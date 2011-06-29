@@ -313,6 +313,10 @@ class MLP(ocrolib.PyComponent):
         assert self.b2.flags["ALIGNED"]
         assert self.w1.shape[0]==self.w2.shape[1]
     def init(self,data,cls,nhidden=None,eps=1e-2):
+        """Initialize the network but perform no training yet.  The network units
+        are initialized using the data, and the classes are used to determine the number
+        of output units and (if no number of hidden units is given) the number of
+        hidden units."""
         data = data.reshape(len(data),prod(data.shape[1:]))
         scale = max(abs(amax(data)),abs(amin(data)))
         ninput = data.shape[1]
@@ -323,6 +327,8 @@ class MLP(ocrolib.PyComponent):
         self.w2 = array(uniform(-eps,eps,(noutput,nhidden)),'f')
         self.b2 = array(uniform(-eps,eps,(noutput,)),'f')
     def decreaseHidden(self,data,cls,new_nhidden):
+        """Decrease the number of hidden units. Data and cls might be used to
+        pick which hidden units to delete (but currently are unused)."""
         ninput,nhidden,noutput = self.shape()
         keep = array([True]*nhidden)
         for i in selection(xrange(nhidden),nhidden-new_nhidden):
@@ -331,6 +337,8 @@ class MLP(ocrolib.PyComponent):
         self.b1 = array(self.b1[keep],dtype='f',order="C")
         self.w2 = array(self.w2[:,keep],dtype='f',order="C")
     def increaseHidden(self,data,cls,new_nhidden):
+        """Increase the number of hidden units.  Data and cls are used to pick
+        initial values for new hidden units."""
         nhidden = self.nhidden()
         vs = []
         bs = []
@@ -348,17 +356,27 @@ class MLP(ocrolib.PyComponent):
         vecs = [self.w2,scale*randn(len(self.w2),delta)]
         self.w2 = array(1.0*hstack(vecs),dtype='f',order="C")
     def changeHidden(self,data,cls,new_nhidden,subset=None):
+        """Increase or decrease the number of hidden units.  Uses data and cls
+        to initialize new units."""
         if self.nhidden()==new_nhidden: return
         elif self.nhidden()>new_nhidden: self.decreaseHidden(data,cls,new_nhidden)
         else: self.increaseHidden(data,cls,new_nhidden)
         self.checkWeightShape()
     def nhidden(self):
+        """Return the number of hidden units."""
         return self.w1.shape[0]
     def shape(self):
+        """Return the shape of the network (a tuple consisting of the number of input units,\
+        hidden units, and output units."""
         assert self.w1.shape[0]==self.w2.shape[1]
         return self.w1.shape[1],self.w1.shape[0],self.w2.shape[0]
     def train(self,data,cls,etas=None,
               nhidden=None,eps=1e-2,subset=None,verbose=0,samples=None):
+        """Train the network on the given data with the given learning rate.  
+        Data is a 2D array with the rows representing input samples.
+        Cls is a 1D array of integers indicating the desired output class.
+        Initializes the network first.  Can train on subsets.  Etas is a list of pairs of
+        learning rates and update steps."""
         if etas is None: etas = self.etas
         data = data.reshape(len(data),prod(data.shape[1:]))
         if subset is not None:
@@ -403,6 +421,9 @@ class MLP(ocrolib.PyComponent):
             self.error_rate = rate
             self.training_log.append((eta,batchsize,self.error_rate))
     def outputs(self,data,subset=None):
+        """Given a 2D array of input vectors, with the rows corresponding to each
+        input, computs the corresponding output vector; this approximates posterior
+        probability for each class in classification problems."""
         data = data.reshape(len(data),prod(data.shape[1:]))
         assert data.shape[1]==self.w1.shape[1],\
             "input shape: %s w1: %s"%(data.shape,self.w1.shape)
@@ -511,7 +532,11 @@ class AutoMLP(MLP):
             self.assign(mlp)
             yield Record(round=i,rounds=self.max_rounds,testerr=mlp.err*1.0/len(testset))
     def train(self,data,classes,verbose=1):
-        # perform training for all rounds
+        """Train the network on the given data with the given learning rate.  
+        Data is a 2D array with the rows representing input samples.
+        This automatically adapts learning rates and numbers of hidden units.
+        There are still some metaparameters that can be set (see the __init__ method),
+        but for most problems, that's not necessary."""
         for progress in self.train1(data,classes,verbose=verbose):
             if verbose: print "progress",progress
     def assign(self,mlp):
@@ -520,6 +545,7 @@ class AutoMLP(MLP):
             setattr(self,k,v)
 
 def test():
+    global data,classes,mlp
     data = array(randn(10000,2),'f')
     data = array(2*(data>0)-1,'f')
     data += 0.1*randn(10000,2)

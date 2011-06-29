@@ -51,6 +51,13 @@ def seg_geometry(segmentation,math=1):
     a,b = polyfit(xs,ys,1)
     return mh,a,b
 
+def normalize_line_image(line,geo=None,target_h=32,target_mh=16):
+    if geo is None:
+        seg = segment_line(line)
+        geo = seg_geometry(seg)
+    # put ax+b in the center, then rescale so that mh is half height or so
+    raise Error("unimplemented")
+
 def rel_char_geom(box,params):
     """Given a character bounding box and a set of line geometry parameters,
     compute relative character position and size."""

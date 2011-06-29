@@ -315,10 +315,17 @@ class LenientAligner(DefaultAligner):
     def __init__(self,**kw):
         DefaultAligner.__init__(self)
         self.combine = more_segmentation_errors
-        kw = set_params(self,kw)
+        kw = common.set_params(self,kw)
 
 class UW3LenientAligner(UW3Aligner):
     def __init__(self,**kw):
         UW3Aligner.__init__(self)
         self.combine = more_segmentation_errors
-        kw = set_params(self,kw)
+        kw = common.set_params(self,kw)
+
+def load_text_file_as_fst(fname):
+    aligner = LenientAligner()
+    with open(fname) as stream:
+        text = stream.read()
+    aligner.addTranscription(text)
+    return aligner.getFst()
