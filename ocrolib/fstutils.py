@@ -301,7 +301,7 @@ class UW3Aligner(DefaultAligner):
 more_segmentation_errors = """
 000 00 II IM La Th VL OC EX EP MP ME WM Ma Me
 ac ai ak al all am an ar as be bo ca ch ci co ct
-di dr ec ed ee es ff fi fl fr ft gh gi gr gu hi il
+di dr ea ec ed ee er es ff fi fl fr ft gh gi gr gu hi il
 in ir is ki li ll ma mi mm ni oc oo pe po re ri rin
 rm rn ro r rs rt ru rv ry se sl so ss st 
 ta te th ti to tr ts tt tu 
