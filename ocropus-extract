@@ -63,6 +63,19 @@ db.commit()
 class BadGroundTruth(Exception):
     pass
 
+def read_costs(fname):
+    result = []
+    with ocrolib.fopen(fname,"costs") as stream:
+        for line in stream.readlines():
+            f = line.split()
+            i = int(f[0])-1
+            result.append((i,float(f[1])))
+    n = max(result)[0]+1
+    costs = zeros(n)
+    for i in range(len(result)):
+        costs[result[i][0]] = result[i][1]
+    return costs
+
 def cseg_chars_all(file,suffix=options.gtsuffix):
     image = ocrolib.read_image_gray(file)
     image = 255-image
@@ -75,13 +88,14 @@ def cseg_chars_all(file,suffix=options.gtsuffix):
         return
     with ocrolib.fopen(file,"txt") as stream: gt = stream.read()
     gt = gt.decode("utf-8")
+    raw = gt
     gt = re.sub('\n','',gt)
     gt = fstutils.explode_transcription(gt)
-    costs = [0.0]*(1+len(gt))
-    with ocrolib.fopen(file,"costs") as stream:
-        for line in stream.readlines():
-            f = line.split()
-            costs[int(f[0])] = float(f[1])
+    costs = read_costs(file)
+    while len(gt)>0 and gt[-1]==" ":
+        gt = gt[:-1]
+        costs = costs[:-1]
+
     perc = stats.scoreatpercentile(costs[1:],options.perc)
     avg = mean(costs[1:])
     skip = perc>options.maxperc or avg>options.maxavg
@@ -91,6 +105,9 @@ def cseg_chars_all(file,suffix=options.gtsuffix):
 
     if len(gt)>len(costs):
         print "%s: gt and costs differ: %d != %d"%(file,len(gt),len(costs))
+        print "###",file,amax(cseg)
+        print "###",len(gt),gt
+        print "###",len(costs),costs
         return
     if not options.nogeo:
         with warnings.catch_warnings():
@@ -103,7 +120,7 @@ def cseg_chars_all(file,suffix=options.gtsuffix):
     for i in range(grouper.length()):
         index = grouper.getGtIndex(i)
         cls = grouper.getGtClass(i)
-        cost= costs[index] if index>=0 else options.extracost
+        cost= costs[index-1] if index>0 else options.extracost
         if cls==' ': continue
         raw,mask = grouper.extractWithMask(image,i,1)
         yield Record(raw=raw,mask=mask,cls=cls,index=grouper.getGtIndex(i),

@@ -124,7 +124,7 @@ class LineWindow:
         self.lmodel = None
         self.linerec = None
         
-        gladefile = ocrolib.findfile("ocropus-browselrecs.glade")
+        gladefile = ocrolib.findfile("ocroex-browselrecs.glade")
         self.windowname = "linerecs" 
         self.wtree = gtk.glade.XML(gladefile,self.windowname) 
         self.window = self.wtree.get_widget(self.windowname)

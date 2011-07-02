@@ -372,7 +372,7 @@ class LineWindow:
             print "# alignment"
             self.detail("\naligned segmentation\n")
             l = ocrolib.compute_alignment(fst,rseg,lmodel,beam=options.beam)
-            result = l.output_l
+            result = l.output_l[1:]
             cseg = l.cseg
             costs = l.costs
             if cseg is None:

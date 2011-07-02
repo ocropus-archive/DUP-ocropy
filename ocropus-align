@@ -6,7 +6,7 @@ import sys,os,re,glob,math,glob,signal,traceback,sqlite3
 import matplotlib
 if "DISPLAY" not in os.environ: matplotlib.use("AGG")
 else: matplotlib.use("GTK")
-from scipy.ndimage import interpolation
+from scipy.ndimage import interpolation,measurements
 from pylab import *
 from optparse import OptionParser
 from multiprocessing import Pool
@@ -63,11 +63,15 @@ parser.add_option("-a","--aligner",help="choose the aligner to use",default="=oc
 parser.add_option("-Y","--debug_cls",help="select classes for debugging",default="")
 parser.add_option("-Q","--parallel",type=int,default=number_of_processors(),help="number of parallel processes to use")
 parser.add_option("-c","--cont",help="continue on error",action="store_true")
+parser.add_option("-E","--showerrs",help="show errors",action="store_true")
 (options,args) = parser.parse_args()
 
 if len(args)==0:
     parser.print_help()
     sys.exit(0)
+
+if options.showerrs:
+    options.parallel=0
 
 if options.extract is not None and os.path.exists(options.extract):
     print "output file already exists:",options.extract
@@ -136,13 +140,49 @@ def align1(t):
         
         r = ocrolib.compute_alignment(fst,rseg,lfst)
 
-        if options.ligatures:
-            result = r.output_t
-        else:
-            result = r.output
         cseg = r.cseg
         assert amin(cseg)==0,"amin(cseg)!=0 (%d,%d)"%(amin(cseg),amax(cseg))
         costs = r.costs
+
+        # first work on the list output; here, one list element should
+        # correspond to each cost
+        result = r.output_l
+        assert len(result)==len(costs),\
+            "output length %d differs from cost length %d"%(len(result),len(costs))
+        assert amax(r.cseg)<len(result),\
+            "amax(r.cseg) %d not consistent with output length %d"%(amax(r.cseg),len(r.output_l))
+
+        # if there are spaces at the end, trim them (since they will never have a corresponding cseg)
+        while len(result)>0 and result[-1]==" ":
+            result = result[:-1]
+            costs = costs[:-1]
+        if amax(r.cseg)+1!=len(result):
+            # Note: we can't distinguish deletions at the end from other misalignment problems;
+            # these fields are probably OK, but for now we just skip them.  Later there will
+            # be an option to output them anyway.
+            print "%s: segmentation and transcript don't align; probably deletion at end"%fname
+            if options.showerrs:
+                ion()
+                axis = subplot(111)
+                axis.imshow(r.cseg,cmap=cm.gist_stern) # cmap=cm.flag
+                objects = measurements.find_objects(r.cseg)
+                xs = [0.5*(p[1].start+p[1].stop) if p is not None else None for p in objects]
+                xs = [0]+xs
+                h,w = r.cseg.shape
+                for i in range(min(len(result),len(xs))):
+                    # print "[%s]"%result
+                    if xs[i] is None: continue
+                    axis.text(xs[i],h,result[i],color="red",size=10)
+                for i in range(min(len(result),len(xs)),len(result)):
+                    print "extra",i,result[i]
+                show()
+                raw_input()
+            return
+
+        if options.ligatures:
+            result = fstutils.implode_transcription(result_l),
+        else:
+            result = "".join(result)
 
         perc = stats.scoreatpercentile(costs,options.perc)
         avg = mean(costs)
