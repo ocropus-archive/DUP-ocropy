@@ -25,6 +25,11 @@ def TODO():
     centering on largest component only
     sort by size, similarity, frequency
     FIXME unify the two classification loops
+    cluster in-place
+    cluster+label selection (separate dialog)
+    train new classifier
+    train classifier on selection
+    freeze characters (keep in current window despite different labels)
     """
 
 parser = OptionParser(usage="""

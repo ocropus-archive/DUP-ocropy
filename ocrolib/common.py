@@ -2217,7 +2217,7 @@ def edit_distance(s,t,use_space=0,case_sensitive=0):
     s_.assign(s.encode("utf-8"))
     t_ = iulib.ustrg()
     t_.assign(t.encode("utf-8"))
-    print s_.as_string()
-    print t_.as_string()
+    # print s_.as_string()
+    # print t_.as_string()
     return ocropus.edit_distance(s_,t_)
 

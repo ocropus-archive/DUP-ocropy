@@ -28,7 +28,7 @@ from ocrolib import fstutils
 
 default_model = "2m2-reject.cmodel"
 default_segmenter = "DpSegmenter"
-default_langmod = "*.gt.txt"
+default_langmod = "default.fst"
 
 from matplotlib.backends.backend_gtk import FigureCanvasGTK as FigureCanvas
 from matplotlib.backends.backend_gtk import NavigationToolbar2GTK as NavigationToolbar
@@ -177,11 +177,11 @@ class LineWindow:
 
         self.recognizers = gtk.ListStore(str)
         self.recognizers.append(["none"])
-        models = glob.glob("*.model")
+        models = glob.glob("*.model") + glob.glob("models/*.model")
         models.sort()
         for model in models:
             self.recognizers.append([model])
-        models = glob.glob("*.cmodel")
+        models = glob.glob("*.cmodel") + glob.glob("models/*.cmodel")
         models.sort()
         for model in models:
             self.recognizers.append([model])
@@ -200,6 +200,8 @@ class LineWindow:
         self.langmods.append(["*.txt"])
         self.langmods.append(["*.gt.txt"])
         for model in glob.glob("*.fst"):
+            self.langmods.append([model])
+        for model in glob.glob("models/*.fst"):
             self.langmods.append([model])
         self.langmod = self.wtree.get_widget("langmod")
         self.langmod.set_model(self.langmods)
@@ -246,6 +248,7 @@ class LineWindow:
     def recognizeAll(self):
         if self.linerec is None: return
         print len(self.lines),"lines"
+        self.lines.set_sort_column_id(6,gtk.SORT_ASCENDING)
         for i in range(len(self.lines)):
             self.lines[i][4] = ""
         for i in range(len(self.lines)):
@@ -264,6 +267,7 @@ class LineWindow:
                 lmodel = self.lmodel
 
             if lmodel is not None:
+                print "fst-lmodel search"
                 result,cost = ocrolib.beam_search_simple(fst,lmodel,options.beam)
                 self.lines[i][7] = cost
             else:
@@ -271,6 +275,7 @@ class LineWindow:
 
             gt = self.lines[i][5]
             if gt!="" and gt is not None:
+                print "edit distance"
                 err = ocrolib.edit_distance(result,gt,
                                             use_space=options.spaces,
                                             case_sensitive=options.case)
@@ -279,12 +284,15 @@ class LineWindow:
                     self.lines[i][2] = float(self.lines[i][0])-float(self.lines[i][1])
                 # ground truth cost
                 gt_fst = make_fst(gt)
+                print "gt cost"
                 s,cost2 = ocrolib.beam_search_simple(fst,gt_fst,options.beam)
                 self.lines[i][8] = cost2
                 # language model cost
                 if self.lmodel is not None:
-                    s,cost3 = ocrolib.beam_search_simple(gt_fst,lmodel,options.beam)
-                    self.lines[i][9] = cost3
+                    print "lmodel cost -- SKIPPED THIS BEAM SEARCH HANGS, FIX ME"
+                    # s,cost3 = ocrolib.beam_search_simple(gt_fst,lmodel,options.beam)
+                    # self.lines[i][9] = cost3
+                print "done"
             print "RESULT",result
             self.lines[i][4] = result
             gtk_yield()
