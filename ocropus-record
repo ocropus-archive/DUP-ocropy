@@ -71,7 +71,7 @@ db.text_factory = sqlite3.OptimizedUnicode
 db.execute("pragma synchronous=0")
 db.commit()
 
-db.execute("create table meta (id integer primary key,key text,value text,data blob)")
+db.execute("create table meta (id integer primary key,key text,value text,data blob,skip integer default 0 not null)")
 db.execute("insert into meta (key,value) values (?,?)",("groundtruth",1 if options.gt else 0))
 if options.model:
     db.execute("insert into meta (key,value) values (?,?)",("model",options.model))
