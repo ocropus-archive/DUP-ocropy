@@ -94,17 +94,21 @@ db.execute("create index if not exists transcript_index on transcripts (transcri
 db.execute("create index if not exists cost_index on transcripts (cost)")
 
 def read_costs(fname):
-    result = []
-    with ocrolib.fopen(fname,"costs") as stream:
-        for line in stream.readlines():
-            f = line.split()
-            i = int(f[0])-1
-            result.append((i,float(f[1])))
-    n = max(result)[0]+1
-    costs = zeros(n)
-    for i in range(len(result)):
-        costs[result[i][0]] = result[i][1]
-    return costs
+    try:
+        result = []
+        with ocrolib.fopen(fname,"costs") as stream:
+            for line in stream.readlines():
+                f = line.split()
+                i = int(f[0])-1
+                result.append((i,float(f[1])))
+        n = max(result)[0]+1
+        costs = zeros(n)
+        for i in range(len(result)):
+            costs[result[i][0]] = result[i][1]
+        return costs
+    except:
+        print fname+": error reading costs"
+        return None
 
 for fname in args:
     with ocrolib.fopen(fname,"png") as stream:
