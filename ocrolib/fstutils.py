@@ -323,9 +323,17 @@ class UW3LenientAligner(UW3Aligner):
         self.combine = more_segmentation_errors
         kw = common.set_params(self,kw)
 
+def make_line_fst(lines):
+    aligner = LenientAligner()
+    aligner.startFst()
+    for text in lines:
+        aligner.addTranscription(text)
+    return aligner.getFst()
+
 def load_text_file_as_fst(fname):
     aligner = LenientAligner()
     with open(fname) as stream:
         text = stream.read()
+    aligner.startFst()
     aligner.addTranscription(text)
     return aligner.getFst()

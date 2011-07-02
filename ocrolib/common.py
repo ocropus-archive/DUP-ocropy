@@ -10,6 +10,7 @@ from utils import allsplitext,write_text
 import docproc
 import ligatures
 import fstutils
+import openfst
 
 import cPickle as pickle
 pickle_mode = 2
@@ -1251,11 +1252,14 @@ class OcroFST():
         return fst
 
 def native_fst(fst):
-    if isinstance(fst,ocropus.OcroFST): return fst
+    if isinstance(fst,openfst.StdVectorFst):
+        fst = fstutils.openfst2ocrofst(fst)
+    if isinstance(fst,ocropus.OcroFST): 
+        return fst
     if isinstance(fst,OcroFST): 
         assert isinstance(fst.comp,ocropus.OcroFST)
         return fst.comp
-    raise Exception("expected either native or Python FST")
+    raise Exception("expected either native or Python FST, got %s"%fst)
 
 ### native code image I/O; we use this because it works more reliably
 ### than Python's code for TIFF files
