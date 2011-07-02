@@ -1,0 +1,128 @@
+#!/usr/bin/python
+
+# make the clustering class-specific
+
+import sys,os,re,glob,math,glob,signal,traceback,sqlite3,hashlib
+import matplotlib
+if "DISPLAY" not in os.environ: matplotlib.use("AGG")
+else: matplotlib.use("GTK")
+from scipy.ndimage import interpolation
+from pylab import *
+from optparse import OptionParser
+from multiprocessing import Pool
+import ocrolib
+from ocrolib import utils
+from ocrolib import number_of_processors,die
+
+signal.signal(signal.SIGINT,lambda *args:sys.exit(1))
+
+parser = OptionParser("""
+usage: %prog [options] image1.png image2.png ...
+
+Computes recognition lattices for text lines.  Also displays the bestpath
+result (recognition result without language model).
+""")
+
+# these options control alignment
+parser.add_option("-O","--overwrite",help="overwrite output",action="store_true")
+parser.add_option("-o","--output",help="output file name",default="")
+parser.add_option("-g","--gt",help="record ground truth",action="store_true")
+parser.add_option("-s","--suffix",help="which suffix to read/store",default=None)
+parser.add_option("-i","--images",help="also store images in the database",action="store_true")
+parser.add_option("-Y","--examine",help="examine recognition for these classes",default="")
+parser.add_option("-m","--model",help="record the model",default=None)
+parser.add_option("-l","--lmodel",help="record the language model",default=None)
+parser.add_option("-M","--Model",help="record the model and store it",default=None)
+parser.add_option("-L","--Lmodel",help="record the lmodel and store it",default=None)
+(options,args) = parser.parse_args()
+
+if len(args)==0:
+    parser.print_help()
+    sys.exit(0)
+
+if len(args)==1 and os.path.isdir(args[0]):
+    args = sorted(glob.glob(args[0]+"/????/??????.png"))
+
+if os.path.exists(options.output):
+    if options.overwrite:
+        os.unlink(options.output)
+    else:
+        print options.output+": already exists"
+        sys.exit(1)
+
+def md5sum(data):
+    m = hashlib.md5()
+    m.update(data)
+    return m.hexdigest()
+
+def readfile(fname):
+    with open(fname) as stream:
+        return stream.read()
+
+def md5file(fname):
+    return md5sum(readfile(fname))
+
+if options.Model: options.model = options.Model
+if options.Lmodel: options.lmodel = options.Lmodel
+
+db = sqlite3.connect(options.output,timeout=600.0)
+db.row_factory = utils.DbRow
+db.text_factory = sqlite3.OptimizedUnicode
+db.execute("pragma synchronous=0")
+db.commit()
+
+db.execute("create table meta (id integer primary key,key text,value text,data blob)")
+db.execute("insert into meta (key,value) values (?,?)",("groundtruth",1 if options.gt else 0))
+if options.model:
+    db.execute("insert into meta (key,value) values (?,?)",("model",options.model))
+    db.execute("insert into meta (key,value) values (?,?)",("cmodel",md5file(options.model)))
+if options.lmodel:
+    db.execute("insert into meta (key,value) values (?,?)",("lmodel",options.lmodel))
+    db.execute("insert into meta (key,value) values (?,?)",("clmodel",md5file(options.lmodel)))
+if options.Model:
+    db.execute("insert into meta (key,data) values (?,?)",
+               ("Model",sqlite3.Binary(readfile(options.Model))))
+if options.Lmodel:
+    db.execute("insert into meta (key,data) values (?,?)",
+               ("Lmodel",sqlite3.Binary(readfile(options.Lmodel))))
+
+db.execute("create table transcripts (id integer primary key,fname text,image blob,"+
+           "cimage text,transcript text,cost real,costs text)")
+db.execute("create index if not exists fname_index on transcripts (fname)")
+db.execute("create index if not exists cimage_index on transcripts (cimage)")
+db.execute("create index if not exists transcript_index on transcripts (transcript)")
+db.execute("create index if not exists cost_index on transcripts (cost)")
+
+def read_costs(fname):
+    result = []
+    with ocrolib.fopen(fname,"costs") as stream:
+        for line in stream.readlines():
+            f = line.split()
+            i = int(f[0])-1
+            result.append((i,float(f[1])))
+    n = max(result)[0]+1
+    costs = zeros(n)
+    for i in range(len(result)):
+        costs[result[i][0]] = result[i][1]
+    return costs
+
+for fname in args:
+    with ocrolib.fopen(fname,"png") as stream:
+        image = stream.read()
+    md5 = md5sum(image)
+    try:
+        with ocrolib.fopen(fname,"txt") as stream:
+            transcript = stream.read()
+    except:
+        print fname+": no transcript"
+        continue
+    transcript = transcript.decode("utf-8")
+    costs = read_costs(fname)
+    cost = sum(costs)
+    db.execute("insert into transcripts (fname,image,cimage,transcript,cost,costs) values (?,?,?,?,?,?)",
+               (unicode(fname),
+                sqlite3.Binary(image) if options.images else None,
+                unicode(md5),transcript,cost,unicode(str(costs))))
+
+db.commit()
+db.close()
