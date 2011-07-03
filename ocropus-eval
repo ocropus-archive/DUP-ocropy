@@ -1,0 +1,62 @@
+#!/usr/bin/python
+
+# make the clustering class-specific
+
+import sys,os,re,glob,math,glob,signal,traceback,sqlite3,hashlib
+import matplotlib
+if "DISPLAY" not in os.environ: matplotlib.use("AGG")
+else: matplotlib.use("GTK")
+from scipy.ndimage import interpolation
+from pylab import *
+from optparse import OptionParser
+from multiprocessing import Pool
+import ocrolib
+from ocrolib import utils
+from ocrolib import number_of_processors,die
+
+signal.signal(signal.SIGINT,lambda *args:sys.exit(1))
+
+parser = OptionParser("""
+usage: %prog [options] image1.png image2.png ...
+
+Computes recognition lattices for text lines.  Also displays the bestpath
+result (recognition result without language model).
+""")
+
+# these options control alignment
+parser.add_option("-L","--Lmodel",help="record the lmodel and store it",default=None)
+(options,args) = parser.parse_args()
+
+if len(args)==0:
+    parser.print_help()
+    sys.exit(0)
+
+db = sqlite3.connect(":memory:",timeout=600.0)
+db.row_factory = utils.DbRow
+db.text_factory = sqlite3.OptimizedUnicode
+db.execute("pragma synchronous=0")
+db.execute('attach database "%s" as gt'%args[0])
+db.execute('attach database "%s" as out'%args[1])
+
+lines = 0
+chars = 0
+strict = 0
+lenient = 0
+for row in db.execute("select g.cimage,out.transcripts.cimage,g.transcript,out.transcripts.transcript,g.skip from gt.transcripts as g "+
+                      "inner join out.transcripts on g.cimage=out.transcripts.cimage"):
+    row = list(row)
+    gtimage,outimage,gt,out,skip = row
+    assert gtimage==outimage
+    if outimage is None:
+        notfound += 1
+        continue
+    lines += 1
+    chars += len(gt)
+    strict += ocrolib.edit_distance(gt,out,use_space=1,case_sensitive=1)
+    d_l = ocrolib.edit_distance(gt,out,use_space=0,case_sensitive=0)
+    lenient += d_l
+print "lines",lines
+print "chars",chars
+print "strict",strict*1.0/chars
+print "lenient",lenient*1.0/chars
+
