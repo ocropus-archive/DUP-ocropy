@@ -50,6 +50,7 @@ print "outonly",outonly
 lines = 0
 chars = 0
 missing = 0
+nogt = 0
 strict = 0
 lenient = 0
 for row in db.execute("select g.cimage,out.transcripts.cimage,g.transcript,out.transcripts.transcript,g.skip from gt.transcripts as g "+
@@ -57,19 +58,25 @@ for row in db.execute("select g.cimage,out.transcripts.cimage,g.transcript,out.t
     row = list(row)
     gtimage,outimage,gt,out,skip = row
     assert gtimage==outimage
-    if out is None or out=="":
-        missing += 1
     if outimage is None:
         notfound += 1
         continue
+    if gt is None:
+        nogt += 1
+        continue
+    if out is None:
+        missing += 1
+        out = ""
     lines += 1
     chars += len(gt)
     strict += ocrolib.edit_distance(gt,out,use_space=1,case_sensitive=1)
     d_l = ocrolib.edit_distance(gt,out,use_space=0,case_sensitive=0)
     lenient += d_l
 print "lines",lines
-print "chars",chars
 print "missing",missing
+print "nogt",nogt
+print
+print "chars",chars
 print "strict",strict*1.0/chars
 print "lenient",lenient*1.0/chars
 

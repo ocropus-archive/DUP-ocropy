@@ -34,6 +34,7 @@ parser.add_option("-m","--model",help="record the model",default=None)
 parser.add_option("-l","--lmodel",help="record the language model",default=None)
 parser.add_option("-M","--Model",help="record the model and store it",default=None)
 parser.add_option("-L","--Lmodel",help="record the lmodel and store it",default=None)
+parser.add_option("-N","--skipnot",help="skip images without transcript",action="store_true")
 (options,args) = parser.parse_args()
 
 if len(args)==0:
@@ -87,7 +88,10 @@ if options.Lmodel:
                ("Lmodel",sqlite3.Binary(readfile(options.Lmodel))))
 
 db.execute("create table transcripts (id integer primary key,fname text,image blob,"+
-           "cimage text,transcript text,cost real,costs text,skip integer default 0 not null)")
+           "cimage text,transcript text,cost real,costs text,"+
+           "skip integer default 0 not null,"+
+           "corrected integer default 0 not null)"
+           )
 db.execute("create index if not exists fname_index on transcripts (fname)")
 db.execute("create index if not exists cimage_index on transcripts (cimage)")
 db.execute("create index if not exists transcript_index on transcripts (transcript)")
@@ -114,15 +118,18 @@ for fname in args:
     with ocrolib.fopen(fname,"png") as stream:
         image = stream.read()
     md5 = md5sum(image)
+    transcript = None
+    cost = 1000.0
+    costs = None
     try:
         with ocrolib.fopen(fname,"txt") as stream:
             transcript = stream.read()
+        transcript = transcript.decode("utf-8")
+        costs = read_costs(fname)
+        cost = sum(costs)
     except:
         print fname+": no transcript"
-        continue
-    transcript = transcript.decode("utf-8")
-    costs = read_costs(fname)
-    cost = sum(costs)
+        if options.skipnot: continue
     db.execute("insert into transcripts (fname,image,cimage,transcript,cost,costs) values (?,?,?,?,?,?)",
                (unicode(fname),
                 sqlite3.Binary(image) if options.images else None,
