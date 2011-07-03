@@ -71,7 +71,7 @@ db.text_factory = sqlite3.OptimizedUnicode
 db.execute("pragma synchronous=0")
 db.commit()
 
-db.execute("create table meta (id integer primary key,key text,value text,data blob,skip integer default 0 not null)")
+db.execute("create table meta (id integer primary key,key text,value text,data blob)")
 db.execute("insert into meta (key,value) values (?,?)",("groundtruth",1 if options.gt else 0))
 if options.model:
     db.execute("insert into meta (key,value) values (?,?)",("model",options.model))
@@ -87,7 +87,7 @@ if options.Lmodel:
                ("Lmodel",sqlite3.Binary(readfile(options.Lmodel))))
 
 db.execute("create table transcripts (id integer primary key,fname text,image blob,"+
-           "cimage text,transcript text,cost real,costs text)")
+           "cimage text,transcript text,cost real,costs text,skip integer default 0 not null)")
 db.execute("create index if not exists fname_index on transcripts (fname)")
 db.execute("create index if not exists cimage_index on transcripts (cimage)")
 db.execute("create index if not exists transcript_index on transcripts (transcript)")
