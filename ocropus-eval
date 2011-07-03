@@ -38,8 +38,18 @@ db.execute("pragma synchronous=0")
 db.execute('attach database "%s" as gt'%args[0])
 db.execute('attach database "%s" as out'%args[1])
 
+gtonly = db.execute("select count(*) from gt.transcripts "+
+        "left join out.transcripts on gt.transcripts.cimage=out.transcripts.cimage "+
+        "where out.transcripts.cimage is null").next()[0]
+outonly = db.execute("select count(*) from out.transcripts "+
+        "left join gt.transcripts on gt.transcripts.cimage=out.transcripts.cimage "+
+        "where gt.transcripts.cimage is null").next()[0]
+print "gtonly",gtonly
+print "outonly",outonly
+
 lines = 0
 chars = 0
+missing = 0
 strict = 0
 lenient = 0
 for row in db.execute("select g.cimage,out.transcripts.cimage,g.transcript,out.transcripts.transcript,g.skip from gt.transcripts as g "+
@@ -47,6 +57,8 @@ for row in db.execute("select g.cimage,out.transcripts.cimage,g.transcript,out.t
     row = list(row)
     gtimage,outimage,gt,out,skip = row
     assert gtimage==outimage
+    if out is None or out=="":
+        missing += 1
     if outimage is None:
         notfound += 1
         continue
@@ -57,6 +69,7 @@ for row in db.execute("select g.cimage,out.transcripts.cimage,g.transcript,out.t
     lenient += d_l
 print "lines",lines
 print "chars",chars
+print "missing",missing
 print "strict",strict*1.0/chars
 print "lenient",lenient*1.0/chars
 
