@@ -129,6 +129,7 @@ class LineWindow:
     def setupTreeView(self):
         headers = ["Cost","Image","Text","File","MD5"]
         types = ["text","pixbuf","text+","text","text"]
+        self.columns = []
         for i in range(len(headers)):
             if types[i]=="pixbuf":
                 renderer = gtk.CellRendererPixbuf()
@@ -146,6 +147,7 @@ class LineWindow:
                 col.pack_start(renderer)
             col.set_sort_column_id(i)
             self.linelist.append_column(col)
+            self.columns.append(col)
         self.linelist.show()
     def editing(self,*args):
         print "editing",args
@@ -165,6 +167,7 @@ class LineWindow:
                                      "where cimage = ?",(new_text,row[4]))
         assert result.rowcount==1
         self.db.commit()
+        self.linelist.set_cursor(str(int(path)+1),self.columns[col],start_editing=True)
         
     def initLines(self):
         self.lines = gtk.ListStore(str,gtk.gdk.Pixbuf,str,str,str)
