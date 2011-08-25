@@ -60,7 +60,7 @@ parser.add_option("-M","--multionly",help="only train multiple charactes",action
 # the following are for limiting training samples
 parser.add_option("-n","--limit",help="limit total training to n samples",default=999999999,type="int")
 parser.add_option("-T","--threshold",help="threshold for estimating ntrain (either a percentile or a class)",default="70")
-parser.add_option("-R","--rejectfactor",help="multiple of per class ntrain",type=float,default=20.0)
+parser.add_option("-F","--rejectfactor",help="multiple of per class ntrain",type=float,default=20.0)
 (options,args) = parser.parse_args()
 
 if len(args)<1:
