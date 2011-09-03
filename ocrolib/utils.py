@@ -1,6 +1,7 @@
 import sys,os,re,glob,math,glob,signal,numpy
 import iulib,ocropus
 from pylab import *
+from scipy.ndimage import filters
 
 class Record:
     def __init__(self,**kw):

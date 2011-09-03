@@ -13,6 +13,8 @@ resource.setrlimit(resource.RLIMIT_DATA,(2e9,2e9))
 import ocrolib
 from ocrolib import plotutils
 from ocrolib import hocr
+import ocropreproc
+import ocrorast
 
 ion()
 hold(False)
@@ -72,8 +74,8 @@ my.CleanupPage(0.3)".  This will import the "my" package and then call
 the constructor.
 """)
 
-parser.add_option("-C","--clean",help="page cleaner",default="StandardPreprocessing")
-parser.add_option("-P","--pseg",help="line segmenter",default="SegmentPageByRAST")
+parser.add_option("-C","--clean",help="page cleaner",default="ocropreproc.CommonPreprocessing")
+parser.add_option("-P","--pseg",help="line segmenter",default="ocrorast.SegmentPageByRAST")
 parser.add_option("-T","--ticlass",help="text image segmenter",default=None)
 parser.add_option("-m","--linerec",help="linerec model",default="default.cmodel")
 parser.add_option("-l","--langmod",help="langmod",default="default.fst")
