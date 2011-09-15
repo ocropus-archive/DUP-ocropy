@@ -22,8 +22,10 @@ import ocropreproc
 import cPickle as pickle
 pickle_mode = 2
 
-from pycomp import PyComponent
+### These imports probably need some attention later.
+
 from ocroio import renumber_labels
+import ocroold
 from ocroold import RegionExtractor,Grouper,StandardGrouper
 
 ################################################################
@@ -348,55 +350,6 @@ def ustrg2unicode(u,lig=ligatures.lig):
                 result += "<%d>"%value
     return result
 
-################################################################
-### simple shape comparisons
-################################################################
-
-def make_mask(image,r):    
-    skeleton = thin(image)
-    mask = ~(morphology.binary_dilation(image,iterations=r) - morphology.binary_erosion(image,iterations=r))
-    mask |= skeleton # binary_dilation(skeleton,iterations=1)
-    return mask
-
-def dist(image,item):
-    assert image.shape==item.shape,[image.shape,item.shape]
-    ix,iy = measurements.center_of_mass(image)
-    if isnan(ix) or isnan(iy): return 9999,9999,None
-    # item = (item>amax(item)/2) # in case it's grayscale
-    x,y = measurements.center_of_mass(item)
-    if isnan(x) or isnan(y): return 9999,9999,None
-    dx,dy = int(0.5+x-ix),int(0.5+y-iy)
-    shifted = interpolation.shift(image,(dy,dx))
-    if abs(dx)>2 or abs(dy)>2:
-        return 9999,9999,None
-    if 0:
-        cla()
-        subplot(121); imshow(image-item)
-        subplot(122); imshow(shifted-item)
-        show()
-    image = shifted
-    mask = make_mask(image>0.5,1)
-    err = sum(mask*abs(item-image))
-    total = min(sum(mask*item),sum(mask*image))
-    rerr = err/max(1.0,total)
-    return err,rerr,image
-
-def symdist(image,item):
-    assert type(image)==numpy.ndarray
-    assert len(image.shape)==2
-    assert len(item.shape)==2
-    err,rerr,transformed = dist(image,item)
-    err1,rerr1,transformed1 = dist(item,image)
-    if rerr<rerr1: return err,rerr,transformed
-    else: return err1,rerr1,transformed1
-
-def cut(image,box,margin=0,bg=0,dtype=None):
-    (r0,c0,r1,c1) = box
-    r0 -= margin; c0 -= margin; r1 += margin; c1 += margin
-    if dtype is None: dtype = image.dtype
-    result = interpolation.shift(image,(-r0,-c0),output=dtype,order=0,cval=bg)
-    return result[:(r1-r0),:(c1-c0)]
-
 ### code for instantiation native components
 
 def pyconstruct(s):
@@ -491,67 +444,6 @@ def read_lmodel_or_textlines(file):
         assert isinstance(result,ocrofst.OcroFST)
         return result
 
-def OLD_rseg_map(inputs):
-    """This takes an array of the input labels produced by a beam search.
-    The input labels contain the correspondence
-    between the rseg label and the character.  These are put into
-    a dictionary and returned.  This is used for alignment between
-    a segmentation and text."""
-    n = len(inputs)
-    segs = []
-    for i in range(n):
-        start = inputs[i]>>16
-        end = inputs[i]&0xffff
-        segs.append((start,end))
-    n = amax([s[1] for s in segs])+1
-    count = 0
-    map = zeros(n,'i')
-    for i in range(len(segs)):
-        start,end = segs[i]
-        if start==0 or end==0: continue
-        count += 1
-        for j in range(start,end+1):
-            map[j] = count
-    return map
-
-def OLD_recognize_and_align(image,linerec,lmodel,beam=1000,nocseg=0):
-    """Perform line recognition with the given line recognizer and
-    language model.  Outputs an object containing the result (as a
-    Python string), the costs, the rseg, the cseg, the lattice and the
-    total cost.  The recognition lattice needs to have rseg's segment
-    numbers as inputs (pairs of 16 bit numbers); SimpleGrouper
-    produces such lattices.  cseg==None means that the connected
-    component renumbering failed for some reason."""
-
-    assert isinstance(linerec,RecognizeLine)
-
-    lattice,rseg = linerec.recognizeLineSeg(image)
-    v1,v2,ins,outs,costs = beam_search(lattice,lmodel,beam)
-    result = intarray_as_unicode(outs,skip0=0)
-
-    # compute the cseg
-    rmap = rseg_map(ins)
-    n = len(rseg)
-    if not nocseg and len(rmap)>1:
-        r,c = rseg.shape
-        cseg = zeros((r,c),'i')
-        for i in range(r):
-            for j in range(c):
-                value = rseg[i,j]
-                cseg[i,j] = rmap[value]
-    else:
-        cseg = None
-
-    # return everything we computed
-    return utils.Record(image=image,
-                        output=result,
-                        raw=outs,
-                        costs=costs,
-                        rseg=rseg,
-                        cseg=cseg,
-                        lattice=lattice,
-                        cost=sum(costs))
-
 def rect_union(rectangles):
     if len(rectangles)<1: return (0,0,-1,-1)
     r = array(rectangles)
@@ -564,7 +456,7 @@ def compute_alignment(lattice,rseg,lmodel,beam=1000,verbose=0,lig=ligatures.lig)
     The recognition lattice needs to have rseg's segment numbers as inputs
     (pairs of 16 bit numbers); SimpleGrouper produces such lattices."""
 
-    v1,v2,ins,outs,costs = beam_search(lattice,lmodel,beam)
+    v1,v2,ins,outs,costs = ocrofst.beam_search(lattice,lmodel,beam)
 
     # useful for debugging
 
@@ -673,7 +565,7 @@ def recognize_and_align(image,linerec,lmodel,beam=1000,nocseg=0,lig=ligatures.li
     component renumbering failed for some reason."""
 
     lattice,rseg = linerec.recognizeLineSeg(image)
-    v1,v2,ins,outs,costs = beam_search(lattice,lmodel,beam)
+    v1,v2,ins,outs,costs = ocrofst.beam_search(lattice,lmodel,beam)
     result = compute_alignment(lattice,rseg,lmodel,beam=beam,lig=lig)
     return result
 

@@ -13,6 +13,7 @@ from multiprocessing import Pool
 import ocrolib
 from ocrolib import number_of_processors,fstutils,die,utils,docproc
 from scipy import stats
+from ocrolib import dbhelper,ocroio,ocrofst
 
 signal.signal(signal.SIGINT,lambda *args:sys.exit(1))
 
@@ -86,7 +87,7 @@ db = None
 
 if options.extract:
     db = sqlite3.connect(options.extract,timeout=600.0)
-    utils.charcolumns(db,"chars")
+    dbhelper.charcolumns(db,"chars")
     db.commit()
     db.close()
     db = None
@@ -96,7 +97,7 @@ def dbopen():
     if db is not None: return
     if options.extract:
         db = sqlite3.connect(options.extract,timeout=600.0)
-        db.row_factory = utils.DbRow
+        db.row_factory = dbhelper.DbRow
         db.text_factory = sqlite3.OptimizedUnicode
         db.execute("pragma synchronous=0")
         db.commit()
@@ -123,15 +124,15 @@ def align1(t):
     ocrolib.fcleanup(fname,options.suffix,["txt","costs"])
 
     try:
-        fst = ocrolib.OcroFST()
+        fst = ocrofst.OcroFST()
         fst.load(ocrolib.ffind(fname,"fst"))
-        rseg = ocrolib.read_line_segmentation(ocrolib.ffind(fname,"rseg"))
+        rseg = ocroio.read_line_segmentation(ocrolib.ffind(fname,"rseg"))
 
         if lmodel!=lfile:
             lfile = lmodel
             nolig = not options.noligatures
             if lmodel.endswith(".fst"):
-                lfst = ocrolib.OcroFST().load(lmodel)
+                lfst = ocrofst.OcroFST().load(lmodel)
             else:
                 lfst = aligner.ocroFstForFile(lmodel)
 
@@ -231,8 +232,8 @@ def align1(t):
                 if cls in options.debug_cls:
                     print "debug",start,end,"cls",cls,"cost",cost,\
                         "y %.2f w %.2f h %.2f"%(rel[0],rel[1],rel[2])
-                utils.dbinsert(db,"chars",
-                               image=utils.image2blob(raw),
+                dbhelper.dbinsert(db,"chars",
+                               image=dbhelper.image2blob(raw),
                                cost=float(cost),
                                cls=cls,
                                count=1,

@@ -3,7 +3,6 @@
 ################################################################
 
 import matplotlib 
-matplotlib.use('GTK') 
 import __init__ as ocropy # FIXME
 from matplotlib import patches
 from pylab import *

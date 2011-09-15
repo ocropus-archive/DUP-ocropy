@@ -10,7 +10,7 @@ pygtk.require("2.0")
 import gobject,gtk,gtk.glade
 from pylab import *
 import ocrolib
-from ocrolib import docproc,utils
+from ocrolib import docproc,utils,dbhelper
 
 def TODO():
     print """
@@ -113,7 +113,7 @@ if not os.path.exists(fname):
     sys.exit(1)
 
 db = sqlite3.connect(fname,timeout=600.0)
-db.row_factory = utils.DbRow
+db.row_factory = dbhelper.DbRow
 db.text_factory = sqlite3.OptimizedUnicode
 db.execute("pragma synchronous=0")
 
@@ -122,7 +122,7 @@ if options.table is None:
     options.table = names[0]
     print "defaulting to table",options.table
 
-utils.charcolumns(db,options.table)
+dbhelper.charcolumns(db,options.table)
 db.commit()
 
 def get_clusters(cls,limit=options.batchsize,table=options.table):
@@ -130,7 +130,7 @@ def get_clusters(cls,limit=options.batchsize,table=options.table):
     cur = db.execute("select * from %s where cls=? order by count,cost desc limit %s"%(table,limit),[cls])
     clusters = []
     for c in cur:
-        image = utils.blob2image(c.image)/255.0
+        image = dbhelper.blob2image(c.image)/255.0
         cluster = utils.Record(id=c.id,
                                file=c.file,
                                image=image,

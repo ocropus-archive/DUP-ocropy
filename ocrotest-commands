@@ -6,17 +6,14 @@ die() {
 }
 
 TEST() {
-    echo
-    echo '****************************************************************'
-    echo '***' "$*"
-    echo '****************************************************************'
-    echo
+    echo '######' "$*"
 }
 
 rm -rf _test _test.*
 
 TEST binarize
-ocropus-binarize isri0188/000[1-4].png -o _test || die
+# ocropus-binarize isri0188/000[1-4].png -o _test || die
+ocropus-binarize isri0188/000[12].png -o _test || die
 cp isri0188/*.gt.txt _test/
 
 TEST pseg

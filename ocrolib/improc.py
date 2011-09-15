@@ -6,6 +6,15 @@ import sys,os,re,glob,math,glob,signal
 import iulib,ocropus
 from scipy.ndimage import interpolation
 
+def cut(image,box,margin=0,bg=0,dtype=None):
+    """Cut out a region given by a box (row0,col0,row1,col1),
+    with an optional margin."""
+    (r0,c0,r1,c1) = box
+    r0 -= margin; c0 -= margin; r1 += margin; c1 += margin
+    if dtype is None: dtype = image.dtype
+    result = interpolation.shift(image,(-r0,-c0),output=dtype,order=0,cval=bg)
+    return result[:(r1-r0),:(c1-c0)]
+
 def pad_to(image,w,h):
     """Symmetrically pad the image to the given width and height."""
     iw,ih = image.shape
@@ -94,3 +103,44 @@ def blackout_images(image,ticlass):
         r.pad_by(-5,-5)
         ocropy.fill_rect(image,r,255)
         
+################################################################
+### simple shape comparisons
+################################################################
+
+def make_mask(image,r):    
+    skeleton = thin(image)
+    mask = ~(morphology.binary_dilation(image,iterations=r) - morphology.binary_erosion(image,iterations=r))
+    mask |= skeleton # binary_dilation(skeleton,iterations=1)
+    return mask
+
+def dist(image,item):
+    assert image.shape==item.shape,[image.shape,item.shape]
+    ix,iy = measurements.center_of_mass(image)
+    if isnan(ix) or isnan(iy): return 9999,9999,None
+    # item = (item>amax(item)/2) # in case it's grayscale
+    x,y = measurements.center_of_mass(item)
+    if isnan(x) or isnan(y): return 9999,9999,None
+    dx,dy = int(0.5+x-ix),int(0.5+y-iy)
+    shifted = interpolation.shift(image,(dy,dx))
+    if abs(dx)>2 or abs(dy)>2:
+        return 9999,9999,None
+    if 0:
+        cla()
+        subplot(121); imshow(image-item)
+        subplot(122); imshow(shifted-item)
+        show()
+    image = shifted
+    mask = make_mask(image>0.5,1)
+    err = sum(mask*abs(item-image))
+    total = min(sum(mask*item),sum(mask*image))
+    rerr = err/max(1.0,total)
+    return err,rerr,image
+
+def symdist(image,item):
+    assert type(image)==numpy.ndarray
+    assert len(image.shape)==2
+    assert len(item.shape)==2
+    err,rerr,transformed = dist(image,item)
+    err1,rerr1,transformed1 = dist(item,image)
+    if rerr<rerr1: return err,rerr,transformed
+    else: return err1,rerr1,transformed1

@@ -7,7 +7,7 @@ else: matplotlib.use("GTK")
 from pylab import *
 from optparse import OptionParser
 import ocrolib
-from ocrolib import dbtables
+from ocrolib import dbtables,segrec,ocroold
 
 parser = OptionParser("""
 usage: %prog [options] chars.db cluster.db
@@ -29,8 +29,8 @@ parser.add_option("-o","--overwrite",help="overwrite output if it exists",action
 class FastCluster:
     def __init__(self,eps=0.05):
         self.eps = eps
-        self.ex = ocrolib.ScaledFE()
-        self.dc = ocrolib.EdistComp()
+        self.ex = ocroold.ScaledFE()
+        self.dc = ocroold.EdistComp()
         self.classes = []
         self.counts = []
         self.total = 0

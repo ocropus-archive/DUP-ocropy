@@ -9,7 +9,7 @@ from optparse import OptionParser
 from pylab import *
 from scipy.ndimage import interpolation,filters
 import ocrolib
-from ocrolib import docproc,utils,Record,mlp
+from ocrolib import docproc,utils,Record,mlp,dbhelper
 from scipy import stats
 signal.signal(signal.SIGINT,lambda *args:sys.exit(1))
 
@@ -173,7 +173,7 @@ actual = Counter()
 
 for arg in args:
     print "===",arg
-    db = utils.chardb(arg,options.table)
+    db = dbhelper.chardb(arg,options.table)
     print "total",db.execute("select count(*) from chars").next()[0]
 
     print "# determining per-class cutoff"
@@ -213,7 +213,7 @@ for arg in args:
 
     for id in all_ids:
         c = db.execute("select image,cls,rel from chars where id=?",[id]).next()
-        cluster = Record(image=utils.blob2image(c.image),cls=c.cls,rel=c.rel)
+        cluster = Record(image=dbhelper.blob2image(c.image),cls=c.cls,rel=c.rel)
 
         # check whether we already have enough characters
         if count>options.limit: 

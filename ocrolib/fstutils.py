@@ -8,9 +8,11 @@
 
 import sys,os,re,codecs
 import openfst
-import ocropus,iulib
+import iulib
+import ocropus
 import common
 import ligatures
+import ocrofst
 
 epsilon = openfst.epsilon
 sigma = ocropus.L_RHO
@@ -92,7 +94,7 @@ def openfst2ocrofst(openfst):
     """Convert an OpenFST transducer to an OcroFST transducer."""
     temp = "/tmp/%d.fst"%os.getpid()
     openfst.Write(temp)
-    result = common.OcroFST()
+    result = ocrofst.OcroFST()
     result.load(temp)
     os.unlink(temp)
     return result

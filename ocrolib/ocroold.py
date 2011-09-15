@@ -13,6 +13,7 @@ import ocropus
 import ocrofst
 from iuutils import *
 from ocroio import *
+from improc import cut
 
 ################################################################
 ### native components
@@ -350,7 +351,7 @@ class OmpClassifier:
         self.comp.classify()
     def input(self,a,i):
         """Set input vector i."""
-        self.comp.input(common.vector2narray(a),i)
+        self.comp.input(vector2narray(a),i)
     def output(self,i):
         """Get outputs for input vector i."""
         ov = ocropus.OutputVector()
@@ -400,7 +401,7 @@ class Model(CommonComponent):
         is assumed to be an image and converted from raster to mathematical
         coordinates."""
         # if geometry is not None: warn_once("geometry given to Model")
-        return self.comp.cadd(common.vector2narray(v),cls)
+        return self.comp.cadd(vector2narray(v),cls)
     def coutputs(self,v,geometry=None):
         """Compute the outputs for a given input vector v.  Outputs are
         of the form [(cls,probability),...]
@@ -408,7 +409,7 @@ class Model(CommonComponent):
         is assumed to be an image and converted from raster to mathematical
         coordinates."""
         # if geometry is not None: warn_once("geometry given to Model")
-        return self.comp.coutputs(common.vector2narray(v))
+        return self.comp.coutputs(vector2narray(v))
     def coutputs_batch(self,vs,geometries=None):
         if self.omp is None: 
             self.omp = OmpClassifier()
@@ -424,7 +425,7 @@ class Model(CommonComponent):
     def cclassify(self,v,geometry=None):
         """Perform classification of the input vector v."""
         # if geometry is not None: warn_once("geometry given to Model")
-        return self.comp.cclassify(common.vector2narray(v))
+        return self.comp.cclassify(vector2narray(v))
 
 class OldAutoMlpModel(Model):
     """An MLP classifier trained with gradient descent and
@@ -473,46 +474,6 @@ class DistComp(CommonComponent):
 
 class EdistComp(DistComp):
     c_class = "edist"
-
-def load_linerec_old(file,wrapper=None):
-    """Loads a line recognizer.  This handles a bunch of special cases
-    due to the way OCRopus has evolved.  In the long term, .pymodel is the
-    preferred format.
-
-    For files ending in .pymodel, just unpickles the contents of the file.
-
-    For files ending in .cmodel, loads the character model using load_IModel
-    (it has to be a C++ character classifier), and then instantiates a
-    CmodelLineRecognizer with the cmodel as an argument.  Additional parameters
-    can be passed as in my.cmodel:best=5.  The line recognizer used can be
-    overridden as in my.cmodel:class=MyLineRecognizer:best=17.
-
-    For anything else, uses native load_linerec (which has its own special cases)."""
-
-    if wrapper is None:
-        import common
-        wrapper = common.CmodelLineRecognizer
-
-    if ".pymodel" in file:
-        with open(file,"rb") as stream:
-            result = pickle.load(stream)
-        if getattr(result,"coutputs",None):
-            print "[wrapping %s]"%result
-            result = wrapper(cmodel=result)
-        print "[loaded %s]"%result
-        return result
-
-    if ".cmodel" in file:
-        names = file.split(":")
-        cmodel = load_IModel(names[0])
-        linerec = wrapper(cmodel=cmodel)
-        return linerec
-
-    native = ocropus.load_linerec(file)
-    assert isinstance(native,ocropus.IRecognizeLine)
-    result = RecognizeLine()
-    result.comp = native
-    return result
 
 class RegionExtractor:
     """A class facilitating iterating over the parts of a segmentation."""
