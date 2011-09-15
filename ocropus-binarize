@@ -18,9 +18,13 @@ from scipy.misc import imsave
 from PIL import Image
 import ocrolib
 from ocrolib import number_of_processors
+import ocropreproc
+from ocrolib import ocroold
 
 parser = optparse.OptionParser(usage="""
 %prog -o dir [options] image1 image2 ...
+
+The following applies to "-B ocroold.Standardpreprocessing"
 
 Performs preprocessing on each of the images on the command line and stores
 the resulting output in a directory with "book structure".  That is, the
@@ -47,7 +51,7 @@ parser.add_option("-W","--width",help="width parameter (40)",default=40,type=flo
 parser.add_option("-r","--dpi",help="resolution (DPI) (300)",default=300,type=float)
 parser.add_option("-q","--silent",action="store_true",help="disable warnings")
 parser.add_option("-P","--parallel",type=int,default=number_of_processors(),help="number of parallel processes to use")
-parser.add_option("-B","--binarizer",help="binarization component to be used",default="StandardPreprocessing")
+parser.add_option("-B","--binarizer",help="binarization component to be used",default="ocropreproc.CommonPreprocessing")
 parser.add_option("-g","--gtextension",help="ground truth extension for copying in ground truth (include all dots)",default=None)
 options,args = parser.parse_args()
 
@@ -67,7 +71,7 @@ if options.binarizer=="StandardPreprocessing":
     binarizer.command("binarizer_pset","k1",str(options.high))
     binarizer.command("binarizer_pset","width",str(options.width))
 else:
-    binarizer = ocrolib.Binarizer().make(options.binarize)
+    binarizer = ocrolib.make_IBinarize(options.binarizer)
 
 if options.Display: options.display = 1
 if options.display: ion(); show()

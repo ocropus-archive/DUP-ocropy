@@ -1,4 +1,9 @@
-#!/usr/bin/python
+################################################################
+### Whitespace model based on neural networks.
+### Determines whether there is whitespace at a given location
+### on a textline.
+################################################################
+
 import code,pickle,sys,os,re,traceback
 from optparse import OptionParser
 from pylab import *

@@ -1,8 +1,19 @@
-import __init__ as ocropy
+################################################################
+### Miscellaneous plotting functions based on matplotlib.
+################################################################
+
+import matplotlib 
+matplotlib.use('GTK') 
+import __init__ as ocropy # FIXME
 from matplotlib import patches
 from pylab import *
 import re
 import common
+
+def gtk_yield():
+    import gtk
+    while gtk.events_pending():
+       gtk.main_iteration(False)
 
 def draw_pseg(pseg,axis=None):
     if axis is None:
@@ -58,4 +69,16 @@ def draw_aligned(result,axis=None):
         if i>0 and i-1<len(s):
             axis.text(x0,h-y0-1,s[i-1],color="red",weight="bold",fontsize=14)
     draw()
+
+def plotgrid(data,d=10,shape=(30,30)):
+    """Plot a list of images on a grid."""
+    ion()
+    gray()
+    clf()
+    for i in range(min(d*d,len(data))):
+        subplot(d,d,i+1)
+        row = data[i]
+        if shape is not None: row = row.reshape(shape)
+        imshow(row)
+    ginput(1,timeout=0.1)
 

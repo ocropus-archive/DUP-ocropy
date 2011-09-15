@@ -1,4 +1,7 @@
-#! /usr/bin/env python
+################################################################
+### text image generation with Cairo
+################################################################
+
 import ctypes
 import cairo
 from cairoextras import *

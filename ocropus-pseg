@@ -15,7 +15,7 @@ from scipy.misc import imsave
 import traceback
 
 from ocrolib import number_of_processors
-import ocrolib as common
+import ocrolib
 
 parser = optparse.OptionParser(usage="""
 %prog [options] image1.png image2.png ...
@@ -61,9 +61,9 @@ parser.add_option("-d","--display",action="store_true",
                   help="display result")
 parser.add_option("-D","--Display",action="store_true",
                   help="display continuously")
-parser.add_option("-S","--segmenter",default="SegmentPageByRAST",
+parser.add_option("-S","--segmenter",default="ocrorast.SegmentPageByRAST",
                   help="which segmentation component to use")
-parser.add_option("-P","--preproc",default="StandardPreprocessing",
+parser.add_option("-P","--preproc",default="ocropreproc.CommonPreprocessing",
                   help="which preprocessing component to use")
 parser.add_option("-r","--dpi",default=300,type=int,
                   help="resolution of input image in DPI")
@@ -80,9 +80,9 @@ options,args = parser.parse_args()
 if len(args)==1 and os.path.isdir(args[0]):
     args = sorted(glob.glob(args[0]+"/????.png"))
 
-preproc = common.make_IBinarize(options.preproc)
+preproc = ocrolib.make_IBinarize(options.preproc)
 
-segmenter = common.make_ISegmentPage(options.segmenter)
+segmenter = ocrolib.make_ISegmentPage(options.segmenter)
 
 if options.descender>0:
     segmenter.pset("max_descender",options.descender)
@@ -92,12 +92,12 @@ if options.display: ion()
 
 def process_arg(arg):
     print "===",arg
-    base,_ = common.allsplitext(arg)
+    base,_ = ocrolib.allsplitext(arg)
     if os.path.exists(base):
         print "# output directory",base,"already exists"
         return
 
-    image = common.read_image_gray(arg,'B')
+    image = ocrolib.read_image_gray(arg,'B')
     h,w = image.shape
 
     if options.display:
@@ -108,11 +108,11 @@ def process_arg(arg):
     if os.path.exists(base+".bin.png"):
         print "# loading",base+".bin.png"
         page_gray = image
-        page_bin = common.read_image_gray(base+".bin.png")
+        page_bin = ocrolib.read_image_gray(base+".bin.png")
     else:
         print "# binarizing"
         (page_bin,page_gray) = preproc.binarize(image)
-        common.write_image_gray(base+".bin.png",page_bin)
+        ocrolib.write_image_gray(base+".bin.png",page_bin)
 
     # get a text/image segmentation if available
     page_ti = None
@@ -139,7 +139,7 @@ def process_arg(arg):
         page_seg = segmenter.segment(page_bin)
     else:
         page_seg = segmenter.segment(page_bin,tirects)
-    regions = common.RegionExtractor()
+    regions = ocrolib.RegionExtractor()
     regions.setPageLines(page_seg)
     if os.path.exists(base):
         print "# removing",base
@@ -153,7 +153,7 @@ def process_arg(arg):
         clf()
         axis = subplot(111)
         axis.imshow(page_bin,cmap=cm.gray)
-        common.draw_pseg(page_seg,axis)
+        ocrolib.draw_pseg(page_seg,axis)
 
     for i in range(1,regions.length()):
         line = regions.extractMasked(page_bin,i,0,255,options.pad)
@@ -179,16 +179,16 @@ def process_arg(arg):
             line = interpolation.zoom(line,(scale,scale),order=1)
             assert abs(line.shape[0]-options.target)<2,line.shape
         if not options.silent:
-            if common.quick_check_line_components(line,dpi=options.dpi)<0.5:
+            if ocrolib.quick_check_line_components(line,dpi=options.dpi)<0.5:
                 continue
         if options.gray:
-            common.write_image_gray("%s/%06x.bin.png"%(base,regions.id(i)),line)
+            ocrolib.write_image_gray("%s/%06x.bin.png"%(base,regions.id(i)),line)
             line = regions.extract(page_gray,i,options.pad)
-            common.write_image_gray("%s/%06x.png"%(base,regions.id(i)),line)
+            ocrolib.write_image_gray("%s/%06x.png"%(base,regions.id(i)),line)
         else:
-            common.write_image_gray("%s/%06x.bin.png"%(base,regions.id(i)),line)
-            common.write_image_gray("%s/%06x.png"%(base,regions.id(i)),line)
-    common.write_page_segmentation(base+".pseg.png",page_seg)
+            ocrolib.write_image_gray("%s/%06x.bin.png"%(base,regions.id(i)),line)
+            ocrolib.write_image_gray("%s/%06x.png"%(base,regions.id(i)),line)
+    ocrolib.write_page_segmentation(base+".pseg.png",page_seg)
     if options.display:
         draw()
         if not options.Display: 

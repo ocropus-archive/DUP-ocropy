@@ -1,16 +1,19 @@
+################################################################
+### common functions for data structures, file name manipulation, etc.
+################################################################
+
 import os,os.path,re,numpy,unicodedata,sys,warnings,inspect,glob,traceback
 import numpy
 from numpy import *
 from scipy.misc import imsave
 from scipy.ndimage import interpolation,measurements,morphology
 
-import iulib
 import utils
-from utils import allsplitext,write_text
 import docproc
 import ligatures
 import fstutils
 import openfst
+import segrec
 import ocrofst
 import ocrorast
 import ocrolseg
@@ -19,12 +22,41 @@ import ocropreproc
 import cPickle as pickle
 pickle_mode = 2
 
+from pycomp import PyComponent
+from ocroio import renumber_labels
+from ocroold import RegionExtractor,Grouper,StandardGrouper
+
 ################################################################
-### deprecated
+### Simple record object.
 ################################################################
 
-import ocropus
-import ocroold
+class Record:
+    def __init__(self,**kw):
+        self.__dict__.update(kw)
+    def like(self,obj):
+        self.__dict__.update(obj.__dict__)
+        return self
+
+################################################################
+### Histograms
+################################################################
+
+def chist(l):
+    counts = {}
+    for c in l:
+        counts[c] = counts.get(c,0)+1
+    hist = [(v,k) for k,v in counts.items()]
+    return sorted(hist,reverse=1)
+
+################################################################
+### Environment functions
+################################################################
+
+def number_of_processors():
+    try:
+        return int(os.popen("cat /proc/cpuinfo  | grep 'processor.*:' | wc -l").read())
+    except:
+        return 1
 
 ################################################################
 ### exceptions
@@ -37,6 +69,14 @@ class Unimplemented():
 class BadClassLabel(Exception):
     def __init__(self,s):
         Exception.__init__(self,s)
+
+class RecognitionError(Exception):
+    def __init__(self,explanation,**kw):
+        self.context = kw
+        s = [explanation]
+        s += ["%s=%s"%(k,summary(kw[k])) for k in kw]
+        message = " ".join(s)
+        Exception.__init__(self,message)
 
 def check_valid_class_label(s):
     if type(s)==unicode:
@@ -57,17 +97,60 @@ def summary(x):
         return '%s...'%x
     return str(x)
 
-class RecognitionError(Exception):
-    def __init__(self,explanation,**kw):
-        self.context = kw
-        s = [explanation]
-        s += ["%s=%s"%(k,summary(kw[k])) for k in kw]
-        message = " ".join(s)
-        Exception.__init__(self,message)
-
 ################################################################
 ### file name manipulation
 ################################################################
+
+def findfile(name):
+    """Find some OCRopus-related resource by looking in a bunch off standard places.
+    (FIXME: The implementation is pretty adhoc for now.
+    This needs to be integrated better with setup.py and the build system.)"""
+    local = "/usr/local/share/ocropus/"
+    path = name
+    if os.path.exists(path) and os.path.isfile(path): return path
+    path = local+name
+    if os.path.exists(path) and os.path.isfile(path): return path
+    path = local+"/gui/"+name
+    if os.path.exists(path) and os.path.isfile(path): return path
+    path = local+"/models/"+name
+    if os.path.exists(path) and os.path.isfile(path): return path
+    path = local+"/words/"+name
+    if os.path.exists(path) and os.path.isfile(path): return path
+    _,tail = os.path.split(name)
+    path = tail
+    if os.path.exists(path) and os.path.isfile(path): return path
+    path = local+tail
+    if os.path.exists(path) and os.path.isfile(path): return path
+    raise IOError("file '"+path+"' not found in . or /usr/local/share/ocropus/")
+
+def finddir(name):
+    """Find some OCRopus-related resource by looking in a bunch off standard places.
+    (This needs to be integrated better with setup.py and the build system.)"""
+    local = "/usr/local/share/ocropus/"
+    path = name
+    if os.path.exists(path) and os.path.isdir(path): return path
+    path = local+name
+    if os.path.exists(path) and os.path.isdir(path): return path
+    _,tail = os.path.split(name)
+    path = tail
+    if os.path.exists(path) and os.path.isdir(path): return path
+    path = local+tail
+    if os.path.exists(path) and os.path.isdir(path): return path
+    raise IOError("file '"+path+"' not found in . or /usr/local/share/ocropus/")
+
+def allsplitext(path):
+    """Split all the pathname extensions, so that "a/b.c.d" -> "a/b", ".c.d" """
+    match = re.search(r'((.*/)*[^.]*)([^/]*)',path)
+    if not match:
+        return path,""
+    else:
+        return match.group(1),match.group(3)
+
+def write_text(file,s):
+    """Write the given string s to the output file."""
+    with open(file,"w") as stream:
+        if type(s)==unicode: s = s.encode("utf-8")
+        stream.write(s)
 
 def expand_args(args):
     if len(args)==1 and os.path.isdir(args[0]):
@@ -163,6 +246,10 @@ def fopen(fname,kind,gt=None,mode="r"):
     """Like fvariant, but opens the file."""
     return open(fvariant(fname,kind,gt),mode)
 
+################################################################
+### Utility for setting "parameters" on an object: a list of keywords for
+### changing instance variables.
+################################################################
 
 def set_params(object,kw,warn=1):
     """Given an object and a dictionary of keyword arguments,
@@ -176,6 +263,10 @@ def set_params(object,kw,warn=1):
             setattr(object,k,v)
             del kw[k]
     return kw
+
+################################################################
+### warning and logging
+################################################################
 
 def caller():
     frame = sys._getframe(2)
@@ -257,174 +348,9 @@ def ustrg2unicode(u,lig=ligatures.lig):
                 result += "<%d>"%value
     return result
 
-def isfp(a):
-    """Check whether the array is a floating point array."""
-    if type(a)==str:
-        if a in ['f','d']: return 1
-        else: return 0
-    if type(a)==iulib.floatarray: return 1
-    try:
-        if a.dtype in [dtype('f'),dtype('d')]: return 1
-    except:
-        pass
-    return 0
-
-def checknp(a):
-    """Checks whether the argument is a numpy array.  Raises an error if not."""
-    if type(a) in [iulib.bytearray,iulib.intarray,iulib.floatarray,iulib.rectarray]:
-        raise Exception("numpy array expected; an narray was passed")
-    assert type(a)==numpy.ndarray
-def checkna(a):
-    """Checks whether the argument is an narray.  Raises an error if not."""
-    if type(a) in [iulib.bytearray,iulib.intarray,iulib.floatarray,iulib.rectarray]:
-        return
-    if type(a)==numpy.array:
-        raise Exception("narray expected; a numpy array was passed")
-    raise Exception("expected an narray, got something different")
-
-def ctype(a):
-    """Return the numpy type character for an array."""
-    if type(a)==str: return a
-    if type(a)==iulib.floatarray: return 'f'
-    if type(a)==iulib.intarray: return 'i'
-    if type(a)==iulib.bytearray: return 'B'
-    return a.dtype
-
-def numpy2narray(page,type='B'):
-    """Convert a numpy image to an narray. Flips from raster to
-    mathematical coordinates.  When converting float to integer
-    types, multiplies with 255.0, and when converting integer to
-    float types, divides by 255.0."""
-    checknp(page)
-    if type is None: type = ctype(page)
-    if isfp(page) and not isfp(type):
-        page = array(255*page,dtype='B')
-    elif not isfp(page) and isfp(type):
-        page = page/255.0
-    page = page.transpose([1,0]+range(2,page.ndim))[:,::-1,...]
-    return iulib.narray(page,type=type)
-
-def narray2numpy(na,type='B'):
-    """Convert an narray image to a numpy image. Flips from mathematical
-    coordinates to raster coordinates.  When converting integer to float
-    types, multiplies with 255.0, and when converting integer to float
-    types divides by 255.0"""
-    checkna(na)
-    if type is None: type = ctype(na)
-    if isfp(na) and not isfp(type):
-        page = iulib.numpy(na,'f')
-        page = array(255.0*page,dtype=type)
-    elif not isfp(na) and isfp(type):
-        page = iulib.numpy(na,type=type)
-        page /= 255.0
-    else:
-        page = iulib.numpy(na,type=type)
-    return page.transpose([1,0]+range(2,page.ndim))[::-1,...]
-
-def vector2narray(v,type='f'):
-    """Convert a numpy vector to an narray.  If ndim>1, it converts to
-    mathematical coordinates.  This is used with classifiers."""
-    checknp(v)
-    if v.ndim==1: return iulib.narray(v,type='f')
-    else: return iulib.narray(v[::-1,...].transpose([1,0]+range(2,v.ndim)))
-
-def narray2vector(na,type='f'):
-    """Convert an narray vector to numpy.  If ndim>1, it converts to
-    raster coordinates.  This is used with classifiers."""
-    a = iulib.numpy(na)
-    if a.ndim>1: return a.transpose([1,0]+range(2,a.ndim))[::-1,...]
-    else: return a
-
-def page2narray(page,type='B'):
-    """Convert page images to narrays."""
-    checknp(page)
-    return numpy2narray(page,type=type)
-
-def narray2page(page,type='B'):
-    """Convert narrays to page images."""
-    checkna(page)
-    return narray2numpy(page,type=type)
-
-def line2narray(line,type='B'):
-    """Convert line images to narrays."""
-    checknp(line)
-    return numpy2narray(line,type=type)
-
-def narray2line(line,type='B'):
-    """Convert line narrays to line images."""
-    checkna(line)
-    return narray2numpy(line,type=type)
-
-def narray2pseg(na):
-    """Convert an narray to a page segmentation (rank 3, RGB)."""
-    checkna(na)
-    pseg = iulib.numpy(na,type='i')
-    pseg = array([pseg>>16,pseg>>8,pseg],'B')
-    pseg = transpose(pseg,[2,1,0])
-    pseg = pseg[::-1,...]
-    return pseg
-
-def pseg2narray(pseg):
-    """Convert a page segmentation (rank 3, RGB) to an narray."""
-    checknp(pseg)
-    assert pseg.dtype=='B' and pseg.ndim==3
-    r = numpy2narray(ascontiguousarray(pseg[:,:,0]))
-    g = numpy2narray(ascontiguousarray(pseg[:,:,1]))
-    b = numpy2narray(ascontiguousarray(pseg[:,:,2]))
-    rgb = iulib.intarray()
-    iulib.pack_rgb(rgb,r,g,b)
-    return rgb
-
-def narray2lseg(na):
-    """Convert an narray to a line segmentation."""
-    checkna(na)
-    pseg = iulib.numpy(na,type='i')
-    pseg = transpose(pseg,[1,0])
-    pseg = pseg[::-1,...]
-    return pseg
-
-def lseg2narray(lseg):
-    """Convert a line segmentation (rank 2, 'i') to an narray."""
-    checknp(lseg)
-    assert lseg.dtype=='i' and lseg.ndim==2,"wanted rank 2 'i' array, got %s"%lseg
-    lseg = lseg[::-1,...].transpose()
-    lseg = iulib.narray(lseg,type='i')
-    return lseg
-
-def rect2raster(r,h):
-    """Convert iulib rectangles to raster coordinates.  Raster coordinates are given
-    as (row0,col0,row1,col1).  Note that this is different from some other parts of
-    Python, which transpose the rows and columns."""
-    (x0,y0,x1,y1) = (r.x0,r.y0,r.x1,r.y1)
-    y1 = h-y1-1
-    y0 = h-y0-1
-    return (y1,x0,y0,x1)
-
-def raster2rect(r,h):
-    """Convert raster coordinates (row,col,row,col) to iulib
-    rectangles.  Input is (row0,col0,row1,col1)."""
-    (r0,c0,r1,c1) = r
-    return iulib.rectangle(c0,h-r1-1,c1,h-r0-1)
-
-def rect2math(r):
-    """Convert rectangles to mathematical coordinates."""
-    return (r.x0,r.y0,r.x1,r.y1)
-
-def math2rect(r):
-    """Convert mathematical coordinates to rectangle coordinates."""
-    (x0,y0,x1,y1) = r
-    return iulib.rectangle(x0,y0,x1,y1)
-
 ################################################################
 ### simple shape comparisons
 ################################################################
-
-def thin(image,c=1):
-    if c>0: image = morphology.binary_closing(image,iterations=c)
-    image = array(image,'B')
-    image = numpy2narray(image)
-    iulib.thin(image)
-    return array(narray2numpy(image),'B')
 
 def make_mask(image,r):    
     skeleton = thin(image)
@@ -470,348 +396,6 @@ def cut(image,box,margin=0,bg=0,dtype=None):
     if dtype is None: dtype = image.dtype
     result = interpolation.shift(image,(-r0,-c0),output=dtype,order=0,cval=bg)
     return result[:(r1-r0),:(c1-c0)]
-
-class RegionExtractor:
-    """A class facilitating iterating over the parts of a segmentation."""
-    def __init__(self):
-        self.comp = ocropus.RegionExtractor()
-        self.cache = {}
-    def clear(self):
-        del self.cache
-        self.cache = {}
-    def setImage(self,image):
-        """Set the image to be iterated over.  This should be an RGB image,
-        ndim==3, dtype=='B'."""
-        self.h = image.shape[0]
-        self.comp.setImage(self.pseg2narray(image))
-    def setImageMasked(self,image,mask,lo,hi):
-        """Set the image to be iterated over.  This should be an RGB image,
-        ndim==3, dtype=='B'.  This picks a subset of the segmentation to iterate
-        over, using a mask and lo and hi values.."""
-        self.h = image.shape[0]
-        assert type(mask)==int and type(lo)==int and type(hi)==int
-        self.comp.setImage(self.pseg2narray(image),mask,lo,hi)
-    def setPageColumns(self,image):
-        """Set the image to be iterated over.  This should be an RGB image,
-        ndim==3, dtype=='B'.  This iterates over the columns."""
-        self.h = image.shape[0]
-        image = pseg2narray(image)
-        self.comp.setPageColumns(self,image)
-    def setPageParagraphs(self,image):
-        """Set the image to be iterated over.  This should be an RGB image,
-        ndim==3, dtype=='B'.  This iterates over the paragraphs (if present
-        in the segmentation)."""
-        self.h = image.shape[0]
-        image = pseg2narray(image)
-        self.comp.setPageParagraphs(self,image)
-    def setPageLines(self,image):
-        """Set the image to be iterated over.  This should be an RGB image,
-        ndim==3, dtype=='B'.  This iterates over the lines."""
-        self.h = image.shape[0]
-        image = pseg2narray(image)
-        # iulib.write_image_packed("_seg.png",image)
-        self.comp.setPageLines(image)
-    def id(self,i):
-        """Return the RGB pixel value for this segment."""
-        return self.comp.id(i)
-    def x0(self,i):
-        """Return x0 (column) for the start of the box."""
-        return self.comp.x0(i)
-    def x1(self,i):
-        """Return x0 (column) for the end of the box."""
-        return self.comp.x1(i)
-    def y0(self,i):
-        """Return y0 (row) for the start of the box."""
-        return h-self.comp.y1(i)-1
-    def y1(self,i):
-        """Return y0 (row) for the end of the box."""
-        return h-self.comp.y0(i)-1
-    def bbox(self,i):
-        """Return the bounding box in raster coordinates
-        (row0,col0,row1,col1)."""
-        r = self.comp.bbox(i)
-        return rect2raster(r,self.h)
-    def bboxMath(self,i):
-        """Return the bounding box in math coordinates
-        (row0,col0,row1,col1)."""
-        r = self.comp.bbox(i)
-        return rect2math(r)
-    def length(self):
-        """Return the number of components."""
-        return self.comp.length()
-    def mask(self,index,margin=0):
-        """Return the mask for component index."""
-        result = iulib.bytearray()
-        self.comp.mask(result,index,margin)
-        return narray2numpy(result)
-    def extract(self,image,index,margin=0):
-        """Return the subimage for component index."""
-        h,w = image.shape[:2]
-        (r0,c0,r1,c1) = self.bbox(index)
-        mask = self.mask(index,margin=margin)
-        return image[max(0,r0-margin):min(h,r1+margin),max(0,c0-margin):min(w,c1+margin),...]
-    def extractMasked(self,image,index,grow,bg=None,margin=0,dtype=None):
-        """Return the masked subimage for component index, elsewhere the bg value."""
-        if bg is None: bg = amax(image)
-        h,w = image.shape[:2]
-        mask = self.mask(index,margin=margin)
-        mh,mw = mask.shape
-        box = self.bbox(index)
-        r0,c0,r1,c1 = box
-        subimage = cut(image,(r0,c0,r0+mh-2*margin,c0+mw-2*margin),margin,bg=bg)
-        return where(mask,subimage,bg)
-
-class Grouper(ocroold.CommonComponent):
-    """Perform grouping operations on segmented text lines, and
-    create a finite state transducer for classification results."""
-    c_interface = "IGrouper"
-    def setSegmentation(self,segmentation):
-        """Set the line segmentation."""
-        self.comp.setSegmentation(lseg2narray(segmentation))
-        self.h = segmentation.shape[0]
-    def setCSegmentation(self,segmentation):
-        """Set the line segmentation, assumed to be a cseg."""
-        self.comp.setCSegmentation(lseg2narray(segmentation))
-        self.h = segmentation.shape[0]
-    def length(self):
-        """Number of groups."""
-        return self.comp.length()
-    def getMask(self,i,margin=0):
-        """Get the mask image for group i."""
-        if self.isEmpty(i): return None
-        rect = rectangle()
-        mask = iulib.bytearray()
-        self.comp.getMask(rect,mask,i,margin)
-        return (rect2raster(rect,self.h),narray2numpy(mask,'f'))
-    def getMaskAt(self,i,rect):
-        """Get the mask for group i and contained in the given rectangle."""
-        if self.isEmpty(i): return None
-        rect = raster2rect(rect,self.h)
-        mask = iulib.bytearray()
-        self.comp.getMaskAt(mask,i,rect)
-        return narray2numpy(mask,'f')
-    def isEmpty(self,i):
-        y0,x0,y1,x1 = self.boundingBox(i)
-        return y0>=y1 or x0>=x1
-    def boundingBox(self,i):
-        """Get the bounding box for group i."""
-        return rect2raster(self.comp.boundingBox(i),self.h)
-    def bboxMath(self,i):
-        """Get the bounding box for group i."""
-        return rect2math(self.comp.boundingBox(i))
-    def start(self,i):
-        """Get the identifier of the character segment starting this group."""
-        return self.comp.start(i)
-    def end(self,i):
-        """Get the identifier of the character segment ending this group."""
-        return self.comp.end(i)
-    def getSegments(self,i):
-        """Get a list of all the segments making up this group."""
-        l = iulib.intarray()
-        self.comp.getSegments(l,i)
-        return [l.at(i) for i in range(l.length())]
-    def extract(self,source,dflt,i,grow=0,dtype='f'):
-        """Extract the image corresponding to group i.  Background pixels are
-        filled in with dflt."""
-        if self.isEmpty(i): return None
-        checknp(source)
-        if isfp(source):
-            out = iulib.floatarray()
-            self.comp.extract(out,numpy2narray(source,'f'),dflt,i,grow)
-            return narray2numpy(out,'f')
-        else:
-            out = iulib.bytearray()
-            self.comp.extract(out,numpy2narray(source,'B'),dflt,i,grow)
-            return narray2numpy(out,'B')
-    def extractWithMask(self,source,i,grow=0):
-        """Extract the image and mask corresponding to group i"""
-        if self.isEmpty(i): return None
-        checknp(source)
-        if isfp(source):
-            out = iulib.floatarray()
-            mask = iulib.bytearray()
-            self.comp.extractWithMask(out,mask,numpy2narray(source,'f'),i,grow)
-            return (narray2numpy(out,'f'),narray2numpy(out,'b'))
-        else:
-            out = iulib.bytearray()
-            mask = iulib.bytearray()
-            self.comp.extractWithMask(out,mask,numpy2narray(source,'B'),i,grow)
-            return (narray2numpy(out,'B'),narray2numpy(out,'B'))
-    def extractSliced(self,source,dflt,i,grow=0):
-        """Extract the image and mask corresponding to group i, slicing through the entire input
-        line.  Background pixels are filled with dflt."""
-        if self.isEmpty(i): return None
-        if isfp(source):
-            out = iulib.floatarray()
-            self.comp.extractSliced(out,numpy2narray(source,'f'),dflt,i,grow)
-            return narray2numpy(out,'f')
-        else:
-            out = iulib.bytearray()
-            self.comp.extractSliced(out,numpy2narray(source,'B'),dflt,i,grow)
-            return narray2numpy(out,'B')
-    def extractSlicedWithMask(self,source,i,grow=0):
-        """Extract the image and mask corresponding to group i, slicing through the entire
-        input line."""
-        if self.isEmpty(i): return None
-        if isfp(source):
-            out = iulib.floatarray()
-            mask = iulib.bytearray()
-            self.comp.extractWithMask(out,mask,numpy2narray(source,'f'),i,grow)
-            return (narray2numpy(out,'f'),narray2numpy(out,'B'))
-        else:
-            out = iulib.bytearray()
-            mask = iulib.bytearray()
-            self.comp.extractWithMask(out,mask,numpy2narray(source,'B'),i,grow)
-            return (narray2numpy(out,'B'),narray2numpy(out,'B'))
-    def setClass(self,i,cls,cost):
-        """Set the class for group i, and the associated cost.  The class may
-        be given as an integer, as a string, or as a unicode string.  The cost
-        should be non-negative."""
-        cost = float(cost)
-        if type(cls)==str:
-            u = iulib.unicode2ustrg(unicode(cls))
-            self.comp.setClass(i,u,cost)
-        elif type(cls)==unicode:
-            u = iulib.unicode2ustrg(cls)
-            self.comp.setClass(i,u,cost)
-        elif type(cls)==int:
-            assert cls>=-3,"bad cls: %d (should be >= -3)"%cls
-            self.comp.setClass(i,cls,cost)
-        else:
-            raise Exception("bad class type '%s'"%cls)
-    def setSpaceCost(self,i,yes_cost,no_cost):
-        """Set the cost of putting a space or not putting a space after
-        group i."""
-        self.comp.setSpaceCost(i,yes_cost,no_cost)
-    def getLattice(self):
-        """Construct the lattice for the group, using the setClass and setSpaceCost information."""
-        fst = ocrofst.OcroFST()
-        self.comp.getLattice(fst.comp)
-        return fst
-    def clearLattice(self):
-        """Clear all the lattice-related information accumulated so far."""
-        self.comp.clearLattice()
-    def pixelSpace(self,i):
-        """???"""
-        return self.comp.pixelSpace(i)
-    def setSegmentationAndGt(self,rseg,cseg,gt):
-        """Set the line segmentation."""
-        assert rseg.shape==cseg.shape
-        self.gt = gt
-        u = iulib.ustrg()
-        u.assign("?"*len(gt))
-        self.comp.setSegmentationAndGt(lseg2narray(rseg),lseg2narray(cseg),u)
-        self.h = rseg.shape[0]
-    def getGtIndex(self,i):
-        return self.comp.getGtIndex(i)
-    def getGtClass(self,i):
-        index = self.getGtIndex(i)
-        if index<0: return "~"
-        return self.gt[index-1]
-
-class StandardGrouper(Grouper):
-    """The grouper usually used for printed OCR."""
-    c_class = "StandardGrouper"
-
-### native code image I/O; we use this because it works more reliably
-### than Python's code for TIFF files
-
-### FIXME eventually try to replace this with builtin code
-
-def iulib_page_iterator(files):
-    """Given a list of files, iterate through the page images in those
-    files.  When multi-page TIFF files are encountered, iterates through
-    each such TIFF file.  Yields tuples (image,filename), where image
-    is in iulib format."""
-    for file in files:
-        _,ext = os.path.splitext(file)
-        if ext.lower()==".tif" or ext.lower()==".tiff":
-            if os.path.getsize(file)>2e9:
-                raise IOError("TIFF file is greater than 2G")
-            tiff = iulib.Tiff(file,"r")
-            for i in range(tiff.numPages()):
-                image = iulib.bytearray()
-                try:
-                    tiff.getPageRaw(image,i,True)
-                except:
-                    tiff.getPage(image,i,True)
-                yield image,"%s[%d]"%(file,i)
-        else:
-            image = iulib.bytearray()
-            iulib.read_image_gray(image,file)
-            yield image,file
-
-def page_iterator(files):
-    """Given a list of files, iterate through the page images in those
-    files.  When multi-page TIFF files are encountered, iterates through
-    each such TIFF file.  Yields tuples (image,filename), where image
-    is in NumPy format."""
-    # use the iulib implementation because its TIFF reader actually works;
-    # the TIFF reader in all the Python libraries is broken
-    for image,file in iulib_page_iterator(files):
-        yield narray2page(image),file
-
-def read_image_gray(file,type='B'):
-    """Read an image in grayscale."""
-    if not os.path.exists(file): raise IOError(file)
-    na = iulib.bytearray()
-    iulib.read_image_gray(na,file)
-    return narray2numpy(na,type=type)
-
-def write_image_gray(file,image):
-    """Write an image in grayscale."""
-    assert (array(image.shape)>0).all()
-    if image.ndim==2:
-        iulib.write_image_gray(file,numpy2narray(image))
-    elif image.ndim==3:
-        iulib.write_image_gray(file,numpy2narray(mean(image,axis=2)))
-    else:
-        raise Exception("ndim must be 2 or 3, not %d"%image.ndim)
-
-def draw_pseg(pseg,axis=None):
-    """Display a pseg."""
-    if axis is None:
-        axis = subplot(111)
-    h = pseg.dim(1)
-    regions = RegionExtractor()
-    regions.setPageLines(pseg)
-    for i in range(1,regions.length()):
-        (r0,c0,r1,c1) = (regions.x0(i),regions.y0(i),regions.x1(i),regions.y1(i))
-        p = patches.Rectangle((c0,r0),c1-c0,r1-r0,edgecolor="red",fill=0)
-        axis.add_patch(p)
-
-def write_page_segmentation(name,pseg,white=1):
-    """Write a numpy page segmentation (rank 3, type='B' RGB image.)"""
-    pseg = pseg2narray(pseg)
-    if white: ocropus.make_page_segmentation_white(pseg)
-    iulib.write_image_packed(name,pseg)
-    
-def read_page_segmentation(name,black=1):
-    """Write a numpy page segmentation (rank 3, type='B' RGB image.)"""
-    if not os.path.exists(name): raise IOError(name)
-    pseg = iulib.intarray()
-    iulib.read_image_packed(pseg,name)
-    if black: ocropus.make_page_segmentation_black(pseg)
-    return narray2pseg(pseg)
-    
-def write_line_segmentation(name,lseg,white=1):
-    """Write a numpy line segmentation."""
-    lseg = lseg2narray(lseg)
-    if white: ocropus.make_line_segmentation_white(lseg)
-    iulib.write_image_packed(name,lseg)
-    
-def read_line_segmentation(name,black=1):
-    """Write a numpy line segmentation."""
-    if not os.path.exists(name): raise IOError(name)
-    lseg = iulib.intarray()
-    iulib.read_image_packed(lseg,name)
-    if black: ocropus.make_line_segmentation_black(lseg)
-    return narray2lseg(lseg)
-
-def renumber_labels(line,start):
-    line = lseg2narray(line)
-    iulib.renumber_labels(line,start)
-    return narray2lseg(line)
 
 ### code for instantiation native components
 
@@ -882,32 +466,6 @@ def make_IExtractor(name):
     """Make a native component or a Python component.  Anything containing
     a "(" is assumed to be a Python component."""
     return mkpython(name) or Extractor().make(name)
-
-### native feature extraction code
-
-def hole_counts(image,r=1.0):
-    """Count the number of holes in the input image.  This assumes
-    background-is-FIXME."""
-    image = binarize_range(image)
-    return ocropus.hole_counts(numpy2narray(image),r)
-
-def component_counts(image,r=1.0):
-    """Count the number of connected components in the image.  This
-    assumes background-is-FIXME."""
-    image = binarize_range(image)
-    return ocropus.component_counts(numpy2narray(image),r)
-
-def junction_counts(image,r=1.0):
-    """Count the number of junctions in the image.  This
-    assumes background-is-FIXME."""
-    image = binarize_range(image)
-    return ocropus.junction_counts(numpy2narray(image),r)
-
-def endpoints_counts(image,r=1.0):
-    """Count the number of endpoints in the image.  This
-    assumes background-is-FIXME."""
-    image = binarize_range(image)
-    return ocropus.endpoints_counts(numpy2narray(image),r)
 
 ################################################################
 ### alignment, segmentations, and conversions
@@ -1120,219 +678,6 @@ def recognize_and_align(image,linerec,lmodel,beam=1000,nocseg=0,lig=ligatures.li
     return result
 
 ################################################################
-### new, pure Python components
-################################################################
-
-class PyComponent:
-    """Defines common methods similar to CommonComponent, but for Python
-    classes. Use of this base class is optional."""
-    def init(self):
-        pass
-    def name(self):
-        return "%s"%self
-    def description(self):
-        return "%s"%self
-    def set(self,**kw):
-        kw = set_params(self,kw)
-        assert kw=={},"extra params to %s: %s"%(self,kw)
-    def pset(self,key,value):
-        if hasattr(self,key):
-            self.__dict__[key] = value
-    def pget(self,key):
-        return getattr(self,key)
-    def pgetf(self,key):
-        return float(getattr(self,key))
-    
-class ClassifierModel(PyComponent):
-    """Wraps all the necessary functionality around a classifier in order to
-    turn it into a character recognition model."""
-    def __init__(self,**kw):
-        self.nbest = 5
-        self.minp = 1e-3
-        self.classifier = self.makeClassifier()
-        self.extractor = self.makeExtractor()
-        kw = set_params(self,kw)
-        kw = set_params(self.classifier,kw)
-        self.rows = None
-        self.nrows = 0
-        self.classes = []
-        self.c2i = {}
-        self.i2c = []
-        self.geo = None
-
-    def set(self,**kw):
-        kw = set_params(self,kw)
-        kw = set_params(self.classifier,kw)
-        assert kw=={},"extra parameters to %s: %s"%(self,kw)
-
-    ## helper methods
-
-    def setupGeometry(self,geometry):
-        """Set the self.geo instance variable to remember whether this
-        Model uses geometry or not."""
-        if self.geo is None:
-            if geometry is None: 
-                self.geo = 0
-            else:
-                self.geo = len(array(geometry,'f'))
-    def makeInput(self,image,geometry):
-        """Given an image and geometry, compute and return a feature vector.
-        This calls the feature extractor via self.extract(image)."""
-        v = self.extractor.extract(image).ravel()
-        if self.geo>0:
-            if geometry is not None:
-                geometry = array(geometry,'f')
-                assert len(geometry)==self.geo
-                v = concatenate([v,geometry])
-        return v
-    def makeOutputs(self,w):
-        """Given an output vector w from a classifier, translate use the
-        i2c array to translate this into a list [(class,probability),...]
-        representing the string output of the character recognizer."""
-        result = []
-        indexes = argsort(-w)
-        for i in indexes[:self.nbest]:
-            if w[i]<self.minp: break
-            result.append((self.i2c[i],w[i]))
-        return result
-
-    ## public methods
-    
-    def clear(self):
-        """Completely clear the classifier"""
-        self.rows = None
-        self.classes = None
-        self.nrows = 0
-
-    def cadd(self,image,c,geometry=None):
-        """Add a character to the model for training.  The image may be of variable size.
-        c should be the corresponding class, a string.  If geometry is given, it must be
-        given always and consistently."""
-        check_valid_class_label(c)
-        if self.geo is None: 
-            # first time around, remember whether this classifier uses geometry
-            self.setupGeometry(geometry)
-        v = self.makeInput(image,geometry)
-        assert amin(v)>=-1.2 and amax(v)<=1.2
-        if self.nrows==0:
-            self.rows = zeros((1000,len(v)),'int8')
-        elif self.nrows==len(self.rows):
-            n,d = self.rows.shape
-            self.rows.resize((1000+n,d))
-        self.rows[self.nrows,:] = 100.0*v
-        if c not in self.c2i:
-            self.c2i[c] = len(self.i2c)
-            self.i2c.append(c)
-        self.classes.append(self.c2i[c])
-        self.nrows += 1
-
-    def updateModel(self,*args,**kw):
-        """Perform actual training of the model."""
-        n,d = self.rows.shape
-        self.rows.resize(self.nrows,d)
-        self.classifier.train(self.rows,array(self.classes,'i'),*args,**kw)
-        self.clear()
-
-    def updateModel1(self,*args,**kw):
-        """Perform training of the model.  This actually is an iterator and
-        returns from time to time during training to allow saving of intermediate
-        models.  Use as in "for progress in model.updateModel1(): print progress" """
-        if not hasattr(self.classifier,"train1"):
-            warn_once("no train1 method; just doing training in one step")
-            self.updateModel(*args,**kw)
-            return
-        n,d = self.rows.shape
-        self.rows.resize(self.nrows,d)
-        for progress in self.classifier.train1(self.rows,array(self.classes,'i'),*args,**kw):
-            yield progress
-        self.clear()
-
-    def coutputs(self,image,geometry=None):
-        """Given an image and corresponding geometry (as during
-        training), compute outputs (posterior probabilities or
-        discriminant functions) for the image.  Returns a list like
-        [(class,probability),...]"""
-        assert (not self.geo) or (geometry is not None),\
-            "classifier requires geometry but none is given"
-        v = self.makeInput(image,geometry)
-        w = self.classifier.outputs(v.reshape(1,len(v)))[0]
-        return self.makeOutputs(w)
-
-    def cclassify(self,v,geometry=None):
-        """Given an image and corresponding geometry (as during
-        training), classify the image.  Returns just the class."""
-        assert (not self.geo) or (geometry is not None),\
-            "classifier requires geometry but none is given"
-        v = self.makeInput(image,geometry)
-        w = self.classifier.outputs(v.reshape(1,len(v)))[0]
-        return self.i2c[argmax(w)]
-
-    def coutputs_batch(self,images,geometries=None):
-        """Given a list of images (and an optional list of geometries if the
-        classifier requires it), compute a list of the corresponding outputs.
-        This is the same as calling coutputs repeatedly, but it may be
-        parallelized."""
-        # FIXME parallelize this
-        if geometries is None: geometries = [None]*len(images)
-        result = []
-        for i in range(len(images)):
-            try:
-                output = self.coutputs(images[i],geometries[i]) 
-            except:
-                print "recognition failed"
-                output = []
-            result.append(output)
-        return result
-
-    def save_component(self,path):
-        """Save this component to a file (using pickle). Use
-        ocrolib.load_component or cPickle.load to read the component
-        back in again."""
-        rows = self.rows
-        nrows = self.nrows
-        classes = self.classes
-        self.rows = None
-        self.classes = None
-        self.nrows = None
-        with open(path,"wb") as stream:
-            pickle.dump(self,stream,pickle_mode)
-        self.rows = rows
-        self.classes = classes
-        self.nrows = nrows
-
-class BboxFE(PyComponent):
-    """A feature extractor that only rescales the input image to fit into
-    a 32x32 (or, generally, r x r box) and normalizes the vector.
-    Parameters are r (size of the rescaled image), and normalize (can be
-    one of "euclidean", "max", "sum", or None)."""
-    def __init__(self,**kw):
-        self.r = 32
-        self.normalize = None
-        set_params(self,kw)
-    def extract(self,image):
-        v = array(docproc.isotropic_rescale(image,self.r),'f')
-        if not hasattr(self,"normalize") or self.normalize is None:
-            pass
-        elif self.normalize=="euclidean":
-            v /= sqrt(sum(v**2))
-        elif self.normalize=="max":
-            v /= amax(v)
-        elif self.normalize=="sum":
-            v /= sum(abs(v))
-        return v
-
-class Classifier(PyComponent):
-    """An abstraction for a classifier.  This gets trained on training vectors and
-    returns vectors of posterior probabilities (or some other discriminant function.)
-    You usually save these objects by pickling them."""
-    def train(self,data,classes):
-        """Train the classifier on the given dataset."""
-        raise Unimplemented()
-    def outputs(self,data):
-        """Compute the ouputs corresponding to each input data vector."""
-        raise Unimplemented()
-
-################################################################
 ### loading and saving components
 ################################################################
 
@@ -1359,9 +704,11 @@ def save_component(file,object,verbose=0,verify=0):
         return
     # FIXME -- get rid of this eventually
     if isinstance(object,ocroold.CommonComponent) and hasattr(object,"comp"):
+        import ocropus
         ocropus.save_component(file,object.comp)
         return
     if type(object).__module__=="ocropus":
+        import ocropus
         ocropus.save_component(file,object)
         return
     if verbose: 
@@ -1395,18 +742,24 @@ def load_component(file):
         start = stream.read(128)
     # FIXME -- get rid of this eventually
     if start.startswith("<object>\nlinerec\n"):
+        warnings.warn("loading old-style linerec: %s"%file)
         result = RecognizeLine()
+        import ocropus
         result.comp = ocropus.load_IRecognizeLine(file)
         return result
     # FIXME -- get rid of this eventually
     if start.startswith("<object>"):
-        result = Model()
+        warnings.warn("loading old-style cmodel: %s"%file)
+        result = ocroold.Model()
+        import ocropus
         result.comp = ocropus.load_IModel(file)
         return result
     with open(file,"rb") as stream:
         return pickle.load(stream)
 
-def load_linerec(file,wrapper=ocroold.CmodelLineRecognizer):
+def load_linerec(file,wrapper=None):
+    if wrapper is None:
+        wrapper=segrec.CmodelLineRecognizer
     component = load_component(file)
     if hasattr(component,"recognizeLine"):
         return component
@@ -1420,18 +773,9 @@ def binarize_range(image,dtype='B'):
     if dtype=='B': scale = 255
     return array(scale*(image>threshold),dtype=dtype)
 
-def edit_distance(s,t,use_space=0,case_sensitive=0):
-    if not case_sensitive:
-        s = s.upper()
-        t = t.upper()
-    if not use_space:
-        s = re.sub(r'\s+','',s)
-        t = re.sub(r'\s+','',t)
-    s_ = iulib.ustrg()
-    s_.assign(s.encode("utf-8"))
-    t_ = iulib.ustrg()
-    t_.assign(t.encode("utf-8"))
-    # print s_.as_string()
-    # print t_.as_string()
-    return ocropus.edit_distance(s_,t_)
+def simple_classify(model,inputs):
+    result = []
+    for i in range(len(inputs)):
+        result.append(model.coutputs(inputs[i]))
+    return result
 

@@ -1,3 +1,7 @@
+################################################################
+### Native code neural network with backpropagation training.
+################################################################
+
 from __future__ import with_statement
 
 __all__ = "MLP".split()
@@ -13,15 +17,18 @@ import common as ocrolib
 from native import *
 
 class Record:
+    """Useful record data structure."""
     def __init__(self, **kwds):
         self.__dict__.update(kwds)
     def __str__(self):
         return str(self.__dict__)
 
 def c_order(a):
+    """Check whether the elements of the array are in C order."""
     return tuple(a.strides)==tuple(sorted(a.strides,reverse=1))
 
 def error(net,data,cls,subset=None):
+    """Compute the error rate of the classifier on the given data."""
     predicted = net.classify(data,subset=subset)
     if subset is not None:
         cls = take(cls,subset)
@@ -282,7 +289,7 @@ if os.getenv("mlp_maxthreads") is not None:
 if os.getenv("mlp_maxthreads_train") is not None:
     maxthreads_train.value = int(os.getenv("mlp_maxthreads_train"))
 
-class MLP(ocrolib.PyComponent):
+class MLP:
     def __init__(self,**kw):
         self.w1 = None
         self.verbose = 0
@@ -559,22 +566,3 @@ def test():
     print sum(pred!=classes[9000:])
     print mlp.w1.shape,mlp.w2.shape
 
-class MlpModel(ocrolib.ClassifierModel):
-    makeClassifier = MLP
-    makeExtractor = ocrolib.BboxFE
-    def __init__(self,**kw):
-        ocrolib.ClassifierModel.__init__(self,**kw)
-    def name(self):
-        return str(self)
-    def setExtractor(self,e):
-        pass
-
-class AutoMlpModel(ocrolib.ClassifierModel):
-    makeClassifier = AutoMLP
-    makeExtractor = ocrolib.BboxFE
-    def __init__(self,**kw):
-        ocrolib.ClassifierModel.__init__(self,**kw)
-    def name(self):
-        return str(self)
-    def setExtractor(self,e):
-        pass

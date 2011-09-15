@@ -1,3 +1,9 @@
+################################################################
+### Python wrappers for the OCRopus OcroFST data structures.
+### (This will be migrated into the separate native code ocrofst
+### package.)
+################################################################
+
 import os,os.path,re,numpy,unicodedata,sys,warnings,inspect,glob,traceback
 import numpy
 from numpy import *
@@ -6,7 +12,6 @@ from scipy.ndimage import interpolation,measurements,morphology
 
 import iulib,ocropus
 import utils
-from utils import allsplitext,write_text
 import docproc
 import ligatures
 import fstutils

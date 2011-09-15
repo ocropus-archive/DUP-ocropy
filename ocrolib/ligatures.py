@@ -1,9 +1,16 @@
 # -*- coding: utf-8 -*-
 
+################################################################
+### Ligatures-related data.
+################################################################
+
 import sys,os,unicodedata,re
 from pylab import uint32,uint16,uint64
 import ocropus
 import openfst
+
+### These aren't formal ligatures, they are character pairs
+### that are frequently touching in Latin script documents.
 
 common_ligature_table = """
 000 00 La Th ac ai ak al all am an ar as be bo ca ch co ct

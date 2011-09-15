@@ -1,8 +1,10 @@
-# various hOCR-related utilities
+################################################################
+### various hOCR-related utilities
+################################################################
 
-# FIXME make this much more general
+### Not much here yet, but we will be adding more utility functions.
 
-# generate the headers and footers
+### Headers and footers.
 
 header_template = """
 <?xml version="1.0" encoding="UTF-8"?>

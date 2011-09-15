@@ -3,11 +3,14 @@ import sqlite3
 import numpy
 import docproc
 import utils
+from warnings import warn,DeprecationWarning
 
 debug = os.getenv("dbtables_debug")
 if debug!=None: debug = int(debug)
 
 class SmallImage:
+    def __init__(self):
+        warn("deprecated class",DeprecationWarning)
     def pickle(self,image):
         # print image.shape,image.dtype
         if image.dtype!=numpy.dtype('B'):
@@ -29,6 +32,8 @@ class SmallImage:
         return numpy.frombuffer(s[2:],dtype='B').reshape(d0,d1)
 
 class RLEImage:
+    def __init__(self):
+        warn("deprecated class",DeprecationWarning)
     def pickle(self,image):
         w,h = image.shape
         assert w<=255
@@ -62,6 +67,7 @@ class RLEImage:
     
 class Database:
     def __init__(self,con,factory=sqlite3.Row):
+        warn("deprecated class",DeprecationWarning)
         if type(con)==str:
             self.con = sqlite3.connect(con,timeout=600.0)
         else:
@@ -81,6 +87,7 @@ class Database:
 
 class Table:
     def __init__(self,con,tname,factory=sqlite3.Row,read_only=0):
+        warn("deprecated class",DeprecationWarning)
         self.ignore_extra_keys = 0
         self.read_only = read_only
         if type(con)==str:
@@ -294,11 +301,13 @@ class Table:
 
 class ClusterTable(Table):
     def __init__(self,con,factory=sqlite3.Row,name="clusters"):
+        warn("deprecated class",DeprecationWarning)
         Table.__init__(self,con,name,factory=factory)
         self.converter("image",SmallImage())
 
 class CharTable(Table):
     def __init__(self,con,factory=sqlite3.Row,name="chars"):
+        warn("deprecated class",DeprecationWarning)
         Table.__init__(self,con,name,factory=factory)
         self.converter("image",RLEImage())
 
@@ -323,4 +332,5 @@ class CharRow(sqlite3.Row):
 
 class OcroTable(Table):
     def __init__(self,con,name="chars"):
+        warn("deprecated class",DeprecationWarning)
         Table.__init__(self,con,name,factory=CharRow)

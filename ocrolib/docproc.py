@@ -1,3 +1,7 @@
+################################################################
+### various document image processing utilities
+################################################################
+
 import scipy
 from scipy import stats
 from scipy.ndimage import measurements

@@ -1,3 +1,8 @@
+################################################################
+### A simple set of functions for embedding native C code
+### inside Python.
+################################################################
+
 import os,sys,re,string,hashlib
 import numpy
 from  numpy.ctypeslib import ndpointer

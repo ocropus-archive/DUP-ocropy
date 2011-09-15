@@ -1,5 +1,10 @@
 # -*- encoding: utf-8 -*-
 
+################################################################
+### A simple object-oriented library for constructing FSTs 
+### corresponding to regular expressions.
+################################################################
+
 import sys,os,re,codecs
 import openfst
 import ocropus,iulib
@@ -37,6 +42,7 @@ def asgen(s):
         return s
 
 class TRANS:
+    """A transduction from string u to string v"""
     def __init__(self,u,v=None,cost=0.0):
         assert type(u)==str or type(u)==unicode
         assert type(v)==str or type(v)==unicode
@@ -58,6 +64,7 @@ class TRANS:
             start = next
 
 class ARC:
+    """A single transition with the given input and output labels and cost."""
     def __init__(self,label,olabel=None,cost=0.0):
         assert type(label)==int
         if type(label) in [str,unicode]: label = ord(label)
@@ -70,6 +77,7 @@ class ARC:
         fst.AddArc(start,self.label,self.olabel,self.cost,end)
 
 class COST:
+    """An epsilon transition with the given cost."""
     def __init__(self,expr,cost):
         self.expr = asgen(expr)
         self.cost = cost

@@ -1,5 +1,11 @@
 # -*- encoding: utf-8 -*-
 
+################################################################
+### Utilities for constructing various FSTs.  
+### In particular, this contains code for constructing
+### FSTs that align ground truth with OCR output.
+################################################################
+
 import sys,os,re,codecs
 import openfst
 import ocropus,iulib
