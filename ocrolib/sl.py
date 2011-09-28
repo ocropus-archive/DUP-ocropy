@@ -16,10 +16,10 @@ def dims(s):
 def dim(s,i):
     """Dimension of the slice list for index i."""
     return s[i].stop-s[i].start
-def d0(s):
+def dim0(s):
     """Dimension of the slice list for dimension 0."""
     return s[0].stop-s[0].start
-def d1(s):
+def dim1(s):
     """Dimension of the slice list for dimension 1."""
     return s[1].stop-s[1].start
 def raster(u):
@@ -39,7 +39,7 @@ def volume(a):
     return numpy.prod([max(x.stop-x.start,0) for x in a])
 def empty(a):
     """Test whether the slice is empty."""
-    return volume(a)==0
+    return a is None or volume(a)==0
 def shift(u,offsets,scale=1):
     u = list(u)
     for i in range(len(offsets)):
@@ -52,6 +52,8 @@ def shift(u,offsets,scale=1):
 def area(a):
     """Return the area of the slice list (ignores anything past a[:2]."""
     return numpy.prod([max(x.stop-x.start,0) for x in a[:2]])
+def aspect(a):
+    return height(a)*1.0/width(a)
 
 ### Geometric operations.
 
@@ -60,9 +62,13 @@ def pad(u,d):
     return tuple([slice(u[i].start-d,u[i].stop+d) for i in range(len(u))])
 def union(u,v):
     """Compute the union of the two slice lists."""
+    if u is None: return v
+    if v is None: return u
     return tuple([slice(min(u[i].start,v[i].start),max(u[i].stop,v[i].stop)) for i in range(len(u))])
 def intersect(u,v):
     """Compute the intersection of the two slice lists."""
+    if u is None: return v
+    if v is None: return u
     return tuple([slice(max(u[i].start,v[i].start),min(u[i].stop,v[i].stop)) for i in range(len(u))])
 
 ### Functions with mathematical coordinate conventions

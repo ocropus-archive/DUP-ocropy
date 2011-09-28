@@ -34,7 +34,7 @@ from ocroold import Grouper,StandardGrouper
 ### Iterate through the regions of a color image.
 ################################################################
 
-def renumber_labels_ordered(a,correspondence=1):
+def renumber_labels_ordered(a,correspondence=0):
     """Renumber the labels of the input array in numerical order so
     that they are arranged from 1...N"""
     assert amin(a)>=0
@@ -50,12 +50,12 @@ def renumber_labels_ordered(a,correspondence=1):
 def renumber_labels(a):
     return renumber_labels_ordered(a)
 
-def pyargsort(seq,cmp=cmp):
+def pyargsort(seq,cmp=cmp,key=lambda x:x):
     """Like numpy's argsort, but using the builtin Python sorting
     function.  Takes an optional cmp."""
-    return sorted(range(len(seq)),key=seq.__getitem__,cmp=cmp)
+    return sorted(range(len(seq)),key=lambda x:key(seq.__getitem__(x)),cmp=cmp)
 
-def renumber_labels_by_boxes(a,cmp=cmp,correspondence=0):
+def renumber_labels_by_boxes(a,cmp=cmp,key=lambda x:x,correspondence=0):
     """Renumber the labels of the input array according to some
     order on their bounding boxes.  If you provide a cmp function,
     it is passed the outputs of find_objects for sorting.
@@ -66,7 +66,7 @@ def renumber_labels_by_boxes(a,cmp=cmp,correspondence=0):
     assert a.dtype==dtype('B') or a.dtype==dtype('i')
     labels = renumber_labels_ordered(a)
     objects = measurements.find_objects(labels)
-    order = array(pyargsort(objects,cmp=cmp),'i')
+    order = array(pyargsort(objects,cmp=cmp,key=key),'i')
     assert len(objects)==len(order)
     order = concatenate(([0],order+1))
     if correspondence:
