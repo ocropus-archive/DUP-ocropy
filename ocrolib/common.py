@@ -19,6 +19,7 @@ import ocrofst
 import ocrorast
 import ocrolseg
 import ocropreproc
+import sl
 
 import cPickle as pickle
 pickle_mode = 2

@@ -6,8 +6,16 @@ import sys,os,re,glob,math,glob,signal
 import iulib,ocropus
 from numpy import *
 from scipy.ndimage import interpolation
+import sl
 
 def cut(image,box,margin=0,bg=0,dtype=None):
+    """Cuts out subimages with margins and background.  The box
+    is given as (row0,column0,row1,column1).  This uses
+    sl.cut (but with different conventions for the box)."""
+    (r0,c0,r1,c1) = box
+    return sl.cut(image,sl.box(r0,r1,c0,c1),margin=margin,bg=bg,dtype=dtype)
+
+def cut_inefficient(image,box,margin=0,bg=0,dtype=None):
     """Cut out a region given by a box (row0,col0,row1,col1),
     with an optional margin."""
     (r0,c0,r1,c1) = box
