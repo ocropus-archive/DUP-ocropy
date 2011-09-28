@@ -4,6 +4,7 @@
 
 import sys,os,re,glob,math,glob,signal
 import iulib,ocropus
+from numpy import *
 from scipy.ndimage import interpolation
 
 def cut(image,box,margin=0,bg=0,dtype=None):

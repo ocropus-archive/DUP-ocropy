@@ -9,6 +9,7 @@ from scipy.misc import imsave
 from scipy.ndimage import interpolation,measurements,morphology
 
 import utils
+import improc
 import docproc
 import ligatures
 import fstutils
@@ -24,9 +25,160 @@ pickle_mode = 2
 
 ### These imports probably need some attention later.
 
-from ocroio import renumber_labels
-import ocroold
-from ocroold import RegionExtractor,Grouper,StandardGrouper
+from ocroold import Grouper,StandardGrouper
+
+
+
+################################################################
+### Iterate through the regions of a color image.
+################################################################
+
+def renumber_labels_ordered(a,correspondence=1):
+    """Renumber the labels of the input array in numerical order so
+    that they are arranged from 1...N"""
+    assert amin(a)>=0
+    assert amax(a)<=2**25
+    labels = sorted(unique(ravel(a)))
+    renum = zeros(amax(labels)+1,dtype='i')
+    renum[labels] = arange(len(labels),dtype='i')
+    if correspondence:
+        return renum[a],argsort(renum)
+    else:
+        return renum[a]
+
+def renumber_labels(a):
+    return renumber_labels_ordered(a)
+
+def pyargsort(seq,cmp=cmp):
+    """Like numpy's argsort, but using the builtin Python sorting
+    function.  Takes an optional cmp."""
+    return sorted(range(len(seq)),key=seq.__getitem__,cmp=cmp)
+
+def renumber_labels_by_boxes(a,cmp=cmp,correspondence=0):
+    """Renumber the labels of the input array according to some
+    order on their bounding boxes.  If you provide a cmp function,
+    it is passed the outputs of find_objects for sorting.
+    The default is lexicographic."""
+    if cmp=='rlex':
+        import __builtin__
+        cmp = lambda x,y: __builtin__.cmp(x[::-1],y[::-1])
+    assert a.dtype==dtype('B') or a.dtype==dtype('i')
+    labels = renumber_labels_ordered(a)
+    objects = measurements.find_objects(labels)
+    order = array(pyargsort(objects,cmp=cmp),'i')
+    assert len(objects)==len(order)
+    order = concatenate(([0],order+1))
+    if correspondence:
+        return order[labels],argsort(order)
+    else:
+        return order[labels]
+
+
+def rgb2int(image):
+    assert image.dtype==dtype('B')
+    orig = image
+    image = zeros(image.shape[:2],'i')
+    image += orig[:,:,0]
+    image <<= 8
+    image += orig[:,:,1]
+    image <<= 8
+    image += orig[:,:,2]
+    return image
+
+class RegionExtractor:
+    """A class facilitating iterating over the parts of a segmentation."""
+    def __init__(self):
+        self.cache = {}
+    def clear(self):
+        del self.cache
+        self.cache = {}
+    def setImage(self,image):
+        return self.setImageMasked(image)
+    def setImageMasked(self,image,mask=None,lo=None,hi=None):
+        """Set the image to be iterated over.  This should be an RGB image,
+        ndim==3, dtype=='B'.  This picks a subset of the segmentation to iterate
+        over, using a mask and lo and hi values.."""
+        assert image.dtype==dtype('B') or image.dtype('i'),"image must be type B or i"
+        if image.ndim==3: image = rgb2int(image)
+        assert image.ndim==2,"wrong number of dimensions"
+        self.image = image
+        labels = image
+        if lo is not None: labels[labels<lo] = 0
+        if hi is not None: labels[labels>hi] = 0
+        if mask is not None: labels = bitwise_and(labels,mask)
+        labels,correspondence = renumber_labels_ordered(labels,correspondence=1)
+        self.labels = labels
+        self.correspondence = correspondence
+        self.objects = [None]+measurements.find_objects(labels)
+    def setPageColumns(self,image):
+        """Set the image to be iterated over.  This should be an RGB image,
+        ndim==3, dtype=='B'.  This iterates over the columns."""
+        self.setImageMasked(image,0xff0000,hi=0x800000)
+    def setPageParagraphs(self,image):
+        """Set the image to be iterated over.  This should be an RGB image,
+        ndim==3, dtype=='B'.  This iterates over the paragraphs (if present
+        in the segmentation)."""
+        self.setImageMasked(image,0x00ff00,hi=0x800000)
+    def setPageLines(self,image):
+        """Set the image to be iterated over.  This should be an RGB image,
+        ndim==3, dtype=='B'.  This iterates over the lines."""
+        self.setImageMasked(image,0x00ffff,hi=0x800000)
+    def id(self,i):
+        """Return the RGB pixel value for this segment."""
+        return self.correspondence[i]
+    def x0(self,i):
+        """Return x0 (column) for the start of the box."""
+        return self.comp.x0(i)
+    def x1(self,i):
+        """Return x0 (column) for the end of the box."""
+        return self.comp.x1(i)
+    def y0(self,i):
+        """Return y0 (row) for the start of the box."""
+        return h-self.comp.y1(i)-1
+    def y1(self,i):
+        """Return y0 (row) for the end of the box."""
+        return h-self.comp.y0(i)-1
+    def bbox(self,i):
+        """Return the bounding box in raster coordinates
+        (row0,col0,row1,col1)."""
+        r = self.objects[i]
+        return (r[0].start,r[1].start,r[0].stop,r[1].stop)
+    def bboxMath(self,i):
+        """Return the bounding box in math coordinates
+        (row0,col0,row1,col1)."""
+        h = self.image.shape[0]
+        (y0,x0,y1,x1) = self.bbox(i)
+        return (h-y1-1,x0,h-y0-1,x1)
+    def length(self):
+        """Return the number of components."""
+        return len(self.objects)
+    def mask(self,index,margin=0):
+        """Return the mask for component index."""
+        b = self.objects[index]
+        m = self.labels[b]
+        m[m!=index] = 0
+        if margin>0: m = improc.pad_by(m,margin)
+        return array(m!=0,'B')
+    def extract(self,image,index,margin=0):
+        """Return the subimage for component index."""
+        h,w = image.shape[:2]
+        (r0,c0,r1,c1) = self.bbox(index)
+        mask = self.mask(index,margin=margin)
+        return image[max(0,r0-margin):min(h,r1+margin),max(0,c0-margin):min(w,c1+margin),...]
+    def extractMasked(self,image,index,grow=0,bg=None,margin=0,dtype=None):
+        """Return the masked subimage for component index, elsewhere the bg value."""
+        if bg is None: bg = amax(image)
+        h,w = image.shape[:2]
+        mask = self.mask(index,margin=margin)
+        # FIXME ... not circular
+        if grow>0: mask = morphology.binary_dilation(mask,iterations=grow) 
+        mh,mw = mask.shape
+        box = self.bbox(index)
+        r0,c0,r1,c1 = box
+        subimage = improc.cut(image,(r0,c0,r0+mh-2*margin,c0+mw-2*margin),margin,bg=bg)
+        return where(mask,subimage,bg)
+
+    
 
 ################################################################
 ### Simple record object.
@@ -594,8 +746,8 @@ def save_component(file,object,verbose=0,verify=0):
     if hasattr(object,"save_component"):
         object.save_component(file)
         return
-    # FIXME -- get rid of this eventually
-    if isinstance(object,ocroold.CommonComponent) and hasattr(object,"comp"):
+    if object.__class__.__name__=="CommonComponent" and hasattr(object,"comp"):
+        # FIXME -- get rid of this eventually
         import ocropus
         ocropus.save_component(file,object.comp)
         return
@@ -629,19 +781,20 @@ def load_component(file):
         return pyconstruct(file[1:])
     elif file[0]=="@":
         file = file[1:]
-    # FIXME -- get rid of this eventually
     with open(file,"r") as stream:
+        # FIXME -- get rid of this eventually
         start = stream.read(128)
-    # FIXME -- get rid of this eventually
     if start.startswith("<object>\nlinerec\n"):
+        # FIXME -- get rid of this eventually
         warnings.warn("loading old-style linerec: %s"%file)
         result = RecognizeLine()
         import ocropus
         result.comp = ocropus.load_IRecognizeLine(file)
         return result
-    # FIXME -- get rid of this eventually
     if start.startswith("<object>"):
+        # FIXME -- get rid of this eventually
         warnings.warn("loading old-style cmodel: %s"%file)
+        import ocroold
         result = ocroold.Model()
         import ocropus
         result.comp = ocropus.load_IModel(file)
