@@ -19,6 +19,7 @@ import ocrorast
 import ocrolseg
 import ocropreproc
 import common
+import grouper
 from pycomp import PyComponent
 from ocroio import renumber_labels
 
@@ -231,7 +232,8 @@ class CmodelLineRecognizer:
         self.maxspacecost = 20.0
         self.whitespace = "space.model"
         self.segmenter = ocrolseg.DpSegmenter()
-        self.grouper = common.StandardGrouper()
+        # self.grouper = common.StandardGrouper()
+        self.grouper = grouper.Grouper()
         self.nbest = 5
         self.maxcost = 15.0
         self.reject_cost = self.maxcost

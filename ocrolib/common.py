@@ -43,7 +43,7 @@ def renumber_labels_ordered(a,correspondence=0):
     renum = zeros(amax(labels)+1,dtype='i')
     renum[labels] = arange(len(labels),dtype='i')
     if correspondence:
-        return renum[a],argsort(renum)
+        return renum[a],labels
     else:
         return renum[a]
 

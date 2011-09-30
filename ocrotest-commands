@@ -24,7 +24,7 @@ ocropus-lattices -O -m models/2m2-reject.cmodel _test/????/??????.png || die
 ocropus-align -O -l models/default.fst _test/????/??????.png || die
 
 TEST align-with-groundtruth
-ocropus-align -p _test/*.gt.txt -X -x _test.db
+ocropus-align -Q 0 -p _test/*.gt.txt -X -x _test.db
 ocropus-dbinfo _test.db
 ocrotest-dbcheck _test.db
 
