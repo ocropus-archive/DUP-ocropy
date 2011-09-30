@@ -13,7 +13,7 @@ class Grouper(PyComponent):
     create a finite state transducer for classification results."""
     def __init__(self,**kw):
         self.maxrange = 4
-        self.maxdist = 3
+        self.maxdist = 2
         self.maxaspect = 2.5
         self.maxwidth = 2.5
         self.fullheight = 0
