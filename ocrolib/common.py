@@ -24,10 +24,6 @@ import sl
 import cPickle as pickle
 pickle_mode = 2
 
-### These imports probably need some attention later.
-
-from ocroold import Grouper,StandardGrouper
-
 
 
 ################################################################
