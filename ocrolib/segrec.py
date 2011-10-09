@@ -231,8 +231,6 @@ class CmodelLineRecognizer:
         self.maxspacecost = 20.0
         self.whitespace = "space.model"
         self.segmenter = ocrolseg.DpSegmenter()
-        # self.grouper = common.StandardGrouper()
-        self.grouper = grouper.Grouper()
         self.nbest = 5
         self.maxcost = 15.0
         self.reject_cost = self.maxcost
@@ -248,8 +246,9 @@ class CmodelLineRecognizer:
         common.set_params(self,kw)
         if type(self.whitespace)==str:
             self.whitespace = common.load_component(common.ocropus_find_file(self.whitespace))
-        self.grouper.pset("maxdist",self.maxdist)
-        self.grouper.pset("maxrange",self.maxrange)
+        self.grouper = grouper.Grouper()
+        # self.grouper.pset("maxdist",self.maxdist)
+        # self.grouper.pset("maxrange",self.maxrange)
 
     def recognizeLine(self,image):
         "Recognize a line, outputting a recognition lattice."""
@@ -284,6 +283,7 @@ class CmodelLineRecognizer:
         rseg = renumber_labels(rseg,1) # FIXME
         if amax(rseg)<3: 
             raise RecognitionError("not enough segments in raw segmentation",rseg=rseg)
+        # self.grouper = grouper.Grouper()
         self.grouper.setSegmentation(rseg)
 
         # compute the geometry (might have to use
@@ -340,7 +340,7 @@ class CmodelLineRecognizer:
             # Note that for typical character widths, this is going
             # to be much larger than any per-charcter cost.
             if self.add_rho:
-                self.grouper.setClass(i,ocropus.L_RHO,self.rho_scale*raw.shape[1])
+                self.grouper.setClass(i,ocrofst.L_RHO,self.rho_scale*raw.shape[1])
 
             # compute the classifier output for this character
             # FIXME parallelize this

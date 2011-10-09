@@ -149,8 +149,10 @@ class Grouper(PyComponent):
         """Set the cost of putting a space or not putting a space after
         group i."""
         self.space_costs[i] = (yes_cost,no_cost)
-    def getLattice(self,fst=ocrofst.OcroFST()):
+    def getLattice(self,fst=None):
         """Construct the lattice for the group, using the setClass and setSpaceCost information."""
+        if fst is None:
+            fst = ocrofst.OcroFST()
         final = amax(self.segmentation)+1
         states = [-1]+[fst.newState() for i in range(1,final+1)]
         fst.setStart(states[1])

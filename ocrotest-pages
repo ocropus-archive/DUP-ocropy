@@ -223,10 +223,13 @@ for page_gray,pagefile in ocrolib.page_iterator(args):
                 continue
             cost = 0.0
         else:
+            fst.save("_pages.fst")
+            # lmodel.save("_lmodel.fst")
             s,cost = ocrofst.beam_search_simple(fst,lmodel,options.beam)
             if cost>999999.0:
                 alert("[warn]","beam search didn't find a solution (line not in language model)")
-                continue
+                s = fst.bestpath()
+                cost = 999.0
 
         # Output the text line in various formats.
         if options.hocr:
