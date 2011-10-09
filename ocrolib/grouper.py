@@ -139,10 +139,11 @@ class Grouper(PyComponent):
         if type(cls)==int:
             if cls<256:
                 cls = chr(cls)
-            elif cls<0x01000000:
+            elif cls<0x110000:
                 cls = unichr(cls)
             else:
-                raise Exception("class out of range: %s"%cls)
+                raise Exception("class out of range: %s (%s)"%(cls,hex(cls)))
+        assert type(cls)==str or type(cls)==unicode
         self.costs[i].append((cost,cls))
     def setSpaceCost(self,i,yes_cost,no_cost):
         """Set the cost of putting a space or not putting a space after

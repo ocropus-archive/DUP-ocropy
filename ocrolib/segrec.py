@@ -9,7 +9,6 @@ from numpy import *
 from scipy.misc import imsave
 from scipy.ndimage import interpolation,measurements,morphology
 
-import utils
 import docproc
 import ligatures
 import fstutils
@@ -245,6 +244,7 @@ class CmodelLineRecognizer:
         self.add_rho = 0
         self.verbose = 0
         self.debug_cls = []
+        self.allow_any = 0 # allow non-unicode characters
         common.set_params(self,kw)
         if type(self.whitespace)==str:
             self.whitespace = common.load_component(common.ocropus_find_file(self.whitespace))
@@ -346,7 +346,7 @@ class CmodelLineRecognizer:
             # FIXME parallelize this
             outputs = self.cmodel.coutputs(char,geometry=rel)
             outputs = [(x[0],-log(x[1])) for x in outputs]
-            self.chars.append(utils.Record(index=i,image=char,outputs=outputs))
+            self.chars.append(common.Record(index=i,image=char,outputs=outputs))
 
             # estimate the space cost
             sc = self.whitespace.classifySpace(x1)
@@ -378,12 +378,20 @@ class CmodelLineRecognizer:
                     # self.grouper.setClass(i,"",1.0)
                     continue
 
+                if type(cls)==int:
+                    assert self.allow_any or (cls>=0 and cls<0x110000),\
+                        "classifier returned non-unicode class: %s"%(hex(cls),)
+                elif type(cls)==str:
+                    assert len(cls)<4,\
+                        ("classifier returned too many chars: %s",cls)
                 # for anything else, just add the classified character to the grouper
-                if self.use_ligatures:
-                    ccode = ligatures.lig.ord(cls)
+                if type(cls)==str or type(cls)==unicode:
+                    self.grouper.setClass(i,cls,cost)
+                elif type(cls)==int:
+                    assert cls>=0 and cls<0x110000,"bad class: %s"%(hex(cls),)
+                    self.grouper.setClass(i,cls,cost)
                 else:
-                    ccode = cls
-                self.grouper.setClass(i,ccode,cost)
+                    raise Exception("bad class type: %s"%type(cls))
                 self.grouper.setSpaceCost(i,float(yes_space),float(no_space))
 
         # extract the recognition lattice from the grouper

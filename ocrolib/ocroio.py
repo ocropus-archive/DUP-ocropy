@@ -6,8 +6,9 @@
 ################################################################
 
 import os
-import ocropus
-from ocroiulib import *
+import iulib
+from iulib import *
+from iuutils import *
 
 def iulib_page_iterator(files):
     """Given a list of files, iterate through the page images in those
@@ -88,7 +89,7 @@ def read_page_segmentation(name,black=1):
 def write_line_segmentation(name,lseg,white=1):
     """Write a numpy line segmentation."""
     lseg = lseg2narray(lseg)
-    if white: ocropus.make_line_segmentation_white(lseg)
+    if white: iulib.make_line_segmentation_white(lseg)
     iulib.write_image_packed(name,lseg)
     
 def read_line_segmentation(name,black=1):
@@ -96,7 +97,7 @@ def read_line_segmentation(name,black=1):
     if not os.path.exists(name): raise IOError(name)
     lseg = iulib.intarray()
     iulib.read_image_packed(lseg,name)
-    if black: ocropus.make_line_segmentation_black(lseg)
+    if black: iulib.make_line_segmentation_black(lseg)
     return narray2lseg(lseg)
 
 def renumber_labels(line,start):

@@ -9,13 +9,13 @@
 import sys,os,re,codecs
 import openfst
 import iulib
-import ocropus
+#import ocropus
 import common
 import ligatures
 import ocrofst
 
 epsilon = openfst.epsilon
-sigma = ocropus.L_RHO
+sigma = -3 # FIXME
 space = ligatures.lig.ord(" ")
 reject = ligatures.lig.ord("~")
 

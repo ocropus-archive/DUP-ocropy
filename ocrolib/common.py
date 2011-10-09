@@ -8,7 +8,6 @@ from numpy import *
 from scipy.misc import imsave
 from scipy.ndimage import interpolation,measurements,morphology
 
-import utils
 import improc
 import docproc
 import ligatures

@@ -6,7 +6,6 @@ if "DISPLAY" not in os.environ: matplotlib.use("AGG")
 else: matplotlib.use("GTK")
 from pylab import *
 import traceback
-
 import resource 
 resource.setrlimit(resource.RLIMIT_DATA,(2e9,2e9))
 
@@ -15,6 +14,7 @@ from ocrolib import plotutils
 from ocrolib import hocr
 import ocropreproc
 import ocrorast
+import ocrofst
 
 ion()
 hold(False)
@@ -120,8 +120,11 @@ linerec = ocrolib.load_linerec(ocrolib.ocropus_find_file(options.linerec))
 alert("[note]","line recognizer:",linerec)
 
 # The language model, loaded from disk.
-lmodel = ocrolib.OcroFST()
-lmodel.load(ocrolib.ocropus_find_file(options.langmod))
+if options.langmod=="none":
+    lmodel = None
+else:
+    lmodel = ocrofst.OcroFST()
+    lmodel.load(ocrolib.ocropus_find_file(options.langmod))
 
 # The text/image segmenter, if given.
 ticlass = None
@@ -210,13 +213,20 @@ for page_gray,pagefile in ocrolib.page_iterator(args):
             alert("[error]","line recognizer failed")
             continue
 
+
         # Next is the application of the language model.  We perform a beam search
         # through the recognition lattice and language model.  The result is
         # stored in an iulib string.
-        s,cost = ocrolib.beam_search_simple(fst,lmodel,options.beam)
-        if cost>999999.0:
-            alert("[warn]","beam search didn't find a solution (line not in language model)")
-            continue
+        if lmodel is None:
+            s = fst.bestpath() 
+            if s is None:
+                continue
+            cost = 0.0
+        else:
+            s,cost = ocrofst.beam_search_simple(fst,lmodel,options.beam)
+            if cost>999999.0:
+                alert("[warn]","beam search didn't find a solution (line not in language model)")
+                continue
 
         # Output the text line in various formats.
         if options.hocr:

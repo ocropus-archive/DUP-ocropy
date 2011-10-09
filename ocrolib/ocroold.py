@@ -9,7 +9,7 @@ from numpy import *
 from scipy.misc import imsave
 from scipy.ndimage import interpolation,measurements,morphology
 import common
-import ocropus
+import ocroold
 import ocrofst
 from iuutils import *
 from ocroio import *
@@ -22,7 +22,7 @@ from improc import cut
 class ComponentList:
     """Simple interface that lists the native components defined in OCRopus C++ code."""
     def __init__(self):
-        self.comp = ocropus.ComponentList()
+        self.comp = ocrocpp.ComponentList()
     def length(self):
         return self.comp.length()
     def kind(self,i):
@@ -40,7 +40,7 @@ def mknative(spec,interface):
     """
     names = spec.split(":")
     name = names[0]
-    exec "constructor = ocropus.make_%s"%interface
+    exec "constructor = ocrocpp.make_%s"%interface
     result = constructor(name)
     for param in names[1:]:
         k,v = param.split("=",1)
@@ -71,12 +71,12 @@ class CommonComponent:
         return self
     def load_native(self,file):
         """Load a native C++ component into this Python object."""
-        loader = eval("ocropus.load_"+self.c_interface)
+        loader = eval("ocrocpp.load_"+self.c_interface)
         self.comp = loader(file)
         return self
     def save_native(self,file):
         """Save the native C++ component from this object to a file."""
-        ocropus.save_component(file,self.comp)
+        ocrocpp.save_component(file,self.comp)
         return self
     def load(self,file):
         self.load_native(file)
@@ -226,7 +226,7 @@ class SegmentPage(CommonComponent):
             raise Unimplemented()
         else:
             self.comp.segment(result,page)
-        if black: ocropus.make_page_segmentation_black(result)
+        if black: ocrocpp.make_page_segmentation_black(result)
         # iulib.write_image_packed("_seg_out.png",result)
         return narray2pseg(result)
 
@@ -257,7 +257,7 @@ class SegmentLine(CommonComponent):
         """Segment a text line into potential character parts."""
         result = iulib.intarray()
         self.comp.charseg(result,line2narray(line,'B'))
-        ocropus.make_line_segmentation_black(result)
+        ocrocpp.make_line_segmentation_black(result)
         iulib.renumber_labels(result,1)
         return narray2lseg(result)
 
@@ -335,7 +335,7 @@ class OmpClassifier:
     classify().  When classify() returns, you can get the outputs corresponding
     to each input sample."""
     def setClassifier(self,model):
-        self.comp = ocropus.make_OmpClassifier()
+        self.comp = ocrocpp.make_OmpClassifier()
         if isinstance(model,Model):
             self.model = model.comp
             self.comp.setClassifier(model.comp)
@@ -354,12 +354,12 @@ class OmpClassifier:
         self.comp.input(vector2narray(a),i)
     def output(self,i):
         """Get outputs for input vector i."""
-        ov = ocropus.OutputVector()
+        ov = ocrocpp.OutputVector()
         self.comp.output(ov,i)
         return self.model.outputs2coutputs(ov)
     def load(self,file):
         """Load a classifier."""
-        self.comp = ocropus.OmpClassifier()
+        self.comp = ocrocpp.OmpClassifier()
         self.comp.load(file)
 
 def ocosts(l):
@@ -478,7 +478,7 @@ class EdistComp(DistComp):
 class RegionExtractor:
     """A class facilitating iterating over the parts of a segmentation."""
     def __init__(self):
-        self.comp = ocropus.RegionExtractor()
+        self.comp = ocrocpp.RegionExtractor()
         self.cache = {}
     def clear(self):
         del self.cache
@@ -722,32 +722,32 @@ def hole_counts(image,r=1.0):
     """Count the number of holes in the input image.  This assumes
     background-is-FIXME."""
     image = binarize_range(image)
-    return ocropus.hole_counts(numpy2narray(image),r)
+    return ocrocpp.hole_counts(numpy2narray(image),r)
 
 def component_counts(image,r=1.0):
     """Count the number of connected components in the image.  This
     assumes background-is-FIXME."""
     image = binarize_range(image)
-    return ocropus.component_counts(numpy2narray(image),r)
+    return ocrocpp.component_counts(numpy2narray(image),r)
 
 def junction_counts(image,r=1.0):
     """Count the number of junctions in the image.  This
     assumes background-is-FIXME."""
     image = binarize_range(image)
-    return ocropus.junction_counts(numpy2narray(image),r)
+    return ocrocpp.junction_counts(numpy2narray(image),r)
 
 def endpoints_counts(image,r=1.0):
     """Count the number of endpoints in the image.  This
     assumes background-is-FIXME."""
     image = binarize_range(image)
-    return ocropus.endpoints_counts(numpy2narray(image),r)
+    return ocrocpp.endpoints_counts(numpy2narray(image),r)
 
 # Parallel classification with OMP classifier objects.
 
 def omp_classify(model,inputs):
-    if not "ocropus." in str(type(model)):
+    if not "ocrocpp." in str(type(model)):
         return simple_classify(model,inputs)
-    omp = ocropus.make_OmpClassifier()
+    omp = ocrocpp.make_OmpClassifier()
     omp.setClassifier(model)
     n = len(inputs)
     omp.resize(n)
@@ -756,7 +756,7 @@ def omp_classify(model,inputs):
     omp.classify()
     result = []
     for i in range(n):
-        outputs = ocropus.OutputVector()
+        outputs = ocrocpp.OutputVector()
         omp.output(outputs,i)
         outputs = model.outputs2coutputs(outputs)
         result.append(outputs)

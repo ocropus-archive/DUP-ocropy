@@ -6,7 +6,6 @@
 
 import sys,os,unicodedata,re
 from pylab import uint32,uint16,uint64
-import ocropus
 import openfst
 
 ### These aren't formal ligatures, they are character pairs

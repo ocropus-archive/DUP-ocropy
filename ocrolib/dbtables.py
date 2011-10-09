@@ -2,7 +2,6 @@ import os
 import sqlite3
 import numpy
 import docproc
-import utils
 
 debug = os.getenv("dbtables_debug")
 if debug!=None: debug = int(debug)
