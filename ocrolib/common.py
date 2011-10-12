@@ -262,11 +262,15 @@ def summary(x):
 ### file name manipulation
 ################################################################
 
+def getlocal():
+    local = os.getenv("OCROPUS_DATA") or "/usr/local/share/ocropus/"
+    return local
+
 def findfile(name):
     """Find some OCRopus-related resource by looking in a bunch off standard places.
     (FIXME: The implementation is pretty adhoc for now.
     This needs to be integrated better with setup.py and the build system.)"""
-    local = "/usr/local/share/ocropus/"
+    local = getlocal()
     path = name
     if os.path.exists(path) and os.path.isfile(path): return path
     path = local+name
@@ -287,7 +291,7 @@ def findfile(name):
 def finddir(name):
     """Find some OCRopus-related resource by looking in a bunch off standard places.
     (This needs to be integrated better with setup.py and the build system.)"""
-    local = "/usr/local/share/ocropus/"
+    local = getlocal()
     path = name
     if os.path.exists(path) and os.path.isdir(path): return path
     path = local+name
