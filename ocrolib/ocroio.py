@@ -75,7 +75,7 @@ def draw_pseg(pseg,axis=None):
 def write_page_segmentation(name,pseg,white=1):
     """Write a numpy page segmentation (rank 3, type='B' RGB image.)"""
     pseg = pseg2narray(pseg)
-    if white: ocropus.make_page_segmentation_white(pseg)
+    if white: iulib.make_page_segmentation_white(pseg)
     iulib.write_image_packed(name,pseg)
     
 def read_page_segmentation(name,black=1):
@@ -83,7 +83,7 @@ def read_page_segmentation(name,black=1):
     if not os.path.exists(name): raise IOError(name)
     pseg = iulib.intarray()
     iulib.read_image_packed(pseg,name)
-    if black: ocropus.make_page_segmentation_black(pseg)
+    if black: iulib.make_page_segmentation_black(pseg)
     return narray2pseg(pseg)
     
 def write_line_segmentation(name,lseg,white=1):

@@ -1,7 +1,7 @@
 #!/usr/bin/python
 
 from pylab import *
-from ocrolib import dbutils
+from ocrolib import dbhelper,dbtables
 from optparse import OptionParser
 
 parser = OptionParser(usage="""
@@ -14,12 +14,12 @@ assert len(args)==1
 
 path = args[0]
 
-db = dbutils.chardb(path,options.table)
+db = dbhelper.chardb(path,options.table)
 
-dbutils.execute(db,"create index if not exists cls_index on %s (cls)"%options.table)
+db.execute("create index if not exists cls_index on %s (cls)"%options.table)
 
 def count(cls):
-    return dbutils.value_query(db,"select count(*) from %s where cls=?"%options.table,cls)
+    return list(db.execute("select count(*) from %s where cls=?"%options.table,cls))[0][0]
 
 def between(x,lo,hi):
     assert lo<=hi
@@ -29,7 +29,7 @@ def property(cls,which,n=1000,summary=mean):
     """Check rel column by class.
     which is 0 for rel_ypos, 1 for rel_width, 2 for rel_height"""
     def relconv(s): return map(float,s.split())
-    rels = map(relconv,list(dbutils.col_query(db,"select rel from chars where cls=? limit %s"%n,cls)))
+    rels = map(relconv,[x[0] for x in db.execute("select rel from chars where cls=? limit %s"%n,cls)])
     items = map(lambda x:x[which],rels)
     value = summary(items)
     print "'%s' [%d] = %g"%(cls,which,value)
@@ -40,7 +40,7 @@ print "=== checking presence of characters"
 chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789,.?!'\""
 print chars
 for c in chars:
-    result = dbutils.tuple_query(db,"select * from chars where cls=? limit 10",c)
+    result = [tuple(x) for x in db.execute("select * from chars where cls=? limit 10",c)]
     result = list(result)
     if len(result)==0:
         print "WARNING: no characters found for: %s"%c

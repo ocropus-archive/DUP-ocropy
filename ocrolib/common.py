@@ -682,7 +682,7 @@ def compute_alignment(lattice,rseg,lmodel,beam=1000,verbose=0,lig=ligatures.lig)
     # assert len(segs)==len(rmap) 
     assert len(segs)==len(result_l) 
     assert len(segs)==len(costs_l)
-    return utils.Record(
+    return Record(
         # alignment output; these all have the same lengths
         output_l=result_l,
         segs=segs,

@@ -14,6 +14,7 @@ from common import *
 from mlp import MLP,AutoMLP
 from ocroio import *
 from segrec import *
+from grouper import *
 
 ################################################################
 ### put various constructors into different modules

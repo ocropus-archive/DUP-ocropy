@@ -1,5 +1,7 @@
 #!/bin/bash -x
 
+set -e
+
 die() {
     echo ERROR "$*"
     exit 255
@@ -20,13 +22,13 @@ TEST pseg
 ocropus-pseg _test/????.png || die
 
 TEST linerec
-ocropus-lattices -O -m models/2m2-reject.cmodel _test/????/??????.png || die
+ocropus-lattices -O -m models/uw3-unlv-2011-03-07.023.cmodel _test/????/??????.png || die
 ocropus-align -O -l models/default.fst _test/????/??????.png || die
 
 TEST align-with-groundtruth
 ocropus-align -Q 0 -p _test/*.gt.txt -X -x _test.db
 ocropus-dbinfo _test.db
-ocrotest-dbcheck _test.db
+ocrotest-dbcheck _test.db || echo "FAILED"
 
 TEST training
 ocropus-ctrain -K 8 -o _test.cmodel _test.db || die

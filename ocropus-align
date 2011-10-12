@@ -11,7 +11,7 @@ from pylab import *
 from optparse import OptionParser
 from multiprocessing import Pool
 import ocrolib
-from ocrolib import number_of_processors,fstutils,die,utils,docproc
+from ocrolib import number_of_processors,fstutils,die,docproc
 from scipy import stats
 from ocrolib import dbhelper,ocroio,ocrofst
 
@@ -65,6 +65,7 @@ parser.add_option("-Y","--debug_cls",help="select classes for debugging",default
 parser.add_option("-Q","--parallel",type=int,default=number_of_processors(),help="number of parallel processes to use")
 parser.add_option("-c","--cont",help="continue on error",action="store_true")
 parser.add_option("-E","--showerrs",help="show errors",action="store_true")
+parser.add_option("-D","--Display",help="display",action="store_true")
 (options,args) = parser.parse_args()
 
 if len(args)==0:
@@ -211,10 +212,12 @@ def align1(t):
             line = ocrolib.read_image_gray(ocrolib.ffind(fname,"png"))
             line = amax(line)-line
             lgeo = docproc.seg_geometry(rseg)
-            grouper = ocrolib.StandardGrouper()
+            grouper = ocrolib.Grouper()
             grouper.setSegmentation(rseg)
             for i in range(grouper.length()):
-                raw = grouper.extract(line,0,i,dtype='B')
+                raw,mask = grouper.extractWithMask(line,i,dtype='B')
+                if options.Display: 
+                    ion(); clf(); gray(); imshow(raw); ginput(1,0.01)
                 start = grouper.start(i)
                 end = grouper.end(i)
                 bbox = grouper.boundingBox(i)

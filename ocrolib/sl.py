@@ -81,7 +81,7 @@ def mbox(x0,y0,x1,y1,h):
     return (slice(h-y1-1,h-y0-1),slice(x0,x1))
 def math(u,h):
     """Return (x0,y0,x1,y1) for the given height."""
-    return (u[1].start,h-u[1].stop-1,u[1].stop,h-u[0].stop-1)
+    return (u[1].start,h-u[0].stop-1,u[1].stop,h-u[0].start-1)
 
 ### Image-related
 

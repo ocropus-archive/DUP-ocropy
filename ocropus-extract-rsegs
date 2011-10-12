@@ -48,7 +48,7 @@ try:
 except:
     pass
 
-grouper = ocrolib.StandardGrouper(maxrange=1,maxdist=1)
+grouper = ocrolib.Grouper(maxrange=1,maxdist=1)
 
 table = dbtables.Table(options.output,"chars")
 table.converter("image",dbtables.SmallImage())
@@ -95,6 +95,7 @@ for raw,mask,cls,fname,bbox,geo in chars(args):
     except:
         print "bad docproc.rel_char_geom"
         traceback.print_exc()
+        continue
     ry,rw,rh = rel
     assert rw>0 and rh>0
     table.set(image=raw,cls="_",count=1,file=fname,bbox="%g %g %g %g"%bbox,

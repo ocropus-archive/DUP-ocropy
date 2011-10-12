@@ -9,7 +9,7 @@ from optparse import OptionParser
 from pylab import *
 from scipy.ndimage import interpolation,filters
 import ocrolib
-from ocrolib import docproc,utils,Record,mlp,dbhelper
+from ocrolib import docproc,Record,mlp,dbhelper
 from scipy import stats
 signal.signal(signal.SIGINT,lambda *args:sys.exit(1))
 

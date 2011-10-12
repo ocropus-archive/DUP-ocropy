@@ -95,7 +95,7 @@ class Grouper(PyComponent):
         return (r0,c0,r1,c1)
     def bboxMath(self,i):
         """Get the bounding box for group i."""
-        return sl.mbox(self.math[i][0],h=self.segmentation.shape[0])
+        return sl.math(self.groups[i][0],h=self.segmentation.shape[0])
     def start(self,i):
         """Get the identifier of the character segment starting this group."""
         return amin(self.groups[i][1])
