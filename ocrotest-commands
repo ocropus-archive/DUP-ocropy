@@ -42,5 +42,5 @@ ocropus-extract-rsegs _test/????/??????.png -o _test/rsegs.db || die
 TEST cluster-eps
 ocropus-cluster-eps _test/rsegs.db _test/rsegs-eps.db || die
 
-TEST cluster-kmeans
-ocropus-cluster-kmeans -n 10 -t clusters _test/rsegs-eps.db _test/rsegs-km.db || die
+#TEST cluster-kmeans
+#ocropus-cluster-kmeans -n 10 -t clusters _test/rsegs-eps.db _test/rsegs-km.db || die

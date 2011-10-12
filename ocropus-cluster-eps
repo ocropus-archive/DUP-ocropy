@@ -7,7 +7,7 @@ else: matplotlib.use("GTK")
 from pylab import *
 from optparse import OptionParser
 import ocrolib
-from ocrolib import dbtables,segrec,ocroold
+from ocrolib import dbtables,segrec,distcomp,docproc
 
 parser = OptionParser("""
 usage: %prog [options] chars.db cluster.db
@@ -26,11 +26,73 @@ parser.add_option("-t","--table",help="table name",default="chars")
 parser.add_option("-e","--epsilon",help="epsilon",type=float,default=0.1)
 parser.add_option("-o","--overwrite",help="overwrite output if it exists",action="store_true")
 
+
+
+class ScaledFE:
+    """A feature extractor that only rescales the input image to fit into
+    a 32x32 (or, generally, r x r box) and normalizes the vector.
+    Parameters are r (size of the rescaled image), and normalize (can be
+    one of "euclidean", "max", "sum", or None)."""
+    def __init__(self,**kw):
+        self.r = 32
+        self.normalize = "euclidean"
+        ocrolib.set_params(self,kw)
+    def extract(self,image):
+        v = array(docproc.isotropic_rescale(image,self.r),'f')
+        if not hasattr(self,"normalize") or self.normalize is None:
+            pass
+        elif self.normalize=="euclidean":
+            v /= sqrt(sum(v**2))
+        elif self.normalize=="max":
+            v /= amax(v)
+        elif self.normalize=="sum":
+            v /= sum(abs(v))
+        return v
+
+class DistComp:
+    def __init__(self):
+        self.data = None
+        self.count = []
+    def add(self,v):
+        v = v.ravel()
+        if self.data is None:
+            self.data = v.reshape(1,len(v))
+        else:
+            self.data = concatenate((self.data,v.ravel().reshape(1,len(v))),axis=0)
+        self.count.append(1.0)
+    def distances(self,v):
+        if self.data is None: return array([],'f')
+        v = v.ravel()
+        return array([norm(v-self.data[i]) for i in range(len(self.data))])
+    def find(self,v,eps):
+        if self.data is None: return -1
+        ds = self.distances(v)
+        i = argmin(ds)
+        if ds[i]>eps: return -1
+        return i
+    def merge(self,i,v,weight):
+        self.data[i,:] += v.ravel()*weight
+    def length(self):
+        return self.data.shape[0]
+    def counts(self,i):
+        return self.count[i]
+    def vector(self,i):
+        return self.data[i,:]
+    def nearest(self,v):
+        ds = self.distances(v)
+        i = argmin(ds)
+        return i
+
+def test_DistComp():
+    dc = DistComp()
+    for i in range(33): dc.add(randn(17))
+    print dc.find(dc.data[3],0.5)
+
 class FastCluster:
     def __init__(self,eps=0.05):
         self.eps = eps
-        self.ex = ocroold.ScaledFE()
-        self.dc = ocroold.EdistComp()
+        self.ex = ScaledFE()
+        self.dc = DistComp()
         self.classes = []
         self.counts = []
         self.total = 0
@@ -68,7 +130,9 @@ class FastCluster:
         table.converter("image",dbtables.SmallImage())
         for i,v,count,key in self.biniter():
             image = array(v/amax(v)*255.0,'B')
-            image.shape = (30,30)
+            r = int(math.sqrt(image.size))
+            assert r*r==image.size
+            image.shape = (r,r)
             cls,count = self.cls(i)
             classes = repr(self.classes[i])
             table.set(image=image,cls=cls,count=count,classes=classes,cluster=i)

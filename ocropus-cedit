@@ -10,7 +10,7 @@ pygtk.require("2.0")
 import gobject,gtk,gtk.glade
 from pylab import *
 import ocrolib
-from ocrolib import docproc,utils,dbhelper
+from ocrolib import docproc,dbhelper
 
 def TODO():
     print """
@@ -131,15 +131,15 @@ def get_clusters(cls,limit=options.batchsize,table=options.table):
     clusters = []
     for c in cur:
         image = dbhelper.blob2image(c.image)/255.0
-        cluster = utils.Record(id=c.id,
-                               file=c.file,
-                               image=image,
-                               cost=c.cost,
-                               rel=c.rel,
-                               cls=c.cls,
-                               count=c.count,
-                               classes=c.classes,
-                               cluster=c.cluster)
+        cluster = ocrolib.Record(id=c.id,
+                                file=c.file,
+                                image=image,
+                                cost=c.cost,
+                                rel=c.rel,
+                                cls=c.cls,
+                                count=c.count,
+                                classes=c.classes,
+                                cluster=c.cluster)
         if cluster.cls is None:
             cluster.cls = "_"
         clusters.append(cluster)

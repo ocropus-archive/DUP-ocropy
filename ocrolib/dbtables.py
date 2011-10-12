@@ -2,6 +2,7 @@ import os
 import sqlite3
 import numpy
 import docproc
+import common
 
 debug = os.getenv("dbtables_debug")
 if debug!=None: debug = int(debug)
@@ -205,7 +206,7 @@ class Table:
         if self.verbose: print "#",cmd,values
         if debug: print cmd
         for row in cur.execute(cmd,values):
-            result = utils.Record()
+            result = common.Record()
             for k in row.keys():
                 conv = self.converters.get(k,None)
                 v = row[k]

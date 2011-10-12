@@ -6,6 +6,7 @@
 import os,os.path,re,numpy,unicodedata,sys,warnings,inspect,glob,traceback
 import numpy
 from numpy import *
+from pylab import randn
 from scipy.misc import imsave
 from scipy.ndimage import interpolation,measurements,morphology
 
@@ -24,6 +25,8 @@ from ocroio import renumber_labels
 
 import cPickle as pickle
 pickle_mode = 2
+
+
 
 class ClassifierModel(PyComponent):
     """Wraps all the necessary functionality around a classifier in order to
