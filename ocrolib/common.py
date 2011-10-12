@@ -60,7 +60,7 @@ def renumber_labels_by_boxes(a,cmp=cmp,key=lambda x:x,correspondence=0):
         cmp = lambda x,y: __builtin__.cmp(x[::-1],y[::-1])
     assert a.dtype==dtype('B') or a.dtype==dtype('i')
     labels = renumber_labels_ordered(a)
-    objects = measurements.find_objects(labels)
+    objects = flexible_find_objects(labels)
     order = array(pyargsort(objects,cmp=cmp,key=key),'i')
     assert len(objects)==len(order)
     order = concatenate(([0],order+1))
@@ -68,7 +68,18 @@ def renumber_labels_by_boxes(a,cmp=cmp,key=lambda x:x,correspondence=0):
         return order[labels],argsort(order)
     else:
         return order[labels]
-
+
+def flexible_find_objects(image):
+    # first try the default type
+    try: return measurements.find_objects(image)
+    except: pass
+    types = ["int32","int64","int16"]
+    for t in types:
+        # try with type conversions
+	try: return measurements.find_objects(array(image,dtype=t)) 
+	except: pass
+    # let it raise the same exception as before
+    return measurements.find_objects(image)
 
 def rgb2int(image):
     assert image.dtype==dtype('B')
@@ -105,7 +116,7 @@ class RegionExtractor:
         labels,correspondence = renumber_labels_ordered(labels,correspondence=1)
         self.labels = labels
         self.correspondence = correspondence
-        self.objects = [None]+measurements.find_objects(labels)
+        self.objects = [None]+flexible_find_objects(labels)
     def setPageColumns(self,image):
         """Set the image to be iterated over.  This should be an RGB image,
         ndim==3, dtype=='B'.  This iterates over the columns."""
