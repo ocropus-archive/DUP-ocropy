@@ -179,10 +179,13 @@ for arg in args:
     print "# determining per-class cutoff"
 
     classes = [tuple(x) for x in db.execute("select cls,count(*) from chars group by cls")]
+    assert len(classes)>=2,"too few classes in database; got %s"%classes
     counts= array([x[1] for x in classes],'f')
     threshold = options.threshold
     if re.match(r'[0-9][0-9.]+',threshold):
         threshold = float(threshold)
+        assert len(counts)>1
+        assert threshold>=0 and threshold<=100
         ntrain = int(stats.scoreatpercentile(counts,threshold))
     else:
         for k,v in classes:

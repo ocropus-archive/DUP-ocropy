@@ -231,6 +231,7 @@ class CmodelLineRecognizer:
         order to be added as a letter to the lattice."""
         self.cmodel = None
         self.debug = 0
+        self.minsegs = 3
         self.maxspacecost = 20.0
         self.whitespace = "space.model"
         self.segmenter = ocrolseg.DpSegmenter()
@@ -284,7 +285,7 @@ class CmodelLineRecognizer:
         rseg = self.segmenter.charseg(image)
         if self.debug: show_segmentation(rseg) # FIXME
         rseg = renumber_labels(rseg,1) # FIXME
-        if amax(rseg)<3: 
+        if amax(rseg)<self.minsegs: 
             raise RecognitionError("not enough segments in raw segmentation",rseg=rseg)
         # self.grouper = grouper.Grouper()
         self.grouper.setSegmentation(rseg)
