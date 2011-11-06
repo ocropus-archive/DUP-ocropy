@@ -39,8 +39,9 @@ def pad_to(image,w,h):
     result[w0:w0+iw,h0:h0+ih] = image
     return result
 
-def pad_by(image,r):
+def pad_by(image,r,dtype=None):
     """Symmetrically pad the image by the given amount"""
+    if dtype is None: dtype = image.dtype
     w,h = image.shape
     result = zeros((w+2*r,h+2*r))
     result[r:(w+r),r:(h+r)] = image
