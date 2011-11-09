@@ -304,7 +304,7 @@ print
 if options.verbose:
     if "info" in dir(classifier): 
         classifier.info()
-    if "info" in dir(classifier.getExtractor()):
+    if "getExtractor" in dir(classifiers) and "info" in dir(classifier.getExtractor()):
         classifier.getExtractor().info()
 
 # now perform the actual training
