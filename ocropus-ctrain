@@ -302,8 +302,10 @@ print
 # provide some feedback about the training process
 
 if options.verbose:
-    classifier.info()
-    classifier.getExtractor().info()
+    if "info" in dir(classifier): 
+        classifier.info()
+    if "info" in dir(classifier.getExtractor()):
+        classifier.getExtractor().info()
 
 # now perform the actual training
 # (usually, this is AutoMLP, a multi-threaded, long-running stochastic
