@@ -63,6 +63,8 @@ parser.add_option("-T","--threshold",help="threshold for estimating ntrain (eith
 parser.add_option("-F","--rejectfactor",help="multiple of per class ntrain",type=float,default=20.0)
 (options,args) = parser.parse_args()
 
+assert options.output is not None,"you must provide a -o flag"
+
 if len(args)<1:
     parser.print_help()
     sys.exit(0)
