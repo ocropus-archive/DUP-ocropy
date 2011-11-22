@@ -1,0 +1,89 @@
+#!/usr/bin/python
+
+import numpy,pylab,random,sqlite3,collections,os
+from pylab import *
+from scipy import linalg
+from scipy.ndimage.morphology import binary_erosion
+from scipy.ndimage import interpolation,filters
+from ocrolib import dbhelper,improc
+import cv,random,pyflann
+from collections import Counter,defaultdict
+from optparse import OptionParser
+import shelve
+import tables
+from tables import *
+from ocrolib import docproc
+
+class record:
+    def __init__(self,**kw):
+        self.__dict__.update(kw)
+    def __str__(self):
+        return str(self.__dict__)
+    
+def uencode(s):
+    assert len(s)<=4
+    result = 0
+    for c in s[len(s)-1::-1]: result = (result<<16)|ord(c)
+    return result
+
+def udecode(i):
+    result = []
+    while i!=0:
+        result.append(unichr(i&0xffff))
+        i >>= 16
+    return "".join(result)
+
+def get_images(cname,table='chars'):
+    with sqlite3.connect(cname) as db:
+        db.row_factory = dbhelper.DbRow
+        query = "select * from %s"%table
+        rows = db.execute(query)
+        for row in rows:
+            image = array(improc.pad_by(dbhelper.blob2image(row.image),1),'B')
+            rel = array([float(x) for x in row.rel.split()])
+            yield record(id=row.id,image=image,cls=row.cls,rel=rel)
+        del rows
+
+import argparse
+parser = argparse.ArgumentParser(
+    description = "Convert character databases in SQLite3 format to HDF5 format."
+    )
+parser.add_argument('db',default='training.db',help="db file")
+parser.add_argument('hdf5',default='training.h5',help="hdf5 ouput file")
+parser.add_argument('-n','--nimages',type=int,default=2000000000,help="max # images to convert")
+parser.add_argument('-p','--size',type=int,default=32,help="patchsize; 0 stores pickled Python arrays instead")
+options = parser.parse_args()
+
+h5 = tables.openFile(options.hdf5,"w")
+size = options.size
+
+if size==0:
+    images = h5.createVLArray(h5.root,'images',ObjectAtom(),filters=Filters(9))
+else:
+    patches = h5.createEArray(h5.root,'patches',Float32Atom(),shape=(0,size,size),
+                              title="characters as patches from "+options.db,
+                              filters=Filters(9))
+
+classes = h5.createEArray(h5.root,'classes',Int64Atom(),shape=(0,))
+rel = h5.createEArray(h5.root,'rel',Float32Atom(shape=(3,)),shape=(0,))
+
+print "starting"
+
+try:
+    for r in get_images(options.db):
+        if len(classes)>=options.nimages: break
+        if len(classes)%1000==0: sys.stdout.write("%d\r"%len(classes)); sys.stdout.flush()
+        rel.append(r.rel)
+        if size==0:
+            images.append(r.image)
+        else:
+            image = array(r.image,'f')/255.0
+            image = docproc.isotropic_rescale(image,size-2)
+            image = improc.pad_by(image,1)
+            patches.append([image])
+        classes.append([uencode(r.cls)])
+finally:
+    h5.close()
+
+print "done"
+
