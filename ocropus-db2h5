@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-import numpy,pylab,random,sqlite3,collections,os
+import numpy,pylab,random,sqlite3,collections,os,re
 from pylab import *
 from scipy import linalg
 from scipy.ndimage.morphology import binary_erosion
@@ -45,12 +45,11 @@ def get_images(cname,table='chars'):
         del rows
 
 import argparse
-parser = argparse.ArgumentParser(
-    description = "Convert character databases in SQLite3 format to HDF5 format."
-    )
+parser = argparse.ArgumentParser( description = "Convert character databases in SQLite3 format to HDF5 format.")
 parser.add_argument('db',default='training.db',help="db file")
 parser.add_argument('hdf5',default='training.h5',help="hdf5 ouput file")
 parser.add_argument('-n','--nimages',type=int,default=2000000000,help="max # images to convert")
+parser.add_argument('-r','--pattern',default='.*',help="pattern for characters to transform")
 parser.add_argument('-p','--size',type=int,default=32,help="patchsize; 0 stores pickled Python arrays instead")
 options = parser.parse_args()
 
@@ -64,14 +63,15 @@ else:
                               title="characters as patches from "+options.db,
                               filters=Filters(9))
 
-classes = h5.createEArray(h5.root,'classes',Int64Atom(),shape=(0,))
-rel = h5.createEArray(h5.root,'rel',Float32Atom(shape=(3,)),shape=(0,))
+classes = h5.createEArray(h5.root,'classes',Int64Atom(),shape=(0,),filters=tables.Filters(9))
+rel = h5.createEArray(h5.root,'rel',Float32Atom(shape=(3,)),shape=(0,),filters=tables.Filters(9))
 
 print "starting"
 
 try:
     for r in get_images(options.db):
         if len(classes)>=options.nimages: break
+        if not re.match(options.pattern+"$",r.cls): continue
         if len(classes)%1000==0: sys.stdout.write("%d\r"%len(classes)); sys.stdout.flush()
         rel.append(r.rel)
         if size==0:
