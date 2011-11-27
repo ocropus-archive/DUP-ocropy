@@ -44,42 +44,82 @@ def get_images(cname,table='chars'):
             yield record(id=row.id,image=image,cls=row.cls,rel=rel)
         del rows
 
+def csnormalize(image,f=0.75):
+    bimage = 1*(image>mean([amax(image),amin(image)]))
+    w,h = bimage.shape
+    [xs,ys] = mgrid[0:w,0:h]
+    s = sum(bimage)
+    if s<1e-4: return image
+    s = 1.0/s
+    cx = sum(xs*bimage)*s
+    cy = sum(ys*bimage)*s
+    sxx = sum((xs-cx)**2*bimage)*s
+    sxy = sum((xs-cx)*(ys-cy)*bimage)*s
+    syy = sum((ys-cy)**2*bimage)*s
+    w,v = eigh(array([[sxx,sxy],[sxy,syy]]))
+    l = sqrt(amax(w))
+    scale = f*max(image.shape)/(4.0*l)
+    m = array([[1.0/scale,0],[0.0,1.0/scale]])
+    w,h = image.shape
+    c = array([cx,cy])
+    d = c-dot(m,array([w/2,h/2]))
+    image = interpolation.affine_transform(image,m,offset=d,order=1)
+    return image
+
+def table_log(db,*args):
+    import time
+    db.setNodeAttr("/","LOG_%d"%int(time.time())," ".join(args))
+
 import argparse
 parser = argparse.ArgumentParser( description = "Convert character databases in SQLite3 format to HDF5 format.")
 parser.add_argument('db',default='training.db',help="db file")
-parser.add_argument('hdf5',default='training.h5',help="hdf5 ouput file")
+parser.add_argument('-o','--output',default=None,help="hdf5 ouput file")
 parser.add_argument('-n','--nimages',type=int,default=2000000000,help="max # images to convert")
 parser.add_argument('-r','--pattern',default='.*',help="pattern for characters to transform")
 parser.add_argument('-p','--size',type=int,default=32,help="patchsize; 0 stores pickled Python arrays instead")
-options = parser.parse_args()
+parser.add_argument('-N','--nonormalize',action="store_true",help="do not perform size normalization")
+args = parser.parse_args()
 
-h5 = tables.openFile(options.hdf5,"w")
-size = options.size
+assert args.output is not None
+assert args.size>5 and args.size<256
+
+h5 = tables.openFile(args.output,"w")
+size = args.size
 
 if size==0:
     images = h5.createVLArray(h5.root,'images',ObjectAtom(),filters=Filters(9))
 else:
     patches = h5.createEArray(h5.root,'patches',Float32Atom(),shape=(0,size,size),
-                              title="characters as patches from "+options.db,
+                              title="characters as patches from "+args.db,
                               filters=Filters(9))
 
 classes = h5.createEArray(h5.root,'classes',Int64Atom(),shape=(0,),filters=tables.Filters(9))
 rel = h5.createEArray(h5.root,'rel',Float32Atom(shape=(3,)),shape=(0,),filters=tables.Filters(9))
+table_log(h5,"%s"%sys.argv)
 
-print "starting"
+
+print 'selecting patterns with classes matching: /^'+args.pattern+'$/'
+if args.nonormalize:
+    print "normalizing by isotropic rescaling into",size,"x",size,"bounding box"
+else:
+    print "normalizing by moments into",size,"x",size,"bounding box"
 
 try:
-    for r in get_images(options.db):
-        if len(classes)>=options.nimages: break
-        if not re.match(options.pattern+"$",r.cls): continue
+    for r in get_images(args.db):
+        if len(classes)>=args.nimages: break
+        if not re.match(args.pattern+"$",r.cls): continue
         if len(classes)%1000==0: sys.stdout.write("%d\r"%len(classes)); sys.stdout.flush()
         rel.append(r.rel)
         if size==0:
             images.append(r.image)
         else:
             image = array(r.image,'f')/255.0
-            image = docproc.isotropic_rescale(image,size-2)
-            image = improc.pad_by(image,1)
+            if not args.nonormalize:
+                image = docproc.isotropic_rescale(image,size)
+                image = csnormalize(image)
+            else:
+                image = docproc.isotropic_rescale(image,size-2)
+                image = improc.pad_by(image,1)
             patches.append([image])
         classes.append([uencode(r.cls)])
 finally:
