@@ -533,7 +533,9 @@ def mkpython(name):
     """Tries to instantiate a Python class.  Gives an error if it looks
     like a Python class but can't be instantiated.  Returns None if it
     doesn't look like a Python class."""
-    if type(name) is not str:
+    if name is None or len(name)==0:
+        return None
+    elif type(name) is not str:
         return name()
     elif name[0]=="=":
         return pyconstruct(name[1:])

@@ -21,8 +21,8 @@ setup (name = 'ocropy',
        description = """Python bindings for OCRopus""",
        packages = ["ocrolib"],
        data_files=[('share/ocropus', glob.glob("*.glade")),
-                   ('share/ocropus', glob.glob("data/*model")),
-                   ('share/ocropus', glob.glob("data/*.fst")),
+                   ('share/ocropus', glob.glob("models/*model")),
+                   ('share/ocropus', glob.glob("models/*.fst")),
                    ],
        scripts = [i for i in glob.glob("ocropus-*[a-z5]") if not i.endswith('.glade')] +
                  glob.glob("ocroex-*[a-z]") +
