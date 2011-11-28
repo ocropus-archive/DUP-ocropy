@@ -40,7 +40,10 @@ def get_images(cname,table='chars'):
         rows = db.execute(query)
         for row in rows:
             image = array(improc.pad_by(dbhelper.blob2image(row.image),1),'B')
-            rel = array([float(x) for x in row.rel.split()])
+            if row.rel is not None:
+                rel = array([float(x) for x in row.rel.split()])
+            else:
+                rel = None
             yield record(id=row.id,image=image,cls=row.cls,rel=rel)
         del rows
 
@@ -94,7 +97,7 @@ else:
                               filters=Filters(9))
 
 classes = h5.createEArray(h5.root,'classes',Int64Atom(),shape=(0,),filters=tables.Filters(9))
-rel = h5.createEArray(h5.root,'rel',Float32Atom(shape=(3,)),shape=(0,),filters=tables.Filters(9))
+rel = None
 table_log(h5,"%s"%sys.argv)
 
 
@@ -109,7 +112,11 @@ try:
         if len(classes)>=args.nimages: break
         if not re.match(args.pattern+"$",r.cls): continue
         if len(classes)%1000==0: sys.stdout.write("%d\r"%len(classes)); sys.stdout.flush()
-        rel.append(r.rel)
+        if r.rel is not None:
+            if rel is None:
+                rel = h5.createEArray(h5.root,'rel',Float32Atom(shape=(3,)),shape=(0,),filters=tables.Filters(9))
+            assert len(rel)==len(classes)
+            rel.append(r.rel)
         if size==0:
             images.append(r.image)
         else:
