@@ -83,10 +83,11 @@ def rel_char_geom(box,params):
 def rel_geo_normalize(rel):
     """Given a set of geometric parameters, normalize them into the
     range -1...1 so that they can be used as input to a neural network."""
+    if rel is None: return None
     if type(rel)==str:
         rel = [float(x) for x in rel.split()]
     ry,rw,rh = rel
-    assert rw>0 and rh>0
+    if not (rw>0 and rh>0): return None
     ry = clip(2*ry,-1.0,1.0)
     rw = clip(log(rw),-1.0,1.0)
     rh = clip(log(rh),-1.0,1.0)

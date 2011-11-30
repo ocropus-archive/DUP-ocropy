@@ -40,7 +40,7 @@ def get_images(cname,table='chars'):
         rows = db.execute(query)
         for row in rows:
             image = array(improc.pad_by(dbhelper.blob2image(row.image),1),'B')
-            if row.rel is not None:
+            if "rel" in dir(row) and row.rel is not None:
                 rel = array([float(x) for x in row.rel.split()])
             else:
                 rel = None
@@ -81,6 +81,7 @@ parser.add_argument('-n','--nimages',type=int,default=2000000000,help="max # ima
 parser.add_argument('-r','--pattern',default='.*',help="pattern for characters to transform")
 parser.add_argument('-p','--size',type=int,default=32,help="patchsize; 0 stores pickled Python arrays instead")
 parser.add_argument('-N','--nonormalize',action="store_true",help="do not perform size normalization")
+parser.add_argument('-t','--table',default="chars",help="database table")
 args = parser.parse_args()
 
 assert args.output is not None
@@ -108,7 +109,7 @@ else:
     print "normalizing by moments into",size,"x",size,"bounding box"
 
 try:
-    for r in get_images(args.db):
+    for r in get_images(args.db,table=args.table):
         if len(classes)>=args.nimages: break
         if not re.match(args.pattern+"$",r.cls): continue
         if len(classes)%1000==0: sys.stdout.write("%d\r"%len(classes)); sys.stdout.flush()
