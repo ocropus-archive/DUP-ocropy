@@ -181,6 +181,7 @@ def process_arg(arg):
         if not options.silent:
             if ocrolib.quick_check_line_components(line,dpi=options.dpi)<0.5:
                 continue
+        assert (regions.id(i)&0xff0000)>0
         if options.gray:
             ocrolib.write_image_gray("%s/%06x.bin.png"%(base,regions.id(i)),line)
             line = regions.extract(page_gray,i,options.pad)

@@ -20,6 +20,7 @@ import ocrolib
 from ocrolib import number_of_processors
 import ocropreproc
 from ocrolib import ocroold
+import traceback
 
 parser = optparse.OptionParser(usage="""
 %prog -o dir [options] image1 image2 ...
@@ -50,7 +51,7 @@ parser.add_option("-H","--high",help="high threshold (0.4)",default=0.4,type=flo
 parser.add_option("-W","--width",help="width parameter (40)",default=40,type=float)
 parser.add_option("-r","--dpi",help="resolution (DPI) (300)",default=300,type=float)
 parser.add_option("-q","--silent",action="store_true",help="disable warnings")
-parser.add_option("-P","--parallel",type=int,default=number_of_processors(),help="number of parallel processes to use")
+parser.add_option("-Q","--par",type=int,default=number_of_processors(),help="number of parallel processes to use")
 parser.add_option("-B","--binarizer",help="binarization component to be used",default="ocropreproc.CommonPreprocessing")
 parser.add_option("-g","--gtextension",help="ground truth extension for copying in ground truth (include all dots)",default=None)
 options,args = parser.parse_args()
@@ -135,17 +136,21 @@ def process1(t):
     for image,arg in ocrolib.page_iterator([arg]):
         assert n<2,"no multipage files with parallel processing; use -P 0"
         print "===",arg,count,image.shape
-        process_image(image,arg,count)
+        try:
+            process_image(image,arg,count)
+        except:
+            print "FAILED",arg
+            traceback.print_exc()
         n += 1
 
-if options.parallel<2:
+if options.par<2:
     count = 0
     for image,arg in ocrolib.page_iterator(args):
         print "===",arg,count,image.shape
         count += 1
         process_image(image,arg,count)
 else:
-    pool = Pool(processes=options.parallel)
+    pool = Pool(processes=options.par)
     jobs = []
     for i in range(len(args)): jobs += [(args[i],i+1)]
     result = pool.map(process1,jobs)

@@ -40,9 +40,9 @@ def get_images(cname,table='chars'):
         rows = db.execute(query)
         for row in rows:
             image = array(improc.pad_by(dbhelper.blob2image(row.image),1),'B')
-            if "rel" in dir(row) and row.rel is not None:
+            try:
                 rel = array([float(x) for x in row.rel.split()])
-            else:
+            except:
                 rel = None
             yield record(id=row.id,image=image,cls=row.cls,rel=rel)
         del rows
