@@ -5,7 +5,7 @@
 # -- page frame removal, noise removal, ...
 # -- parallelize TIFF images
 
-import sys,os,re,optparse,shutil
+import sys,os,re,optparse,shutil,traceback
 import matplotlib
 if "DISPLAY" not in os.environ: matplotlib.use("AGG")
 else: matplotlib.use("GTK")
@@ -135,7 +135,11 @@ def process1(t):
     for image,arg in ocrolib.page_iterator([arg]):
         assert n<2,"no multipage files with parallel processing; use -P 0"
         print "===",arg,count,image.shape
-        process_image(image,arg,count)
+        try:
+            process_image(image,arg,count)
+        except:
+            traceback.print_exc()
+            raise
         n += 1
 
 if options.parallel<2:
