@@ -38,6 +38,9 @@ from matplotlib.backends.backend_gtk import NavigationToolbar2GTK as NavigationT
 #from matplotlib.backends.backend_gtkagg import FigureCanvasGTKAgg as FigureCanvas
 #from matplotlib.backends.backend_gtkagg import NavigationToolbar2GTKAgg as NavigationToolbar
 
+all_segmenters = """ocrolseg.DpSegmenter ocrolseg.SegmentLineByCCS ocrolseg.SegmentLineByGCCS
+ocrolseg.ConnectedComponentSegmenter ocrolseg.CurvedCutSegmenter""".split()
+
 parser = OptionParser(usage="""
 %prog [options] line1.png line2.png ...
 
@@ -105,7 +108,7 @@ def seg2pixbuf(rseg):
         colors[:,:,0] = sin(rseg)
         colors[:,:,1] = sin(9.3*rseg)
         colors[:,:,2] = sin(11.4*rseg)
-        colors[:,:,:] /= sqrt(sum(colors**2,axis=2)[:,:,newaxis])
+        colors[:,:,:] /= maximum(1e-6,sqrt(sum(colors**2,axis=2)[:,:,newaxis]))
         colors = 127.0*colors+1.0
         colors = array(colors,'B')
     else:
@@ -160,12 +163,8 @@ class LineWindow:
         self.details = self.wtree.get_widget("details")
 
         self.segmenters = gtk.ListStore(str)
-        cl = ocrolib.ComponentList()
-        for i in range(cl.length()):
-            if cl.kind(i)!="ISegmentLine": continue
-            name = " "+cl.name(i); name = name[1:]
-            print name
-            self.segmenters.append([name])
+        for s in all_segmenters:
+            self.segmenters.append([s])
         print [self.segmenters[i][0] for i in range(len(self.segmenters))]
         self.segmenter = self.wtree.get_widget("segmenter")
         self.segmenter.set_model(self.segmenters)

@@ -125,11 +125,11 @@ class RegionExtractor:
         """Set the image to be iterated over.  This should be an RGB image,
         ndim==3, dtype=='B'.  This iterates over the paragraphs (if present
         in the segmentation)."""
-        self.setImageMasked(image,0x00ff00,hi=0x800000)
+        self.setImageMasked(image,0xffff00,hi=0x800000)
     def setPageLines(self,image):
         """Set the image to be iterated over.  This should be an RGB image,
         ndim==3, dtype=='B'.  This iterates over the lines."""
-        self.setImageMasked(image,0x00ffff,hi=0x800000)
+        self.setImageMasked(image,0xffffff,hi=0x800000)
     def id(self,i):
         """Return the RGB pixel value for this segment."""
         return self.correspondence[i]
@@ -533,7 +533,9 @@ def mkpython(name):
     """Tries to instantiate a Python class.  Gives an error if it looks
     like a Python class but can't be instantiated.  Returns None if it
     doesn't look like a Python class."""
-    if type(name) is not str:
+    if name is None or len(name)==0:
+        return None
+    elif type(name) is not str:
         return name()
     elif name[0]=="=":
         return pyconstruct(name[1:])

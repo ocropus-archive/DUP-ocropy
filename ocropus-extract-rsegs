@@ -50,11 +50,6 @@ except:
 
 grouper = ocrolib.Grouper(maxrange=1,maxdist=1)
 
-table = dbtables.Table(options.output,"chars")
-table.converter("image",dbtables.SmallImage())
-table.create(image="blob",count="integer",cls="text",classes="text",key="text",
-             file="text",bbox="text",cluster="integer",lgeo="text",rel="text")
-
 ion()
 show()
 
@@ -80,6 +75,14 @@ def chars(files):
             cls = None
             raw,mask = grouper.extractWithMask(image,i,1)
             yield raw,mask,cls,fname,grouper.bboxMath(i),geo
+
+if options.output[-3:]==".db":
+    table = dbtables.Table(options.output,"chars")
+    table.converter("image",dbtables.SmallImage())
+    table.create(image="blob",count="integer",cls="text",classes="text",key="text",
+                 file="text",bbox="text",cluster="integer",lgeo="text",rel="text")
+else:
+    raise Exception("HDF5 output not implemented yet")
 
 total = 0
 for raw,mask,cls,fname,bbox,geo in chars(args):
