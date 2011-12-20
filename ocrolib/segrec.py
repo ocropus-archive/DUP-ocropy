@@ -240,8 +240,8 @@ class CmodelLineRecognizer:
         self.reject_cost = self.maxcost
         self.min_height = 0.5
         self.rho_scale = 1.0
-        self.maxdist = 10
-        self.maxrange = 5
+        self.maxdist = 2
+        self.maxrange = 4
         self.use_ligatures = 1
         self.add_rho = 0
         self.verbose = 0
@@ -251,8 +251,8 @@ class CmodelLineRecognizer:
         if type(self.whitespace)==str:
             self.whitespace = common.load_component(common.ocropus_find_file(self.whitespace))
         self.grouper = grouper.Grouper()
-        # self.grouper.pset("maxdist",self.maxdist)
-        # self.grouper.pset("maxrange",self.maxrange)
+        self.grouper.pset("maxdist",self.maxdist)
+        self.grouper.pset("maxrange",self.maxrange)
 
     def recognizeLine(self,image):
         "Recognize a line, outputting a recognition lattice."""
