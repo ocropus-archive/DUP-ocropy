@@ -229,25 +229,29 @@ class CmodelLineRecognizer:
         at all.  The minheight_letter threshold is the minimum height of a
         component (expressed as fraction of the medium segment height) in
         order to be added as a letter to the lattice."""
+        self.gccs = 0
         self.cmodel = None
         self.debug = 0
         self.minsegs = 3
         self.maxspacecost = 20.0
         self.whitespace = "space.model"
-        self.segmenter = ocrolseg.DpSegmenter()
         self.nbest = 5
         self.maxcost = 15.0
         self.reject_cost = self.maxcost
         self.min_height = 0.5
         self.rho_scale = 1.0
         self.maxdist = 2
-        self.maxrange = 4
         self.use_ligatures = 1
         self.add_rho = 0
         self.verbose = 0
         self.debug_cls = []
         self.allow_any = 0 # allow non-unicode characters
         common.set_params(self,kw)
+        if not self.gccs:
+            self.segmenter = ocrolseg.DpSegmenter()
+        else:
+            self.segmenter = ocrolseg.SegmentLineByGCCS()
+            self.maxrange = 1
         if type(self.whitespace)==str:
             self.whitespace = common.load_component(common.ocropus_find_file(self.whitespace))
         self.grouper = grouper.Grouper()
