@@ -268,13 +268,13 @@ class CmodelLineRecognizer:
         # first check whether the input dimensions are reasonable
 
         if image.shape[0]<10:
-            raise RecognitionError("line image not high enough (maybe rescale?)",image=image)
+            raise common.RecognitionError("line image not high enough (maybe rescale?)",image=image)
         if image.shape[0]>200:
-            raise RecognitionError("line image too high (maybe rescale?)",image=image)
+            raise common.RecognitionError("line image too high (maybe rescale?)",image=image)
         if image.shape[1]<10:
-            raise RecognitionError("line image not wide enough (segmentation error?)",image=image)
+            raise common.RecognitionError("line image not wide enough (segmentation error?)",image=image)
         if image.shape[1]>10000:
-            raise RecognitionError("line image too wide???",image=image)
+            raise common.RecognitionError("line image too wide???",image=image)
 
         # FIXME for some reason, something down below
         # depends on this being a bytearray image, so
@@ -286,7 +286,7 @@ class CmodelLineRecognizer:
         if self.debug: show_segmentation(rseg) # FIXME
         rseg = renumber_labels(rseg,1) # FIXME
         if amax(rseg)<self.minsegs: 
-            raise RecognitionError("not enough segments in raw segmentation",rseg=rseg)
+            raise common.RecognitionError("not enough segments in raw segmentation",rseg=rseg)
         # self.grouper = grouper.Grouper()
         self.grouper.setSegmentation(rseg)
 
@@ -301,9 +301,9 @@ class CmodelLineRecognizer:
             heights.append(y1-y0)
         mheight = median(array(heights))
         if mheight<8:
-            raise RecognitionError("median line height too small (maybe rescale prior to recognition)",mheight=mheight)
+            raise common.RecognitionError("median line height too small (maybe rescale prior to recognition)",mheight=mheight)
         if mheight>100:
-            raise RecognitionError("median line height too large (maybe rescale prior to recognition)",mheight=mheight)
+            raise common.RecognitionError("median line height too large (maybe rescale prior to recognition)",mheight=mheight)
         self.mheight = mheight
 
         # invert the input image (make a copy first)
@@ -327,7 +327,7 @@ class CmodelLineRecognizer:
                 rel = docproc.rel_char_geom((y0,y1,x0,x1),geo)
             except:
                 traceback.print_exc()
-                raise RecognitionError("bad line geometry",geo=geo)
+                raise common.RecognitionError("bad line geometry",geo=geo)
             ry,rw,rh = rel
             assert rw>0 and rh>0,"error: rw=%g rh=%g"%(rw,rh)
             rel = docproc.rel_geo_normalize(rel)
