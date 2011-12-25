@@ -260,7 +260,7 @@ class CmodelLineRecognizer:
         self.debug_cls = []
         self.allow_any = 0 # allow non-unicode characters
         common.set_params(self,kw)
-        self.combined_cost = 10.0 # extra cost for combining connected components
+        self.combined_cost = 100.0 # extra cost for combining connected components
         self.maxrange = 4
         self.segmenter = ocrolseg.DpSegmenter()
         self.segmenter0 = ocrolseg.SegmentLineByGCCS()
