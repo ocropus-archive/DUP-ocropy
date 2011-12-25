@@ -217,6 +217,19 @@ class Classifier(PyComponent):
         """Compute the ouputs corresponding to each input data vector."""
         raise Unimplemented()
 
+class SegWithCost:
+    def __init__(self):
+        self.segmenter0 = ocrolseg.SegmentLineByGCCS()
+        self.segmenter1 = ocrolseg.DpSegmenter()
+    def segment(self,image):
+        seg0 = self.segmenter0.charseg(image)
+        assert amax(seg0)<32000
+        seg1 = self.segmenter1.charseg(image)
+        assert amax(seg1)<32000
+        cor = ((seg0<<16)|seg1)
+        hist = Counter(cor.ravel())
+        
+
 class CmodelLineRecognizer:
     def __init__(self,**kw):
         """Initialize a line recognizer that works from character models.
@@ -247,11 +260,10 @@ class CmodelLineRecognizer:
         self.debug_cls = []
         self.allow_any = 0 # allow non-unicode characters
         common.set_params(self,kw)
-        if not self.gccs:
-            self.segmenter = ocrolseg.DpSegmenter()
-        else:
-            self.segmenter = ocrolseg.SegmentLineByGCCS()
-            self.maxrange = 1
+        self.combined_cost = 10.0 # extra cost for combining connected components
+        self.maxrange = 4
+        self.segmenter = ocrolseg.DpSegmenter()
+        self.segmenter0 = ocrolseg.SegmentLineByGCCS()
         if type(self.whitespace)==str:
             self.whitespace = common.load_component(common.ocropus_find_file(self.whitespace))
         self.grouper = grouper.Grouper()
@@ -292,7 +304,8 @@ class CmodelLineRecognizer:
         if amax(rseg)<self.minsegs: 
             raise common.RecognitionError("not enough segments in raw segmentation",rseg=rseg)
         # self.grouper = grouper.Grouper()
-        self.grouper.setSegmentation(rseg)
+        pseg = self.segmenter0.charseg(image)
+        self.grouper.setSegmentation(rseg,preferred=pseg)
 
         # compute the geometry (might have to use
         # CCS segmenter if this doesn't work well)
@@ -354,7 +367,7 @@ class CmodelLineRecognizer:
             # FIXME parallelize this
             outputs = self.cmodel.coutputs(char,geometry=rel)
             outputs = [(x[0],-log(x[1])) for x in outputs]
-            self.chars.append(common.Record(index=i,image=char,outputs=outputs))
+            self.chars.append(common.Record(index=i,image=char,outputs=outputs,comb=self.grouper.isCombined(i)))
 
             # estimate the space cost
             sc = self.whitespace.classifySpace(x1)
@@ -364,6 +377,13 @@ class CmodelLineRecognizer:
             # maybe add a transition on "_" that we can use to skip 
             # this character if the transcription contains a "~"
             self.grouper.setClass(i,"~",self.reject_cost)
+
+            # extra penalty based on segmentation
+            # (right now, it's only for combining characters, but
+            # we may add costs for splitting too)
+            segcost = 0.0
+            if self.combined_cost>0.0 and self.grouper.isCombined(i):
+                segcost = self.combined_cost
             
             # add the top classes to the lattice
             outputs.sort(key=lambda x:x[1])
@@ -394,13 +414,14 @@ class CmodelLineRecognizer:
                         ("classifier returned too many chars: %s",cls)
                 # for anything else, just add the classified character to the grouper
                 if type(cls)==str or type(cls)==unicode:
-                    self.grouper.setClass(i,cls,cost)
+                    self.grouper.setClass(i,cls,cost+segcost)
                 elif type(cls)==int:
                     assert cls>=0 and cls<0x110000,"bad class: %s"%(hex(cls),)
                     self.grouper.setClass(i,cls,cost)
                 else:
                     raise Exception("bad class type: %s"%type(cls))
                 self.grouper.setSpaceCost(i,float(yes_space),float(no_space))
+
 
         # extract the recognition lattice from the grouper
         lattice = self.grouper.getLattice()

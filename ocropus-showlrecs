@@ -399,7 +399,8 @@ class LineWindow:
                         raw,mask = grouper.extractWithMask(reverse,i,1)
                         img = 1.0-mask/255.0
                         self.detail_pixbuf(numpy2pixbuf(img))
-                        self.detail(" [%s]   "%result[i])
+                        comb = "*" if grouper.isCombined(i) else ""
+                        self.detail(" [%s]%s   "%(result[i],comb))
                         if (i+1)%10==0: self.detail("\n")
                     except:
                         traceback.print_exc()
@@ -415,7 +416,7 @@ class LineWindow:
             self.detail("=====================\n")
             self.detail("\n")
             for c in self.linerec.chars:
-                self.detail("%3d   "%c.index)
+                self.detail("%3d%1s   "%(c.index,"*" if c.comb else " "))
                 self.detail_pixbuf(numpy2pixbuf(amax(c.image)-c.image))
                 self.detail("\t\t")
                 for s,v in c.outputs:

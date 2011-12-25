@@ -7,6 +7,7 @@ import common
 import ocrofst
 import sl
 from pycomp import PyComponent
+from collections import Counter
 
 class Grouper(PyComponent):
     """Perform grouping operations on segmented text lines, and
@@ -17,10 +18,18 @@ class Grouper(PyComponent):
         self.maxaspect = 2.5
         self.maxwidth = 2.5
         self.fullheight = 0
-    def setSegmentation(self,segmentation,cseg=0):
+        self.pre2seg = None
+    def setSegmentation(self,segmentation,cseg=0,preferred=None):
         """Set the line segmentation."""
         # reorder the labels by the x center of bounding box
         segmentation = common.renumber_labels_by_boxes(segmentation,key=lambda x:mean((x[1].start,x[1].stop)))
+        if preferred is not None:
+            preferred = common.renumber_labels_by_boxes(preferred,key=lambda x:mean((x[1].start,x[1].stop)))
+            assert amax(segmentation)<32000 and amax(preferred)<32000
+            combined = ((preferred<<16)|segmentation)
+            correspondences = [(k>>16,k&0xffff) for k,v in Counter(combined.ravel()).most_common() if v>5]
+            # print sorted(correspondences)
+            self.pre2seg = correspondences
         # compute the bounding boxes in order
         boxes = [None]+measurements.find_objects(segmentation)
         n = len(boxes)
@@ -105,6 +114,16 @@ class Grouper(PyComponent):
     def getSegments(self,i):
         """Get a list of all the segments making up this group."""
         return self.groups[i][1]
+    def isCombined(self,i):
+        if self.pre2seg is None: return 0
+        # get the set of segments
+        s = self.getSegments(i)
+        # find all the preferred segments corresponding to this one
+        p = set([x for x,y in self.pre2seg if y in s])
+        # print i,sorted(list(p))
+        # does it combine several "preferred" segments
+        combined = (len(p)>=2)
+        return combined
     def extractWithBackground(self,source,dflt,i,grow=0,dtype=None):
         """Extract the image corresponding to group i.  Background pixels are
         filled in with dflt."""
