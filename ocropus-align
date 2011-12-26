@@ -17,8 +17,8 @@ from ocrolib import dbhelper,ocroio,ocrofst
 
 signal.signal(signal.SIGINT,lambda *args:sys.exit(1))
 
-parser = OptionParser("""
-usage: 
+import argparse
+parser = argparse.ArgumentParser(description = """
 %prog [-s gt] [-l langmod] [options] file.fst ...
 
     Align each file.fst with language model and output the result into
@@ -47,26 +47,29 @@ the fstutils.add_line_to_fst function.
 """)
 
 
-parser.add_option("-l","--langmod",help="language model",default=None)
-parser.add_option("-x","--extract",help="extract characters",default=None)
-parser.add_option("-X","--noextract",help="don't actually write files",action="store_true")
-parser.add_option("-L","--ligatures",help="output ligatures in aligned text",action="store_true")
-parser.add_option("-B","--beam",help="size of beam",type=int,default=1000)
-parser.add_option("-N","--noligatures",help="don't expand ligature notation in transcriptions",action="store_true")
-parser.add_option("-g","--gt",help="extension for ground truth",default=None)
-parser.add_option("-p","--pagegt",help="arguments are page ground truth",action="store_true")
-parser.add_option("-s","--suffix",help="output suffix for writing result",default=None)
-parser.add_option("-O","--overwrite",help="overwrite outputs",action="store_true")
-parser.add_option("-P","--perc",help="percentile for reporting statistics",type=float,default=90.0)
-parser.add_option("-M","--maxperc",help="maximum cost at percentile",type=float,default=2.0)
-parser.add_option("-A","--maxavg",help="maximum average cost",type=float,default=3.0)
-parser.add_option("-a","--aligner",help="choose the aligner to use",default="=ocrolib.fstutils.DefaultAligner()")
-parser.add_option("-Y","--debug_cls",help="select classes for debugging",default="")
-parser.add_option("-Q","--parallel",type=int,default=number_of_processors(),help="number of parallel processes to use")
-parser.add_option("-c","--cont",help="continue on error",action="store_true")
-parser.add_option("-E","--showerrs",help="show errors",action="store_true")
-parser.add_option("-D","--Display",help="display",action="store_true")
-(options,args) = parser.parse_args()
+parser.add_argument("-l","--langmod",help="language model",default=None)
+parser.add_argument("-x","--extract",help="extract characters",default=None)
+parser.add_argument("-X","--noextract",help="don't actually write files",action="store_true")
+parser.add_argument("-L","--ligatures",help="output ligatures in aligned text",action="store_true")
+parser.add_argument("-B","--beam",help="size of beam",type=int,default=1000)
+parser.add_argument("-N","--noligatures",help="don't expand ligature notation in transcriptions",action="store_true")
+parser.add_argument("-g","--gt",help="extension for ground truth",default=None)
+parser.add_argument("-p","--pagegt",help="arguments are page ground truth",action="store_true")
+parser.add_argument("-s","--suffix",help="output suffix for writing result",default=None)
+parser.add_argument("-O","--overwrite",help="overwrite outputs",action="store_true")
+parser.add_argument("-P","--perc",help="percentile for reporting statistics",type=float,default=90.0)
+parser.add_argument("-M","--maxperc",help="maximum cost at percentile",type=float,default=2.0)
+parser.add_argument("-A","--maxavg",help="maximum average cost",type=float,default=3.0)
+parser.add_argument("-a","--aligner",help="choose the aligner to use",default="=ocrolib.fstutils.DefaultAligner()")
+parser.add_argument("-Y","--debug_cls",help="select classes for debugging",default="")
+parser.add_argument("-Q","--parallel",type=int,default=number_of_processors(),help="number of parallel processes to use")
+parser.add_argument("-c","--cont",help="continue on error",action="store_true")
+parser.add_argument("-E","--showerrs",help="show errors",action="store_true")
+parser.add_argument("-D","--Display",help="display",action="store_true")
+parser.add_argument('-r','--parameter',default=[],nargs='*',help="other aligner parameter (repeat if desired)")
+parser.add_argument("args",default=[],nargs='*',help="input lines)")
+options = parser.parse_args()
+args = options.args
 
 if len(args)==0:
     parser.print_help()
@@ -109,6 +112,13 @@ def dbopen():
 # aligner = fstutils.DefaultAligner()
 aligner = ocrolib.load_component(options.aligner)
 
+for s in options.parameter:
+    k,v = s.split("=",2)
+    assert k in aligner.__dict__.keys(),"aligner %s does not have a parameter %s"%(aligner,k)
+    try: v = float(v)
+    except: pass
+    setattr(aligner,k,v)
+
 lfile = None
 lfst = None
 
@@ -136,6 +146,7 @@ def align1(t):
                 lfst = ocrofst.OcroFST().load(lmodel)
             else:
                 lfst = aligner.ocroFstForFile(lmodel)
+                lfst.save("_aligner.fst")
 
         if lfst is None:
             sys.exit(1)
@@ -182,6 +193,7 @@ def align1(t):
             return
 
         if options.ligatures:
+            print result
             result = fstutils.implode_transcription(result)
         else:
             result = "".join(result)
@@ -255,7 +267,7 @@ def align1(t):
 
 jobs = []
 
-if options.pagegt is not None:
+if options.pagegt:
     if len(args)==1 and os.path.isdir(args[0]):
         args = glob.glob(args[0]+"/*.gt.txt")
     for arg in args:
@@ -264,14 +276,14 @@ if options.pagegt is not None:
             continue
         base,_ = ocrolib.allsplitext(arg)
         if not os.path.exists(base) or not os.path.isdir(base):
-            print "?"+base,
+            print "["+base+"?]"
             sys.stdout.flush()
             continue
         lines = glob.glob(base+"/??????.png")
         for line in lines:
             jobs.append((line,arg))
     print
-elif options.langmod is not None:
+elif options.langmod:
     for arg in args:
         jobs.append((arg,options.langmod))
 elif options.gt is not None:

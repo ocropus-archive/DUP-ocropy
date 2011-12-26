@@ -52,7 +52,7 @@ class Grouper(PyComponent):
                 a = sl.aspect(box)
                 # skip if the aspect ratio is wrong
                 if 1.0/a>self.maxaspect: continue
-                print "@",i,j,box,labels
+                # print "@",i,j,box,labels
                 groups.append((box,labels))
         # compute some statistics
         mw = median([sl.dim0(g[0]) for g in groups])

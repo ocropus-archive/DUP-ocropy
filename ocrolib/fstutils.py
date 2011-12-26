@@ -172,6 +172,8 @@ class DefaultAligner(AlignerMixin):
         self.lig = ligatures.lig
         self.optimize = 0
         self.sigout = True
+        self.multi = 2
+        self.multi_cost = 5.0
     def startFst(self):
         """Initializing a new FST."""
         self.fst = openfst.StdVectorFst()
@@ -280,6 +282,7 @@ class DefaultAligner(AlignerMixin):
             if len(s)>1 and self.add_c2l is not None:
                 add_between(fst,start,next,list(s),[s],self.add_c2l,lig=lig)
 
+
             # insert ligature-to-characters
 
             if self.add_l2c is not None:
@@ -287,6 +290,16 @@ class DefaultAligner(AlignerMixin):
                 for s in ligatures.common_ligatures(candidate):
                     if len(s)<2 or i+len(s)>len(states): continue
                     add_between(fst,start,next,[s],list(s),self.add_l2c)
+
+            # insert ligature-to-characters unconstrained
+
+            if self.multi>0:
+                candidate = "".join(line[i:i+4])
+                print candidate
+                for r in range(2,self.multi+1):
+                    if len(candidate)<r: break
+                    skip = states[i+r]
+                    add_between(fst,start,skip,[sigma],[candidate[:r]],self.multi_cost,lig=lig)
 
             # make sure nobody messed up these variables
             assert start==states[i] and next==states[i+1]
