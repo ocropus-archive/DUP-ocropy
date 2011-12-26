@@ -246,7 +246,7 @@ class CmodelLineRecognizer:
         self.cmodel = None
         self.debug = 0
         self.minsegs = 3
-        self.spaces = 1
+        self.spaces = 1 # add spaces (turn off for debugging)
         self.maxspacecost = 20.0
         self.whitespace = "space.model"
         self.nbest = 5 # use at most this many outputs
