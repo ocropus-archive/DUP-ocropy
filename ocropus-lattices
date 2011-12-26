@@ -15,30 +15,35 @@ from ocrolib import number_of_processors,die
 
 signal.signal(signal.SIGINT,lambda *args:sys.exit(1))
 
-parser = OptionParser("""
-usage: %prog [options] image1.png image2.png ...
-
+# these options control alignment
+import argparse
+parser = argparse.ArgumentParser(description = """
 Computes recognition lattices for text lines.  Also displays the bestpath
 result (recognition result without language model).
 """)
+parser.add_argument("-m","--model",help="model file",default="default.cmodel")
+parser.add_argument("-w","--whitespace",help="space model file",default="space.model")
+parser.add_argument("-c","--cont",help="continue even when unexpected errors occur",action="store_true")
+parser.add_argument("-R","--maxrange",help="max range for grouping",type=int,default=4)
+parser.add_argument("-L","--noligatures",help="don't output ligatures",action="store_true")
+parser.add_argument("-N","--nbest",help="use the nbest results from classifier",type=int,default=10)
+parser.add_argument("-C","--maxcost",help="maximum cost to be considered",type=float,default=10.0)
+parser.add_argument("-s","--segmenter",help="segmenter",default="ocrolseg.DpSegmenter()")
+parser.add_argument("-S","--suffix",help="suffix for writing rseg/cseg files",default=None)
+parser.add_argument("-O","--overwrite",help="overwrite rseg/cseg files",action="store_true")
+parser.add_argument("-Q","--parallel",type=int,default=number_of_processors(),help="number of parallel processes to use")
+parser.add_argument("-d","--display",help="display progress",action="store_true")
+parser.add_argument("-v","--verbose",help="verbose recognition output",action="store_true")
+parser.add_argument("-V","--verbose2",help="extra verbose recognition output",action="store_true")
+parser.add_argument("-Y","--examine",help="examine recognition for these classes",default="")
+parser.add_argument('-p','--parameter',default=[],nargs='*',help="linerec parameter (repeat if desired)")
+parser.add_argument('-P','--cparameter',default=[],nargs='*',help="cmodel parameter (repeat if desired)")
+parser.add_argument("args",default=[],nargs='*',help="input lines)")
+options = parser.parse_args()
+args = options.args
 
-# these options control alignment
-parser.add_option("-m","--model",help="model file",default="default.cmodel")
-parser.add_option("-w","--whitespace",help="space model file",default="space.model")
-parser.add_option("-c","--cont",help="continue even when unexpected errors occur",action="store_true")
-parser.add_option("-R","--maxrange",help="max range for grouping",type=int,default=4)
-parser.add_option("-L","--noligatures",help="don't output ligatures",action="store_true")
-parser.add_option("-N","--nbest",help="use the nbest results from classifier",type=int,default=10)
-parser.add_option("-C","--maxcost",help="maximum cost to be considered",type=float,default=10.0)
-parser.add_option("-s","--segmenter",help="segmenter",default="DpSegmenter")
-parser.add_option("-S","--suffix",help="suffix for writing rseg/cseg files",default=None)
-parser.add_option("-O","--overwrite",help="overwrite rseg/cseg files",action="store_true")
-parser.add_option("-Q","--parallel",type=int,default=number_of_processors(),help="number of parallel processes to use")
-parser.add_option("-d","--display",help="display progress",action="store_true")
-parser.add_option("-v","--verbose",help="verbose recognition output",action="store_true")
-parser.add_option("-V","--verbose2",help="extra verbose recognition output",action="store_true")
-parser.add_option("-Y","--examine",help="examine recognition for these classes",default="")
-(options,args) = parser.parse_args()
+import ocrolseg
+segmenter = eval(options.segmenter)
 
 if len(args)==0:
     parser.print_help()
@@ -59,16 +64,31 @@ cmodel = ocrolib.load_component(ocrolib.ocropus_find_file(options.model))
 assert cmodel is not None
 if hasattr(cmodel,'recognizeLine'):
     linerec = cmodel
+elif hasattr(cmodel,'coutputs'):
+    for s in options.cparameter:
+        k,v = s.split("=",2)
+        assert k in cmodel.__dict__.keys(),"cmodel %s does not have a parameter %s"%(cmodel,k)
+        try: v = float(v)
+        except: pass
+        setattr(cmodel,k,v)
+    linerec = ocrolib.CmodelLineRecognizer(cmodel=cmodel,whitespace=options.whitespace,
+                                           maxrange=options.maxrange,verbose=verbose,
+                                           debug_cls=options.examine,segmenter=segmenter)
+    linerec.use_ligatures = not options.noligatures
+    linerec.maxcost = options.maxcost
+    linerec.nbest = options.nbest
 else:
-    if hasattr(cmodel,'coutputs'):
-        linerec = ocrolib.CmodelLineRecognizer(cmodel=cmodel,whitespace=options.whitespace,
-                                               maxrange=options.maxrange,verbose=verbose,
-                                               debug_cls=options.examine)
-        linerec.use_ligatures = not options.noligatures
-        linerec.maxcost = options.maxcost
-        linerec.nbest = options.nbest
-    else:
-        print "%s (%s): don't know what kind of model this is"%(options.model,cmodel)
+    print "%s (%s): don't know what kind of model this is"%(options.model,cmodel)
+
+for s in options.parameter:
+    k,v = s.split("=",2)
+    assert k in linerec.__dict__.keys(),"linerec %s does not have a parameter %s"%(linerec,k)
+    try: v = float(v)
+    except: pass
+    setattr(linerec,k,v)
+
+
+
 
 def extract(t):
     fname = t

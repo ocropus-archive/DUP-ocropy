@@ -182,7 +182,7 @@ def align1(t):
             return
 
         if options.ligatures:
-            result = fstutils.implode_transcription(result_l),
+            result = fstutils.implode_transcription(result)
         else:
             result = "".join(result)
 

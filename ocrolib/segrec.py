@@ -246,9 +246,10 @@ class CmodelLineRecognizer:
         self.cmodel = None
         self.debug = 0
         self.minsegs = 3
+        self.spaces = 1
         self.maxspacecost = 20.0
         self.whitespace = "space.model"
-        self.nbest = 5
+        self.nbest = 5 # use at most this many outputs
         self.maxcost = 15.0
         self.reject_cost = self.maxcost
         self.min_height = 0.5
@@ -259,11 +260,11 @@ class CmodelLineRecognizer:
         self.verbose = 0
         self.debug_cls = []
         self.allow_any = 0 # allow non-unicode characters
-        common.set_params(self,kw)
         self.combined_cost = 100.0 # extra cost for combining connected components
         self.maxrange = 4
         self.segmenter = ocrolseg.DpSegmenter()
         self.segmenter0 = ocrolseg.SegmentLineByGCCS()
+        common.set_params(self,kw)
         if type(self.whitespace)==str:
             self.whitespace = common.load_component(common.ocropus_find_file(self.whitespace))
         self.grouper = grouper.Grouper()
@@ -385,9 +386,11 @@ class CmodelLineRecognizer:
             if self.combined_cost>0.0 and self.grouper.isCombined(i):
                 segcost = self.combined_cost
             
+            if self.verbose: print "grouper",i,self.grouper.getSegments(i),outputs
+            
             # add the top classes to the lattice
             outputs.sort(key=lambda x:x[1])
-            for cls,cost in outputs[:self.nbest]:
+            for cls,cost in outputs[:int(self.nbest)]:
                 # don't add anything with a cost above maxcost
                 # if cost>self.maxcost and cls!="~": continue
                 if cls=="~": continue
@@ -420,7 +423,8 @@ class CmodelLineRecognizer:
                     self.grouper.setClass(i,cls,cost)
                 else:
                     raise Exception("bad class type: %s"%type(cls))
-                self.grouper.setSpaceCost(i,float(yes_space),float(no_space))
+                if self.spaces:
+                    self.grouper.setSpaceCost(i,float(yes_space),float(no_space))
 
 
         # extract the recognition lattice from the grouper

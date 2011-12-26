@@ -173,20 +173,27 @@ class DefaultAligner(AlignerMixin):
         self.optimize = 0
         self.sigout = True
     def startFst(self):
+        """Initializing a new FST."""
         self.fst = openfst.StdVectorFst()
     def getFst(self):
+        """After adding all the lines, get the resulting FST."""
         fst = self.fst
         self.fst = None
         fst = optimize_openfst(fst,optimize=self.optimize)
         return fst
     def explodeTranscription(self,line):
+        """Take a transcription given as a string and turn it into a list."""
         line = line.strip()
         line = re.sub(r'[ ~\t\n]+',' ',line)
         return explode_transcription(line)
     def addTranscription(self,line):
+        """Add a text line as a path through the aligner."""
         line = self.explodeTranscription(line)
         self.addCodes(line)
     def addCodes(self,line,accept=0.0):
+        """Given a list of "codes" (characters or character sequences),
+        encode them as a line in an FST.  Call this multiple times to encode
+        multiple lists."""
         fst = self.fst
         lig = self.lig
         state = fst.Start()

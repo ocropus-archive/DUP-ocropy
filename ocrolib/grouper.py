@@ -45,11 +45,14 @@ class Grouper(PyComponent):
                         gap = max(gap,boxes[j][1].start-box[1].stop)
                     box = sl.union(box,boxes[j])
                     labels.append(j)
+                # skip if we didn't get enough components
+                if len(labels)!=r: continue
                 # skip if two constituent boxes have too large a gap between them
                 if gap>self.maxdist: continue
                 a = sl.aspect(box)
                 # skip if the aspect ratio is wrong
                 if 1.0/a>self.maxaspect: continue
+                print "@",i,j,box,labels
                 groups.append((box,labels))
         # compute some statistics
         mw = median([sl.dim0(g[0]) for g in groups])
