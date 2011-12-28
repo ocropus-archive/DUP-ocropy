@@ -45,21 +45,20 @@ class Grouper(PyComponent):
                         gap = max(gap,boxes[j][1].start-box[1].stop)
                     box = sl.union(box,boxes[j])
                     labels.append(j)
-                # skip if we didn't get enough components
-                if len(labels)!=r: continue
-                # skip if two constituent boxes have too large a gap between them
-                if gap>self.maxdist: continue
-                a = sl.aspect(box)
-                # skip if the aspect ratio is wrong and the character is actually grouped
-                # together (the second check is necessary to avoid disconnecting the graph
-                # on long dashes)
-                if r>1 and 1.0/a>self.maxaspect: continue
-                # print "@",i,j,box,labels
+                if r>1:
+                    # skip if we didn't get enough components
+                    if len(labels)!=r: continue
+                    # skip if two constituent boxes have too large a gap between them
+                    if gap>self.maxdist: continue
+                    a = sl.aspect(box)
+                    # skip if the aspect ratio is wrong
+                    if 1.0/a>self.maxaspect: continue
+                    # print "@",i,j,box,labels
                 groups.append((box,labels))
         # compute some statistics
         mw = median([sl.dim0(g[0]) for g in groups])
-        # now select based on statistics
-        groups = [g for g in groups if sl.dim1(g[0])<self.maxwidth*mw]
+        # eliminate compound boxes that are too wide
+        groups = [g for g in groups if len(g[1])==1 or sl.dim1(g[0])<self.maxwidth*mw]
         # now we have a list of candidate groups
         self.segmentation = segmentation
         self.groups = groups

@@ -1,4 +1,6 @@
 syntax: glob
+*.cmodel
+MODELS/*.cmodel
 
 .*
 *~

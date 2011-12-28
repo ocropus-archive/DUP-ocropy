@@ -22,7 +22,8 @@ result (recognition result without language model).
 """)
 parser.add_argument("-m","--model",help="model file",default="default.cmodel")
 parser.add_argument("lattice",default=None,help="input lines")
-args = parser.parse_args(["01000d.fst"])
+# args = parser.parse_args(["01000d.fst"])
+args = parser.parse_args()
 
 fst = ocrofst.OcroFST()
 fst.load(args.lattice)
@@ -72,7 +73,7 @@ output[:,:] = " "
 for r in segs:
     for row in range(len(output)):
         if not (output[row,r.seg0:r.seg1+1]==" ").all(): continue
-        output[row,r.seg0:r.seg1+1] = [r]*(r.seg1-r.seg0+1)
+        output[row,r.seg0:r.seg1+1] = [r]+["_"]*(r.seg1-r.seg0)
         break
 
 for i in range(len(output)):
@@ -82,6 +83,8 @@ for i in range(len(output)):
         if output[i,j]==" ":
             sys.stdout.write(" ")
         else:
-            sys.stdout.write("%c"%output[i,j].c)
+            x = output[i,j]
+            if type(x)==Entry: x = x.c
+            sys.stdout.write("%c"%x)
     sys.stdout.write("|")
     sys.stdout.write("\n")

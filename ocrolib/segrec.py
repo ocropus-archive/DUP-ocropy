@@ -370,6 +370,7 @@ class CmodelLineRecognizer:
             assert len(set(map(lambda x:x[0],outputs)))==len(outputs),"classifier outputs contains repeated classes"
             outputs = [(x[0],-log(x[1])) for x in outputs]
             self.chars.append(common.Record(index=i,image=char,outputs=outputs,comb=self.grouper.isCombined(i)))
+            # print "@@@",i,self.grouper.getSegments(i),outputs[:2]
 
             # estimate the space cost
             sc = self.whitespace.classifySpace(x1)
