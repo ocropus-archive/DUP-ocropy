@@ -50,8 +50,10 @@ class Grouper(PyComponent):
                 # skip if two constituent boxes have too large a gap between them
                 if gap>self.maxdist: continue
                 a = sl.aspect(box)
-                # skip if the aspect ratio is wrong
-                if 1.0/a>self.maxaspect: continue
+                # skip if the aspect ratio is wrong and the character is actually grouped
+                # together (the second check is necessary to avoid disconnecting the graph
+                # on long dashes)
+                if r>1 and 1.0/a>self.maxaspect: continue
                 # print "@",i,j,box,labels
                 groups.append((box,labels))
         # compute some statistics

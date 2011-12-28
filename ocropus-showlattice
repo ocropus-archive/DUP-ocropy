@@ -1,0 +1,87 @@
+#!/usr/bin/env python
+
+import sys,os,re,glob,math,glob,signal,traceback
+import matplotlib
+if "DISPLAY" not in os.environ: matplotlib.use("AGG")
+else: matplotlib.use("GTK")
+from scipy.ndimage import interpolation
+from pylab import *
+from optparse import OptionParser
+from multiprocessing import Pool
+from collections import namedtuple,defaultdict
+import ocrolib
+from ocrolib import ocrofst
+from ocrolib import number_of_processors,die
+
+
+
+import argparse
+parser = argparse.ArgumentParser(description = """
+Computes recognition lattices for text lines.  Also displays the bestpath
+result (recognition result without language model).
+""")
+parser.add_argument("-m","--model",help="model file",default="default.cmodel")
+parser.add_argument("lattice",default=None,help="input lines")
+args = parser.parse_args(["01000d.fst"])
+
+fst = ocrofst.OcroFST()
+fst.load(args.lattice)
+print fst
+
+all_segs = []
+best_segs = {}
+seg_assocs = defaultdict(set)
+
+Entry = namedtuple('Entry',['c','cost','seg0','seg1','src','dst'])
+
+for i in range(fst.nStates()):
+    try: dests,outputs,costs,inputs = fst.getTransitions(i)
+    except: continue
+    froms = (inputs>>16)
+    tos = (inputs&0xffff)
+    for j in range(len(dests)):
+        if froms[j]==0: continue
+        entry = Entry(c=unichr(outputs[j]),
+                      cost=costs[j],
+                      src=i,
+                      dst=dests[j],
+                      seg0=froms[j],
+                      seg1=tos[j])
+        seg_assocs[froms[j]].add(i)
+        seg_assocs[tos[j]].add(j)
+        all_segs.append(entry)
+        key = (entry.seg0,entry.seg1)
+        # if entry.c==u'~': continue
+        if best_segs.get(key) is None or best_segs[key].cost>entry.cost:
+            best_segs[key] = entry
+
+if 0:
+    for k,v in seg_assocs.items():
+        if len(v)>0: print k,v
+
+best_segs = best_segs.values()
+
+segs = best_segs
+
+segs = sorted(segs,key=lambda r:r[3]-r[2]+1e-3*r[3])
+
+N = amax(map(lambda x:x[3],segs))+1
+output = empty((100,N),object)
+output[:,:] = " "
+
+for r in segs:
+    for row in range(len(output)):
+        if not (output[row,r.seg0:r.seg1+1]==" ").all(): continue
+        output[row,r.seg0:r.seg1+1] = [r]*(r.seg1-r.seg0+1)
+        break
+
+for i in range(len(output)):
+    if (output[i]==" ").all(): break
+    sys.stdout.write("|")
+    for j in range(N):
+        if output[i,j]==" ":
+            sys.stdout.write(" ")
+        else:
+            sys.stdout.write("%c"%output[i,j].c)
+    sys.stdout.write("|")
+    sys.stdout.write("\n")

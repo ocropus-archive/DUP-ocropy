@@ -115,8 +115,10 @@ aligner = ocrolib.load_component(options.aligner)
 for s in options.parameter:
     k,v = s.split("=",2)
     assert k in aligner.__dict__.keys(),"aligner %s does not have a parameter %s"%(aligner,k)
-    try: v = float(v)
-    except: pass
+    try: v = int(v)
+    except:
+        try: v = float(v)
+        except: pass
     setattr(aligner,k,v)
 
 lfile = None
@@ -193,7 +195,7 @@ def align1(t):
             return
 
         if options.ligatures:
-            print result
+            # print result
             result = fstutils.implode_transcription(result)
         else:
             result = "".join(result)
@@ -203,7 +205,7 @@ def align1(t):
         skip = (perc > options.maxperc or avg>options.maxavg)
 
         if len(r.output)==0:
-            print "* %s: *****"%(fname,)
+            print "* %s: [no output]"%(fname,)
             return
         else:
             print "%-1s %s: %5.2f %5.2f: %s"%("*" if skip else " ",fname,perc,avg,result)

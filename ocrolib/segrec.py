@@ -260,7 +260,7 @@ class CmodelLineRecognizer:
         self.verbose = 0
         self.debug_cls = []
         self.allow_any = 0 # allow non-unicode characters
-        self.combined_cost = 100.0 # extra cost for combining connected components
+        self.combined_cost = 8.0 # extra cost for combining connected components
         self.maxrange = 4
         self.segmenter = ocrolseg.DpSegmenter()
         self.segmenter0 = ocrolseg.SegmentLineByGCCS()
@@ -367,6 +367,7 @@ class CmodelLineRecognizer:
             # compute the classifier output for this character
             # FIXME parallelize this
             outputs = self.cmodel.coutputs(char,geometry=rel)
+            assert len(set(map(lambda x:x[0],outputs)))==len(outputs),"classifier outputs contains repeated classes"
             outputs = [(x[0],-log(x[1])) for x in outputs]
             self.chars.append(common.Record(index=i,image=char,outputs=outputs,comb=self.grouper.isCombined(i)))
 
@@ -393,7 +394,7 @@ class CmodelLineRecognizer:
             for cls,cost in outputs[:int(self.nbest)]:
                 # don't add anything with a cost above maxcost
                 # if cost>self.maxcost and cls!="~": continue
-                if cls=="~": continue
+                # if cls=="~": continue
                 if cls in self.debug_cls:
                     print "debug",self.grouper.start(i),self.grouper.end(i),"cls",cls,"cost",cost,\
                         "y %.2f w %.2f h %.2f"%(rel[0],rel[1],rel[2])

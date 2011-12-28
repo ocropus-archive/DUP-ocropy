@@ -294,8 +294,8 @@ class DefaultAligner(AlignerMixin):
             # insert ligature-to-characters unconstrained
 
             if self.multi>0:
-                candidate = "".join(line[i:i+4])
-                print candidate
+                # candidate = "".join(line[i:i+4])
+                # print candidate
                 for r in range(2,self.multi+1):
                     if len(candidate)<r: break
                     skip = states[i+r]

@@ -38,7 +38,7 @@ parser.add_argument("-V","--verbose2",help="extra verbose recognition output",ac
 parser.add_argument("-Y","--examine",help="examine recognition for these classes",default="")
 parser.add_argument('-p','--parameter',default=[],nargs='*',help="linerec parameter (repeat if desired)")
 parser.add_argument('-P','--cparameter',default=[],nargs='*',help="cmodel parameter (repeat if desired)")
-parser.add_argument("args",default=[],nargs='*',help="input lines)")
+parser.add_argument("args",default=[],nargs='*',help="input lines")
 options = parser.parse_args()
 args = options.args
 
@@ -80,15 +80,13 @@ elif hasattr(cmodel,'coutputs'):
 else:
     print "%s (%s): don't know what kind of model this is"%(options.model,cmodel)
 
+if len(options.parameter)>0: print options.parameter
 for s in options.parameter:
     k,v = s.split("=",2)
     assert k in linerec.__dict__.keys(),"linerec %s does not have a parameter %s"%(linerec,k)
     try: v = float(v)
     except: pass
     setattr(linerec,k,v)
-
-
-
 
 def extract(t):
     fname = t
