@@ -2,9 +2,6 @@
 
 ################################################################
 ### Align transcriptions with lattices.
-###
-### This is rather complex and messy legacy code.  Look
-### for a newer version of this.
 ################################################################
 
 import sys,os,re,glob,math,glob,signal,traceback,sqlite3
@@ -25,35 +22,61 @@ signal.signal(signal.SIGINT,lambda *args:sys.exit(1))
 
 import argparse
 parser = argparse.ArgumentParser(description = """
-%prog [-s gt] [-p] [options] *.gt.txt
+%prog [-s gt] [-p] [args] *.gt.txt
 """)
 
-
-parser.add_argument("-l","--langmod",help="language model",default=None)
 parser.add_argument("-x","--extract",help="extract characters",default=None)
 parser.add_argument("-X","--noextract",help="don't actually write files",action="store_true")
-parser.add_argument("-L","--ligatures",help="output ligatures in aligned text",action="store_true")
-parser.add_argument("-B","--beam",help="size of beam",type=int,default=1000)
-parser.add_argument("-N","--noligatures",help="don't expand ligature notation in transcriptions",action="store_true")
+parser.add_argument("-B","--beam",help="size of beam",type=int,default=100)
+
 parser.add_argument("-g","--gt",help="extension for ground truth",default=None)
 parser.add_argument("-p","--pagegt",help="arguments are page ground truth",action="store_true")
+parser.add_argument("-l","--langmod",help="language model",default=None)
+
 parser.add_argument("-s","--suffix",help="output suffix for writing result",default=None)
 parser.add_argument("-O","--overwrite",help="overwrite outputs",action="store_true")
+
 parser.add_argument("-P","--perc",help="percentile for reporting statistics",type=float,default=90.0)
-parser.add_argument("-M","--maxperc",help="maximum cost at percentile",type=float,default=2.0)
-parser.add_argument("-A","--maxavg",help="maximum average cost",type=float,default=3.0)
-parser.add_argument("-a","--aligner",help="choose the aligner to use",default="=ocrolib.fstutils.DefaultAligner()")
-parser.add_argument("-Y","--debug_cls",help="select classes for debugging",default=None)
+parser.add_argument("-M","--maxperc",help="maximum cost at percentile",type=float,default=5.0)
+parser.add_argument("-A","--maxavg",help="maximum average cost",type=float,default=5.0)
+
+parser.add_argument("-c","--mmcost",help="mismatch cost",type=float,default=5.0)
+
 parser.add_argument("-Q","--parallel",type=int,default=number_of_processors(),help="number of parallel processes to use")
-parser.add_argument("-c","--cont",help="continue on error",action="store_true")
-parser.add_argument("-E","--showerrs",help="show errors",action="store_true")
+
+parser.add_argument("-y","--debug",help="select classes for debugging",action="store_true")
 parser.add_argument("-D","--Display",help="display",action="store_true")
 parser.add_argument('--dgrid',default=9,help="grid size for display")
-parser.add_argument('-r','--parameter',default=[],nargs='*',help="other aligner parameter (repeat if desired)")
-parser.add_argument("args",default=[],nargs='*',help="input lines)")
-options = parser.parse_args()
-args = options.args
 
+parser.add_argument("args",default=[],nargs='*',help="input lines)")
+# args = parser.parse_args(["-D","-y","-x","temp.db"])
+args = parser.parse_args()
+
+class DbWriter:
+    def __init__(self,fname):
+        if not os.path.exists(fname):
+            db = sqlite3.connect(fname,timeout=600.0)
+            dbhelper.charcolumns(db,"chars")
+            db.commit()
+        else:
+            db = sqlite3.connect(fname,timeout=600.0)
+        self.db = db
+    def __enter__(self):
+        return self
+    def __exit__(self,*args):
+        self.db.commit()
+        self.db.close()
+        del self.db
+    def insert(self,image,cls,cost=0.0,count=0,file=None,lgeo=None,rel=None,bbox=None):
+        dbhelper.dbinsert(self.db,"chars",
+                          image=dbhelper.image2blob(image),
+                          cost=float(cost),
+                          cls=cls,
+                          count=1,
+                          file=file,
+                          lgeo="%g %g %g"%lgeo if lgeo else None,
+                          rel="%g %g %g"%rel if rel else None,
+                          bbox="%d %d %d %d"%bbox if bbox else None)
 
 import codecs
 import openfst
@@ -61,11 +84,7 @@ from ocrolib.fstutils import explode_transcription,epsilon,space,sigma,add_betwe
 
 base = "010032"
 
-with open(base+".gt.txt") as stream: gttext = stream.read()[:-1]
-rseg = ocroio.read_line_segmentation(base+".rseg.png")
-
-if 1:
-    line = gttext
+def alignment_fst(line):
     fst = ocrofst.OcroFST()
     state = fst.AddState()
     fst.SetStart(state)
@@ -94,183 +113,204 @@ if 1:
             # add character transition
             fst.AddArc(start,c,c,0.0,next)
             # reject insertion
-            fst.AddArc(start,ord("~"),c,1.0,start)
+            fst.AddArc(start,ord("~"),c,args.mmcost,start)
             # mismatch between input and transcription
-            fst.AddArc(start,ord("="),c,5.0,next)
-            fst.AddArc(start,sigma,c,5.0,next)
+            fst.AddArc(start,ord("="),c,args.mmcost,next)
+            fst.AddArc(start,sigma,c,args.mmcost,next)
             # deletion in lattice
-            fst.AddArc(start,epsilon,c,5.0,next)
+            fst.AddArc(start,epsilon,c,args.mmcost,next)
     last = states[-1]
-    fst.AddArc(last,sigma,epsilon,8.0,last)
+    fst.AddArc(last,sigma,epsilon,args.mmcost,last)
     fst.SetFinal(last,0.0)
-    gtfst = fst
+    return fst
 
-fst = ocrofst.OcroFST()
-fst.load(base+".fst")
+debug = 0
 
-v1,v2,ins,outs,costs = ocrofst.beam_search(fst,gtfst,1000)
+def align1(job):
+    base,gtfile = job
+    # read the ground truth data and construct an FST
+    with open(gtfile) as stream: gttext = stream.read()[:-1]
 
-assert len(outs)>1
+    bestcost = 1e38
+    best = None
+    for i,line in enumerate(gttext.split("\n")):
+        if len(line)<=1: continue
+        gtfst = alignment_fst(line)
+        # actually perform the alignment
+        fst = ocrofst.OcroFST()
+        fst.load(ocrolib.fvariant(base,"fst"))
+        result = ocrofst.beam_search(fst,gtfst,100)
+        if args.debug:
+            print "line",i,len(result[0]),sum(result[4])
+        if len(result[0])<=1: continue
+        if sum(result[4])>=bestcost: continue
+        bestcost = sum(result[4])
+        best = result
 
-gtfst.save("_aligner.fst")
+    v1,v2,ins,outs,costs = best
 
-if 1:
-    for i in range(len(v1)):
-        print "@@@ %3d [%3d %3d] (%3d %3d) %6.2f"%(i,v1[i],v2[i],ins[i]>>16,ins[i]&0xffff,costs[i]),unichr(outs[i])
+    if args.debug:
+        for i in range(len(v1)):
+            print "raw-align %3d [%3d %3d] (%3d %3d) %6.2f"%(i,v1[i],v2[i],ins[i]>>16,ins[i]&0xffff,costs[i]),unichr(outs[i])
 
-sresult = []
-scosts = []
-segs = []
+    sresult = []
+    scosts = []
+    segs = []
 
-# Here is the general idea:
-# - low-cost correspondences are output directlyl
-# - stretches of high-cost correspondences and epsilons are output together
+    # Here is the general idea:
+    # - low-cost correspondences are output directlyl
+    # - stretches of high-cost correspondences and epsilons are output together
 
-n = len(ins)
-i = 1
-while i<n:
-    j = i+1
-    if outs[i]==ord(" "):
+    n = len(ins)
+    i = 1
+    while i<n:
+        j = i+1
+        if outs[i]==ord(" "):
+            i = j
+            continue
+        if costs[i]>2.0 or ins[i]==0:
+            seg = ins[i]
+            while j<n:
+                if seg!=0 and ins[j]!=seg and costs[j]<2.0: break # arrived at another good match
+                if outs[j]==ord(" "): break # arrived at a space
+                if seg==0 : seg = ins[j]
+                j += 1
+        cls = "".join([unichr(x) for x in outs[i:j]])
+        sresult.append(cls)
+        scosts.append(sum(costs[i:j]))
+        start = min([x>>16 for x in ins[i:j] if x!=0]+[9999])
+        end = max([x&0xffff for x in ins[i:j] if x!=0]+[0])
+        segs.append((start,end))
         i = j
-        continue
-    if costs[i]>2.0 or ins[i]==0:
-        seg = ins[i]
-        while j<n:
-            if seg!=0 and ins[j]!=seg and costs[j]<2.0: break # arrived at another good match
-            if outs[j]==ord(" "): break # arrived at a space
-            if seg==0 : seg = ins[j]
-            j += 1
-    cls = "".join([unichr(x) for x in outs[i:j]])
-    sresult.append(cls)
-    scosts.append(sum(costs[i:j]))
-    start = min([x>>16 for x in ins[i:j] if x!=0]+[9999])
-    end = max([x&0xffff for x in ins[i:j] if x!=0]+[0])
-    segs.append((start,end))
-    i = j
 
-for i,row in enumerate(zip(sresult,scosts,segs)):
-    print i,row
+    if args.debug:
+        for i,row in enumerate(zip(sresult,scosts,segs)):
+            print "aligned",i,row
 
-print " ".join(sresult)
+    perc = stats.scoreatpercentile(costs,args.perc)
+    avg = mean(costs)
+    skip = (perc > args.maxperc or avg>args.maxavg)
+    print "%c%s %.2f:"%("*" if skip else " ",base,bestcost)," ".join(sresult)
+    if skip: return
 
-rseg_boxes = docproc.seg_boxes(rseg)
+    # read the raw segmentation
+    rseg_file = ocrolib.fvariant(base,"rseg")
+    rseg = ocroio.read_line_segmentation(rseg_file)
+    rseg_boxes = docproc.seg_boxes(rseg)
 
-# Now run through the segments and create a table that maps rseg
-# labels to the corresponding output element.
+    # Now run through the segments and create a table that maps rseg
+    # labels to the corresponding output element.
 
-assert len(sresult)==len(segs)
-assert len(scosts)==len(segs)
+    assert len(sresult)==len(segs)
+    assert len(scosts)==len(segs)
 
-bboxes = []
+    bboxes = []
 
-rmap = zeros(amax(rseg)+1,'i')
-for i in range(1,len(segs)):
-    start,end = segs[i]
-    if start==0 or end==0: continue
-    rmap[start:end+1] = i
-    bboxes.append(rect_union(rseg_boxes[start:end+1]))
-assert rmap[0]==0
+    rmap = zeros(amax(rseg)+1,'i')
+    for i in range(1,len(segs)):
+        start,end = segs[i]
+        if start==0 or end==0: continue
+        rmap[start:end+1] = i
+        bboxes.append(rect_union(rseg_boxes[start:end+1]))
+    assert rmap[0]==0
 
-cseg = zeros(rseg.shape,'i')
-for i in range(cseg.shape[0]):
-    for j in range(cseg.shape[1]):
-        cseg[i,j] = rmap[rseg[i,j]]
+    cseg = zeros(rseg.shape,'i')
+    for i in range(cseg.shape[0]):
+        for j in range(cseg.shape[1]):
+            cseg[i,j] = rmap[rseg[i,j]]
 
-assert len(segs)==len(sresult) 
-assert len(segs)==len(scosts)
+    assert len(segs)==len(sresult) 
+    assert len(segs)==len(scosts)
 
-assert amin(cseg)==0,"amin(cseg)!=0 (%d,%d)"%(amin(cseg),amax(cseg))
+    assert amin(cseg)==0,"amin(cseg)!=0 (%d,%d)"%(amin(cseg),amax(cseg))
 
-# first work on the list output; here, one list element should
-# correspond to each cost
-result = sresult
-assert len(result)==len(scosts),\
-    "output length %d differs from cost length %d"%(len(result),len(costs))
-assert amax(cseg)<len(result),\
-    "amax(cseg) %d not consistent with output length %d"%(amax(cseg),len(output_l))
+    # first work on the list output; here, one list element should
+    # correspond to each cost
+    result = sresult
+    assert len(result)==len(scosts),\
+        "output length %d differs from cost length %d"%(len(result),len(costs))
+    assert amax(cseg)<len(result),\
+        "amax(cseg) %d not consistent with output length %d"%(amax(cseg),len(output_l))
 
-# if there are spaces at the end, trim them (since they will never have a corresponding cseg)
+    # if there are spaces at the end, trim them (since they will never have a corresponding cseg)
 
-while len(result)>0 and result[-1]==" ":
-    result = result[:-1]
-    costs = costs[:-1]
+    while len(result)>0 and result[-1]==" ":
+        result = result[:-1]
+        costs = costs[:-1]
 
-perc = stats.scoreatpercentile(costs,50)
-avg = mean(costs)
-skip = (perc > 10.0 or avg>10.0)
+    perc = stats.scoreatpercentile(costs,50)
+    avg = mean(costs)
+    skip = (perc > 10.0 or avg>10.0)
 
-if 0:
-    cseg_file = ocrolib.fvariant(fname,"cseg",options.suffix)
-    if not options.overwrite:
-        if os.path.exists(cseg_file): die("%s: already exists",cseg_file)
-    ocrolib.write_line_segmentation(cseg_file,cseg)
-    ocrolib.write_text(ocrolib.fvariant(fname,"txt",options.suffix),result)
-    with ocrolib.fopen(fname,"costs",options.suffix,mode="w") as stream:
-        for i in range(len(costs)):
-            stream.write("%d %g\n"%(i,costs[i]))
+    if args.suffix is not None:
+        cseg_file = ocrolib.fvariant(fname,"cseg",args.suffix)
+        if not args.overwrite:
+            if os.path.exists(cseg_file): die("%s: already exists",cseg_file)
+        ocrolib.write_line_segmentation(cseg_file,cseg)
+        ocrolib.write_text(ocrolib.fvariant(fname,"txt",args.suffix),result)
+        with ocrolib.fopen(fname,"costs",args.suffix,mode="w") as stream:
+            for i in range(len(costs)):
+                stream.write("%d %g\n"%(i,costs[i]))
 
-iraw = 0
-ion(); clf()
-if 1:
-    # for i in range(len(r.segs)): print "%6d %-8s %s"%(i,r.segs[i],r.output_l[i])
-    line = ocrolib.read_image_gray(base+".png")
-    line = amax(line)-line
-    lgeo = docproc.seg_geometry(rseg)
-    grouper = ocrolib.Grouper()
-    grouper.setSegmentation(rseg)
-    for i in range(grouper.length()):
-        raw,mask = grouper.extractWithMask(line,i,dtype='B')
-        start = grouper.start(i)
-        end = grouper.end(i)
-        bbox = grouper.boundingBox(i)
-        y0,x0,y1,x1 = bbox
-        rel = docproc.rel_char_geom((y0,y1,x0,x1),lgeo)
-        ry,rw,rh = rel
-        assert rw>0 and rh>0
-        if (start,end) in segs:
-            index = segs.index((start,end))
-            cls = sresult[index]
-            cost = costs[index]
-        else:
-            cls = "~"
-            cost = 0.0
-        print "debug",start,end,"cls",cls,"cost",cost,\
-            "y %.2f w %.2f h %.2f"%(rel[0],rel[1],rel[2])
-        if 1 and cls!="~":
-            iraw += 1
-            subplot(options.dgrid,options.dgrid,iraw)
-            gray(); imshow(raw)
-            ax = gca()
-            ax.text(0.1,0.1,"%s"%cls,transform=ax.transAxes,color='red')
-        if 0:
-            dbhelper.dbinsert(db,"chars",
-                              image=dbhelper.image2blob(raw),
+    if args.extract is not None:
+        iraw = 0
+        if args.Display:
+            ion(); clf()
+        line = ocrolib.read_image_gray(ocrolib.fvariant(base,"png"))
+        line = amax(line)-line
+        lgeo = docproc.seg_geometry(rseg)
+        grouper = ocrolib.Grouper()
+        grouper.setSegmentation(rseg)
+        with DbWriter(args.extract) as db:
+            for i in range(grouper.length()):
+                raw,mask = grouper.extractWithMask(line,i,dtype='B')
+                start = grouper.start(i)
+                end = grouper.end(i)
+                bbox = grouper.boundingBox(i)
+                y0,x0,y1,x1 = bbox
+                rel = docproc.rel_char_geom((y0,y1,x0,x1),lgeo)
+                ry,rw,rh = rel
+                assert rw>0 and rh>0
+                if (start,end) in segs:
+                    index = segs.index((start,end))
+                    cls = sresult[index]
+                    cost = costs[index]
+                else:
+                    cls = "~"
+                    cost = 0.0
+                if cls!="~":
+                    if args.Display:
+                        iraw += 1
+                        subplot(args.dgrid,args.dgrid,iraw)
+                        gray(); imshow(raw)
+                        ax = gca()
+                        ax.text(0.1,0.1,"%s"%cls,transform=ax.transAxes,color='red')
+                        print "output %3d %3d cls %-5s cost %6.2f    "%(start,end,cls,cost),
+                        print "y %6.2f w %6.2f h %6.2f"%(rel[0],rel[1],rel[2])
+                    db.insert(image=raw,
                               cost=float(cost),
                               cls=cls,
                               count=1,
-                              file= fname,
-                              lgeo="%g %g %g"%lgeo,
-                              rel="%g %g %g"%rel,
-                              bbox="%d %d %d %d"%bbox)
+                              file=base,
+                              lgeo=lgeo,
+                              rel=rel,
+                              bbox=bbox)
+    if args.Display: ginput(1,100)
 
-
-
-if options.Display: ginput(1,100)
-except IOError,e:
-    print "# not found:",e
-except:
-    if not options.cont: raise
-    traceback.print_exc()
-if db is not None:
-    db.commit()
-
+def safe_align1(job):
+    try:
+        align1(job)
+    except:
+        traceback.print_exc()
 
 jobs = []
 
-if options.pagegt:
-    if len(args)==1 and os.path.isdir(args[0]):
-        args = glob.glob(args[0]+"/*.gt.txt")
-    for arg in args:
+if args.pagegt:
+    if len(args.args)==1 and os.path.isdir(args.args[0]):
+        files = glob.glob(args.args[0]+"/*.gt.txt")
+    else:
+        files = args.args
+    for arg in files:
         if not os.path.exists(arg):
             print "# %s: not found"%arg
             continue
@@ -283,15 +323,57 @@ if options.pagegt:
         for line in lines:
             jobs.append((line,arg))
     print
-elif options.langmod:
-    for arg in args:
-        jobs.append((arg,options.langmod))
-elif options.gt is not None:
-    if len(args)==1 and (os.path.isdir(args[0]) or os.path.islink(args[0])):
-        args = glob.glob(args[0]+"/????/??????.png")
-    for arg in args:
+elif args.langmod:
+    for arg in args.args:
+        jobs.append((arg,args.langmod))
+elif args.gt is not None:
+    if len(args.args)==1 and (os.path.isdir(args.args[0]) or os.path.islink(args.args[0])):
+        files = glob.glob(args[0]+"/????/??????.png")
+    else:
+        files = args.args
+    for arg in files:
         path,ext = ocrolib.allsplitext(arg)
-        p = path+options.gt
+        p = path+args.gt
+        if not os.path.exists(arg):
+            print arg,"not found"
+            continue
+        if not os.path.exists(p): 
+            print p,"not found"
+            continue
+        jobs.append((arg,p))
+else:
+    raise Exception("you need to specify what kind of groundtruth you want to align with (-p, -l, -g)")
+        
+
+jobs = []
+
+if args.pagegt:
+    if len(args.args)==1 and os.path.isdir(argsargs[0]):
+        files = glob.glob(args[0]+"/*.gt.txt")
+    else:
+        files = args.args
+    for arg in files:
+        if not os.path.exists(arg):
+            print "# %s: not found"%arg
+            continue
+        base,_ = ocrolib.allsplitext(arg)
+        if not os.path.exists(base) or not os.path.isdir(base):
+            print "["+base+"?]"
+            sys.stdout.flush()
+            continue
+        lines = glob.glob(base+"/??????.png")
+        for line in lines:
+            jobs.append((line,arg))
+    print
+elif args.langmod:
+    for arg in args:
+        jobs.append((arg,args.langmod))
+elif args.gt is not None:
+    if len(args.args)==1 and (os.path.isdir(args.args[0]) or os.path.islink(args.args[0])):
+        args = glob.glob(args[0]+"/????/??????.png")
+    for arg in args.args:
+        path,ext = ocrolib.allsplitext(arg)
+        p = path+args.gt
         if not os.path.exists(arg):
             print arg,"not found"
             continue
@@ -302,8 +384,8 @@ elif options.gt is not None:
 else:
     raise Exception("you need to specify what kind of groundtruth you want to align with (-p, -l, -g)")
 
-if options.parallel<2:
+if args.parallel<2:
     for arg in jobs: align1(arg)
 else:
-    pool = Pool(processes=options.parallel)
+    pool = Pool(processes=args.parallel)
     result = pool.map(safe_align1,jobs)
