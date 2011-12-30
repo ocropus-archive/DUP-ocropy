@@ -625,9 +625,9 @@ def compute_alignment(lattice,rseg,lmodel,beam=1000,verbose=0,lig=ligatures.lig)
 
     # useful for debugging
 
-    if 0:
-        for i in range(len(ins)):
-            print i,ins[i]>>16,ins[i]&0xffff,lig.chr(outs[i]),costs[i]
+    if 1:
+        for i in range(len(v1)):
+            print "@@@ %3d [%3d %3d] (%3d %3d) %6.2f"%(i,v1[i],v2[i],ins[i]>>16,ins[i]&0xffff,costs[i]),lig.chr(outs[i])
 
     assert len(ins)==len(outs)
     n = len(ins)
@@ -649,7 +649,7 @@ def compute_alignment(lattice,rseg,lmodel,beam=1000,verbose=0,lig=ligatures.lig)
         cls = [outs[i]]
         # print "  %4d (%2d,%2d) %3d %s"%(i,start,end,outs[i],unichr(outs[i]))
         # while j<n and ((ins[j]==0 and outs[j]!=32) or outs[j]==0):
-        while j<n and outs[j]==0:
+        while j<n and (outs[j]==0 or ins[j]==ins[i]):
             # print " +%4d (%2d,%2d) %3d %s"%(i,ins[j]>>16,ins[j]&0xffff,outs[j],unichr(outs[j]))
             if ins[j]!=0:
                 start = min(start,ins[j]>>16)

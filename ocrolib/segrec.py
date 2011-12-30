@@ -258,7 +258,7 @@ class CmodelLineRecognizer:
         self.use_ligatures = 1
         self.add_rho = 0
         self.verbose = 0
-        self.debug_cls = []
+        self.debug_cls = None
         self.allow_any = 0 # allow non-unicode characters
         self.combined_cost = 8.0 # extra cost for combining connected components
         self.maxrange = 4
@@ -388,17 +388,20 @@ class CmodelLineRecognizer:
             if self.combined_cost>0.0 and self.grouper.isCombined(i):
                 segcost = self.combined_cost
             
-            if self.verbose: print "grouper",i,self.grouper.getSegments(i),outputs
-            
+            if self.debug_cls is not None:
+                matching = [k for k,v in outputs[:int(self.nbest)] if re.match(self.debug_cls,k)]
+                if len(matching)>0:
+                    print "grouper","%3d"%i,"%-15s"%("-".join([str(x) for x in self.grouper.getSegments(i)])),
+                    for c,v in outputs[:5]: print "%s_%.2f"%(c,v),
+                    print "y %.2f w %.2f h %.2f"%(rel[0],rel[1],rel[2]),
+                    print
+
             # add the top classes to the lattice
             outputs.sort(key=lambda x:x[1])
             for cls,cost in outputs[:int(self.nbest)]:
                 # don't add anything with a cost above maxcost
                 # if cost>self.maxcost and cls!="~": continue
                 # if cls=="~": continue
-                if cls in self.debug_cls:
-                    print "debug",self.grouper.start(i),self.grouper.end(i),"cls",cls,"cost",cost,\
-                        "y %.2f w %.2f h %.2f"%(rel[0],rel[1],rel[2])
 
                 # letters are never small, so we skip small bounding boxes that
                 # are categorized as letters; this is an ugly special case, but
@@ -438,6 +441,7 @@ class CmodelLineRecognizer:
     # align the text line image with the transcription
 
     def align(self,image,transcription):
+        raise Exception("unimplemented")
         """Takes an image and a transcription and aligns the two.  Output is
         an alignment record, which contains the following fields:
         ins (input symbols), outs (output symbols), costs (corresponding costs)

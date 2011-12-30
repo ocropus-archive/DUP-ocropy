@@ -26,7 +26,7 @@ parser.add_argument("-w","--whitespace",help="space model file",default="space.m
 parser.add_argument("-c","--cont",help="continue even when unexpected errors occur",action="store_true")
 parser.add_argument("-R","--maxrange",help="max range for grouping",type=int,default=4)
 parser.add_argument("-L","--noligatures",help="don't output ligatures",action="store_true")
-parser.add_argument("-N","--nbest",help="use the nbest results from classifier",type=int,default=10)
+parser.add_argument("-N","--nbest",help="use the nbest results from classifier",type=int,default=3)
 parser.add_argument("-C","--maxcost",help="maximum cost to be considered",type=float,default=10.0)
 parser.add_argument("-s","--segmenter",help="segmenter",default="ocrolseg.DpSegmenter()")
 parser.add_argument("-S","--suffix",help="suffix for writing rseg/cseg files",default=None)
@@ -68,8 +68,10 @@ elif hasattr(cmodel,'coutputs'):
     for s in options.cparameter:
         k,v = s.split("=",2)
         assert k in cmodel.__dict__.keys(),"cmodel %s does not have a parameter %s"%(cmodel,k)
-        try: v = float(v)
-        except: pass
+        try: v = int(v)
+        except:
+            try: v = float(v)
+            except: pass
         setattr(cmodel,k,v)
     linerec = ocrolib.CmodelLineRecognizer(cmodel=cmodel,whitespace=options.whitespace,
                                            maxrange=options.maxrange,verbose=verbose,
@@ -84,8 +86,10 @@ if len(options.parameter)>0: print options.parameter
 for s in options.parameter:
     k,v = s.split("=",2)
     assert k in linerec.__dict__.keys(),"linerec %s does not have a parameter %s"%(linerec,k)
-    try: v = float(v)
-    except: pass
+    try: v = int(v)
+    except:
+        try: v = float(v)
+        except: pass
     setattr(linerec,k,v)
 
 def extract(t):

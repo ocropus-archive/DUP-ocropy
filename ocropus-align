@@ -1,6 +1,11 @@
 #!/usr/bin/python
 
-# make the clustering class-specific
+################################################################
+### Align transcriptions with lattices.
+###
+### This is rather complex and messy legacy code.  Look
+### for a newer version of this.
+################################################################
 
 import sys,os,re,glob,math,glob,signal,traceback,sqlite3
 import matplotlib
@@ -61,11 +66,12 @@ parser.add_argument("-P","--perc",help="percentile for reporting statistics",typ
 parser.add_argument("-M","--maxperc",help="maximum cost at percentile",type=float,default=2.0)
 parser.add_argument("-A","--maxavg",help="maximum average cost",type=float,default=3.0)
 parser.add_argument("-a","--aligner",help="choose the aligner to use",default="=ocrolib.fstutils.DefaultAligner()")
-parser.add_argument("-Y","--debug_cls",help="select classes for debugging",default="")
+parser.add_argument("-Y","--debug_cls",help="select classes for debugging",default=None)
 parser.add_argument("-Q","--parallel",type=int,default=number_of_processors(),help="number of parallel processes to use")
 parser.add_argument("-c","--cont",help="continue on error",action="store_true")
 parser.add_argument("-E","--showerrs",help="show errors",action="store_true")
 parser.add_argument("-D","--Display",help="display",action="store_true")
+parser.add_argument('--dgrid',default=15,help="grid size for display")
 parser.add_argument('-r','--parameter',default=[],nargs='*',help="other aligner parameter (repeat if desired)")
 parser.add_argument("args",default=[],nargs='*',help="input lines)")
 options = parser.parse_args()
@@ -106,11 +112,377 @@ def dbopen():
         db.execute("pragma synchronous=0")
         db.commit()
 
+################################################################
+### Construct a finite state transducer for alignment between
+### a given transcription and a lattice.
+################################################################
+
+import codecs
+import openfst
+from ocrolib.fstutils import explode_transcription,epsilon,space,sigma,add_between,optimize_openfst,openfst2ocrofst
+
+class AlignerMixin:
+    def getOcroFst(self):
+        fst = self.getFst()
+        return openfst2ocrofst(fst)
+    def fstForLines(self,lines):
+        self.startFst()
+        for line in lines:
+            self.addTranscription(line)
+        return self.getFst()
+    def ocroFstForLines(self,lines):
+        self.startFst()
+        for line in lines:
+            self.addTranscription(line)
+        return self.getOcroFst()
+    def fstForFile(self,file):
+        try:
+            with codecs.open(file,"r","utf-8") as stream:
+                return self.fstForLines(stream.readlines())
+        except UnicodeDecodeError,e:
+            raise Exception("bad unicode in "+file)
+    def ocroFstForFile(self,file):
+        try:
+            with codecs.open(file,"r","utf-8") as stream:
+                return self.ocroFstForLines(stream.readlines())
+        except UnicodeDecodeError,e:
+            raise Exception("bad unicode in "+file)
+
+common_segmentation_errors = [ "ff", "fi", "00", "st", "ry" ]
+
+class DefaultAligner(AlignerMixin):
+    def __init__(self,**kw):
+        self.error="#"
+        self.insert=""
+        self.delete=""
+        self.space_insert=5.0
+        self.space_delete=5.0
+        self.char_mismatch=8.0
+        self.char_insert=2.0
+        self.char_delete=20.0
+        self.classifier_reject=None
+        self.add_l2l=0.0
+        self.add_c2l=0.0
+        self.add_l2c=0.0
+        self.rewrites = []
+        self.combine = common_segmentation_errors
+        self.combine_cost = 6.0
+        self.lig = ligatures.lig
+        self.optimize = 0
+        self.sigout = True
+        self.multi = 3
+        self.multi_cost = 5.0
+    def startFst(self):
+        """Initializing a new FST."""
+        self.fst = openfst.StdVectorFst()
+    def getFst(self):
+        """After adding all the lines, get the resulting FST."""
+        fst = self.fst
+        self.fst = None
+        fst = optimize_openfst(fst,optimize=self.optimize)
+        return fst
+    def explodeTranscription(self,line):
+        """Take a transcription given as a string and turn it into a list."""
+        line = line.strip()
+        line = re.sub(r'[ ~\t\n]+',' ',line)
+        return explode_transcription(line)
+    def addTranscription(self,line):
+        """Add a text line as a path through the aligner."""
+        line = self.explodeTranscription(line)
+        self.addCodes(line)
+    def addCodes(self,line,accept=0.0):
+        """Given a list of "codes" (characters or character sequences),
+        encode them as a line in an FST.  Call this multiple times to encode
+        multiple lists."""
+        fst = self.fst
+        lig = self.lig
+        state = fst.Start()
+        if state<0:
+            state = fst.AddState()
+            fst.SetStart(state)
+        states = [state]
+        for i in range(len(line)):
+            states.append(fst.AddState())
+        for i in range(len(line)):
+            s = line[i]
+            c = lig.ord(s)
+            start = states[i]
+            next = states[i+1]
+
+            # FIXME split this up into several loops/methods
+
+            # space is special (since we use separate skip/insertion self)
+
+            if s==" ":
+                # space transition
+                fst.AddArc(start,space,space,0.0,next)
+                fst.AddArc(next,space,space,0.0,next) 
+                # space skip transition
+                if self.space_delete is not None:
+                    fst.AddArc(start,epsilon,space,self.space_delete,next)
+                continue
+
+            # insert characters or ligatures as single tokens
+
+            if len(s)==1 or self.add_l2l is not None:
+                assert c is not None,"ligature [%s] not found in ligature table"%s
+                cost = 0.0 if len(s)==1 else self.add_l2l
+                fst.AddArc(start,c,c,cost,next)
+                if self.classifier_reject is not None:
+                    fst.AddArc(start,lig.ord("~"),c,self.classifier_reject,next)
+
+            # insert rewrites (s:gt with cost c)
+
+            if self.rewrites is not None:
+                for s,gt,c in self.rewrites:
+                    add_between(fst,start,next,list(s),list(gt),c,lig=lig)
+
+            # insert character combinations
+
+            for q in self.combine:
+                if tuple(q)==tuple(line[i:i+len(q)]):
+                    if i+len(q)==len(line):
+                        skip = states[i+len(q)]
+                        l = lig.ord(q)
+                        add_between(fst,start,skip,[sigma],[l],self.combine_cost,lig=lig)
+                    else:
+                        skip = states[i+len(q)+1]
+                        nc = lig.ord(line[i+len(q)])
+                        add_between(fst,start,skip,[sigma,nc],[lig.ord(q),nc],self.combine_cost,lig=lig)
+
+            # FIXME replace the rest of the loops below with add_between as well
+
+            # allow insertion of spaces with some cost
+
+            if self.space_insert is not None:
+                fst.AddArc(next,epsilon,space,self.space_insert,next)
+
+            # allow insertion of a character relative to ground truth
+
+            if self.char_insert is not None:
+                fst.AddArc(start,sigma,lig.ord(self.insert),self.char_insert,start)
+
+            # allow character mismatches
+
+            if self.char_mismatch is not None:
+                if self.sigout:
+                    fst.AddArc(start,sigma,lig.ord(s),self.char_mismatch,next)
+                else:
+                    fst.AddArc(start,sigma,lig.ord(self.error),self.char_mismatch,next)
+
+            # allow deletion of a character relative to ground truth
+
+            if self.char_delete is not None:
+                fst.AddArc(start,epsilon,lig.ord(self.delete),self.char_delete,next)
+
+            # insert character-to-ligature
+
+            if len(s)>1 and self.add_c2l is not None:
+                add_between(fst,start,next,list(s),[s],self.add_c2l,lig=lig)
+
+
+            # insert ligature-to-characters
+
+            if self.add_l2c is not None:
+                candidate = "".join(line[i:i+4])
+                for s in ligatures.common_ligatures(candidate):
+                    if len(s)<2 or i+len(s)>len(states): continue
+                    add_between(fst,start,next,[s],list(s),self.add_l2c)
+
+            # insert ligature-to-characters unconstrained
+
+            if self.multi>0:
+                # candidate = "".join(line[i:i+4])
+                # print candidate
+                for r in range(2,self.multi+1):
+                    if len(candidate)<r: break
+                    skip = states[i+r]
+                    add_between(fst,start,skip,[sigma],[candidate[:r]],self.multi_cost,lig=lig)
+
+            # make sure nobody messed up these variables
+            assert start==states[i] and next==states[i+1]
+
+        # also allow junk at the end
+
+        if self.char_insert is not None:
+            fst.AddArc(states[-1],sigma,lig.ord(self.insert),self.char_insert,states[-1])
+
+        fst.SetFinal(states[-1],accept)
+
+class UW3Aligner(DefaultAligner):
+    def explodeTranscription(self,gt):
+        gt = re.sub(r'\n',' ',gt)
+        gt = re.sub(r'\\\^{(.*?)}','\1',gt)
+        gt = re.sub(r'\\ast','*',gt)
+        gt = re.sub(r'\\dagger','+',gt)
+        gt = re.sub(r'\\[a-zA-Z]+','~',gt)
+        gt = re.sub(r'\\_','',gt)
+        gt = re.sub(r'[{}]','',gt)
+        gt = re.sub(r'_+','~',gt)
+        gt = re.sub(r'[ ~]+',' ',gt)
+        gt = re.sub(r'^[ ~]*','',gt)
+        gt = re.sub(r'[ ~]*$','',gt)
+        return list(gt)
+
+more_segmentation_errors = """
+000 00 II IM La Th VL OC EX EP MP ME WM Ma Me
+ac ai ak al all am an ar as be bo ca ch ci co ct
+di dr ea ec ed ee er es ff fi fl fr ft gh gi gr gu hi il
+in ir is ki li ll ma mi mm ni oc oo pe po re ri rin
+rm rn ro r rs rt ru rv ry se sl so ss st 
+ta te th ti to tr ts tt tu 
+ul um un ur vi wi wn
+a. c. e. m. n. t. z. A. C. E. K. L. M. N. R.
+a, c, e, m, n, t, z, A, C, E, K, L, M, N, R,
+a- b- e- d- g- m- n- o- p- u-
+"T "W 'T 'W d" f" @@""".split()
+
+class LenientAligner(DefaultAligner):
+    def __init__(self,**kw):
+        DefaultAligner.__init__(self)
+        self.combine = more_segmentation_errors
+        kw = common.set_params(self,kw)
+
+class UW3LenientAligner(UW3Aligner):
+    def __init__(self,**kw):
+        UW3Aligner.__init__(self)
+        self.combine = more_segmentation_errors
+        kw = common.set_params(self,kw)
+
+def make_line_fst(lines):
+    aligner = LenientAligner()
+    aligner.startFst()
+    for text in lines:
+        aligner.addTranscription(text)
+    return aligner.getFst()
+
+def load_text_file_as_fst(fname):
+    aligner = LenientAligner()
+    with open(fname) as stream:
+        text = stream.read()
+    aligner.startFst()
+    aligner.addTranscription(text)
+    return aligner.getFst()
+
+################################################################
+### take the output from a beam search across the alignment model
+### and the lattice and find the correspondences
+################################################################
+
+from ocrolib import ligatures,rect_union,Record
+
+def compute_alignment(lattice,rseg,lmodel,beam=1000,verbose=0,lig=ligatures.lig):
+    """Given a lattice produced by a recognizer, a raw segmentation,
+    and a language model, computes the best solution, the cseg, and
+    the corresponding costs.  These are returned as Python data structures.
+    The recognition lattice needs to have rseg's segment numbers as inputs
+    (pairs of 16 bit numbers); SimpleGrouper produces such lattices."""
+
+    v1,v2,ins,outs,costs = ocrofst.beam_search(lattice,lmodel,beam)
+
+    # useful for debugging
+
+    if 1:
+        for i in range(len(v1)):
+            print "@@@ %3d [%3d %3d] (%3d %3d) %6.2f"%(i,v1[i],v2[i],ins[i]>>16,ins[i]&0xffff,costs[i]),lig.chr(outs[i])
+
+    assert len(ins)==len(outs)
+    n = len(ins)
+
+    # This is a little tricky because we need to deal with ligatures.
+    # For any transition followed by epsilon transitions on the
+    # output, we group all the segments of the epsilon transition with
+    # the preceding non-epsilon transition.
+
+    result_l = [""]
+    costs_l = [0.0]
+    segs = [(-1,-1)]
+
+    i = 0
+    while i<n:
+        j = i+1
+        start = ins[i]>>16
+        end = ins[i]&0xffff
+        cls = [outs[i]]
+        # print "  %4d (%2d,%2d) %3d %s"%(i,start,end,outs[i],unichr(outs[i]))
+        # while j<n and ((ins[j]==0 and outs[j]!=32) or outs[j]==0):
+        while j<n and (outs[j]==0 or ins[j]==ins[i]):
+            # print " +%4d (%2d,%2d) %3d %s"%(i,ins[j]>>16,ins[j]&0xffff,outs[j],unichr(outs[j]))
+            if ins[j]!=0:
+                start = min(start,ins[j]>>16)
+                end = max(end,ins[j]&0xffff)
+            if outs[j]!=0:
+                cls.append(outs[j])
+            j = j+1
+        cls = "".join([lig.chr(x) for x in cls])
+        if cls!="":
+            result_l.append(cls)
+            costs_l.append(sum(costs[i:j]))
+            segs.append((start,end))
+        i = j
+
+    rseg_boxes = docproc.seg_boxes(rseg)
+
+    # Now run through the segments and create a table that maps rseg
+    # labels to the corresponding output element.
+
+    assert len(result_l)==len(segs)
+    assert len(costs_l)==len(segs)
+    bboxes = []
+
+    rmap = zeros(amax(rseg)+1,'i')
+    for i in range(1,len(segs)):
+        start,end = segs[i]
+        if verbose: print i+1,start,end,"'%s'"%result[i],costs.at(i)
+        if start==0 or end==0: continue
+        rmap[start:end+1] = i
+        bboxes.append(rect_union(rseg_boxes[start:end+1]))
+    assert rmap[0]==0
+
+    # Finally, to get the cseg, apply the rmap table from above.
+
+    cseg = zeros(rseg.shape,'i')
+    for i in range(cseg.shape[0]):
+        for j in range(cseg.shape[1]):
+            cseg[i,j] = rmap[rseg[i,j]]
+
+    if 0:
+        print len(rmap),rmap
+        print len(segs),segs
+        print len(result_l),result_l
+        print len(costs_l),costs_l
+        print amin(cseg),amax(cseg)
+
+    # assert len(segs)==len(rmap) 
+    assert len(segs)==len(result_l) 
+    assert len(segs)==len(costs_l)
+    return Record(
+        # alignment output; these all have the same lengths
+        output_l=result_l,
+        segs=segs,
+        costs=array(costs_l,'f'),
+        # other convenient output representation
+        output="".join(result_l),
+        output_t=fstutils.implode_transcription(result_l),
+        cost=sum(costs_l),
+        # raw beam search output
+        ins=ins,
+        outs=outs,
+        # segmentation images
+        rseg=rseg,
+        cseg=cseg,
+        # the lattice
+        lattice=lattice,
+        # bounding boxes
+        bboxes=bboxes,
+        )
+
 # We can potentially use different kinds of aligners; need an option to configure
 # this.
 
 # aligner = fstutils.DefaultAligner()
-aligner = ocrolib.load_component(options.aligner)
+# aligner = ocrolib.load_component(options.aligner)
+aligner = DefaultAligner()
 
 for s in options.parameter:
     k,v = s.split("=",2)
@@ -127,8 +499,9 @@ lfst = None
 def safe_align1(t):
     try:
         align1(t)
-    except e:
+    except:
         traceback.print_exc()
+    return None
 
 def align1(t):
     dbopen()
@@ -150,10 +523,9 @@ def align1(t):
                 lfst = aligner.ocroFstForFile(lmodel)
                 lfst.save("_aligner.fst")
 
-        if lfst is None:
-            sys.exit(1)
+        assert lfst is not None
         
-        r = ocrolib.compute_alignment(fst,rseg,lfst)
+        r = compute_alignment(fst,rseg,lfst)
 
         cseg = r.cseg
         assert amin(cseg)==0,"amin(cseg)!=0 (%d,%d)"%(amin(cseg),amax(cseg))
@@ -221,6 +593,8 @@ def align1(t):
                 for i in range(len(costs)):
                     stream.write("%d %g\n"%(i,costs[i]))
 
+        iraw = 0
+        if options.Display: ion(); clf()
         if db is not None:
             # for i in range(len(r.segs)): print "%6d %-8s %s"%(i,r.segs[i],r.output_l[i])
             line = ocrolib.read_image_gray(ocrolib.ffind(fname,"png"))
@@ -230,8 +604,6 @@ def align1(t):
             grouper.setSegmentation(rseg)
             for i in range(grouper.length()):
                 raw,mask = grouper.extractWithMask(line,i,dtype='B')
-                if options.Display: 
-                    ion(); clf(); gray(); imshow(raw); ginput(1,0.01)
                 start = grouper.start(i)
                 end = grouper.end(i)
                 bbox = grouper.boundingBox(i)
@@ -246,9 +618,15 @@ def align1(t):
                 else:
                     cls = "~"
                     cost = 0.0
-                if cls in options.debug_cls:
+                if options.debug_cls is not None and re.match(options.debug_cls,cls):
                     print "debug",start,end,"cls",cls,"cost",cost,\
                         "y %.2f w %.2f h %.2f"%(rel[0],rel[1],rel[2])
+                if options.Display:
+                    iraw += 1
+                    subplot(options.dgrid,options.dgrid,iraw)
+                    gray(); imshow(raw)
+                    ax = gca()
+                    ax.text(0.1,0.1,"%s"%cls,transform=ax.transAxes,color='red')
                 dbhelper.dbinsert(db,"chars",
                                image=dbhelper.image2blob(raw),
                                cost=float(cost),
@@ -258,6 +636,7 @@ def align1(t):
                                lgeo="%g %g %g"%lgeo,
                                rel="%g %g %g"%rel,
                                bbox="%d %d %d %d"%bbox)
+        if options.Display: ginput(1,100)
     except IOError,e:
         print "# not found:",e
     except:
