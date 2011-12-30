@@ -35,7 +35,7 @@ parser.add_argument("-Q","--parallel",type=int,default=number_of_processors(),he
 parser.add_argument("-d","--display",help="display progress",action="store_true")
 parser.add_argument("-v","--verbose",help="verbose recognition output",action="store_true")
 parser.add_argument("-V","--verbose2",help="extra verbose recognition output",action="store_true")
-parser.add_argument("-Y","--examine",help="examine recognition for these classes",default="")
+parser.add_argument("-Y","--examine",help="examine recognition for these classes",default=None)
 parser.add_argument('-p','--parameter',default=[],nargs='*',help="linerec parameter (repeat if desired)")
 parser.add_argument('-P','--cparameter',default=[],nargs='*',help="cmodel parameter (repeat if desired)")
 parser.add_argument("args",default=[],nargs='*',help="input lines")

@@ -42,7 +42,7 @@ parser.add_argument("-A","--maxavg",help="maximum average cost",type=float,defau
 
 parser.add_argument("-c","--mmcost",help="mismatch cost",type=float,default=5.0)
 
-parser.add_argument("-Q","--parallel",type=int,default=number_of_processors(),help="number of parallel processes to use")
+parser.add_argument("-Q","--parallel",type=int,default=multiprocessing.cpu_count(),help="number of parallel processes to use")
 
 parser.add_argument("-y","--debug",help="select classes for debugging",action="store_true")
 parser.add_argument("-D","--Display",help="display",action="store_true")
@@ -51,6 +51,8 @@ parser.add_argument('--dgrid',default=9,help="grid size for display")
 parser.add_argument("args",default=[],nargs='*',help="input lines)")
 # args = parser.parse_args(["-D","-y","-x","temp.db"])
 args = parser.parse_args()
+
+assert not os.path.exists(args.extract),"%s: already exists; please remove"%args.extract
 
 class DbWriter:
     def __init__(self,fname):
@@ -81,8 +83,6 @@ class DbWriter:
 import codecs
 import openfst
 from ocrolib.fstutils import explode_transcription,epsilon,space,sigma,add_between,optimize_openfst,openfst2ocrofst
-
-base = "010032"
 
 def alignment_fst(line):
     fst = ocrofst.OcroFST()
@@ -129,16 +129,28 @@ debug = 0
 def align1(job):
     base,gtfile = job
     # read the ground truth data and construct an FST
-    with open(gtfile) as stream: gttext = stream.read()[:-1]
+    if not os.path.exists(gtfile):
+        print gtfile,": NOT FOUND"
+        return
+    with open(gtfile) as stream:
+        gttext = stream.read()[:-1]
+
+
+    fst_file = ocrolib.fvariant(base,"fst")
+    if not os.path.exists(fst_file):
+        print fst_file,": NOT FOUND"
+        return
+    fst = ocrofst.OcroFST()
+    fst.load(fst_file)
 
     bestcost = 1e38
     best = None
     for i,line in enumerate(gttext.split("\n")):
+        line = line.strip()
+        line = re.sub(r'[~_ \t]+',' ',line)
         if len(line)<=1: continue
         gtfst = alignment_fst(line)
         # actually perform the alignment
-        fst = ocrofst.OcroFST()
-        fst.load(ocrolib.fvariant(base,"fst"))
         result = ocrofst.beam_search(fst,gtfst,100)
         if args.debug:
             print "line",i,len(result[0]),sum(result[4])
@@ -166,6 +178,9 @@ def align1(job):
     while i<n:
         j = i+1
         if outs[i]==ord(" "):
+            sresult.append(" ")
+            scosts.append(costs[i])
+            segs.append((0,0))
             i = j
             continue
         if costs[i]>2.0 or ins[i]==0:
@@ -190,11 +205,14 @@ def align1(job):
     perc = stats.scoreatpercentile(costs,args.perc)
     avg = mean(costs)
     skip = (perc > args.maxperc or avg>args.maxavg)
-    print "%c%s %.2f:"%("*" if skip else " ",base,bestcost)," ".join(sresult)
+    print "%c%s %6.2f:"%("*" if skip else " ",base,bestcost),fstutils.implode_transcription(sresult)
     if skip: return
 
     # read the raw segmentation
     rseg_file = ocrolib.fvariant(base,"rseg")
+    if not os.path.exists(rseg_file):
+        print rseg_file,": NOT FOUND"
+        return
     rseg = ocroio.read_line_segmentation(rseg_file)
     rseg_boxes = docproc.seg_boxes(rseg)
 
