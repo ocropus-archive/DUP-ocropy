@@ -391,9 +391,11 @@ class CmodelLineRecognizer:
             if self.debug_cls is not None:
                 matching = [k for k,v in outputs[:int(self.nbest)] if re.match(self.debug_cls,k)]
                 if len(matching)>0:
-                    print "grouper","%3d"%i,"%-15s"%("-".join([str(x) for x in self.grouper.getSegments(i)])),
+                    print "grouper","%3d"%i,
+                    print "   (y %5.2f w %5.2f h %5.2f)"%(rel[0],rel[1],rel[2]),
+                    print "   %6.2f+"%segcost,
+                    print "%-15s"%("-".join([str(x) for x in self.grouper.getSegments(i)])),
                     for c,v in outputs[:5]: print "%s_%.2f"%(c,v),
-                    print "y %.2f w %.2f h %.2f"%(rel[0],rel[1],rel[2]),
                     print
 
             # add the top classes to the lattice

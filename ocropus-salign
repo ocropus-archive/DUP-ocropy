@@ -41,7 +41,8 @@ parser.add_argument("-P","--perc",help="percentile for reporting statistics",typ
 parser.add_argument("-M","--maxperc",help="maximum cost at percentile",type=float,default=5.0)
 parser.add_argument("-A","--maxavg",help="maximum average cost",type=float,default=5.0)
 
-parser.add_argument("-c","--mmcost",help="mismatch cost",type=float,default=5.0)
+parser.add_argument("-c","--mmcost",help="mismatch cost",type=float,default=2.0)
+parser.add_argument("-C","--edcost",help="edit cost",type=float,default=5.0)
 
 parser.add_argument("-Q","--parallel",type=int,default=multiprocessing.cpu_count(),help="number of parallel processes to use")
 
@@ -106,7 +107,7 @@ def alignment_fst(line):
         # insertion of space
         fst.AddArc(next,space,space,0.0,next)
         # insertion of other character
-        fst.AddArc(start,sigma,ord("~"),args.mmcost,start)
+        fst.AddArc(start,sigma,ord("~"),args.edcost,start)
 
         if s==" ":
             # space transition
@@ -117,13 +118,13 @@ def alignment_fst(line):
             # add character transition
             fst.AddArc(start,c,c,0.0,next)
             # reject insertion
-            fst.AddArc(start,ord("~"),ord("~"),args.mmcost,start)
+            fst.AddArc(start,ord("~"),ord("~"),args.edcost,start)
             # mismatch between input and transcription
-            fst.AddArc(start,sigma,ord("~"),args.mmcost,next)
+            fst.AddArc(start,sigma,c,args.mmcost,next)
             # deletion in lattice
-            fst.AddArc(start,epsilon,c,args.mmcost,next)
+            fst.AddArc(start,epsilon,c,args.edcost,next)
     last = states[-1]
-    fst.AddArc(last,sigma,epsilon,args.mmcost,last)
+    fst.AddArc(last,sigma,epsilon,args.edcost,last)
     fst.SetFinal(last,0.0)
     return fst
 
@@ -189,17 +190,26 @@ def align1(job):
             segs.append((0,0))
             i = j
             continue
-        if outs[i]==ord("~"):
-            sresult.append("~")
-            scosts.append(costs[i])
-            segs.append((0,0))
-            i = j
-            continue
+        if 0 and outs[i]==ord("~"):
+            # may not need special treatment for "~"
+            prev = [x for x in ins[:i-1] if x!=0]
+            succ = [x for x in ins[i+1:] if x!=0]
+            if len(prev)>0 and ins[i]==prev[-1] or len(succ)>0 and ins[i]==succ[0]:
+                outs[i] = 0
+            else:
+                sresult.append("~")
+                scosts.append(costs[i])
+                segs.append((0,0))
+                i = j
+                continue
         if costs[i]>2.0 or ins[i]==0:
             seg = ins[i]
             while j<n:
-                if seg!=0 and ins[j]!=seg and costs[j]<2.0: break # arrived at another good match
-                if outs[j]==ord(" "): break # arrived at a space
+                # only output combined segments as characters
+                if seg!=0 and ins[j]!=seg: break
+                # break at spaces
+                if outs[j]==ord(" "): break
+                # keep track of current segment (skip may precede or follow segment)
                 if seg==0 : seg = ins[j]
                 j += 1
         cls = "".join([unichr(x) for x in outs[i:j] if x!=0])
@@ -288,7 +298,7 @@ def align1(job):
             for i in range(len(costs)):
                 stream.write("%d %g\n"%(i,costs[i]))
         # true ground truth (best-matching line in the original transcription)
-        ocrolib.write_text(ocrolib.fvariant(bestline,"txt",args.suffix),bestline)
+        ocrolib.write_text(ocrolib.fvariant(fname,"txt",args.suffix),bestline)
 
     if args.extract is not None:
         iraw = 0
