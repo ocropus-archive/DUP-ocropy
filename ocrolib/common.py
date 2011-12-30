@@ -382,6 +382,8 @@ def fvariant(fname,kind,gt=None):
     base,ext = allsplitext(fname)
     if kind=="line" or kind=="png":
         return base+gt+".png"
+    if kind=="aligned":
+        return base+".aligned"+gt+".txt"
     if kind=="rseg":
         return base+".rseg"+gt+".png"
     if kind=="cseg":
@@ -613,112 +615,6 @@ def rect_union(rectangles):
     if len(rectangles)<1: return (0,0,-1,-1)
     r = array(rectangles)
     return (amin(r[:,0]),amax(r[:,0]),amin(r[:,1]),amax(r[:1]))
-
-def compute_alignment(lattice,rseg,lmodel,beam=1000,verbose=0,lig=ligatures.lig):
-    """Given a lattice produced by a recognizer, a raw segmentation,
-    and a language model, computes the best solution, the cseg, and
-    the corresponding costs.  These are returned as Python data structures.
-    The recognition lattice needs to have rseg's segment numbers as inputs
-    (pairs of 16 bit numbers); SimpleGrouper produces such lattices."""
-
-    v1,v2,ins,outs,costs = ocrofst.beam_search(lattice,lmodel,beam)
-
-    # useful for debugging
-
-    if 1:
-        for i in range(len(v1)):
-            print "@@@ %3d [%3d %3d] (%3d %3d) %6.2f"%(i,v1[i],v2[i],ins[i]>>16,ins[i]&0xffff,costs[i]),lig.chr(outs[i])
-
-    assert len(ins)==len(outs)
-    n = len(ins)
-
-    # This is a little tricky because we need to deal with ligatures.
-    # For any transition followed by epsilon transitions on the
-    # output, we group all the segments of the epsilon transition with
-    # the preceding non-epsilon transition.
-
-    result_l = [""]
-    costs_l = [0.0]
-    segs = [(-1,-1)]
-
-    i = 0
-    while i<n:
-        j = i+1
-        start = ins[i]>>16
-        end = ins[i]&0xffff
-        cls = [outs[i]]
-        # print "  %4d (%2d,%2d) %3d %s"%(i,start,end,outs[i],unichr(outs[i]))
-        # while j<n and ((ins[j]==0 and outs[j]!=32) or outs[j]==0):
-        while j<n and (outs[j]==0 or ins[j]==ins[i]):
-            # print " +%4d (%2d,%2d) %3d %s"%(i,ins[j]>>16,ins[j]&0xffff,outs[j],unichr(outs[j]))
-            if ins[j]!=0:
-                start = min(start,ins[j]>>16)
-                end = max(end,ins[j]&0xffff)
-            if outs[j]!=0:
-                cls.append(outs[j])
-            j = j+1
-        cls = "".join([lig.chr(x) for x in cls])
-        if cls!="":
-            result_l.append(cls)
-            costs_l.append(sum(costs[i:j]))
-            segs.append((start,end))
-        i = j
-
-    rseg_boxes = docproc.seg_boxes(rseg)
-
-    # Now run through the segments and create a table that maps rseg
-    # labels to the corresponding output element.
-
-    assert len(result_l)==len(segs)
-    assert len(costs_l)==len(segs)
-    bboxes = []
-
-    rmap = zeros(amax(rseg)+1,'i')
-    for i in range(1,len(segs)):
-        start,end = segs[i]
-        if verbose: print i+1,start,end,"'%s'"%result[i],costs.at(i)
-        if start==0 or end==0: continue
-        rmap[start:end+1] = i
-        bboxes.append(rect_union(rseg_boxes[start:end+1]))
-    assert rmap[0]==0
-
-    # Finally, to get the cseg, apply the rmap table from above.
-
-    cseg = zeros(rseg.shape,'i')
-    for i in range(cseg.shape[0]):
-        for j in range(cseg.shape[1]):
-            cseg[i,j] = rmap[rseg[i,j]]
-
-    if 0:
-        print len(rmap),rmap
-        print len(segs),segs
-        print len(result_l),result_l
-        print len(costs_l),costs_l
-        print amin(cseg),amax(cseg)
-
-    # assert len(segs)==len(rmap) 
-    assert len(segs)==len(result_l) 
-    assert len(segs)==len(costs_l)
-    return Record(
-        # alignment output; these all have the same lengths
-        output_l=result_l,
-        segs=segs,
-        costs=array(costs_l,'f'),
-        # other convenient output representation
-        output="".join(result_l),
-        output_t=fstutils.implode_transcription(result_l),
-        cost=sum(costs_l),
-        # raw beam search output
-        ins=ins,
-        outs=outs,
-        # segmentation images
-        rseg=rseg,
-        cseg=cseg,
-        # the lattice
-        lattice=lattice,
-        # bounding boxes
-        bboxes=bboxes,
-        )
 
 def recognize_and_align(image,linerec,lmodel,beam=1000,nocseg=0,lig=ligatures.lig):
     """Perform line recognition with the given line recognizer and

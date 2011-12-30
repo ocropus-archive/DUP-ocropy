@@ -17,6 +17,7 @@ from ocrolib import number_of_processors,fstutils,die,docproc
 from scipy import stats
 from ocrolib import dbhelper,ocroio,ocrofst
 from ocrolib import ligatures,rect_union,Record
+import multiprocessing
 
 signal.signal(signal.SIGINT,lambda *args:sys.exit(1))
 
@@ -44,7 +45,10 @@ parser.add_argument("-c","--mmcost",help="mismatch cost",type=float,default=5.0)
 
 parser.add_argument("-Q","--parallel",type=int,default=multiprocessing.cpu_count(),help="number of parallel processes to use")
 
-parser.add_argument("-y","--debug",help="select classes for debugging",action="store_true")
+parser.add_argument("--debug_line",action="store_true")
+parser.add_argument("--debug_rawalign",action="store_true")
+parser.add_argument("--debug_aligned",action="store_true")
+parser.add_argument("--debug_select",action="store_true")
 parser.add_argument("-D","--Display",help="display",action="store_true")
 parser.add_argument('--dgrid',default=9,help="grid size for display")
 
@@ -102,7 +106,7 @@ def alignment_fst(line):
         # insertion of space
         fst.AddArc(next,space,space,0.0,next)
         # insertion of other character
-        fst.AddArc(start,sigma,epsilon,5.0,start)
+        fst.AddArc(start,sigma,ord("~"),args.mmcost,start)
 
         if s==" ":
             # space transition
@@ -113,10 +117,9 @@ def alignment_fst(line):
             # add character transition
             fst.AddArc(start,c,c,0.0,next)
             # reject insertion
-            fst.AddArc(start,ord("~"),c,args.mmcost,start)
+            fst.AddArc(start,ord("~"),ord("~"),args.mmcost,start)
             # mismatch between input and transcription
-            fst.AddArc(start,ord("="),c,args.mmcost,next)
-            fst.AddArc(start,sigma,c,args.mmcost,next)
+            fst.AddArc(start,sigma,ord("~"),args.mmcost,next)
             # deletion in lattice
             fst.AddArc(start,epsilon,c,args.mmcost,next)
     last = states[-1]
@@ -127,7 +130,7 @@ def alignment_fst(line):
 debug = 0
 
 def align1(job):
-    base,gtfile = job
+    fname,gtfile = job
     # read the ground truth data and construct an FST
     if not os.path.exists(gtfile):
         print gtfile,": NOT FOUND"
@@ -136,7 +139,7 @@ def align1(job):
         gttext = stream.read()[:-1]
 
 
-    fst_file = ocrolib.fvariant(base,"fst")
+    fst_file = ocrolib.fvariant(fname,"fst")
     if not os.path.exists(fst_file):
         print fst_file,": NOT FOUND"
         return
@@ -144,6 +147,7 @@ def align1(job):
     fst.load(fst_file)
 
     bestcost = 1e38
+    bestline = None
     best = None
     for i,line in enumerate(gttext.split("\n")):
         line = line.strip()
@@ -152,16 +156,18 @@ def align1(job):
         gtfst = alignment_fst(line)
         # actually perform the alignment
         result = ocrofst.beam_search(fst,gtfst,100)
-        if args.debug:
+        if args.debug_line:
             print "line",i,len(result[0]),sum(result[4])
         if len(result[0])<=1: continue
-        if sum(result[4])>=bestcost: continue
-        bestcost = sum(result[4])
+        avg = sum(result[4])/len(result[0]+10.0)
+        if avg>=bestcost: continue
+        bestcost = avg
+        bestline = line
         best = result
 
     v1,v2,ins,outs,costs = best
 
-    if args.debug:
+    if args.debug_rawalign:
         for i in range(len(v1)):
             print "raw-align %3d [%3d %3d] (%3d %3d) %6.2f"%(i,v1[i],v2[i],ins[i]>>16,ins[i]&0xffff,costs[i]),unichr(outs[i])
 
@@ -170,7 +176,7 @@ def align1(job):
     segs = []
 
     # Here is the general idea:
-    # - low-cost correspondences are output directlyl
+    # - low-cost correspondences are output directly
     # - stretches of high-cost correspondences and epsilons are output together
 
     n = len(ins)
@@ -183,6 +189,12 @@ def align1(job):
             segs.append((0,0))
             i = j
             continue
+        if outs[i]==ord("~"):
+            sresult.append("~")
+            scosts.append(costs[i])
+            segs.append((0,0))
+            i = j
+            continue
         if costs[i]>2.0 or ins[i]==0:
             seg = ins[i]
             while j<n:
@@ -190,7 +202,7 @@ def align1(job):
                 if outs[j]==ord(" "): break # arrived at a space
                 if seg==0 : seg = ins[j]
                 j += 1
-        cls = "".join([unichr(x) for x in outs[i:j]])
+        cls = "".join([unichr(x) for x in outs[i:j] if x!=0])
         sresult.append(cls)
         scosts.append(sum(costs[i:j]))
         start = min([x>>16 for x in ins[i:j] if x!=0]+[9999])
@@ -198,18 +210,22 @@ def align1(job):
         segs.append((start,end))
         i = j
 
-    if args.debug:
+    if args.debug_aligned:
         for i,row in enumerate(zip(sresult,scosts,segs)):
             print "aligned",i,row
 
+    ml = max([len(x) for x in sresult])
+    lig = sum([len(x)>1 for x in sresult])
+    bad = sum([x=="~" for x in sresult])
     perc = stats.scoreatpercentile(costs,args.perc)
     avg = mean(costs)
-    skip = (perc > args.maxperc or avg>args.maxavg)
-    print "%c%s %6.2f:"%("*" if skip else " ",base,bestcost),fstutils.implode_transcription(sresult)
+    skip = (perc > args.maxperc or avg>args.maxavg or ml>3 or lig*1.0/len(sresult)>0.2 or bad*1.0/(3.0+len(sresult))>0.1)
+    aligned = fstutils.implode_transcription(sresult,maxlig=100)
+    print "%c%s %6.2f %6.2f:"%("*" if skip else " ",fname,perc,avg),aligned
     if skip: return
 
     # read the raw segmentation
-    rseg_file = ocrolib.fvariant(base,"rseg")
+    rseg_file = ocrolib.fvariant(fname,"rseg")
     if not os.path.exists(rseg_file):
         print rseg_file,": NOT FOUND"
         return
@@ -265,16 +281,20 @@ def align1(job):
         if not args.overwrite:
             if os.path.exists(cseg_file): die("%s: already exists",cseg_file)
         ocrolib.write_line_segmentation(cseg_file,cseg)
-        ocrolib.write_text(ocrolib.fvariant(fname,"txt",args.suffix),result)
+        # aligned text line
+        ocrolib.write_text(ocrolib.fvariant(fname,"aligned",args.suffix),aligned)
+        # per character costs
         with ocrolib.fopen(fname,"costs",args.suffix,mode="w") as stream:
             for i in range(len(costs)):
                 stream.write("%d %g\n"%(i,costs[i]))
+        # true ground truth (best-matching line in the original transcription)
+        ocrolib.write_text(ocrolib.fvariant(bestline,"txt",args.suffix),bestline)
 
     if args.extract is not None:
         iraw = 0
         if args.Display:
             ion(); clf()
-        line = ocrolib.read_image_gray(ocrolib.fvariant(base,"png"))
+        line = ocrolib.read_image_gray(ocrolib.fvariant(fname,"png"))
         line = amax(line)-line
         lgeo = docproc.seg_geometry(rseg)
         grouper = ocrolib.Grouper()
@@ -309,11 +329,11 @@ def align1(job):
                               cost=float(cost),
                               cls=cls,
                               count=1,
-                              file=base,
+                              file=fname,
                               lgeo=lgeo,
                               rel=rel,
                               bbox=bbox)
-    if args.Display: ginput(1,100)
+    if args.Display: ginput(1,10000)
 
 def safe_align1(job):
     try:
@@ -366,7 +386,7 @@ else:
 jobs = []
 
 if args.pagegt:
-    if len(args.args)==1 and os.path.isdir(argsargs[0]):
+    if len(args.args)==1 and os.path.isdir(args.args[0]):
         files = glob.glob(args[0]+"/*.gt.txt")
     else:
         files = args.args

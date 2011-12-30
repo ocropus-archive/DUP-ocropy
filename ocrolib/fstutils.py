@@ -58,12 +58,15 @@ def explode_transcription(transcription):
         return result
     raise Exception("bad transcription type")
 
-def implode_transcription(transcription):
+def implode_transcription(transcription,maxlig=4):
     """Takes a list of characters or strings and implodes them into
     a transcription."""
     def quote(s):
-        assert len(s)<=4,"ligatures can consist of at most 4 characters"
-        s = re.sub(r'_','~',s)
+        assert len(s)<=maxlig,"ligatures can consist of at most 4 characters"
+        if "~" in s: s = "~"
+        s = re.sub(r'[\0]+','',s)
+        s = re.sub(r' +',' ',s)
+        s = re.sub(r'[_]+','~',s)
         if len(s)>1: return "_"+s+"_"
         else: return s
     return "".join([quote(s) for s in transcription])
