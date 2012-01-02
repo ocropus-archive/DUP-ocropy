@@ -255,7 +255,7 @@ class CmodelLineRecognizer:
         self.min_height = 0.5
         self.rho_scale = 1.0
         self.maxdist = 2
-        self.use_ligatures = 1
+        self.use_ligatures = 0
         self.add_rho = 0
         self.verbose = 0
         self.debug_cls = None
@@ -435,7 +435,10 @@ class CmodelLineRecognizer:
 
 
         # extract the recognition lattice from the grouper
-        lattice = self.grouper.getLattice()
+        if self.use_ligatures:
+            lattice = self.grouper.getLatticeLig()
+        else:
+            lattice = self.grouper.getLattice()
 
         # return the raw segmentation as a result
         return lattice,rseg

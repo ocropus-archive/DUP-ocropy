@@ -25,7 +25,7 @@ parser.add_argument("-m","--model",help="model file",default="default.cmodel")
 parser.add_argument("-w","--whitespace",help="space model file",default="space.model")
 parser.add_argument("-c","--cont",help="continue even when unexpected errors occur",action="store_true")
 parser.add_argument("-R","--maxrange",help="max range for grouping",type=int,default=4)
-parser.add_argument("-L","--noligatures",help="don't output ligatures",action="store_true")
+parser.add_argument("-L","--ligatures",help="output ligatures",action="store_true")
 parser.add_argument("-N","--nbest",help="use the nbest results from classifier",type=int,default=3)
 parser.add_argument("-C","--maxcost",help="maximum cost to be considered",type=float,default=10.0)
 parser.add_argument("-s","--segmenter",help="segmenter",default="ocrolseg.DpSegmenter()")
@@ -76,7 +76,7 @@ elif hasattr(cmodel,'coutputs'):
     linerec = ocrolib.CmodelLineRecognizer(cmodel=cmodel,whitespace=options.whitespace,
                                            maxrange=options.maxrange,verbose=verbose,
                                            debug_cls=options.examine,segmenter=segmenter)
-    linerec.use_ligatures = not options.noligatures
+    linerec.use_ligatures = options.ligatures
     linerec.maxcost = options.maxcost
     linerec.nbest = options.nbest
 else:
