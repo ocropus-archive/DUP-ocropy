@@ -51,6 +51,7 @@ parser.add_argument('--lcost3',help="ligature cost",type=float,default=3.0)
 parser.add_argument("-C","--edcost",help="edit cost",type=float,default=9.0)
 parser.add_argument("--trimcost",help="cost for removing characters at beginning/end",default=2.0)
 parser.add_argument("--maxtrim",help="maximum number of chars permitted to be trimmed",default=1)
+parser.add_argument("--maxlig",help="maximum number of ligatures on line",default=2)
 
 parser.add_argument("-Q","--parallel",type=int,default=multiprocessing.cpu_count(),help="number of parallel processes to use")
 
@@ -173,7 +174,7 @@ def alignment_fst(line):
         # mismatch between input and transcription
         fst.AddArc(start,sigma,ord("~"),args.rcost,next)
         # deletion in lattice
-        fst.AddArc(start,epsilon,ord("@"),args.edcost,next)
+        fst.AddArc(start,epsilon,ord("~"),args.edcost,next)
         # insertion in lattice
         fst.AddArc(start,sigma,epsilon,args.edcost,next)
 
@@ -314,7 +315,7 @@ def align1(job):
     bad = sum([x=="~" for x in sresult])
     perc = stats.scoreatpercentile(costs,args.perc)
     avg = mean(costs)
-    skip = (perc > args.maxperc or avg>args.maxavg or ml>3 or lig*1.0/len(sresult)>0.2 or bad*1.0/(3.0+len(sresult))>0.1)
+    skip = (perc > args.maxperc or avg>args.maxavg or ml>3 or lig*1.0/len(sresult)>0.1 or bad*1.0/(3.0+len(sresult))>0.1 or lig>=args.maxlig)
     aligned = fstutils.implode_transcription(sresult,maxlig=100)
     if skip:
         print "%c%s %6.2f %6.2f:"%("*" if skip else " ",fname,perc,avg),""
