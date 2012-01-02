@@ -138,9 +138,9 @@ def alignment_fst(line):
         states.append(fst.AddState())
     ntrim = min(len(line)/4,args.maxtrim)
     for i in range(ntrim):
-        fst.AddArc(states[i],epsilon,ord("#"),args.trimcost,states[i+1])
+        fst.AddArc(states[i],epsilon,ord("~"),args.trimcost,states[i+1])
     for i in range(len(line)-ntrim,len(line)):
-        fst.AddArc(states[i],epsilon,ord("#"),args.trimcost,states[i+1])
+        fst.AddArc(states[i],epsilon,ord("~"),args.trimcost,states[i+1])
     for i in range(len(line)):
         s = line[i]
         c = ord(s)
@@ -170,7 +170,7 @@ def alignment_fst(line):
         # add character transition
         fst.AddArc(start,c,c,0.0,next)
         # mismatch between input and transcription
-        fst.AddArc(start,sigma,ord("#"),args.rcost,next)
+        fst.AddArc(start,sigma,ord("~"),args.rcost,next)
         # deletion in lattice
         fst.AddArc(start,epsilon,c,args.edcost,next)
         # insertion in lattice
