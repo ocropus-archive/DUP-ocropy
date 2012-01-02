@@ -172,7 +172,7 @@ def alignment_fst(line):
         # add character transition
         fst.AddArc(start,c,c,0.0,next)
         # mismatch between input and transcription
-        fst.AddArc(start,sigma,ord("~"),args.rcost,next)
+        fst.AddArc(start,sigma,ord("_"),args.rcost,next)
         # deletion in lattice
         fst.AddArc(start,epsilon,ord("~"),args.edcost,next)
         # insertion in lattice

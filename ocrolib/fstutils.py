@@ -42,6 +42,7 @@ def explode_transcription(transcription):
         return transcription
     elif type(transcription) in [str,unicode]:
         check_transcription(transcription)
+        transcription = re.sub("[\000-\037]","~",transcription)
         transcription = transcription.replace("\\_","\0x4").replace("\\\\","\0x3")
         groups = re.split(r'(_.{1,4}?_)',transcription)
         for i in range(1,len(groups),2):
@@ -66,8 +67,10 @@ def implode_transcription(transcription,maxlig=4):
         if "~" in s: s = "~"
         s = re.sub(r'[\0]+','',s)
         s = re.sub(r' +',' ',s)
-        s = re.sub(r'[_]+','~',s)
-        if len(s)>1: return "_"+s+"_"
+        l = len(s)
+        s = re.sub(r'_',"\\_",s)
+        s = re.sub(r"\\\\","\\\\\\\\",s)
+        if l>1: return "_"+s+"_"
         else: return s
     return "".join([quote(s) for s in transcription])
 
