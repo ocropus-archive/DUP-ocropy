@@ -33,6 +33,7 @@ parser.add_argument("-T","--confusions",help="confusion table (lattice output co
 
 parser.add_argument("-g","--gt",help="extension for ground truth",default=None)
 parser.add_argument("-p","--pagegt",help="arguments are page ground truth",action="store_true")
+parser.add_argument("--ppat",default=".*",help="file pattern to match with -p")
 parser.add_argument("-l","--langmod",help="language model",default=None)
 
 parser.add_argument("-s","--suffix",help="output suffix for writing result",default=None)
@@ -45,9 +46,9 @@ parser.add_argument("--minlength",help="minimum length for alignment",type=int,d
 
 parser.add_argument("-c","--mmcost",help="mismatch cost",type=float,default=3.0)
 parser.add_argument('-R','--rcost',help="single character mismatch threshold",type=float,default=8.0)
-parser.add_argument('--lcost2',help="ligature cost",type=float,default=5.0)
-parser.add_argument('--lcost3',help="ligature cost",type=float,default=8.0)
-parser.add_argument("-C","--edcost",help="edit cost",type=float,default=5.0)
+parser.add_argument('--lcost2',help="ligature cost",type=float,default=2.0)
+parser.add_argument('--lcost3',help="ligature cost",type=float,default=3.0)
+parser.add_argument("-C","--edcost",help="edit cost",type=float,default=9.0)
 parser.add_argument("--trimcost",help="cost for removing characters at beginning/end",default=2.0)
 parser.add_argument("--maxtrim",help="maximum number of chars permitted to be trimmed",default=1)
 
@@ -172,7 +173,7 @@ def alignment_fst(line):
         # mismatch between input and transcription
         fst.AddArc(start,sigma,ord("~"),args.rcost,next)
         # deletion in lattice
-        fst.AddArc(start,epsilon,c,args.edcost,next)
+        fst.AddArc(start,epsilon,ord("@"),args.edcost,next)
         # insertion in lattice
         fst.AddArc(start,sigma,epsilon,args.edcost,next)
 
@@ -279,19 +280,26 @@ def align1(job):
     segs = []
 
     n = len(ins)
-    for i in range(1,n):
+    i = 1
+    while i<n:
         if outs[i]==ord(" "):
             sresult.append(" ")
             scosts.append(costs[i])
             segs.append((0,0))
+            i += 1
             continue
-        # if ins[i]==0: continue # deletion
-        cls = ltable.chr(outs[i]) # recognized character
+        # pick up ligatures indicated by the recognizer (multiple sequential 
+        # output characters with the same input segments)
+        j = i+1
+        while j<n and ins[j]==ins[i]:
+            j += 1
+        cls = "".join([ltable.chr(c) for c in outs[i:j]])
         sresult.append(cls)
-        scosts.append(costs[i])
+        scosts.append(sum(costs[i:j]))
         start = (ins[i]>>16)
         end = (ins[i]&0xffff)
         segs.append((start,end))
+        i = j
 
     if len(sresult)<args.minlength:
         print "*"+fst_file,": OUTSHORT/%d"%len(sresult)
@@ -437,48 +445,6 @@ jobs = []
 
 if args.pagegt:
     if len(args.args)==1 and os.path.isdir(args.args[0]):
-        files = sorted(glob.glob(args.args[0]+"/*.gt.txt"))
-    else:
-        files = args.args
-    for arg in files:
-        if not os.path.exists(arg):
-            print "# %s: not found"%arg
-            continue
-        base,_ = ocrolib.allsplitext(arg)
-        if not os.path.exists(base) or not os.path.isdir(base):
-            print "["+base+"?]"
-            sys.stdout.flush()
-            continue
-        lines = glob.glob(base+"/??????.png")
-        for line in lines:
-            jobs.append((line,arg))
-    print
-elif args.langmod:
-    for arg in args.args:
-        jobs.append((arg,args.langmod))
-elif args.gt is not None:
-    if len(args.args)==1 and (os.path.isdir(args.args[0]) or os.path.islink(args.args[0])):
-        files = glob.glob(args[0]+"/????/??????.png")
-    else:
-        files = args.args
-    for arg in files:
-        path,ext = ocrolib.allsplitext(arg)
-        p = path+args.gt
-        if not os.path.exists(arg):
-            print arg,"not found"
-            continue
-        if not os.path.exists(p): 
-            print p,"not found"
-            continue
-        jobs.append((arg,p))
-else:
-    raise Exception("you need to specify what kind of groundtruth you want to align with (-p, -l, -g)")
-        
-
-jobs = []
-
-if args.pagegt:
-    if len(args.args)==1 and os.path.isdir(args.args[0]):
         files = glob.glob(args[0]+"/*.gt.txt")
     else:
         files = args.args
@@ -493,6 +459,8 @@ if args.pagegt:
             continue
         lines = glob.glob(base+"/??????.png")
         for line in lines:
+            if not re.search(args.ppat,line): 
+                continue
             jobs.append((line,arg))
     print
 elif args.langmod:
