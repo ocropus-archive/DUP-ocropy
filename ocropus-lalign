@@ -48,6 +48,8 @@ parser.add_argument('-R','--rcost',help="single character mismatch threshold",ty
 parser.add_argument('--lcost2',help="ligature cost",type=float,default=5.0)
 parser.add_argument('--lcost3',help="ligature cost",type=float,default=8.0)
 parser.add_argument("-C","--edcost",help="edit cost",type=float,default=5.0)
+parser.add_argument("--trimcost",help="cost for removing characters at beginning/end",default=2.0)
+parser.add_argument("--maxtrim",help="maximum number of chars permitted to be trimmed",default=1)
 
 parser.add_argument("-Q","--parallel",type=int,default=multiprocessing.cpu_count(),help="number of parallel processes to use")
 
@@ -134,6 +136,11 @@ def alignment_fst(line):
     states = [state]
     for i in range(len(line)):
         states.append(fst.AddState())
+    ntrim = min(len(line)/4,args.maxtrim)
+    for i in range(ntrim):
+        fst.AddArc(states[i],epsilon,ord("#"),args.trimcost,states[i+1])
+    for i in range(len(line)-ntrim,len(line)):
+        fst.AddArc(states[i],epsilon,ord("#"),args.trimcost,states[i+1])
     for i in range(len(line)):
         s = line[i]
         c = ord(s)
@@ -185,25 +192,26 @@ def alignment_fst(line):
                 fst.AddArc(start,ord(u[-1]),ltable.ord(v),cost,end)
 
     # explicit transitions for ligatures: use epsilon on input, use encoded ligatures on output,
-    # FIXME clean up ligature construction code below
 
     if args.lcost2<inf:
-        for i in range(0,len(line)-1):
+        for i in range(0,len(line)-2):
             s = line[i:i+2]
             if " " in s: continue
             start = states[i]
-            next = states[i+2]
-            fst.AddArc(start,ord("~"),ltable.ord(s),0.0,next)
-            fst.AddArc(start,sigma,ltable.ord(s),args.lcost2,next)
+            catch = fst.AddState()
+            fst.AddArc(start,ord("~"),ltable.ord(s),0.0,catch)
+            fst.AddArc(start,sigma,ltable.ord(s),args.lcost2,catch)
+            fst.AddArc(catch,ord(line[i+2]),ord(line[i+2]),0.0,states[i+3])
 
     if args.lcost3<inf:
-        for i in range(0,len(line)-2):
+        for i in range(0,len(line)-3):
             s = line[i:i+3]
             if " " in s: continue
             start = states[i]
-            next = states[i+3]
+            catch = fst.AddState()
             fst.AddArc(start,ord("~"),ltable.ord(s),0.0,next)
             fst.AddArc(start,sigma,ltable.ord(s),args.lcost3,next)
+            fst.AddArc(catch,ord(line[i+3]),ord(line[i+3]),0.0,states[i+4])
 
     last = states[-1]
     fst.AddArc(last,sigma,epsilon,args.edcost,last)
@@ -277,13 +285,17 @@ def align1(job):
             scosts.append(costs[i])
             segs.append((0,0))
             continue
-        if ins[i]==0: continue # deletion
+        # if ins[i]==0: continue # deletion
         cls = ltable.chr(outs[i]) # recognized character
         sresult.append(cls)
         scosts.append(costs[i])
         start = (ins[i]>>16)
         end = (ins[i]&0xffff)
         segs.append((start,end))
+
+    if len(sresult)<args.minlength:
+        print "*"+fst_file,": OUTSHORT/%d"%len(sresult)
+        return
 
     if args.debug_aligned:
         for i,row in enumerate(zip(sresult,scosts,segs)):
