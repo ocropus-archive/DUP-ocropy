@@ -41,20 +41,21 @@ parser.add_argument("-O","--overwrite",help="overwrite outputs",action="store_tr
 parser.add_argument("-P","--perc",help="percentile for reporting statistics",type=float,default=90.0)
 parser.add_argument("-M","--maxperc",help="maximum cost at percentile",type=float,default=5.0)
 parser.add_argument("-A","--maxavg",help="maximum average cost",type=float,default=5.0)
+parser.add_argument("--minlength",help="minimum length for alignment",type=int,default=10)
 
-parser.add_argument("-c","--mmcost",help="mismatch cost",type=float,default=4.0)
-parser.add_argument('-R','--rcost',help="single character reject cost",type=float,default=4.0)
+parser.add_argument("-c","--mmcost",help="mismatch cost",type=float,default=3.0)
+parser.add_argument('-R','--rcost',help="single character mismatch threshold",type=float,default=8.0)
 parser.add_argument('--lcost2',help="ligature cost",type=float,default=5.0)
-parser.add_argument('--lcost3',help="ligature cost",type=float,default=5.0)
+parser.add_argument('--lcost3',help="ligature cost",type=float,default=8.0)
 parser.add_argument("-C","--edcost",help="edit cost",type=float,default=5.0)
 
 parser.add_argument("-Q","--parallel",type=int,default=multiprocessing.cpu_count(),help="number of parallel processes to use")
 
+parser.add_argument("-D","--Display",help="display",action="store_true")
 parser.add_argument("--debug_line",action="store_true")
 parser.add_argument("--debug_rawalign",action="store_true")
 parser.add_argument("--debug_aligned",action="store_true")
 parser.add_argument("--debug_select",action="store_true")
-parser.add_argument("-D","--Display",help="display",action="store_true")
 parser.add_argument('--dgrid',default=9,help="grid size for display")
 
 parser.add_argument("args",default=[],nargs='*',help="input lines)")
@@ -153,10 +154,14 @@ def alignment_fst(line):
             fst.AddArc(start,epsilon,space,0.0,next)
             continue
 
+        if s in ["~","_"]:
+            # common ground-truth indicators of errors, unrecognizable characters
+            fst.AddArc(start,sigma,ord("~"),4.0,start) # also allow repetition with some cost
+            fst.AddArc(start,sigma,ord("~"),0.0,next)
+            continue
+
         # add character transition
         fst.AddArc(start,c,c,0.0,next)
-        # reject insertion
-        fst.AddArc(start,ord("~"),ord("~"),args.rcost,start)
         # mismatch between input and transcription
         fst.AddArc(start,sigma,ord("#"),args.rcost,next)
         # deletion in lattice
@@ -212,7 +217,7 @@ def align1(job):
     fname,gtfile = job
     # read the ground truth data and construct an FST
     if not os.path.exists(gtfile):
-        print gtfile,": NOT FOUND"
+        print "*"+gtfile,": NOT FOUND"
         return
     with open(gtfile) as stream:
         gttext = stream.read()[:-1]
@@ -221,7 +226,7 @@ def align1(job):
 
     fst_file = ocrolib.fvariant(fname,"fst")
     if not os.path.exists(fst_file):
-        print fst_file,": NOT FOUND"
+        print "*"+fst_file,": NOT FOUND"
         return
     fst = ocrofst.OcroFST()
     fst.load(fst_file)
@@ -247,8 +252,12 @@ def align1(job):
         bestfst = gtfst
         best = result
 
+    if len(bestline)<args.minlength:
+        print "*"+fst_file,": SHORT/%d"%len(bestline)
+        return
+
     if best is None:
-        print fst_file,gtfile,": BEAM SEARCH FAILED"
+        print "*"+fst_file,gtfile,": BEAM SEARCH FAILED"
         return
 
     v1,v2,ins,outs,costs = best
@@ -287,14 +296,17 @@ def align1(job):
     avg = mean(costs)
     skip = (perc > args.maxperc or avg>args.maxavg or ml>3 or lig*1.0/len(sresult)>0.2 or bad*1.0/(3.0+len(sresult))>0.1)
     aligned = fstutils.implode_transcription(sresult,maxlig=100)
-    print "%c%s %6.2f %6.2f:"%("*" if skip else " ",fname,perc,avg),aligned
+    if skip:
+        print "%c%s %6.2f %6.2f:"%("*" if skip else " ",fname,perc,avg),""
+    else:
+        print "%c%s %6.2f %6.2f:"%("*" if skip else " ",fname,perc,avg),aligned
 
     if skip: return
 
     # read the raw segmentation
     rseg_file = ocrolib.fvariant(fname,"rseg")
     if not os.path.exists(rseg_file):
-        print rseg_file,": NOT FOUND"
+        print "*"+rseg_file,": NOT FOUND"
         return
     rseg = ocroio.read_line_segmentation(rseg_file)
     rseg_boxes = docproc.seg_boxes(rseg)
