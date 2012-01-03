@@ -44,7 +44,9 @@ def get_images(cname,table='chars'):
                 rel = array([float(x) for x in row.rel.split()])
             except:
                 rel = None
-            yield record(id=row.id,image=image,cls=row.cls,rel=rel)
+            yield record(id=row.id,image=image,cls=row.cls,rel=rel,cost=row.cost,
+                segid=row.segid,count=row.count,cluster=row.cluster,bbox=row.bbox,
+                classes=row.classes,file=row.file)
         del rows
 
 def csnormalize(image,f=0.75):
@@ -82,6 +84,9 @@ parser.add_argument('-r','--pattern',default='.*',help="pattern for characters t
 parser.add_argument('-p','--size',type=int,default=32,help="patchsize; 0 stores pickled Python arrays instead")
 parser.add_argument('-N','--nonormalize',action="store_true",help="do not perform size normalization")
 parser.add_argument('-t','--table',default="chars",help="database table")
+parser.add_argument('-g','--nogeometry',action='store_true',help='do not copy over geometry information')
+parser.add_argument('-e','--extended',action='store_true',help='copy over extended information')
+parser.add_argument('-D','--display',type=int,default=0,help='if non-zero, display characters')
 args = parser.parse_args()
 
 assert args.output is not None
@@ -98,9 +103,18 @@ else:
                               filters=Filters(9))
 
 classes = h5.createEArray(h5.root,'classes',Int64Atom(),shape=(0,),filters=tables.Filters(9))
-rel = None
 table_log(h5,"%s"%sys.argv)
 
+if not args.nogeometry:
+    rel = h5.createEArray(h5.root,'rel',Float32Atom(shape=(3,)),shape=(0,),filters=tables.Filters(9))
+
+if args.extended:
+    cclasses = h5.createVLArray(h5.root,'cclasses',StringAtom(120),filters=Filters(9))
+    files = h5.createVLArray(h5.root,'files',StringAtom(120),filters=Filters(9))
+    bboxes = h5.createEArray(h5.root,'bboxes',Float32Atom(shape=(4,)),shape=(0,),filters=Filters(9))
+    costs = h5.createEArray(h5.root,'costs',Float32Atom(),shape=(0,),filters=tables.Filters(9))
+    segids = h5.createEArray(h5.root,'segids',Int16Atom(),shape=(0,),filters=tables.Filters(9))
+    clusters = h5.createEArray(h5.root,'clusters',Int32Atom(),shape=(0,),filters=tables.Filters(9))
 
 print 'selecting patterns with classes matching: /^'+args.pattern+'$/'
 if args.nonormalize:
@@ -108,16 +122,25 @@ if args.nonormalize:
 else:
     print "normalizing by moments into",size,"x",size,"bounding box"
 
+
 try:
     for r in get_images(args.db,table=args.table):
         if len(classes)>=args.nimages: break
         if not re.match(args.pattern+"$",r.cls): continue
         if len(classes)%1000==0: sys.stdout.write("%d\r"%len(classes)); sys.stdout.flush()
-        if r.rel is not None:
-            if rel is None:
-                rel = h5.createEArray(h5.root,'rel',Float32Atom(shape=(3,)),shape=(0,),filters=tables.Filters(9))
+        if not args.nogeometry:
+            assert rel is not None,"geometry information missing from database; use -g"
             assert len(rel)==len(classes)
             rel.append(r.rel)
+        bbox = [int(x) for x in r.bbox.split()]
+        if args.extended:
+            cclasses.append([r.classes])
+            files.append([r.file])
+            bboxes.append([bbox])
+            costs.append([r.cost])
+            segids.append([int(r.segid or 0)])
+            clusters.append([int(r.cluster or 0)])
+        rshape = r.image.shape
         if size==0:
             images.append(r.image)
         else:
@@ -130,6 +153,9 @@ try:
                 image = improc.pad_by(image,1)
             patches.append([image])
         classes.append([uencode(r.cls)])
+        if args.display>0 and len(classes)%args.display==0:
+            ion(); gray(); clf(); imshow(image); ginput(1,0.001)
+            print r.id,r.cls,rshape,r.rel,r.cost,r.count,r.segid,r.classes,bbox
 finally:
     h5.close()
 
