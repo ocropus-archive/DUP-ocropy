@@ -437,8 +437,10 @@ class CmodelLineRecognizer:
         # extract the recognition lattice from the grouper
         if self.use_ligatures:
             lattice = self.grouper.getLatticeLig()
+            assert lattice is not None
         else:
             lattice = self.grouper.getLattice()
+            assert lattice is not None
 
         # return the raw segmentation as a result
         return lattice,rseg

@@ -111,6 +111,9 @@ def extract(t):
         traceback.print_exc()
         if not options.cont: die("internal error")
         return
+    if lattice is None:
+        print fname,": no output lattice"
+        return
 
     lattice_file = ocrolib.fvariant(fname,"fst",options.suffix)
     if os.path.exists(lattice_file) and not options.overwrite:
@@ -123,10 +126,7 @@ def extract(t):
     ocrolib.write_line_segmentation(rseg_file,rseg)
 
     s = lattice.bestpath()
-    try:
-        print fname,":",s
-    except:
-        print fname,":",repr(s)
+    print fname,":",repr(s)
 
 if options.parallel<2:
     for arg in args: extract(arg)

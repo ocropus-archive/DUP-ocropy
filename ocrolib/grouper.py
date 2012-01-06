@@ -214,6 +214,7 @@ class Grouper(PyComponent):
                         fst.addTransition(state,space_state,c,float(ccost),int(sid))
                         fst.addTransition(space_state,next,32,float(yes),0)
                     state = next
+        return fst
     def getLatticeLig(self,fst=None):
         """Construct the lattice for the group, using the setClass and setSpaceCost information."""
         lig = self.lig
