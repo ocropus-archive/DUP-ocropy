@@ -32,12 +32,13 @@ parser.add_argument("-s","--segmenter",help="segmenter",default="ocrolseg.DpSegm
 parser.add_argument("-S","--suffix",help="suffix for writing rseg/cseg files",default=None)
 parser.add_argument("-O","--overwrite",help="overwrite rseg/cseg files",action="store_true")
 parser.add_argument("-Q","--parallel",type=int,default=number_of_processors(),help="number of parallel processes to use")
-parser.add_argument("-d","--display",help="display progress",action="store_true")
 parser.add_argument("-v","--verbose",help="verbose recognition output",action="store_true")
 parser.add_argument("-V","--verbose2",help="extra verbose recognition output",action="store_true")
 parser.add_argument("-Y","--examine",help="examine recognition for these classes",default=None)
 parser.add_argument('-p','--parameter',default=[],nargs='*',help="linerec parameter (repeat if desired)")
 parser.add_argument('-P','--cparameter',default=[],nargs='*',help="cmodel parameter (repeat if desired)")
+parser.add_argument("-d","--display",help="display progress",action="store_true")
+parser.add_argument('-D','--Display',action='store_true',help='display recognition results for debuggin')
 parser.add_argument("args",default=[],nargs='*',help="input lines")
 options = parser.parse_args()
 args = options.args
@@ -52,7 +53,7 @@ if len(args)==0:
 if len(args)==1 and os.path.isdir(args[0]):
     args = sorted(glob.glob(args[0]+"/????/??????.png"))
 
-if options.display:
+if options.display or options.Display:
     ion()
 
 if options.verbose2: verbose = 2
@@ -79,6 +80,7 @@ elif hasattr(cmodel,'coutputs'):
     linerec.use_ligatures = options.ligatures
     linerec.maxcost = options.maxcost
     linerec.nbest = options.nbest
+    linerec.display = options.Display
 else:
     print "%s (%s): don't know what kind of model this is"%(options.model,cmodel)
 

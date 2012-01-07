@@ -25,6 +25,7 @@ from matplotlib import patches
 import scipy
 import ocrolib
 from ocrolib import fstutils
+import ocrofst
 
 default_model = "2m2-reject.cmodel"
 default_segmenter = "DpSegmenter"
@@ -46,15 +47,16 @@ parser = OptionParser(usage="""
 
 Interactively explore line recognition and line recognition errors.
 """)
+parser.add_option("-s","--segmenter",help="line model",default=None)
+parser.add_option("-m","--recognizer",help="line model",default=None)
+#parser.add_option("-M","--linerecognizer",help="class used for wrapping .cmodels",default="oldlinerec.LineRecognizer")
+parser.add_option("-l","--langmod",help="language model",default=None)
 parser.add_option("-v","--verbose",help="verbose",action="store_true")
-parser.add_option("-s","--spaces",help="count spaces",action="store_true")
+parser.add_option("-S","--spaces",help="count spaces",action="store_true")
 parser.add_option("-c","--case",help="case sensitive",action="store_true")
 parser.add_option("-B","--nbest",help="nbest chars",default=10,type="int")
 parser.add_option("-M","--maxccost",help="maxcost for characters in recognizer",default=10.0,type="float")
 parser.add_option("-b","--beam",help="beam width",default=1000,type="int")
-parser.add_option("-R","--recognizer",help="line model",default=None)
-parser.add_option("-L","--langmod",help="language model",default=None)
-#parser.add_option("-C","--linerecognizer",help="class used for wrapping .cmodels",default="oldlinerec.LineRecognizer")
 (options,args) = parser.parse_args()
 
 if len(args)<1:
@@ -75,6 +77,8 @@ def gtk_yield():
 
 def numpy2pixbuf(a):
     """Convert a numpy array to a pixbuf."""
+    assert amin(a)>-0.1
+    assert amax(a)<1.1
     if len(a.shape)==3:
         data = zeros(list(a.shape),'B')
         data[:,:,:] = 255*a
@@ -119,7 +123,7 @@ def seg2pixbuf(rseg):
 def make_fst(s):
     return fstutils.make_line_fst([s])
     # obsolete
-    fst = ocrolib.OcroFST()
+    fst = ocrofst.OcroFST()
     start = fst.newState()
     fst.setStart(start)
     for i in range(len(s)):
@@ -267,7 +271,7 @@ class LineWindow:
 
             if lmodel is not None:
                 print "fst-lmodel search"
-                result,cost = ocrolib.beam_search_simple(fst,lmodel,options.beam)
+                result,cost = ocrofst.beam_search_simple(fst,lmodel,options.beam)
                 self.lines[i][7] = cost
             else:
                 result = fst.bestpath()
@@ -284,7 +288,7 @@ class LineWindow:
                 # ground truth cost
                 gt_fst = make_fst(gt)
                 print "gt cost"
-                s,cost2 = ocrolib.beam_search_simple(fst,gt_fst,options.beam)
+                s,cost2 = ocrofst.beam_search_simple(fst,gt_fst,options.beam)
                 self.lines[i][8] = cost2
                 # language model cost
                 if self.lmodel is not None:
@@ -338,7 +342,7 @@ class LineWindow:
             lmodel = self.lmodel
         if lmodel is not None:
             print "# beam search, width:",options.beam
-            result,cost = ocrolib.beam_search_simple(fst,lmodel,options.beam)
+            result,cost = ocrofst.beam_search_simple(fst,lmodel,options.beam)
             self.detail("cost: %f\n\n"%cost)
             self.detail("output: %s\n\n"%result)
         else:
@@ -378,7 +382,7 @@ class LineWindow:
         if lmodel is not None:
             print "# alignment"
             self.detail("\naligned segmentation\n")
-            l = ocrolib.compute_alignment(fst,rseg,lmodel,beam=options.beam)
+            l = fstutils.compute_alignment(fst,rseg,lmodel,beam=options.beam)
             result = l.output_l[1:]
             cseg = l.cseg
             costs = l.costs
@@ -389,7 +393,7 @@ class LineWindow:
                 self.detail_pixbuf(colors,lscale)
                 self.detail("\n")
                 self.detail("\nper-character results\n")
-                grouper = ocrolib.StandardGrouper(maxrange=1,maxdist=1)
+                grouper = ocrolib.grouper.Grouper(maxrange=1,maxdist=1)
                 grouper.setSegmentation(cseg)
                 reverse = amax(image)-image
                 for i in range(grouper.length()):
@@ -397,8 +401,7 @@ class LineWindow:
                         if result[i]==' ': continue
                         if grouper.isEmpty(i): continue
                         raw,mask = grouper.extractWithMask(reverse,i,1)
-                        img = 1.0-mask/255.0
-                        self.detail_pixbuf(numpy2pixbuf(img))
+                        self.detail_pixbuf(numpy2pixbuf(1.0-raw/255.0))
                         comb = "*" if grouper.isCombined(i) else ""
                         self.detail(" [%s]%s   "%(result[i],comb))
                         if (i+1)%10==0: self.detail("\n")
@@ -424,18 +427,21 @@ class LineWindow:
                 self.detail("\n")
     def recognizer_update(self,*args):
         file = self.recognizer.get_active_text()
+        assert file is not None and file!=""
         self.recognizer_load(file)
     def segmenter_update(self,*args):
-        name = self.segmenter.get_active_text()
+        self.segmenter_set(self.segmenter.get_active_text())
+    def segmenter_set(self,name):
         comp = ocrolib.make_ISegmentLine(name)
         self.linerec.segmenter = comp
         print "set segmenter to",name,comp
     def recognizer_load(self,file):
+        print "loading recognizer:",file
+        assert file is not None and file!=""
         if file!="none":
             self.linerec = ocrolib.load_linerec(file)
         # self.linerec.debug = 1
         print "loaded",self.linerec
-        self.segmenter_update()
     def langmod_update(self,*args):
         lmodel_name = self.langmod.get_active_text()
         self.langmod_load(lmodel_name)
@@ -443,8 +449,10 @@ class LineWindow:
         lmodel = None
         if lmodel_name[0]=="*":
             lmodel = lmodel_name
+        elif lmodel_name[-4:]==".txt":
+            lmodel = fstutils.load_text_file_as_fst(lmodel_name)
         elif lmodel_name!="none":
-            lmodel = ocrolib.OcroFST()
+            lmodel = ocrofst.OcroFST()
             lmodel.load(lmodel_name)
         self.lmodel = lmodel
         print "loaded",self.lmodel
@@ -467,6 +475,9 @@ def main():
     if options.recognizer is not None:
         app.recognizer_load(options.recognizer)
         app.recognizer.append_text(options.recognizer)
+    if options.segmenter is not None:
+        app.segmenter_set(options.segmenter)
+        app.segmenter.append_text(options.langmod)
     gtk.main()
 
 main()

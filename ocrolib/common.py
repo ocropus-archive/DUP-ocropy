@@ -549,43 +549,74 @@ def mkpython(name):
 def make_ICleanupGray(name):
     """Make a native component or a Python component.  Anything containing
     a "(" is assumed to be a Python component."""
-    return mkpython(name) or CleanupGray().make(name)
+    result = mkpython(name)
+    assert result is not None,"cannot create CleanupGray component for '%s'"%name
+    assert "cleanup_gray" in dir(result)
+    return result
 def make_ICleanupBinary(name):
     """Make a native component or a Python component.  Anything containing
     a "(" is assumed to be a Python component."""
-    return mkpython(name) or CleanupBinary().make(name)
+    result = mkpython(name)
+    assert result is not None,"cannot create CleanupBinary component for '%s'"%name
+    assert "cleanup_binary" in dir(result)
+    return result
 def make_IBinarize(name):
     """Make a native component or a Python component.  Anything containing
     a "(" is assumed to be a Python component."""
-    return mkpython(name) or Binarize().make(name)
+    result = mkpython(name)
+    assert result is not None,"cannot create Binarize component for '%s'"%name
+    assert "binarize" in dir(result)
+    return result
 def make_ITextImageClassification(name):
     """Make a native component or a Python component.  Anything containing
     a "(" is assumed to be a Python component."""
-    return mkpython(name) or TextImageClassification().make(name)
+    result = mkpython(name)
+    assert result is not None,"cannot create TextImageClassification component for '%s'"%name
+    assert "textImageProbabilities" in dir(result)
+    return result
 def make_ISegmentPage(name):
     """Make a native component or a Python component.  Anything containing
     a "(" is assumed to be a Python component."""
-    return mkpython(name) or SegmentPage().make(name)
+    result = mkpython(name)
+    assert result is not None,"cannot create SegmentPage component for '%s'"%name
+    assert "segment" in dir(result)
+    return result
 def make_ISegmentLine(name):
     """Make a native component or a Python component.  Anything containing
     a "(" is assumed to be a Python component."""
-    return mkpython(name) or SegmentLine().make(name)
+    result = mkpython(name)
+    assert result is not None,"cannot create SegmentLine component for '%s'"%name
+    assert "charseg" in dir(result)
+    return result
 def make_IGrouper(name):
     """Make a native component or a Python component.  Anything containing
     a "(" is assumed to be a Python component."""
-    return mkpython(name) or Grouper().make(name)
+    result = mkpython(name)
+    assert result is not None,"cannot create Grouper component for '%s'"%name
+    assert "setSegmentation" in dir(result)
+    assert "getLattice" in dir(result)
+    return result
 def make_IRecognizeLine(name):
     """Make a native component or a Python component.  Anything containing
     a "(" is assumed to be a Python component."""
-    return mkpython(name) or RecognizeLine().make(name)
+    result = mkpython(name)
+    assert result is not None,"cannot create RecognizeLine component for '%s'"%name
+    assert "recognizeLine" in dir(result)
+    return result
 def make_IModel(name):
     """Make a native component or a Python component.  Anything containing
     a "(" is assumed to be a Python component."""
-    return mkpython(name) or Model().make(name)
+    result = mkpython(name)
+    assert result is not None,"cannot create Model component for '%s'"%name
+    assert "outputs" in dir(result)
+    return result
 def make_IExtractor(name):
     """Make a native component or a Python component.  Anything containing
     a "(" is assumed to be a Python component."""
-    return mkpython(name) or Extractor().make(name)
+    result = mkpython(name)
+    assert result is not None,"cannot create Extractor component for: '%s'"%name
+    assert "extract" in dir(name)
+    return result
 
 ################################################################
 ### alignment, segmentations, and conversions

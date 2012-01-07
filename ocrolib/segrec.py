@@ -22,6 +22,7 @@ import common
 import grouper
 from pycomp import PyComponent
 from ocroio import renumber_labels
+from pylab import *
 
 import cPickle as pickle
 pickle_mode = 2
@@ -244,7 +245,8 @@ class CmodelLineRecognizer:
         order to be added as a letter to the lattice."""
         self.gccs = 0
         self.cmodel = None
-        self.debug = 0
+        self.display = 0
+        self.display_shape = (7,7)
         self.minsegs = 3
         self.spaces = 1 # add spaces (turn off for debugging)
         self.maxspacecost = 20.0
@@ -300,7 +302,8 @@ class CmodelLineRecognizer:
 
         # compute the raw segmentation
         rseg = self.segmenter.charseg(image)
-        if self.debug: show_segmentation(rseg) # FIXME
+        # if self.display:
+        # show_segmentation(rseg) # FIXME
         rseg = renumber_labels(rseg,1) # FIXME
         if amax(rseg)<self.minsegs: 
             raise common.RecognitionError("not enough segments in raw segmentation",rseg=rseg)
@@ -334,6 +337,11 @@ class CmodelLineRecognizer:
         # this holds the list of recognized characters if keep!=0
         self.chars = []
         
+        # debugging display
+        if self.display:
+            clf()
+            gray()
+
         # now iterate through the characters
         for i in range(self.grouper.length()):
             # get the bounding box for the character (used later)
@@ -353,9 +361,6 @@ class CmodelLineRecognizer:
             # extract the character image (and optionally display it)
             (raw,mask) = self.grouper.extractWithMask(image,i,1)
             char = raw/255.0
-            if self.debug:
-                imshow(char)
-                raw_input()
 
             # Add a skip transition with the pixel width as cost.
             # This ensures that the lattice is at least connected.
@@ -369,7 +374,6 @@ class CmodelLineRecognizer:
             outputs = self.cmodel.coutputs(char,geometry=rel)
             assert len(set(map(lambda x:x[0],outputs)))==len(outputs),"classifier outputs contains repeated classes"
             outputs = [(x[0],-log(x[1])) for x in outputs]
-            self.chars.append(common.Record(index=i,image=char,outputs=outputs,comb=self.grouper.isCombined(i)))
             # print "@@@",i,self.grouper.getSegments(i),outputs[:2]
 
             # estimate the space cost
@@ -433,6 +437,29 @@ class CmodelLineRecognizer:
                 if self.spaces:
                     self.grouper.setSpaceCost(i,float(yes_space),float(no_space))
 
+            # display it for debugging purposes
+            if self.display:
+                cls,cost = outputs[0]
+                subplot(self.display_shape[0],self.display_shape[1],1+i%prod(self.display_shape))
+                gca().set_frame_on(False)
+                if cost>0.2: ylabel("%d"%int(10*cost),color='red',size=10)
+                xlabel("%d %s"%(i,cls),color='blue',size=10)
+                xticks([])
+                yticks([])
+                imshow(char); ginput(1,0.001)
+                if (i+1)%prod(self.display_shape)==0:
+                    ginput(1,10000)
+                    clf()
+                    ginput(1,0.001)
+                
+
+            # record information for debugging
+            self.chars.append(common.Record(index=i,
+                                            image=char,
+                                            outputs=outputs,
+                                            segcost=segcost,
+                                            comb=self.grouper.isCombined(i)))
+
 
         # extract the recognition lattice from the grouper
         if self.use_ligatures:
@@ -441,6 +468,9 @@ class CmodelLineRecognizer:
         else:
             lattice = self.grouper.getLattice()
             assert lattice is not None
+
+        if self.display:
+            ginput(1,10000)
 
         # return the raw segmentation as a result
         return lattice,rseg
