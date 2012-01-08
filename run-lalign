@@ -1,0 +1,17 @@
+#!/bin/sh
+
+find book | egrep '(unlv|uw3)/..../......(\.[a-z]+|)\.gt\.[a-z]+$' | xargs -r rm -v
+
+test -f laligned.db && rm laligned.db 
+
+# workaround for problem with current classifier
+cat > confusions <<EOF
+f ff 0.0
+f fi 0.0
+f fl 0.0
+f ft 0.0
+EOF
+
+$HOME/ocropus/ocropy/ocropus-lalign -T confusions -M 2 -A 2 -x laligned.db -p unlv/????.gt.txt uw3/????.gt.txt 
+
+chmod a-w laligned.db
