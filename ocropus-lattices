@@ -50,8 +50,20 @@ if len(args)==0:
     parser.print_help()
     sys.exit(0)
 
-if len(args)==1 and os.path.isdir(args[0]):
-    args = sorted(glob.glob(args[0]+"/????/??????.png"))
+# expand directories
+temp = []
+count = 0
+for arg in args:
+    if os.path.isdir(arg) or os.path.isdir(arg+"/."):
+        files = sorted(glob.glob(args[0]+"/????/??????.png"))
+        print "adding",len(files),"files from",arg)
+        assert len(files)>0
+        temp += files
+    else:
+        temp.append(arg)
+        count += 1
+print "added",count,"files directly"
+args = temp
 
 if options.display or options.Display:
     ion()
@@ -134,4 +146,7 @@ if options.parallel<2:
     for arg in args: extract(arg)
 else:
     pool = Pool(processes=options.parallel)
-    result = pool.map(extract,args)
+    result = []
+    for r in pool.imap(extract,args):
+        result.append(r)
+        if len(result)%100==0: print "==========",len(result),len(jobs),"=========="

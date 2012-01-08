@@ -30,7 +30,9 @@ parser.add_argument("-x","--extract",help="extract characters",default=None)
 parser.add_argument("-X","--noextract",help="don't actually write files",action="store_true")
 parser.add_argument("-B","--beam",help="size of beam",type=int,default=100)
 parser.add_argument("-T","--confusions",help="confusion table (lattice output cost)",default=None)
+parser.add_argument("-r","--rejects",help="save rejects as well",action="store_true")
 
+parser.add_argument("-f","--filelist",help="list of images and langmods",default=None)
 parser.add_argument("-g","--gt",help="extension for ground truth",default=None)
 parser.add_argument("-p","--pagegt",help="arguments are page ground truth",action="store_true")
 parser.add_argument("--ppat",default=".*",help="file pattern to match with -p")
@@ -119,6 +121,9 @@ class DbWriter:
         self.db.commit()
         self.db.close()
         del self.db
+    def close(self):
+        self.db.commit()
+        self.db.close()
     def insert(self,image,cls,cost=0.0,count=0,file=None,lgeo=None,rel=None,bbox=None):
         dbhelper.dbinsert(self.db,"chars",
                           image=dbhelper.image2blob(image),
@@ -437,7 +442,7 @@ def align1(job):
                         yticks([])
                         print "output %3d %3d cls %-5s cost %6.2f    "%(start,end,cls,cost),
                         print "y %6.2f w %6.2f h %6.2f"%(rel[0],rel[1],rel[2])
-                if db is not None:
+                if db is not None and (cls!="~" or args.rejects):
                     db.insert(image=raw,
                               cost=float(cost),
                               cls=cls,
@@ -459,7 +464,11 @@ def safe_align1(job):
 
 jobs = []
 
-if args.pagegt:
+if args.filelist:
+    for line in open(args.filelist).readlines():
+        image,lmod = line.strip().split(2)
+        jobs.append((image,lmod))
+elif args.pagegt:
     if len(args.args)==1 and os.path.isdir(args.args[0]):
         files = glob.glob(args[0]+"/*.gt.txt")
     else:
@@ -483,9 +492,20 @@ elif args.langmod:
     for arg in args.args:
         jobs.append((arg,args.langmod))
 elif args.gt is not None:
-    if len(args.args)==1 and (os.path.isdir(args.args[0]) or os.path.islink(args.args[0])):
-        args = glob.glob(args[0]+"/????/??????.png")
+    args = []
+    count = 0
     for arg in args.args:
+        if os.path.isdir(arg) or os.path.isdir(arg+"/."):
+            files = sorted(glob.glob(args[0]+"/????/??????.png"))
+            print "adding",len(files),"files from",arg)
+            assert len(files)>0
+            args += files
+        else:
+            args.append(arg)
+            count += 1
+    print "added",count,"files directly"
+    args = args
+    for arg in args:
         path,ext = ocrolib.allsplitext(arg)
         p = path+args.gt
         if not os.path.exists(arg):
@@ -498,8 +518,13 @@ elif args.gt is not None:
 else:
     raise Exception("you need to specify what kind of groundtruth you want to align with (-p, -l, -g)")
 
+print "got",len(jobs),"jobs"
+
 if args.parallel<2:
     for arg in jobs: align1(arg)
 else:
     pool = Pool(processes=args.parallel)
-    result = pool.map(safe_align1,jobs)
+    r = []
+    for r in pool.imap(safe_align1,jobs):
+        result.append(r)
+        if len(result)%100==0: print "==========",len(result),len(jobs),"=========="

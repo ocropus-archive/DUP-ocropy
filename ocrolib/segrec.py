@@ -446,7 +446,7 @@ class CmodelLineRecognizer:
                 xlabel("%d %s"%(i,cls),color='blue',size=10)
                 xticks([])
                 yticks([])
-                imshow(char); ginput(1,0.001)
+                imshow(char,interpolation='nearest'); ginput(1,0.001)
                 if (i+1)%prod(self.display_shape)==0:
                     ginput(1,10000)
                     clf()
