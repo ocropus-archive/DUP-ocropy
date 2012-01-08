@@ -237,7 +237,8 @@ class Grouper(PyComponent):
                 state = states[start]
                 next = states[end+1]
                 c = lig.ord(cls)
-                assert c is not None and c>0,"classifier output ligature that the encoder doesn't know (%d)"%code
+                if c is None or c<0:
+                    raise common.RecognitionError("unknown output ligature: %s"%cls)
                 # no space
                 ccost = cost + no
                 if ccost<1000.0:

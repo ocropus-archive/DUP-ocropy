@@ -497,7 +497,7 @@ elif args.gt is not None:
     for arg in args.args:
         if os.path.isdir(arg) or os.path.isdir(arg+"/."):
             files = sorted(glob.glob(args[0]+"/????/??????.png"))
-            print "adding",len(files),"files from",arg)
+            print "adding",len(files),"files from",arg
             assert len(files)>0
             args += files
         else:
