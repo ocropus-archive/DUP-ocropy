@@ -138,8 +138,6 @@ class DbWriter:
                           bbox="%d %d %d %d"%bbox if bbox else None)
     def __exit__(self,*args):
         self.db.commit()
-    def close(self):
-        self.db.commit()
         self.db.close()
 
 def csnormalize(image,f=0.75):
@@ -175,26 +173,20 @@ def uencode(s):
 
 class Hdf5Writer:
     def __init__(self,fname,mode="w",size=32):
-        self.fname = fname
         self.size = size
-        self.lock = open(fname+".lock","w+")
-        with tables.openFile(fname,mode) as h5:
-            from tables import *
-            h5.createEArray(h5.root,'patches',Float32Atom(),shape=(0,size,size),filters=Filters(9))
-            h5.createEArray(h5.root,'classes',Int64Atom(),shape=(0,),filters=tables.Filters(9))
-            h5.createEArray(h5.root,'costs',Float32Atom(),shape=(0,),filters=tables.Filters(9))
-            h5.createVLArray(h5.root,'files',StringAtom(120),filters=Filters(9))
-            h5.createEArray(h5.root,'rel',Float32Atom(shape=(3,)),shape=(0,),filters=tables.Filters(9))
-            h5.createEArray(h5.root,'bboxes',Float32Atom(shape=(4,)),shape=(0,),filters=Filters(9))
-            # h5.createVLArray(h5.root,'cclasses',StringAtom(120),filters=Filters(9))
-            # h5.createEArray(h5.root,'segids',Int16Atom(),shape=(0,),filters=tables.Filters(9))
-            # h5.createEArray(h5.root,'clusters',Int32Atom(),shape=(0,),filters=tables.Filters(9))
-        self.h5 = None
-    def flush(self):
-        if self.h5 is not None: self.h5.flush()
+        h5 = tables.openFile(fname,mode)
+        from tables import *
+        h5.createEArray(h5.root,'patches',Float32Atom(),shape=(0,size,size),filters=Filters(9))
+        h5.createEArray(h5.root,'classes',Int64Atom(),shape=(0,),filters=tables.Filters(9))
+        h5.createEArray(h5.root,'costs',Float32Atom(),shape=(0,),filters=tables.Filters(9))
+        h5.createVLArray(h5.root,'files',StringAtom(120),filters=Filters(9))
+        h5.createEArray(h5.root,'rel',Float32Atom(shape=(3,)),shape=(0,),filters=tables.Filters(9))
+        h5.createEArray(h5.root,'bboxes',Float32Atom(shape=(4,)),shape=(0,),filters=Filters(9))
+        # h5.createVLArray(h5.root,'cclasses',StringAtom(120),filters=Filters(9))
+        # h5.createEArray(h5.root,'segids',Int16Atom(),shape=(0,),filters=tables.Filters(9))
+        # h5.createEArray(h5.root,'clusters',Int32Atom(),shape=(0,),filters=tables.Filters(9))
+        self.h5 = h5
     def __enter__(self):
-        fcntl.lockf(self.lock,fcntl.LOCK_EX)
-        self.h5 = tables.openFile(self.fname,"r+")
         return self
     def insert(self,image,cls,cost=0.0,count=0,file=None,lgeo=None,rel=None,bbox=None):
         if amax(image)==amin(image):
@@ -208,27 +200,12 @@ class Hdf5Writer:
         h5.root.patches.append([image])
         h5.root.classes.append([uencode(cls)])
         h5.root.costs.append([cost])
-        h5.root.files.append([file])
+        h5.root.files.append(file)
         h5.root.rel.append([array(rel,'f')])
         h5.root.bboxes.append([array(bbox,'f')])
     def __exit__(self,*args):
         self.h5.close()
         self.h5 = None
-        fcntl.lockf(self.lock,fcntl.LOCK_UN)
-    def close(self):
-        self.lock.close()
-        if self.h5 is not None: self.h5.close()
-        self.h5 = None
-
-extract_db = NullDb()
-if args.extract is not None:
-    if args.extract[-3:]==".db":
-        extract_db = DbWriter(args.extract)
-    elif args.extract[-3:]==".h5":
-        extract_db = Hdf5Writer(args.extract)
-    else:
-        print "unknown database extension",args.extract
-        sys.exit(1)
 
 import codecs
 import openfst
@@ -496,64 +473,66 @@ def align1(job):
         # true ground truth (best-matching line in the original transcription)
         ocrolib.write_text(ocrolib.fvariant(fname,"txt",args.suffix),bestline)
 
-    if args.extract is not None or args.Display:
-        iraw = 0
-        if args.Display:
-            ion(); clf()
-            
-        line = ocrolib.read_image_gray(ocrolib.fvariant(fname,"png"))
-        line = amax(line)-line
-        lgeo = docproc.seg_geometry(rseg)
-        grouper = ocrolib.Grouper()
-        grouper.setSegmentation(rseg)
-        with extract_db as db:
-            for i in range(grouper.length()):
-                raw,mask = grouper.extractWithMask(line,i,dtype='B')
-                # ion(); gray(); subplot(121); imshow(raw); subplot(122); imshow(mask); ginput(1,3)
-                start = grouper.start(i)
-                end = grouper.end(i)
-                bbox = grouper.boundingBox(i)
-                y0,x0,y1,x1 = bbox
-                rel = docproc.rel_char_geom((y0,y1,x0,x1),lgeo)
-                ry,rw,rh = rel
-                assert rw>0 and rh>0
-                if (start,end) in segs:
-                    index = segs.index((start,end))
-                    cls = sresult[index]
-                    cost = costs[index]
-                else:
-                    cls = "~"
-                    cost = 0.0
-                if cls!="~":
-                    if args.Display:
-                        iraw += 1
-                        subplot(args.dgrid,args.dgrid,iraw)
-                        gray(); imshow(raw)
-                        #gca().text(0.1,-0.1,"%d/%s"%(i,cls),transform=ax.transAxes,color='green')
-                        gca().set_frame_on(False)
-                        if cost>0.2:
-                            ylabel("%d "%int(10*cost),color='red',size=10)
-                        xlabel("%-3s %d"%(cls,i),color='blue',size=10)
-                        xticks([])
-                        yticks([])
-                        print "output %3d %3d cls %-5s cost %6.2f    "%(start,end,cls,cost),
-                        print "y %6.2f w %6.2f h %6.2f"%(rel[0],rel[1],rel[2])
-                if cls!="~" or args.rejects:
-                    db.insert(image=raw,
-                              cost=float(cost),
-                              cls=cls,
-                              count=1,
-                              file=fname,
-                              lgeo=lgeo,
-                              rel=rel,
-                              bbox=bbox)
+    result = []
+    iraw = 0
+    if args.Display:
+        ion(); clf()
+
+    line = ocrolib.read_image_gray(ocrolib.fvariant(fname,"png"))
+    line = amax(line)-line
+    lgeo = docproc.seg_geometry(rseg)
+    grouper = ocrolib.Grouper()
+    grouper.setSegmentation(rseg)
+    results = []
+    for i in range(grouper.length()):
+        raw,mask = grouper.extractWithMask(line,i,dtype='B')
+        # ion(); gray(); subplot(121); imshow(raw); subplot(122); imshow(mask); ginput(1,3)
+        start = grouper.start(i)
+        end = grouper.end(i)
+        bbox = grouper.boundingBox(i)
+        y0,x0,y1,x1 = bbox
+        rel = docproc.rel_char_geom((y0,y1,x0,x1),lgeo)
+        ry,rw,rh = rel
+        assert rw>0 and rh>0
+        if (start,end) in segs:
+            index = segs.index((start,end))
+            cls = sresult[index]
+            cost = costs[index]
+        else:
+            cls = "~"
+            cost = 0.0
+        if cls!="~":
+            if args.Display:
+                iraw += 1
+                subplot(args.dgrid,args.dgrid,iraw)
+                gray(); imshow(raw)
+                #gca().text(0.1,-0.1,"%d/%s"%(i,cls),transform=ax.transAxes,color='green')
+                gca().set_frame_on(False)
+                if cost>0.2:
+                    ylabel("%d "%int(10*cost),color='red',size=10)
+                xlabel("%-3s %d"%(cls,i),color='blue',size=10)
+                xticks([])
+                yticks([])
+                print "output %3d %3d cls %-5s cost %6.2f    "%(start,end,cls,cost),
+                print "y %6.2f w %6.2f h %6.2f"%(rel[0],rel[1],rel[2])
+        if cls!="~" or args.rejects:
+            results.append(Record(image=raw,
+                                  cost=float(cost),
+                                  cls=cls,
+                                  count=1,
+                                  file=fname,
+                                  lgeo=lgeo,
+                                  rel=rel,
+                                  bbox=bbox))
     if args.Display: ginput(1,10000)
+    return results
 
 def safe_align1(job):
     try:
-        align1(job)
+        return align1(job)
     except:
         traceback.print_exc()
+        return []
 
 jobs = []
 
@@ -616,13 +595,29 @@ else:
 print "got",len(jobs),"jobs"
 if len(jobs)>args.nlines: jobs = jobs[:args.nlines]
 
-if args.parallel<2:
-    for arg in jobs: align1(arg)
-else:
-    pool = Pool(processes=args.parallel)
-    result = []
-    for r in pool.imap(safe_align1,jobs):
-        result.append(r)
-        if len(result)%100==0: print "==========",len(result),len(jobs),"=========="
+extract_db = NullDb()
+if args.extract is not None:
+    if args.extract[-3:]==".db":
+        extract_db = DbWriter(args.extract)
+    elif args.extract[-3:]==".h5":
+        extract_db = Hdf5Writer(args.extract)
+    else:
+        print "unknown database extension",args.extract
+        sys.exit(1)
 
-extract_db.close()
+with extract_db as db:
+    if args.parallel<2:
+        for arg in jobs:
+            results = align1(arg)
+            if results is None: continue
+            for r in results:
+                db.insert(image=r.image,cls=r.cls,cost=r.cost,count=1,file=r.file,lgeo=r.lgeo,rel=r.rel,bbox=r.bbox)
+    else:
+        pool = Pool(processes=args.parallel)
+        n = 0
+        for results in pool.imap(safe_align1,jobs):
+            n += 1
+            if results is None: continue
+            for r in results:
+                db.insert(image=r.image,cls=r.cls,cost=r.cost,count=1,file=r.file,lgeo=r.lgeo,rel=r.rel,bbox=r.bbox)
+            if n%100==0: print "==========",n,len(jobs),"=========="
