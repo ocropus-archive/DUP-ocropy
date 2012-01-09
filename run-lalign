@@ -3,7 +3,7 @@
 echo -n erasing...
 find uw3/ unlv/ | egrep '/..../......\.(gt.costs|gt.fst|gt.txt|rseg.gt.png|cseg.gt.png)$' | xargs -r rm -v | wc -l
 
-output=laligned.db
+output=laligned.h5
 
 test -f $output && rm $output
 
@@ -20,6 +20,6 @@ f ft 0.0
 EOF
 
 # $HOME/ocropus/ocropy/ocropus-lalign -r -s gt -T confusions -M 2 -A 2 -x laligned.db -p unlv/????.gt.txt uw3/????.gt.txt 
-$HOME/ocropus/ocropy/ocropus-lalign -r -s gt -T confusions -M 2 -A 2 -x $output -p unlv/????.gt.txt uw3/????.gt.txt  --nlines 100
+$HOME/ocropus/ocropy/ocropus-lalign -r -s gt -T confusions -M 2 -A 2 -x $output -p unlv/????.gt.txt uw3/????.gt.txt
 
 # chmod a-w laligned.db

@@ -153,6 +153,6 @@ if options.parallel<2:
 else:
     pool = Pool(processes=options.parallel)
     result = []
-    for r in pool.imap(extract,args):
+    for r in pool.imap_unordered(extract,args):
         result.append(r)
         if len(result)%100==0: print "==========",len(result),len(args),"=========="

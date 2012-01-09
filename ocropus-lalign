@@ -615,7 +615,7 @@ with extract_db as db:
     else:
         pool = Pool(processes=args.parallel)
         n = 0
-        for results in pool.imap(safe_align1,jobs):
+        for results in pool.imap_unordered(safe_align1,jobs):
             n += 1
             if results is None: continue
             for r in results:
