@@ -63,6 +63,7 @@ parser.add_argument("--debug_rawalign",action="store_true")
 parser.add_argument("--debug_aligned",action="store_true")
 parser.add_argument("--debug_select",action="store_true")
 parser.add_argument('--dgrid',default=8,help="grid size for display")
+parser.add_argument('--nlines',default=999999999,type=int,help="max # lines to process (for testing)")
 
 parser.add_argument("args",default=[],nargs='*',help="input lines)")
 # args = parser.parse_args(["-D","-y","-x","temp.db"])
@@ -106,6 +107,14 @@ print repr(args.extract)
 if args.extract is not None:
     assert not os.path.exists(args.extract),"%s: already exists; please remove"%args.extract
 
+class NullDb:
+    def __enter__(self,*args):
+        pass
+    def __exit__(self,*args):
+        pass
+    def insert(self,*args,**kw):
+        pass
+
 class DbWriter:
     def __init__(self,fname):
         if not os.path.exists(fname):
@@ -117,13 +126,6 @@ class DbWriter:
         self.db = db
     def __enter__(self):
         return self
-    def __exit__(self,*args):
-        self.db.commit()
-        self.db.close()
-        del self.db
-    def close(self):
-        self.db.commit()
-        self.db.close()
     def insert(self,image,cls,cost=0.0,count=0,file=None,lgeo=None,rel=None,bbox=None):
         dbhelper.dbinsert(self.db,"chars",
                           image=dbhelper.image2blob(image),
@@ -134,6 +136,99 @@ class DbWriter:
                           lgeo="%g %g %g"%lgeo if lgeo else None,
                           rel="%g %g %g"%rel if rel else None,
                           bbox="%d %d %d %d"%bbox if bbox else None)
+    def __exit__(self,*args):
+        self.db.commit()
+    def close(self):
+        self.db.commit()
+        self.db.close()
+
+def csnormalize(image,f=0.75):
+    bimage = 1*(image>mean([amax(image),amin(image)]))
+    w,h = bimage.shape
+    [xs,ys] = mgrid[0:w,0:h]
+    s = sum(bimage)
+    if s<1e-4: return image
+    s = 1.0/s
+    cx = sum(xs*bimage)*s
+    cy = sum(ys*bimage)*s
+    sxx = sum((xs-cx)**2*bimage)*s
+    sxy = sum((xs-cx)*(ys-cy)*bimage)*s
+    syy = sum((ys-cy)**2*bimage)*s
+    w,v = eigh(array([[sxx,sxy],[sxy,syy]]))
+    l = sqrt(amax(w))
+    scale = f*max(image.shape)/(4.0*l)
+    m = array([[1.0/scale,0],[0.0,1.0/scale]])
+    w,h = image.shape
+    c = array([cx,cy])
+    d = c-dot(m,array([w/2,h/2]))
+    image = interpolation.affine_transform(image,m,offset=d,order=1)
+    return image
+
+import tables,fcntl
+
+def uencode(s):
+    """Convert a short unicode string into a 64bit integer"""
+    assert len(s)<=4
+    result = 0
+    for c in s[len(s)-1::-1]: result = (result<<16)|ord(c)
+    return result
+
+class Hdf5Writer:
+    def __init__(self,fname,mode="w",size=32):
+        self.fname = fname
+        self.size = size
+        self.lock = open(fname+".lock","w+")
+        with tables.openFile(fname,mode) as h5:
+            from tables import *
+            h5.createEArray(h5.root,'patches',Float32Atom(),shape=(0,size,size),filters=Filters(9))
+            h5.createEArray(h5.root,'classes',Int64Atom(),shape=(0,),filters=tables.Filters(9))
+            h5.createEArray(h5.root,'costs',Float32Atom(),shape=(0,),filters=tables.Filters(9))
+            h5.createVLArray(h5.root,'files',StringAtom(120),filters=Filters(9))
+            h5.createEArray(h5.root,'rel',Float32Atom(shape=(3,)),shape=(0,),filters=tables.Filters(9))
+            h5.createEArray(h5.root,'bboxes',Float32Atom(shape=(4,)),shape=(0,),filters=Filters(9))
+            # h5.createVLArray(h5.root,'cclasses',StringAtom(120),filters=Filters(9))
+            # h5.createEArray(h5.root,'segids',Int16Atom(),shape=(0,),filters=tables.Filters(9))
+            # h5.createEArray(h5.root,'clusters',Int32Atom(),shape=(0,),filters=tables.Filters(9))
+        self.h5 = None
+    def flush(self):
+        if self.h5 is not None: self.h5.flush()
+    def __enter__(self):
+        fcntl.lockf(self.lock,fcntl.LOCK_EX)
+        self.h5 = tables.openFile(self.fname,"r+")
+        return self
+    def insert(self,image,cls,cost=0.0,count=0,file=None,lgeo=None,rel=None,bbox=None):
+        if amax(image)==amin(image):
+            image = zeros((self.size,self.size))
+        else:
+            image = docproc.isotropic_rescale(image,self.size)
+            image = csnormalize(image)
+            image = image*1.0/amax(image)
+        # ion(); clf(); gray(); imshow(image); ginput(1,0.1)
+        h5 = self.h5
+        h5.root.patches.append([image])
+        h5.root.classes.append([uencode(cls)])
+        h5.root.costs.append([cost])
+        h5.root.files.append([file])
+        h5.root.rel.append([array(rel,'f')])
+        h5.root.bboxes.append([array(bbox,'f')])
+    def __exit__(self,*args):
+        self.h5.close()
+        self.h5 = None
+        fcntl.lockf(self.lock,fcntl.LOCK_UN)
+    def close(self):
+        self.lock.close()
+        if self.h5 is not None: self.h5.close()
+        self.h5 = None
+
+extract_db = NullDb()
+if args.extract is not None:
+    if args.extract[-3:]==".db":
+        extract_db = DbWriter(args.extract)
+    elif args.extract[-3:]==".h5":
+        extract_db = Hdf5Writer(args.extract)
+    else:
+        print "unknown database extension",args.extract
+        sys.exit(1)
 
 import codecs
 import openfst
@@ -411,9 +506,7 @@ def align1(job):
         lgeo = docproc.seg_geometry(rseg)
         grouper = ocrolib.Grouper()
         grouper.setSegmentation(rseg)
-        db = None
-        try:
-            if args.extract is not None: db = DbWriter(args.extract)
+        with extract_db as db:
             for i in range(grouper.length()):
                 raw,mask = grouper.extractWithMask(line,i,dtype='B')
                 # ion(); gray(); subplot(121); imshow(raw); subplot(122); imshow(mask); ginput(1,3)
@@ -445,7 +538,7 @@ def align1(job):
                         yticks([])
                         print "output %3d %3d cls %-5s cost %6.2f    "%(start,end,cls,cost),
                         print "y %6.2f w %6.2f h %6.2f"%(rel[0],rel[1],rel[2])
-                if db is not None and (cls!="~" or args.rejects):
+                if cls!="~" or args.rejects:
                     db.insert(image=raw,
                               cost=float(cost),
                               cls=cls,
@@ -454,9 +547,6 @@ def align1(job):
                               lgeo=lgeo,
                               rel=rel,
                               bbox=bbox)
-        finally:
-            if db is not None: db.close()
-            del db
     if args.Display: ginput(1,10000)
 
 def safe_align1(job):
@@ -476,21 +566,23 @@ elif args.pagegt:
         files = glob.glob(args[0]+"/*.gt.txt")
     else:
         files = args.args
+    missing_pagedir = 0
     for arg in files:
         if not os.path.exists(arg):
             print "# %s: not found"%arg
             continue
         base,_ = ocrolib.allsplitext(arg)
         if not os.path.exists(base) or not os.path.isdir(base):
-            print "["+base+"?]"
-            sys.stdout.flush()
+            # print "# %s: dir not found"
+            # sys.stdout.flush()
+            missing_pagedir += 1
             continue
         lines = glob.glob(base+"/??????.png")
         for line in lines:
             if not re.search(args.ppat,line): 
                 continue
             jobs.append((line,arg))
-    print
+    print "number of page files",len(files),"number missing line dirs",missing_pagedir
 elif args.langmod:
     for arg in args.args:
         jobs.append((arg,args.langmod))
@@ -519,9 +611,10 @@ elif args.gt is not None:
             continue
         jobs.append((arg,p))
 else:
-    raise Exception("you need to specify what kind of groundtruth you want to align with (-p, -l, -g)")
+    raise Exception("you need to specify what kind of groundtruth you want to align with (-f, -p, -l, -g)")
 
 print "got",len(jobs),"jobs"
+if len(jobs)>args.nlines: jobs = jobs[:args.nlines]
 
 if args.parallel<2:
     for arg in jobs: align1(arg)
@@ -531,3 +624,5 @@ else:
     for r in pool.imap(safe_align1,jobs):
         result.append(r)
         if len(result)%100==0: print "==========",len(result),len(jobs),"=========="
+
+extract_db.close()
