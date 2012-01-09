@@ -247,8 +247,11 @@ def align1(job):
         print "*"+fst_file,": NOT FOUND"
         return
     fst = ocrofst.OcroFST()
-    fst.load(fst_file)
-
+    try: fst.load(fst_file)
+    except:
+        print "*"+fst_file,": load failed"
+        return
+        
     bestcost = 1e38
     bestline = None
     bestfst = None
@@ -390,13 +393,13 @@ def align1(job):
             if os.path.exists(cseg_file): die("%s: already exists",cseg_file)
         ocrolib.write_line_segmentation(cseg_file,cseg)
         # aligned text line
-        ocrolib.write_text(ocrolib.fvariant(fname,"txt",args.suffix),aligned)
+        ocrolib.write_text(ocrolib.fvariant(fname,"txt","aligned"),aligned)
         # per character costs
         with ocrolib.fopen(fname,"costs",args.suffix,mode="w") as stream:
             for i in range(len(costs)):
                 stream.write("%d %g\n"%(i,costs[i]))
         # true ground truth (best-matching line in the original transcription)
-        ocrolib.write_text(ocrolib.fvariant(fname,"tru",args.suffix),bestline)
+        ocrolib.write_text(ocrolib.fvariant(fname,"txt",args.suffix),bestline)
 
     if args.extract is not None or args.Display:
         iraw = 0
@@ -524,7 +527,7 @@ if args.parallel<2:
     for arg in jobs: align1(arg)
 else:
     pool = Pool(processes=args.parallel)
-    r = []
+    result = []
     for r in pool.imap(safe_align1,jobs):
         result.append(r)
         if len(result)%100==0: print "==========",len(result),len(jobs),"=========="

@@ -133,7 +133,7 @@ def extract(t):
     lattice_file = ocrolib.fvariant(fname,"fst",options.suffix)
     if os.path.exists(lattice_file) and not options.overwrite:
         die("%s: %s",lattice_file,"already exists")
-    if 0:
+    if 1:
         lattice.save(lattice_file)
     else:
         olattice = lattice.as_openfst()
