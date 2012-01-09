@@ -28,6 +28,7 @@ parser = argparse.ArgumentParser(description = """
 
 parser.add_argument("-x","--extract",help="extract characters",default=None)
 parser.add_argument("-X","--noextract",help="don't actually write files",action="store_true")
+parser.add_argument("-N","--normalize",help="size normalize characters",action="store_true")
 parser.add_argument("-B","--beam",help="size of beam",type=int,default=100)
 parser.add_argument("-T","--confusions",help="confusion table (lattice output cost)",default=None)
 parser.add_argument("-r","--rejects",help="save rejects as well",action="store_true")
@@ -114,6 +115,8 @@ class NullDb:
         pass
     def insert(self,*args,**kw):
         pass
+    def insertAll(self,*args,**kw):
+        pass
 
 class DbWriter:
     def __init__(self,fname):
@@ -136,6 +139,9 @@ class DbWriter:
                           lgeo="%g %g %g"%lgeo if lgeo else None,
                           rel="%g %g %g"%rel if rel else None,
                           bbox="%d %d %d %d"%bbox if bbox else None)
+    def insertAll(self,records):
+        for r in records:
+            self.insert(image=r.image,cls=r.cls,cost=r.cost,file=r.file,lgeo=r.lgeo,rel=r.rel,bbox=r.bbox)
     def __exit__(self,*args):
         self.db.commit()
         self.db.close()
@@ -160,6 +166,15 @@ def csnormalize(image,f=0.75):
     c = array([cx,cy])
     d = c-dot(m,array([w/2,h/2]))
     image = interpolation.affine_transform(image,m,offset=d,order=1)
+    return image
+
+def csnormalize1(image,size=32):
+    if amax(image)==amin(image):
+        image = zeros((size,size))
+    else:
+        image = docproc.isotropic_rescale(image,size)
+        image = csnormalize(image)
+        image = image*1.0/amax(image)
     return image
 
 import tables,fcntl
@@ -189,12 +204,7 @@ class Hdf5Writer:
     def __enter__(self):
         return self
     def insert(self,image,cls,cost=0.0,count=0,file=None,lgeo=None,rel=None,bbox=None):
-        if amax(image)==amin(image):
-            image = zeros((self.size,self.size))
-        else:
-            image = docproc.isotropic_rescale(image,self.size)
-            image = csnormalize(image)
-            image = image*1.0/amax(image)
+        assert image.shape==(self.size,self.size),"wrong image shape: %s"%(image.shape,)
         # ion(); clf(); gray(); imshow(image); ginput(1,0.1)
         h5 = self.h5
         h5.root.patches.append([image])
@@ -203,6 +213,14 @@ class Hdf5Writer:
         h5.root.files.append(file)
         h5.root.rel.append([array(rel,'f')])
         h5.root.bboxes.append([array(bbox,'f')])
+    def insertAll(self,records):
+        h5 = self.h5
+        h5.root.patches.append(array([r.image for r in records],'f'))
+        h5.root.classes.append(array([uencode(r.cls) for r  in records],'int64'))
+        h5.root.costs.append([r.cost for r in records])
+        h5.root.files.append([r.file for r in records])
+        h5.root.rel.append([array(r.rel,'f') for r in records])
+        h5.root.bboxes.append([array(r.bbox,'f') for r in records])
     def __exit__(self,*args):
         self.h5.close()
         self.h5 = None
@@ -516,6 +534,7 @@ def align1(job):
                 print "output %3d %3d cls %-5s cost %6.2f    "%(start,end,cls,cost),
                 print "y %6.2f w %6.2f h %6.2f"%(rel[0],rel[1],rel[2])
         if cls!="~" or args.rejects:
+            if args.normalize: raw = csnormalize1(raw)
             results.append(Record(image=raw,
                                   cost=float(cost),
                                   cls=cls,
@@ -601,6 +620,7 @@ if args.extract is not None:
         extract_db = DbWriter(args.extract)
     elif args.extract[-3:]==".h5":
         extract_db = Hdf5Writer(args.extract)
+        args.normalize = 1
     else:
         print "unknown database extension",args.extract
         sys.exit(1)
@@ -615,9 +635,10 @@ with extract_db as db:
     else:
         pool = Pool(processes=args.parallel)
         n = 0
-        for results in pool.imap_unordered(safe_align1,jobs):
-            n += 1
-            if results is None: continue
-            for r in results:
-                db.insert(image=r.image,cls=r.cls,cost=r.cost,count=1,file=r.file,lgeo=r.lgeo,rel=r.rel,bbox=r.bbox)
-            if n%100==0: print "==========",n,len(jobs),"=========="
+        csize = 20
+        for s in range(0,len(jobs),csize):
+            for results in pool.imap_unordered(safe_align1,jobs[s:min(s+csize,len(jobs))]):
+                n += 1
+                if results is None: continue
+                db.insertAll(results)
+            print "==========",s,len(jobs),"=========="
