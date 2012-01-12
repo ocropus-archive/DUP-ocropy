@@ -1,0 +1,57 @@
+#!/usr/bin/python
+
+import sys,os,re,glob,math,glob,signal,traceback
+import matplotlib
+if "DISPLAY" not in os.environ: matplotlib.use("AGG")
+else: matplotlib.use("GTK")
+from scipy.ndimage import interpolation
+from pylab import *
+from optparse import OptionParser
+from multiprocessing import Pool
+import ocrolib
+from ocrolib import number_of_processors,die
+
+signal.signal(signal.SIGINT,lambda *args:sys.exit(1))
+
+# these options control alignment
+import argparse
+parser = argparse.ArgumentParser(description = """Generate HTML for debugging a book directory.""")
+parser.add_argument("book",default="book")
+parser.add_argument("-N","--npages",type=int,default=100000,help="max number of pages")
+args = parser.parse_args()
+
+def genpage(d):
+    print "===",d
+    here = os.getcwd()
+    try:
+        os.chdir(d)
+        with open("index.html","w") as stream:
+            stream.write("<h1>%s</h1>\n"%d)
+            images = sorted(glob.glob("??????.png"))
+            for img in images:
+                image = imread(img)
+                stream.write("<img width='%d' src='%s'><br>\n"%(max(10,image.shape[1]/2),img))
+                # cseg = ocrolib.fvariant(img,"cseg")
+                # if os.path.exists(cseg): stream.write("<img src='%s'><br>\n"%cseg)
+                txt = ocrolib.fvariant(img,"txt","")
+                if os.path.exists(txt):
+                    with open(txt) as tf: text = tf.read()
+                    stream.write("<font color='blue'>%s</font>\n"%text)
+                stream.write("<hr>\n")
+    finally:
+        os.chdir(here)
+
+os.chdir(args.book)
+with open("index.html","w") as stream:
+    for d in sorted(glob.glob("????"))[:args.npages]:
+        genpage(d)
+        stream.write("<table border=1><tr>")
+        stream.write("<td>")
+        stream.write("<a href='%s/index.html'><img width=300 src='%s.png'></a>"%(d,d))
+        stream.write("</td>")
+        if os.path.exists(d+".pseg.png"):
+            stream.write("<td>")
+            stream.write("<a href='%s/index.html'><img width=300 src='%s.pseg.png'></a>"%(d,d))
+            stream.write("</td>")
+        stream.write("</tr></table>\n")
+
