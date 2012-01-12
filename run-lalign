@@ -1,8 +1,11 @@
 #!/bin/sh
 
-find book | egrep '(unlv|uw3)/..../......(\.[a-z]+|)\.gt\.[a-z]+$' | xargs -r rm -v
+echo -n erasing...
+find uw3/ unlv/ | egrep '/..../......\.(gt.costs|gt.fst|gt.txt|rseg.gt.png|cseg.gt.png)$' | xargs -r rm -v | wc -l
 
-test -f laligned.db && rm laligned.db 
+output=laligned.h5
+
+test -f $output && rm $output
 
 # workaround for problem with current classifier
 cat > confusions <<EOF
@@ -10,8 +13,13 @@ f ff 0.0
 f fi 0.0
 f fl 0.0
 f ft 0.0
+'' " 0.0
+" '' 0.0
+,, " 0.0
+,, '' 0.0
 EOF
 
-$HOME/ocropus/ocropy/ocropus-lalign -T confusions -M 2 -A 2 -x laligned.db -p unlv/????.gt.txt uw3/????.gt.txt 
+# $HOME/ocropus/ocropy/ocropus-lalign -r -s gt -T confusions -M 2 -A 2 -x laligned.db -p unlv/????.gt.txt uw3/????.gt.txt 
+$HOME/ocropus/ocropy/ocropus-lalign -r -s gt -T confusions -M 2 -A 2 -x $output -p unlv/????.gt.txt uw3/????.gt.txt
 
-chmod a-w laligned.db
+# chmod a-w laligned.db

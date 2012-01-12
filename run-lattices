@@ -2,6 +2,7 @@
 
 model=full-300-10-40r.cmodel 
 
-find book | egrep 'book/..../......\.(txt|fst|cseg\.png|rseg\.png|gt\.png|gt.fst)$' | xargs -r rm -v
+find unlv/. uw3/. | egrep '/......\.rseg\.png$' | xargs -r rm 
+find unlv/. uw3/. | egrep '/......\.fst$' | xargs -r rm 
 
 $HOME/ocropus/ocropy/ocropus-lattices -m $model unlv uw3

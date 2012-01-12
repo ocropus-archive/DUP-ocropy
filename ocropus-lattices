@@ -12,6 +12,7 @@ from optparse import OptionParser
 from multiprocessing import Pool
 import ocrolib
 from ocrolib import number_of_processors,die
+from ocrolib.ligatures import lig
 
 signal.signal(signal.SIGINT,lambda *args:sys.exit(1))
 
@@ -55,7 +56,7 @@ temp = []
 count = 0
 for arg in args:
     if os.path.isdir(arg) or os.path.isdir(arg+"/."):
-        files = sorted(glob.glob(args[0]+"/????/??????.png"))
+        files = sorted(glob.glob(arg+"/????/??????.png"))
         print "adding",len(files),"files from",arg
         assert len(files)>0
         temp += files
@@ -132,7 +133,12 @@ def extract(t):
     lattice_file = ocrolib.fvariant(fname,"fst",options.suffix)
     if os.path.exists(lattice_file) and not options.overwrite:
         die("%s: %s",lattice_file,"already exists")
-    lattice.save(lattice_file)
+    if 1:
+        lattice.save(lattice_file)
+    else:
+        olattice = lattice.as_openfst()
+        olattice.SetOutputSymbols(lig.SymbolTable())
+        olattice.Write(lattice_file)
 
     rseg_file = ocrolib.fvariant(fname,"rseg",options.suffix)
     if os.path.exists(rseg_file) and not options.overwrite:
@@ -147,6 +153,6 @@ if options.parallel<2:
 else:
     pool = Pool(processes=options.parallel)
     result = []
-    for r in pool.imap(extract,args):
+    for r in pool.imap_unordered(extract,args):
         result.append(r)
-        if len(result)%100==0: print "==========",len(result),len(jobs),"=========="
+        if len(result)%100==0: print "==========",len(result),len(args),"=========="

@@ -96,7 +96,7 @@ ucase = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 lcase = "abcdefghijklmnopqrstuvwxyz"
 digits = "0123456789"
 quotes = "".join(["'",'"'])
-punctuation = ".,:;?!"
+punctuation = ".,:;?!"  # "-" is missing here, added below
 common = ucase+lcase+digits+quotes+punctuation
 
 for c1 in common:
@@ -124,5 +124,12 @@ for c in german:
     for c2 in common:
         lig.add(c+c2,ligcode)
         ligcode += 1
+
+# add ligatures involving a "-"
+
+for c1 in common:
+    lig.add(c1+"-",ligcode)
+    lig.add("-"+c1,ligcode)
+    ligcode += 1
 
 # ADD ADDITIONAL CHARACTERS AND LIGATURES BELOW

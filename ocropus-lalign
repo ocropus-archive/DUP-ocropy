@@ -28,6 +28,7 @@ parser = argparse.ArgumentParser(description = """
 
 parser.add_argument("-x","--extract",help="extract characters",default=None)
 parser.add_argument("-X","--noextract",help="don't actually write files",action="store_true")
+parser.add_argument("-N","--normalize",help="size normalize characters",action="store_true")
 parser.add_argument("-B","--beam",help="size of beam",type=int,default=100)
 parser.add_argument("-T","--confusions",help="confusion table (lattice output cost)",default=None)
 parser.add_argument("-r","--rejects",help="save rejects as well",action="store_true")
@@ -63,6 +64,7 @@ parser.add_argument("--debug_rawalign",action="store_true")
 parser.add_argument("--debug_aligned",action="store_true")
 parser.add_argument("--debug_select",action="store_true")
 parser.add_argument('--dgrid',default=8,help="grid size for display")
+parser.add_argument('--nlines',default=999999999,type=int,help="max # lines to process (for testing)")
 
 parser.add_argument("args",default=[],nargs='*',help="input lines)")
 # args = parser.parse_args(["-D","-y","-x","temp.db"])
@@ -106,6 +108,16 @@ print repr(args.extract)
 if args.extract is not None:
     assert not os.path.exists(args.extract),"%s: already exists; please remove"%args.extract
 
+class NullDb:
+    def __enter__(self,*args):
+        pass
+    def __exit__(self,*args):
+        pass
+    def insert(self,*args,**kw):
+        pass
+    def insertAll(self,*args,**kw):
+        pass
+
 class DbWriter:
     def __init__(self,fname):
         if not os.path.exists(fname):
@@ -117,13 +129,6 @@ class DbWriter:
         self.db = db
     def __enter__(self):
         return self
-    def __exit__(self,*args):
-        self.db.commit()
-        self.db.close()
-        del self.db
-    def close(self):
-        self.db.commit()
-        self.db.close()
     def insert(self,image,cls,cost=0.0,count=0,file=None,lgeo=None,rel=None,bbox=None):
         dbhelper.dbinsert(self.db,"chars",
                           image=dbhelper.image2blob(image),
@@ -134,6 +139,91 @@ class DbWriter:
                           lgeo="%g %g %g"%lgeo if lgeo else None,
                           rel="%g %g %g"%rel if rel else None,
                           bbox="%d %d %d %d"%bbox if bbox else None)
+    def insertAll(self,records):
+        for r in records:
+            self.insert(image=r.image,cls=r.cls,cost=r.cost,file=r.file,lgeo=r.lgeo,rel=r.rel,bbox=r.bbox)
+    def __exit__(self,*args):
+        self.db.commit()
+        self.db.close()
+
+def csnormalize(image,f=0.75):
+    bimage = 1*(image>mean([amax(image),amin(image)]))
+    w,h = bimage.shape
+    [xs,ys] = mgrid[0:w,0:h]
+    s = sum(bimage)
+    if s<1e-4: return image
+    s = 1.0/s
+    cx = sum(xs*bimage)*s
+    cy = sum(ys*bimage)*s
+    sxx = sum((xs-cx)**2*bimage)*s
+    sxy = sum((xs-cx)*(ys-cy)*bimage)*s
+    syy = sum((ys-cy)**2*bimage)*s
+    w,v = eigh(array([[sxx,sxy],[sxy,syy]]))
+    l = sqrt(amax(w))
+    scale = f*max(image.shape)/(4.0*l)
+    m = array([[1.0/scale,0],[0.0,1.0/scale]])
+    w,h = image.shape
+    c = array([cx,cy])
+    d = c-dot(m,array([w/2,h/2]))
+    image = interpolation.affine_transform(image,m,offset=d,order=1)
+    return image
+
+def csnormalize1(image,size=32):
+    if amax(image)==amin(image):
+        image = zeros((size,size))
+    else:
+        image = docproc.isotropic_rescale(image,size)
+        image = csnormalize(image)
+        image = image*1.0/amax(image)
+    return image
+
+import tables,fcntl
+
+def uencode(s):
+    """Convert a short unicode string into a 64bit integer"""
+    assert len(s)<=4
+    result = 0
+    for c in s[len(s)-1::-1]: result = (result<<16)|ord(c)
+    return result
+
+class Hdf5Writer:
+    def __init__(self,fname,mode="w",size=32):
+        self.size = size
+        h5 = tables.openFile(fname,mode)
+        from tables import *
+        h5.createEArray(h5.root,'patches',Float32Atom(),shape=(0,size,size),filters=Filters(9))
+        h5.createEArray(h5.root,'classes',Int64Atom(),shape=(0,),filters=tables.Filters(9))
+        h5.createEArray(h5.root,'costs',Float32Atom(),shape=(0,),filters=tables.Filters(9))
+        h5.createVLArray(h5.root,'files',StringAtom(120),filters=Filters(9))
+        h5.createEArray(h5.root,'rel',Float32Atom(shape=(3,)),shape=(0,),filters=tables.Filters(9))
+        h5.createEArray(h5.root,'bboxes',Float32Atom(shape=(4,)),shape=(0,),filters=Filters(9))
+        # h5.createVLArray(h5.root,'cclasses',StringAtom(120),filters=Filters(9))
+        # h5.createEArray(h5.root,'segids',Int16Atom(),shape=(0,),filters=tables.Filters(9))
+        # h5.createEArray(h5.root,'clusters',Int32Atom(),shape=(0,),filters=tables.Filters(9))
+        self.h5 = h5
+    def __enter__(self):
+        return self
+    def insert(self,image,cls,cost=0.0,count=0,file=None,lgeo=None,rel=None,bbox=None):
+        assert image.shape==(self.size,self.size),"wrong image shape: %s"%(image.shape,)
+        # ion(); clf(); gray(); imshow(image); ginput(1,0.1)
+        h5 = self.h5
+        h5.root.patches.append([image])
+        h5.root.classes.append([uencode(cls)])
+        h5.root.costs.append([cost])
+        h5.root.files.append(file)
+        h5.root.rel.append([array(rel,'f')])
+        h5.root.bboxes.append([array(bbox,'f')])
+    def insertAll(self,records):
+        h5 = self.h5
+        h5.root.patches.append(array([r.image for r in records],'f'))
+        h5.root.classes.append(array([uencode(r.cls) for r  in records],'int64'))
+        h5.root.costs.append([r.cost for r in records])
+        h5.root.files.append([r.file for r in records])
+        h5.root.rel.append([array(r.rel,'f') for r in records])
+        h5.root.bboxes.append([array(r.bbox,'f') for r in records])
+    def __exit__(self,*args):
+        self.h5.close()
+        self.h5 = None
 
 import codecs
 import openfst
@@ -247,8 +337,11 @@ def align1(job):
         print "*"+fst_file,": NOT FOUND"
         return
     fst = ocrofst.OcroFST()
-    fst.load(fst_file)
-
+    try: fst.load(fst_file)
+    except:
+        print "*"+fst_file,": load failed"
+        return
+        
     bestcost = 1e38
     bestline = None
     bestfst = None
@@ -390,77 +483,75 @@ def align1(job):
             if os.path.exists(cseg_file): die("%s: already exists",cseg_file)
         ocrolib.write_line_segmentation(cseg_file,cseg)
         # aligned text line
-        ocrolib.write_text(ocrolib.fvariant(fname,"txt",args.suffix),aligned)
+        ocrolib.write_text(ocrolib.fvariant(fname,"txt","aligned"),aligned)
         # per character costs
         with ocrolib.fopen(fname,"costs",args.suffix,mode="w") as stream:
             for i in range(len(costs)):
                 stream.write("%d %g\n"%(i,costs[i]))
         # true ground truth (best-matching line in the original transcription)
-        ocrolib.write_text(ocrolib.fvariant(fname,"tru",args.suffix),bestline)
+        ocrolib.write_text(ocrolib.fvariant(fname,"txt",args.suffix),bestline)
 
-    if args.extract is not None or args.Display:
-        iraw = 0
-        if args.Display:
-            ion(); clf()
-            
-        line = ocrolib.read_image_gray(ocrolib.fvariant(fname,"png"))
-        line = amax(line)-line
-        lgeo = docproc.seg_geometry(rseg)
-        grouper = ocrolib.Grouper()
-        grouper.setSegmentation(rseg)
-        db = None
-        try:
-            if args.extract is not None: db = DbWriter(args.extract)
-            for i in range(grouper.length()):
-                raw,mask = grouper.extractWithMask(line,i,dtype='B')
-                # ion(); gray(); subplot(121); imshow(raw); subplot(122); imshow(mask); ginput(1,3)
-                start = grouper.start(i)
-                end = grouper.end(i)
-                bbox = grouper.boundingBox(i)
-                y0,x0,y1,x1 = bbox
-                rel = docproc.rel_char_geom((y0,y1,x0,x1),lgeo)
-                ry,rw,rh = rel
-                assert rw>0 and rh>0
-                if (start,end) in segs:
-                    index = segs.index((start,end))
-                    cls = sresult[index]
-                    cost = costs[index]
-                else:
-                    cls = "~"
-                    cost = 0.0
-                if cls!="~":
-                    if args.Display:
-                        iraw += 1
-                        subplot(args.dgrid,args.dgrid,iraw)
-                        gray(); imshow(raw)
-                        #gca().text(0.1,-0.1,"%d/%s"%(i,cls),transform=ax.transAxes,color='green')
-                        gca().set_frame_on(False)
-                        if cost>0.2:
-                            ylabel("%d "%int(10*cost),color='red',size=10)
-                        xlabel("%-3s %d"%(cls,i),color='blue',size=10)
-                        xticks([])
-                        yticks([])
-                        print "output %3d %3d cls %-5s cost %6.2f    "%(start,end,cls,cost),
-                        print "y %6.2f w %6.2f h %6.2f"%(rel[0],rel[1],rel[2])
-                if db is not None and (cls!="~" or args.rejects):
-                    db.insert(image=raw,
-                              cost=float(cost),
-                              cls=cls,
-                              count=1,
-                              file=fname,
-                              lgeo=lgeo,
-                              rel=rel,
-                              bbox=bbox)
-        finally:
-            if db is not None: db.close()
-            del db
+    result = []
+    iraw = 0
+    if args.Display:
+        ion(); clf()
+
+    line = ocrolib.read_image_gray(ocrolib.fvariant(fname,"png"))
+    line = amax(line)-line
+    lgeo = docproc.seg_geometry(rseg)
+    grouper = ocrolib.Grouper()
+    grouper.setSegmentation(rseg)
+    results = []
+    for i in range(grouper.length()):
+        raw,mask = grouper.extractWithMask(line,i,dtype='B')
+        # ion(); gray(); subplot(121); imshow(raw); subplot(122); imshow(mask); ginput(1,3)
+        start = grouper.start(i)
+        end = grouper.end(i)
+        bbox = grouper.boundingBox(i)
+        y0,x0,y1,x1 = bbox
+        rel = docproc.rel_char_geom((y0,y1,x0,x1),lgeo)
+        ry,rw,rh = rel
+        assert rw>0 and rh>0
+        if (start,end) in segs:
+            index = segs.index((start,end))
+            cls = sresult[index]
+            cost = costs[index]
+        else:
+            cls = "~"
+            cost = 0.0
+        if cls!="~":
+            if args.Display:
+                iraw += 1
+                subplot(args.dgrid,args.dgrid,iraw)
+                gray(); imshow(raw)
+                #gca().text(0.1,-0.1,"%d/%s"%(i,cls),transform=ax.transAxes,color='green')
+                gca().set_frame_on(False)
+                if cost>0.2:
+                    ylabel("%d "%int(10*cost),color='red',size=10)
+                xlabel("%-3s %d"%(cls,i),color='blue',size=10)
+                xticks([])
+                yticks([])
+                print "output %3d %3d cls %-5s cost %6.2f    "%(start,end,cls,cost),
+                print "y %6.2f w %6.2f h %6.2f"%(rel[0],rel[1],rel[2])
+        if cls!="~" or args.rejects:
+            if args.normalize: raw = csnormalize1(raw)
+            results.append(Record(image=raw,
+                                  cost=float(cost),
+                                  cls=cls,
+                                  count=1,
+                                  file=fname,
+                                  lgeo=lgeo,
+                                  rel=rel,
+                                  bbox=bbox))
     if args.Display: ginput(1,10000)
+    return results
 
 def safe_align1(job):
     try:
-        align1(job)
+        return align1(job)
     except:
         traceback.print_exc()
+        return []
 
 jobs = []
 
@@ -473,21 +564,23 @@ elif args.pagegt:
         files = glob.glob(args[0]+"/*.gt.txt")
     else:
         files = args.args
+    missing_pagedir = 0
     for arg in files:
         if not os.path.exists(arg):
             print "# %s: not found"%arg
             continue
         base,_ = ocrolib.allsplitext(arg)
         if not os.path.exists(base) or not os.path.isdir(base):
-            print "["+base+"?]"
-            sys.stdout.flush()
+            # print "# %s: dir not found"
+            # sys.stdout.flush()
+            missing_pagedir += 1
             continue
         lines = glob.glob(base+"/??????.png")
         for line in lines:
             if not re.search(args.ppat,line): 
                 continue
             jobs.append((line,arg))
-    print
+    print "number of page files",len(files),"number missing line dirs",missing_pagedir
 elif args.langmod:
     for arg in args.args:
         jobs.append((arg,args.langmod))
@@ -497,7 +590,7 @@ elif args.gt is not None:
     for arg in args.args:
         if os.path.isdir(arg) or os.path.isdir(arg+"/."):
             files = sorted(glob.glob(args[0]+"/????/??????.png"))
-            print "adding",len(files),"files from",arg)
+            print "adding",len(files),"files from",arg
             assert len(files)>0
             args += files
         else:
@@ -516,15 +609,36 @@ elif args.gt is not None:
             continue
         jobs.append((arg,p))
 else:
-    raise Exception("you need to specify what kind of groundtruth you want to align with (-p, -l, -g)")
+    raise Exception("you need to specify what kind of groundtruth you want to align with (-f, -p, -l, -g)")
 
 print "got",len(jobs),"jobs"
+if len(jobs)>args.nlines: jobs = jobs[:args.nlines]
 
-if args.parallel<2:
-    for arg in jobs: align1(arg)
-else:
-    pool = Pool(processes=args.parallel)
-    r = []
-    for r in pool.imap(safe_align1,jobs):
-        result.append(r)
-        if len(result)%100==0: print "==========",len(result),len(jobs),"=========="
+extract_db = NullDb()
+if args.extract is not None:
+    if args.extract[-3:]==".db":
+        extract_db = DbWriter(args.extract)
+    elif args.extract[-3:]==".h5":
+        extract_db = Hdf5Writer(args.extract)
+        args.normalize = 1
+    else:
+        print "unknown database extension",args.extract
+        sys.exit(1)
+
+with extract_db as db:
+    if args.parallel<2:
+        for arg in jobs:
+            results = align1(arg)
+            if results is None: continue
+            for r in results:
+                db.insert(image=r.image,cls=r.cls,cost=r.cost,count=1,file=r.file,lgeo=r.lgeo,rel=r.rel,bbox=r.bbox)
+    else:
+        pool = Pool(processes=args.parallel)
+        n = 0
+        csize = 20
+        for s in range(0,len(jobs),csize):
+            for results in pool.imap_unordered(safe_align1,jobs[s:min(s+csize,len(jobs))]):
+                n += 1
+                if results is None: continue
+                db.insertAll(results)
+            print "==========",s,len(jobs),"=========="
