@@ -45,13 +45,23 @@ os.chdir(args.book)
 with open("index.html","w") as stream:
     for d in sorted(glob.glob("????"))[:args.npages]:
         genpage(d)
-        stream.write("<table border=1><tr>")
+        stream.write("<table border=1><tr>\n")
         stream.write("<td>")
         stream.write("<a href='%s/index.html'><img width=300 src='%s.png'></a>"%(d,d))
-        stream.write("</td>")
+        stream.write("<br>%s<br>"%d)
+        stream.write("</td>\n")
+        stream.write("<td>")
         if os.path.exists(d+".pseg.png"):
-            stream.write("<td>")
             stream.write("<a href='%s/index.html'><img width=300 src='%s.pseg.png'></a>"%(d,d))
-            stream.write("</td>")
+        stream.write("</td>\n")
+        stream.write("<td>")
+        count = 0
+        for fname in sorted(glob.glob(d+"/??????.txt")):
+            with open(fname) as tf: s = tf.read()
+            if len(s)<20: continue
+            stream.write("%s<br>\n"%s[:100])
+            count += 1
+            if count>=10: break
+        stream.write("</td>\n")
         stream.write("</tr></table>\n")
 
