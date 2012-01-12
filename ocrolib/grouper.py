@@ -121,7 +121,7 @@ class Grouper(PyComponent):
         """Get a list of all the segments making up this group."""
         return self.groups[i][1]
     def isCombined(self,i):
-        if self.pre2seg is None: return 0
+        if self.pre2seg is None: return False
         # get the set of segments
         s = self.getSegments(i)
         # find all the preferred segments corresponding to this one
@@ -130,6 +130,17 @@ class Grouper(PyComponent):
         # does it combine several "preferred" segments
         combined = (len(p)>=2)
         return combined
+    def isSplit(self,i):
+        if self.pre2seg is None: return False
+        # get the set of segments
+        s = self.getSegments(i)
+        # find all the preferred segments corresponding to this one
+        p = set([x for x,y in self.pre2seg if y in s])
+        if len(p)>1: return False
+        # find all the regular segments corresponding to the preferred one
+        r = set([y for x,y in self.pre2seg if x in p])
+        # print "---",i,":",set(s),r
+        return set(s)!=r
     def extractWithBackground(self,source,dflt,i,grow=0,dtype=None):
         """Extract the image corresponding to group i.  Background pixels are
         filled in with dflt."""

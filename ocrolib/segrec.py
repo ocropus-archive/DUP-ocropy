@@ -262,7 +262,8 @@ class CmodelLineRecognizer:
         self.verbose = 0
         self.debug_cls = None
         self.allow_any = 0 # allow non-unicode characters
-        self.combined_cost = 8.0 # extra cost for combining connected components
+        self.combined_cost = 2.0 # extra cost for combining connected components
+        self.split_cost = 0.0 # extra cost for combining connected components
         self.maxrange = 4
         self.segmenter = ocrolseg.DpSegmenter()
         self.segmenter0 = ocrolseg.SegmentLineByGCCS()
@@ -389,8 +390,12 @@ class CmodelLineRecognizer:
             # (right now, it's only for combining characters, but
             # we may add costs for splitting too)
             segcost = 0.0
-            if self.combined_cost>0.0 and self.grouper.isCombined(i):
-                segcost = self.combined_cost
+            if self.grouper.isCombined(i):
+                if self.combined_cost>0.0:
+                    segcost += self.combined_cost
+            elif self.grouper.isSplit(i):
+                if self.split_cost>0.0:
+                    segcost += self.split_cost
             
             if self.debug_cls is not None:
                 matching = [k for k,v in outputs[:int(self.nbest)] if re.match(self.debug_cls,k)]
@@ -443,7 +448,10 @@ class CmodelLineRecognizer:
                 subplot(self.display_shape[0],self.display_shape[1],1+i%prod(self.display_shape))
                 gca().set_frame_on(False)
                 if cost>0.2: ylabel("%d"%int(10*cost),color='red',size=10)
-                xlabel("%d %s"%(i,cls),color='blue',size=10)
+                if self.grouper.isCombined(i): l = "*"
+                elif self.grouper.isSplit(i): l= "-"
+                else: l = " "
+                xlabel("%d%s %s"%(i,l,cls),color='blue',size=10)
                 xticks([])
                 yticks([])
                 imshow(char,interpolation='nearest'); ginput(1,0.001)
@@ -458,7 +466,8 @@ class CmodelLineRecognizer:
                                             image=char,
                                             outputs=outputs,
                                             segcost=segcost,
-                                            comb=self.grouper.isCombined(i)))
+                                            comb=self.grouper.isCombined(i),
+                                            split=self.grouper.isSplit(i)))
 
 
         # extract the recognition lattice from the grouper

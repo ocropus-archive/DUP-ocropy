@@ -56,7 +56,7 @@ count = 0
 for arg in args:
     if os.path.isdir(arg) or os.path.isdir(arg+"/."):
         files = sorted(glob.glob(args[0]+"/????/??????.png"))
-        print "adding",len(files),"files from",arg)
+        print "adding",len(files),"files from",arg
         assert len(files)>0
         temp += files
     else:
