@@ -1,0 +1,99 @@
+#!/usr/bin/python
+
+import sys,os
+import openfst
+
+### some parameters influencing overall costs
+
+dict_fudge = 1.0  # scale the dictionary costs by this
+len_fudge = 0.0 # extra cost for each char in word (can be negative)
+upper_cost = 1.0  # cost of upper-casing a dictionary word
+lower_cost = 1.0  # cost of down-casing a dictionary word
+cap_cost = 1.0  # cost of capitalizing a dictionary word
+
+Fst = openfst.StdVectorFst
+
+### start with some prefixes... things that
+### can come at the start of a word
+
+prefix = Fst()
+prefix.AddString("",0.0)
+prefix.AddString("'",9.0)
+prefix.AddString("\"",9.0)
+
+### add the word from the dictionary
+
+dict = Fst()
+stream = open("dict-costs")
+lines = list(stream.readlines())
+total = len(lines)
+
+while lines!=[]:
+    line = lines.pop()
+    total -= 1
+    line = line[:-1]
+    cost,word = line.split()
+    cost = float(cost)*dict_fudge
+    cost += len(word)*len_fudge
+    dict.AddString(word,cost)
+    # add upper and lower cost versions of the word as well
+    if word!=word.upper():
+        dict.AddString(word.upper(),cost+upper_cost)
+    if word!=word.lower():
+        dict.AddString(word.lower(),cost+lower_cost)
+    if word!=word.capitalize():
+        dict.AddString(word.capitalize(),cost+cap_cost)
+
+assert total==0 # sanity check for the bug above
+
+openfst.ConcatOnto(prefix,dict)
+dict = prefix
+
+### now add common linguistic suffixes
+### the weights are guesses for now
+
+suffix = Fst()
+suffix.AddString("",0.0)
+suffix.AddString("s",5.0)
+suffix.AddString("'s",5.0)
+suffix.AddString("ly",9.0)
+suffix.AddString("ing",9.0)
+suffix.AddString("es",9.0)
+suffix.AddString("'nt",9.0)
+suffix.AddString("'ve",9.0)
+openfst.ConcatOnto(dict,suffix)
+
+### finally, add word separators
+
+sep = Fst()
+sep.AddString(" ",0.0)
+sep.AddString(". ",4.0)
+sep.AddString("-",4.0)
+sep.AddString(" - ",4.0)
+sep.AddString("- ",4.0)
+sep.AddString(" -",4.0)
+sep.AddString("...",9.0)
+sep.AddString(", ",4.0)
+sep.AddString(": ",9.0)
+sep.AddString("; ",9.0)
+sep.AddString("? ",9.0)
+sep.AddString("! ",9.0)
+sep.AddString("\" ",9.0)
+sep.AddString(" \"",9.0)
+sep.AddString("' ",9.0)
+sep.AddString(" '",9.0)
+sep.AddString("\"",11.0)
+sep.AddString("'",11.0)
+sep.AddString("",14.0)
+openfst.ConcatOnto(dict,sep)
+openfst.ClosurePlus(dict)
+
+### FIXME need to do something better for the final state
+
+### finally determinize and minimize
+
+det = openfst.Fst()
+openfst.Determinize(dict,det)
+openfst.Minimize(det)
+
+det.Write("dict.fst")

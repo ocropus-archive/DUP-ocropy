@@ -2,7 +2,7 @@
 
 # make the clustering class-specific
 
-import sys,os,re,glob,math,glob,signal,traceback
+import sys,os,re,glob,math,glob,signal,traceback,codecs
 import matplotlib
 if "DISPLAY" not in os.environ: matplotlib.use("AGG")
 else: matplotlib.use("GTK")
@@ -25,6 +25,7 @@ result (recognition result without language model).
 parser.add_argument("-m","--model",help="model file",default="default.cmodel")
 parser.add_argument("-w","--whitespace",help="space model file",default="space.model")
 parser.add_argument("-c","--cont",help="continue even when unexpected errors occur",action="store_true")
+parser.add_argument("-r","--norejects",help="do not generate rejects in lattices",action="store_true")
 parser.add_argument("-R","--maxrange",help="max range for grouping",type=int,default=4)
 parser.add_argument("-L","--ligatures",help="output ligatures",action="store_true")
 parser.add_argument("-N","--nbest",help="use the nbest results from classifier",type=int,default=3)
@@ -94,6 +95,7 @@ elif hasattr(cmodel,'coutputs'):
     linerec.maxcost = options.maxcost
     linerec.nbest = options.nbest
     linerec.display = options.Display
+    linerec.norejects = options.norejects
 else:
     print "%s (%s): don't know what kind of model this is"%(options.model,cmodel)
 
@@ -147,6 +149,12 @@ def extract(t):
 
     s = lattice.bestpath()
     print fname,":",repr(s)
+
+    raw_file = ocrolib.fvariant(fname,"txt","raw")
+    if os.path.exists(raw_file) and not options.overwrite:
+        die("%s: %s",raw_file,"already exists")
+    with codecs.open(raw_file,"w",encoding="utf8") as stream:
+        stream.write(s)
 
 if options.parallel<2:
     for arg in args: extract(arg)

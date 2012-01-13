@@ -33,10 +33,15 @@ def genpage(d):
                 stream.write("<img width='%d' src='%s'><br>\n"%(max(10,image.shape[1]/2),img))
                 # cseg = ocrolib.fvariant(img,"cseg")
                 # if os.path.exists(cseg): stream.write("<img src='%s'><br>\n"%cseg)
+                rtxt = ocrolib.fvariant(img,"txt","raw")
+                if os.path.exists(rtxt):
+                    with open(rtxt) as tf: rtext = tf.read()
+                    stream.write("<font color='gray'>%s</font><br>\n"%rtext)
                 txt = ocrolib.fvariant(img,"txt","")
                 if os.path.exists(txt):
                     with open(txt) as tf: text = tf.read()
-                    stream.write("<font color='blue'>%s</font>\n"%text)
+                    stream.write("<font color='blue'>%s</font><br>\n"%text)
+                    stream.write("<font size=-2>%s/%s</font><br>\n"%(d,img))
                 stream.write("<hr>\n")
     finally:
         os.chdir(here)

@@ -243,6 +243,7 @@ class CmodelLineRecognizer:
         at all.  The minheight_letter threshold is the minimum height of a
         component (expressed as fraction of the medium segment height) in
         order to be added as a letter to the lattice."""
+        self.norejects = 0
         self.gccs = 0
         self.cmodel = None
         self.display = 0
@@ -384,7 +385,8 @@ class CmodelLineRecognizer:
 
             # maybe add a transition on "_" that we can use to skip 
             # this character if the transcription contains a "~"
-            self.grouper.setClass(i,"~",self.reject_cost)
+            if not self.norejects:
+                self.grouper.setClass(i,"~",self.reject_cost)
 
             # extra penalty based on segmentation
             # (right now, it's only for combining characters, but
@@ -412,7 +414,8 @@ class CmodelLineRecognizer:
             for cls,cost in outputs[:int(self.nbest)]:
                 # don't add anything with a cost above maxcost
                 # if cost>self.maxcost and cls!="~": continue
-                # if cls=="~": continue
+                if self.norejects and cls=="~":
+                    continue
 
                 # letters are never small, so we skip small bounding boxes that
                 # are categorized as letters; this is an ugly special case, but

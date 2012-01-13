@@ -26,6 +26,7 @@ parser = argparse.ArgumentParser(description = """
 %prog [-l langmod] *.fst
 """)
 
+parser.add_argument("-b","--beam",type=int,default=10000)
 parser.add_argument("-l","--langmod",help="language model",default=None)
 
 parser.add_argument("-s","--suffix",help="output suffix for writing result",default="")
@@ -58,7 +59,7 @@ def align1(job):
         print fst_file,": NOT FOUND"
         return
 
-    result = ocrofst.beam_search(fst,langmod,100)
+    result = ocrofst.beam_search(fst,langmod,args.beam)
     if args.debug_line:
         print "line",i,len(result[0]),sum(result[4])
     if len(result[0])<=1: 
