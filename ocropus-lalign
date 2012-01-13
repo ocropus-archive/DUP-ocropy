@@ -214,11 +214,12 @@ class Hdf5Writer:
         h5.root.rel.append([array(rel,'f')])
         h5.root.bboxes.append([array(bbox,'f')])
     def insertAll(self,records):
+        if len(records)<1: return
         h5 = self.h5
         h5.root.patches.append(array([r.image for r in records],'f'))
         h5.root.classes.append(array([uencode(r.cls) for r  in records],'int64'))
         h5.root.costs.append([r.cost for r in records])
-        h5.root.files.append([r.file for r in records])
+        for r in records: h5.root.files.append([r.file])
         h5.root.rel.append([array(r.rel,'f') for r in records])
         h5.root.bboxes.append([array(r.bbox,'f') for r in records])
     def __exit__(self,*args):
@@ -635,7 +636,7 @@ with extract_db as db:
     else:
         pool = Pool(processes=args.parallel)
         n = 0
-        csize = 20
+        csize = 100
         for s in range(0,len(jobs),csize):
             for results in pool.imap_unordered(safe_align1,jobs[s:min(s+csize,len(jobs))]):
                 n += 1
