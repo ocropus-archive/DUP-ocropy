@@ -79,6 +79,7 @@ class Grouper(PyComponent):
             box = boxes[i]
             labels = [i]
             groups.append((box,labels))
+        self.segmentation = segmentation
         self.groups = groups
         self.clearLattice()
         return len(self.groups)
