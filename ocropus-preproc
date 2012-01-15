@@ -41,7 +41,7 @@ parser.add_argument("--maxsize",type=int,default=300)
 parser.add_argument("--minsize",type=int,default=5)
 parser.add_argument("--binarize",action="store_true")
 parser.add_argument("--invert",action="store_true")
-parser.add_argument("--autoinv",action="store_true")
+# parser.add_argument("--autoinv",action="store_true")
 parser.add_argument("--htrem",action="store_true")
 parser.add_argument("--nohtrem",action="store_true")
 parser.add_argument("--uncleaned",action="store_true")
@@ -64,7 +64,7 @@ if len(args.args)<1:
     parser.print_help()
     sys.exit(0)
 
-if args.debug: args.parallel = 1
+if args.debug or args.display or args.Display: args.parallel = 1
 
 ################################################################
 # preprocessing
@@ -275,16 +275,14 @@ def remove_halftones(image,dpi=300.0,threshold=0.05,r=5,sigma=15.0):
 
 def preprocess(raw,title=None):
     if args.debug:
-        subplot(121); imshow(raw); 
+        subplot(121); imshow(raw); ginput(1,0.001)
         if title is not None: xlabel(title)
         subplot(122)
-
-    if amax(raw)<=amin(raw)+1e-4: return raw
 
     # zoom if requested
 
     if args.scale!=1.0:
-        interpolation.zoom(raw,args.scale,mode='linear',order=1)
+        raw = interpolation.zoom(raw,args.scale,mode='nearest',order=1)
         if args.debug: 
             cla(); xlabel("zoomed")
             imshow(raw); ginput(1,9999)
@@ -299,10 +297,9 @@ def preprocess(raw,title=None):
 
     # invert or detect inverted scans
 
-    if not args.invert:
+    if args.invert:
+        raw = inverse(raw)
         bin = inverse(bin)
-    elif args.autoinv:
-        bin = autoinvert(bin)
 
     if args.debug: 
         cla(); xlabel("binarized and inverted")
@@ -363,6 +360,10 @@ if not args.Output:
     files = open(args.output+"/FILES","w")
 
 def process_image(image,arg,count):
+    if amax(image)<=amin(image)+1e-4:
+        print arg,"is empty"
+        return
+
     if args.display: 
         clf()
         imshow(image,cmap=cm.gray)
@@ -373,7 +374,13 @@ def process_image(image,arg,count):
     if args.debug:
         ion(); clf(); gray_()
         title = "%s %s"%(arg,count)
-    bin,gray = preprocess(image,title=title)
+    try:
+        bin,gray = preprocess(image,title=title)
+        print bin.shape,gray.shape
+    except:
+        print arg,count,"failed"
+        traceback.print_exc()
+        return
     if args.display: 
         clf()
         imshow(bin,cmap=cm.gray)
@@ -389,13 +396,13 @@ def process_image(image,arg,count):
     if args.Output:
         dest,_ = ocrolib.allsplitext(arg)
         print "# writing",dest
-        imsave(dest+".png",gray)
-        imsave(dest+".bin.png",bin)
+        imsave(dest+".png",gray,cmap=cm.gray)
+        imsave(dest+".bin.png",bin,cmap=cm.gray)
     else:
         dest = "%s/%04d" % (args.output,count)
         print "# writing",dest,gray.shape,bin.shape
-        imsave(dest+".png",gray)
-        imsave(dest+".bin.png",bin)
+        imsave(dest+".png",gray,cmap=cm.gray)
+        imsave(dest+".bin.png",bin,cmap=cm.gray)
         if args.gtextension is not None:
             base,_ = ocrolib.allsplitext(arg)
             shutil.copyfile(base+args.gtextension,dest+".gt.txt")
