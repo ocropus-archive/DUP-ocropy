@@ -246,6 +246,8 @@ def load_text_file_as_fst(fname):
     text = text.strip()
     return alignment_fst(text)
 
+from pylab import *
+
 def compute_alignment(fst,rseg,lmodel,beam=1000,ltable=lig):
     result = ocrofst.beam_search(fst,lmodel,100)
     v1,v2,ins,outs,costs = result
@@ -281,7 +283,6 @@ def compute_alignment(fst,rseg,lmodel,beam=1000,ltable=lig):
 
     bboxes = []
 
-    from pylab import *
     rmap = zeros(amax(rseg)+1,'i')
     for i in range(1,len(segs)):
         start,end = segs[i]
