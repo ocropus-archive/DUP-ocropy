@@ -69,6 +69,8 @@ parser.add_argument('--nlines',default=999999999,type=int,help="max # lines to p
 parser.add_argument("args",default=[],nargs='*',help="input lines)")
 # args = parser.parse_args(["-D","-y","-x","temp.db"])
 args = parser.parse_args()
+args.args = sorted(concatenate([glob.glob(x) for x in args.args]))
+print "got",len(args.args),"files"
 
 # a list of confusions and their costs
 # format is classifier output and actual output
@@ -85,12 +87,13 @@ if args.confusions is not None:
 class LigTable:
     """Ligature encoding table.  These ligatures are used just locally within
     the aligner.  No data is actually stored in this format."""
-    def __init__(self):
+    def __init__(self,init=1):
         self.ncodes = 0
         self.code2chr = {}
         self.chr2code = {}
-        for i in range(128):
-            self.ord(chr(i))
+        if init:
+            for i in range(128):
+                self.ord(unichr(i))
     def ord(self,c):
         if c in self.chr2code: 
             return self.chr2code[c]
@@ -108,76 +111,8 @@ print repr(args.extract)
 if args.extract is not None:
     assert not os.path.exists(args.extract),"%s: already exists; please remove"%args.extract
 
-class NullDb:
-    def __enter__(self,*args):
-        pass
-    def __exit__(self,*args):
-        pass
-    def insert(self,*args,**kw):
-        pass
-    def insertAll(self,*args,**kw):
-        pass
-
-class DbWriter:
-    def __init__(self,fname):
-        if not os.path.exists(fname):
-            db = sqlite3.connect(fname,timeout=600.0)
-            dbhelper.charcolumns(db,"chars")
-            db.commit()
-        else:
-            db = sqlite3.connect(fname,timeout=600.0)
-        self.db = db
-    def __enter__(self):
-        return self
-    def insert(self,image,cls,cost=0.0,count=0,file=None,lgeo=None,rel=None,bbox=None):
-        dbhelper.dbinsert(self.db,"chars",
-                          image=dbhelper.image2blob(image),
-                          cost=float(cost),
-                          cls=cls,
-                          count=1,
-                          file=file,
-                          lgeo="%g %g %g"%lgeo if lgeo else None,
-                          rel="%g %g %g"%rel if rel else None,
-                          bbox="%d %d %d %d"%bbox if bbox else None)
-    def insertAll(self,records):
-        for r in records:
-            self.insert(image=r.image,cls=r.cls,cost=r.cost,file=r.file,lgeo=r.lgeo,rel=r.rel,bbox=r.bbox)
-    def __exit__(self,*args):
-        self.db.commit()
-        self.db.close()
-
-def csnormalize(image,f=0.75):
-    bimage = 1*(image>mean([amax(image),amin(image)]))
-    w,h = bimage.shape
-    [xs,ys] = mgrid[0:w,0:h]
-    s = sum(bimage)
-    if s<1e-4: return image
-    s = 1.0/s
-    cx = sum(xs*bimage)*s
-    cy = sum(ys*bimage)*s
-    sxx = sum((xs-cx)**2*bimage)*s
-    sxy = sum((xs-cx)*(ys-cy)*bimage)*s
-    syy = sum((ys-cy)**2*bimage)*s
-    w,v = eigh(array([[sxx,sxy],[sxy,syy]]))
-    l = sqrt(amax(w))
-    scale = f*max(image.shape)/(4.0*l)
-    m = array([[1.0/scale,0],[0.0,1.0/scale]])
-    w,h = image.shape
-    c = array([cx,cy])
-    d = c-dot(m,array([w/2,h/2]))
-    image = interpolation.affine_transform(image,m,offset=d,order=1)
-    return image
-
-def csnormalize1(image,size=32):
-    if amax(image)==amin(image):
-        image = zeros((size,size))
-    else:
-        image = docproc.isotropic_rescale(image,size)
-        image = csnormalize(image)
-        image = image*1.0/amax(image)
-    return image
-
-import tables,fcntl
+from tables import *
+import tables
 
 def uencode(s):
     """Convert a short unicode string into a 64bit integer"""
@@ -186,46 +121,37 @@ def uencode(s):
     for c in s[len(s)-1::-1]: result = (result<<16)|ord(c)
     return result
 
-from tables import *
-
 class Hdf5Writer:
-    def __init__(self,fname,mode="w",size=32):
-        self.size = size
-        h5 = tables.openFile(fname,mode)
-        h5.createEArray(h5.root,'patches',Float32Atom(),shape=(0,size,size),filters=Filters(9))
-        h5.createEArray(h5.root,'classes',Int64Atom(),shape=(0,),filters=tables.Filters(9))
-        h5.createEArray(h5.root,'costs',Float32Atom(),shape=(0,),filters=tables.Filters(9))
-        h5.createVLArray(h5.root,'files',StringAtom(120),filters=Filters(9))
-        h5.createEArray(h5.root,'rel',Float32Atom(shape=(3,)),shape=(0,),filters=tables.Filters(9))
-        h5.createEArray(h5.root,'bboxes',Float32Atom(shape=(4,)),shape=(0,),filters=Filters(9))
-        # h5.createVLArray(h5.root,'cclasses',StringAtom(120),filters=Filters(9))
-        # h5.createEArray(h5.root,'segids',Int16Atom(),shape=(0,),filters=tables.Filters(9))
-        # h5.createEArray(h5.root,'clusters',Int32Atom(),shape=(0,),filters=tables.Filters(9))
+    def __init__(self,fname,mode="w",size=(32,32)):
+        self.size = tuple(size)
+        self.h5 = None
+        self.fname = fname
+        self.mode = mode
+    def flush(self):
+        if self.h5 is not None:
+            self.h5.flush()
+    def open(self):
+        h5 = tables.openFile(self.fname,self.mode)
+        if "patches" not in dir(h5.root):
+            h5.createEArray(h5.root,'patches',Float32Atom(),shape=(0,self.size[0],self.size[1]),filters=Filters(9))
+            h5.createEArray(h5.root,'classes',Int64Atom(),shape=(0,),filters=tables.Filters(9))
         self.h5 = h5
-    def __enter__(self):
-        return self
-    def insert(self,image,cls,cost=0.0,count=0,file=None,lgeo=None,rel=None,bbox=None):
-        assert image.shape==(self.size,self.size),"wrong image shape: %s"%(image.shape,)
-        # ion(); clf(); gray(); imshow(image); ginput(1,0.1)
+    def close(self):
+        self.h5.close()
+        self.h5 = None
+    def insert(self,image,cls):
+        if self.h5 is None:
+            self.size = image.shape
+            self.open()
+        else:
+            assert image.shape==self.size,"wrong image shape: %s"%(image.shape,)
         h5 = self.h5
         h5.root.patches.append([image])
         h5.root.classes.append([uencode(cls)])
-        h5.root.costs.append([cost])
-        h5.root.files.append(file)
-        h5.root.rel.append([array(rel,'f')])
-        h5.root.bboxes.append([array(bbox,'f')])
-    def insertAll(self,records):
-        if len(records)<1: return
-        h5 = self.h5
-        h5.root.patches.append(array([r.image for r in records],'f'))
-        h5.root.classes.append(array([uencode(r.cls) for r  in records],'int64'))
-        h5.root.costs.append([r.cost for r in records])
-        for r in records: h5.root.files.append([r.file])
-        h5.root.rel.append([array(r.rel,'f') for r in records])
-        h5.root.bboxes.append([array(r.bbox,'f') for r in records])
+    def __enter__(self):
+        return self
     def __exit__(self,*args):
-        self.h5.close()
-        self.h5 = None
+        self.close()
 
 import codecs
 import openfst
@@ -322,8 +248,49 @@ def alignment_fst(line):
     return fst
 
 debug = 0
+niclasses = 128
+iclasses = LigTable(init=0)
+iclasses.ord(chr(0))
+for c in ["~D","~U","~L"]: iclasses.ord(c)
+for i in range(32,128): iclasses.ord(unichr(i))
+    
+def transitions(lattice):
+    # print lattice.nStates()
+    for frm in range(lattice.nStates()):
+        tos,outs,costs,ins = lattice.getTransitions(frm)
+        for j in range(len(tos)):
+            yield (frm,tos[j],ins[j],outs[j],costs[j])
+
+def lattice2image(lattice,rf=0.2):
+    maxseg = amax([i&0xffff for f,t,i,o,c in transitions(lattice)])
+    simage = zeros((maxseg+1,niclasses))
+    # print "lattice2image",
+    for f,t,i,o,c in transitions(lattice):
+        a = (i>>16)
+        b = (i&0xffff)
+        oc = unichr(o)
+        o = iclasses.ord(oc)
+        if o>=niclasses: continue
+        c = exp(-c)
+        if a==0 and b==0: continue
+        # print f,t,i,o,c,(a,b)
+        simage[a:b+1,o] = maximum(simage[a:b+1,o],rf*c)
+        simage[a,o] = maximum(simage[a,o],c)
+    # provide some context, but scale it back so that it doesn't affect the nn too much
+    for a in range(len(simage)):
+        simage[a,iclasses.ord("~D")] = 0.2*amax(simage[a,iclasses.ord("0"):iclasses.ord("9")+1])
+    for a in range(len(simage)):
+        simage[a,iclasses.ord("~U")] = 0.2*amax(simage[a,iclasses.ord("A"):iclasses.ord("Z")+1])
+    for a in range(len(simage)):
+        simage[a,iclasses.ord("~L")] = 0.2*amax(simage[a,iclasses.ord("a"):iclasses.ord("z")+1])
+    return simage
+
+h5output = Hdf5Writer("linlang.h5")
+
+count = 0
 
 def align1(job):
+    global count
     fname,gtfile = job
     # read the ground truth data and construct an FST
     if not os.path.exists(gtfile):
@@ -332,7 +299,6 @@ def align1(job):
     with open(gtfile) as stream:
         gttext = stream.read()[:-1]
     gttext = re.sub("[\001-\011\013-\037]","~",gttext)
-
 
     fst_file = ocrolib.fvariant(fname,"fst")
     if not os.path.exists(fst_file):
@@ -343,7 +309,7 @@ def align1(job):
     except:
         print "*"+fst_file,": load failed"
         return
-        
+
     bestcost = 1e38
     bestline = None
     bestfst = None
@@ -365,12 +331,12 @@ def align1(job):
         bestfst = gtfst
         best = result
 
-    if len(bestline)<args.minlength:
-        print "*"+fst_file,": SHORT/%d"%len(bestline)
-        return
-
     if best is None:
         print "*"+fst_file,gtfile,": BEAM SEARCH FAILED"
+        return
+
+    if len(bestline)<args.minlength:
+        print "*"+fst_file,": SHORT/%d"%len(bestline)
         return
 
     v1,v2,ins,outs,costs = best
@@ -378,6 +344,7 @@ def align1(job):
     if args.debug_rawalign:
         for i in range(len(v1)):
             print "raw-align %3d [%3d %3d] (%3d %3d) %6.2f"%(i,v1[i],v2[i],ins[i]>>16,ins[i]&0xffff,costs[i]),unichr(outs[i])
+
 
     sresult = []
     scosts = []
@@ -426,6 +393,39 @@ def align1(job):
         print "%c%s %6.2f %6.2f:"%("*" if skip else " ",fname,perc,avg),aligned
 
     if skip: return
+
+    count += 1
+    in_img = lattice2image(fst)
+    out_img = zeros(in_img.shape)
+    out_img[:,0] = 1.0
+    offset = 10
+    for i in range(len(segs)):
+        a,b = segs[i]
+        if a==0 or b==0: continue
+        # print (a,b),sresult[i]
+        c = iclasses.ord(sresult[i])
+        if c>=out_img.shape[1]: c = iclasses.ord("~")
+        out_img[a,c] = 1.0
+        out_img[a,0] = 0.0
+    combo = array([in_img,out_img,zeros(in_img.shape)]).transpose([1,2,0])
+    # print combo.shape
+    s = [offset]+list(combo.shape[1:])
+    combo = r_[zeros(s),combo,zeros(s)]
+    if count%100==0:
+        ion(); clf(); imshow(combo,interpolation='nearest'); ginput(1,0.0001)
+    for i in range(offset,len(combo)-offset):
+        subimage = combo[i-8:i+4,:,0].copy()
+        if combo[i,0,1]>0.5: cls = 0
+        else: cls = 4+argmax(combo[i,4:,1])
+        subimage[:,:] *= 0.2
+        subimage[8,:] *= 5.0
+        # print cls,iclasses.chr(cls)
+        # clf(); imshow(subimage,vmin=0.0,vmax=1.0); xlabel("%d %s"%(cls,iclasses.chr(cls) if cls>0 else "_")); ginput(1,10000)
+        subimage = subimage.reshape(32,subimage.size/32)
+        h5output.insert(subimage,iclasses.chr(cls))
+    h5output.flush()
+        
+    return
 
     # read the raw segmentation
     rseg_file = ocrolib.fvariant(fname,"rseg")
@@ -615,31 +615,10 @@ else:
 print "got",len(jobs),"jobs"
 if len(jobs)>args.nlines: jobs = jobs[:args.nlines]
 
-extract_db = NullDb()
-if args.extract is not None:
-    if args.extract[-3:]==".db":
-        extract_db = DbWriter(args.extract)
-    elif args.extract[-3:]==".h5":
-        extract_db = Hdf5Writer(args.extract)
-        args.normalize = 1
-    else:
-        print "unknown database extension",args.extract
-        sys.exit(1)
+for arg in jobs:
+    results = align1(arg)
+    if results is None: continue
+    for r in results:
+        extract_db.insert(image=r.image,cls=r.cls,cost=r.cost,count=1,file=r.file,lgeo=r.lgeo,rel=r.rel,bbox=r.bbox)
 
-with extract_db as db:
-    if args.parallel<2:
-        for arg in jobs:
-            results = align1(arg)
-            if results is None: continue
-            for r in results:
-                extract_db.insert(image=r.image,cls=r.cls,cost=r.cost,count=1,file=r.file,lgeo=r.lgeo,rel=r.rel,bbox=r.bbox)
-    else:
-        pool = Pool(processes=args.parallel)
-        n = 0
-        csize = 100
-        for s in range(0,len(jobs),csize):
-            for results in pool.imap_unordered(safe_align1,jobs[s:min(s+csize,len(jobs))]):
-                n += 1
-                if results is None: continue
-                extract_db.insertAll(results)
-            print "==========",s,len(jobs),"=========="
+h5output.close()
