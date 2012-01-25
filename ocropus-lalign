@@ -597,6 +597,7 @@ elif args.gt is not None:
             allfiles += files
         else:
             files = sorted(glob.glob(arg))
+            assert len(files)>0
             allfiles += files
             count += len(files)
     print "added",count,"files directly"

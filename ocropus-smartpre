@@ -297,11 +297,20 @@ def smart_preproc(raw):
 if args.debug:
     figure(figsize=(12,9.5),dpi=100)
 
+def dread(fname):
+    """Read an image, similar to imread.  However, imread flips JPEG images;
+    this fixes that."""
+    _,ext = os.path.splitext(fname)
+    image = imread(fname)
+    if ext.lower() in [".jpg",".jpeg"]:
+        image = image[::-1,:,...]
+    return image
+
 def process1(job):
     try:
         fname,output = job
         print "===",fname,output
-        raw = imread(fname)
+        raw = dread(fname)
         p = smart_preproc(raw)
         p.raw = raw
         print p.k,p.mw,p.mh,len(p.good)

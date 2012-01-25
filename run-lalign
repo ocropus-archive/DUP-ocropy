@@ -1,12 +1,5 @@
 #!/bin/sh
 
-echo -n erasing...
-find uw3/ unlv/ | egrep '/..../......\.(gt.costs|gt.fst|gt.txt|rseg.gt.png|cseg.gt.png)$' | xargs -r rm -v | wc -l
-
-output=laligned.h5
-
-test -f $output && rm $output
-
 # workaround for problem with current classifier
 cat > confusions <<EOF
 f ff 0.0
@@ -19,8 +12,7 @@ f ft 0.0
 ,, '' 0.0
 EOF
 
-# $HOME/ocropus/ocropy/ocropus-lalign -r -s gt -T confusions -M 2 -A 2 -x laligned.db -p unlv/????.gt.txt uw3/????.gt.txt 
-$HOME/ocropus/ocropy/ocropus-lalign -r -s gt -T confusions -M 2 -A 2 -x $output -p unlv/????.gt.txt 
-$HOME/ocropus/ocropy/ocropus-lalign -r -s gt -T confusions -M 2 -A 2 -x $output -g uw3/????/??????.gt.txt
-
-# chmod a-w laligned.db
+#rm -f unlv-zones.h5
+#$HOME/ocropus/ocropy/ocropus-lalign -r -O -s gt -T confusions -M 2 -A 2 -x unlv-zones.h5 -p unlv-zones/????.gt.txt 
+rm -f uw3-lines.h5
+$HOME/ocropus/ocropy/ocropus-lalign -r -O -s gt -T confusions -M 2 -A 2 -x uw3-lines.h5 -g 'uw3-lines/????/??????.gt.txt'
