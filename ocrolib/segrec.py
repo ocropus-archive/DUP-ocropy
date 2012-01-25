@@ -414,7 +414,9 @@ class CmodelLineRecognizer:
             for cls,cost in outputs[:int(self.nbest)]:
                 # don't add anything with a cost above maxcost
                 # if cost>self.maxcost and cls!="~": continue
-                if self.norejects and cls=="~":
+
+                # add rejects only if there is nothing else
+                if self.norejects and cls=="~" and len(outputs)>1:
                     continue
 
                 # letters are never small, so we skip small bounding boxes that
