@@ -114,6 +114,7 @@ def align1(job):
     assert len(scosts)==len(segs)
 
     aligned = "".join(sresult)
+    aligned = re.sub(r'\0','',aligned)
     print fname,":",aligned
 
     bboxes = []

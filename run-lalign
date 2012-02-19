@@ -15,4 +15,4 @@ EOF
 #rm -f unlv-zones.h5
 #$HOME/ocropus/ocropy/ocropus-lalign -r -O -s gt -T confusions -M 2 -A 2 -x unlv-zones.h5 -p unlv-zones/????.gt.txt 
 rm -f uw3-lines.h5
-$HOME/ocropus/ocropy/ocropus-lalign -r -O -s gt -T confusions -M 2 -A 2 -x uw3-lines.h5 -g 'uw3-lines/????/??????.gt.txt'
+$HOME/ocropus/ocropy/ocropus-lalign -r -O -s gt -T confusions -M 2 -A 2 -x uw3-lines.h5 -g .gt.txt 'uw3-lines/????/??????.png'
