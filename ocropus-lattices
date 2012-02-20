@@ -62,8 +62,9 @@ for arg in args:
         assert len(files)>0
         temp += files
     else:
-        temp.append(arg)
-        count += 1
+        expanded = glob.glob(arg) 
+        temp += expanded
+        count += len(expanded)
 print "added",count,"files directly"
 args = temp
 

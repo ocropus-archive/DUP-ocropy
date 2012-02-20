@@ -40,9 +40,9 @@ parser.add_argument("--debug_rawalign",action="store_true")
 parser.add_argument("--debug_aligned",action="store_true")
 parser.add_argument("--debug_select",action="store_true")
 parser.add_argument('--dgrid',default=8,help="grid size for display")
-
 parser.add_argument("files",default=[],nargs='*',help="input lines)")
 args = parser.parse_args()
+args.files = concatenate([glob.glob(file) for file in args.files])
 
 debug = 0
 
@@ -114,6 +114,7 @@ def align1(job):
     assert len(scosts)==len(segs)
 
     aligned = "".join(sresult)
+    aligned = re.sub(r'\0','',aligned)
     print fname,":",aligned
 
     bboxes = []

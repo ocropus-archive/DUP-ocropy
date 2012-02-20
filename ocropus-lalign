@@ -596,8 +596,10 @@ elif args.gt is not None:
             assert len(files)>0
             allfiles += files
         else:
-            allfiles.append(arg)
-            count += 1
+            files = sorted(glob.glob(arg))
+            assert len(files)>0
+            allfiles += files
+            count += len(files)
     print "added",count,"files directly"
     for arg in allfiles:
         path,ext = ocrolib.allsplitext(arg)
