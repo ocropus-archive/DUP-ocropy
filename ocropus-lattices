@@ -41,10 +41,14 @@ parser.add_argument('-p','--parameter',default=[],nargs='*',help="linerec parame
 parser.add_argument('-P','--cparameter',default=[],nargs='*',help="cmodel parameter (repeat if desired)")
 parser.add_argument("-d","--display",help="display progress",action="store_true")
 parser.add_argument('-D','--Display',action='store_true',help='display recognition results for debuggin')
+parser.add_argument('--displaygeo',action='store_true',help='display line geometry info')
 parser.add_argument("args",default=[],nargs='*',help="input lines")
 options = parser.parse_args()
 args = options.args
 
+if options.displaygeo:
+    from ocrolib import docproc
+    docproc.seg_geometry_display = 1
 import ocrolseg
 segmenter = eval(options.segmenter)
 

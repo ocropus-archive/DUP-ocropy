@@ -316,17 +316,7 @@ class CmodelLineRecognizer:
         # compute the geometry (might have to use
         # CCS segmenter if this doesn't work well)
         geo = docproc.seg_geometry(rseg)
-
-        # compute the median segment height
-        heights = []
-        for i in range(self.grouper.length()):
-            (y0,x0,y1,x1) = self.grouper.boundingBox(i)
-            heights.append(y1-y0)
-        mheight = median(array(heights))
-        if mheight<8:
-            raise common.RecognitionError("median line height too small (maybe rescale prior to recognition)",mheight=mheight)
-        if mheight>100:
-            raise common.RecognitionError("median line height too large (maybe rescale prior to recognition)",mheight=mheight)
+        mheight = geo[0]
         self.mheight = mheight
 
         # invert the input image (make a copy first)
@@ -403,6 +393,7 @@ class CmodelLineRecognizer:
                 matching = [k for k,v in outputs[:int(self.nbest)] if re.match(self.debug_cls,k)]
                 if len(matching)>0:
                     print "grouper","%3d"%i,
+                    print "(%3d,%3d)"%char.shape,
                     print "   (y %5.2f w %5.2f h %5.2f)"%(rel[0],rel[1],rel[2]),
                     print "   %6.2f+"%segcost,
                     print "%-15s"%("-".join([str(x) for x in self.grouper.getSegments(i)])),
