@@ -304,3 +304,20 @@ def compute_alignment(fst,rseg,lmodel,beam=1000,ltable=lig):
     return Record(output_l=sresult,
                   cseg = cseg,
                   costs = scosts)
+
+def simple_line_fst(line,lig=ligatures.lig):
+    """Add a line (given as a list of strings) to an fst."""
+    fst = ocrofst.OcroFST()
+    state = fst.newState()
+    fst.setStart(state)
+    states = [state]
+    for i in range(len(line)):
+        states.append(fst.newState())
+    for i in range(len(line)):
+        s = line[i]
+        c = lig.ord(s)
+        start = states[i]
+        next = states[i+1]
+        fst.addTransition(start,next,c)
+    fst.setAccept(states[-1],0.0)
+    return fst

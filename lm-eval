@@ -14,6 +14,7 @@ from multiprocessing import Pool
 import ocrolib
 from ocrolib import number_of_processors,fstutils,die
 from scipy import stats
+import ocrofst
 
 signal.signal(signal.SIGINT,lambda *args:sys.exit(1))
 
@@ -35,7 +36,7 @@ fail = 0
 cfail = 0
 totalcost = 0
 
-lmodel = ocrolib.OcroFST()
+lmodel = ocrofst.OcroFST()
 lmodel.load(options.langmod)
 
 for fname in args:
@@ -50,7 +51,7 @@ for fname in args:
             chars += len(line)
 
             lattice = fstutils.simple_line_fst(line)
-            v1,v2,ins,outs,costs = ocrolib.beam_search(lattice,lmodel,options.beam)
+            v1,v2,ins,outs,costs = ocrofst.beam_search(lattice,lmodel,options.beam)
 
             cost = sum(costs)
 

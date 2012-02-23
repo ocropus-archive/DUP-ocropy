@@ -1,0 +1,69 @@
+#!/usr/bin/python
+
+import sys,os,re,glob,math,glob,signal,traceback
+import matplotlib
+from collections import Counter
+import argparse
+from math import log
+
+parser = argparse.ArgumentParser(description = """
+""")
+parser.add_argument("-o","--output",default="case.fst")
+args = parser.parse_args()
+
+import openfst
+def Fst():
+    return openfst.StdVectorFst()
+
+from ocrolib.fstre import *
+
+special = "i.e. e.g. I.e. E.g. PhD Int'l Ph.D. M.A. Jr. D.Sc. ed. MHz".split()
+
+letter = Y("A-Za-z")
+letters = PLUS(letter)
+upper = Y("A-Z")
+uppers = PLUS(upper)
+lower = Y("a-z")
+lowers = PLUS(lower)
+digits = PLUS(Y("0-9"))
+number = PLUS(Y("0-9eEdD.+-"))
+year = SEQ(Y("12"),Y("019"),Y("0-9"),Y("0-9"))
+lpar = Y("[{(<")
+rpar = Y(">)}]")
+
+word = ALT(PLUS(Y("A-Z-")),
+           PLUS(Y("a-z-")),
+           PLUS(SEQ(Y("A-Z"),PLUS(Y("a-z-")))),
+           SEQ(digits,"-",letters),
+           SEQ("Mc",upper,lowers),
+           SEQ(OPT(Y("$")),number,OPT("%")),
+           SEQ(digits,ALT("nd","rd","th","st")),
+           SEQ(year,letter),
+           SEQ(number,"-",number),
+           SEQ(digits,"."),
+           SEQ(digits,"-",digits),
+           SEQ(lpar,digits,rpar),
+           PLUS(SEQ(upper,".",OPT("-"))),
+           SEQ(letters,OPT("-"),digits),
+           SEQ(digits,PLUS(ALT(digits,lpar,rpar,":","-"))),
+           *special)
+
+other = Y("+()[]{}!&:'`|=.;,-")
+fallback = COST(PLUS(ALT(letters,digits,other)),5.0)
+
+before = STAR(Y("([<`'\""))
+after = ALT(STAR(Y(")]>'`\".,:;?!-")),
+            "'s",
+            "'t",
+            "'ed",
+            "-bit",
+            SEQ(lpar,ALT(digits,letters),rpar),
+            )
+separators = ALT(" ",Y("/|,:;.=-&"))
+between = PLUS(separators)
+
+xword = ALT(SEQ(before,word,after),fallback)
+
+fst = GEN(SEQ(STAR(SEQ(xword,between)),xword))
+
+fst.Write(args.output)
