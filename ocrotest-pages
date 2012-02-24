@@ -118,6 +118,7 @@ segmenter = ocrolib.make_ISegmentPage(options.pseg)
 # line recognizer, a C++ character recognizer, or a pickled Python line
 # recognizer respectively.
 linerec = ocrolib.load_linerec(ocrolib.ocropus_find_file(options.linerec))
+linerec.norejects = 1
 alert("[note]","line recognizer:",linerec)
 
 # The language model, loaded from disk.
