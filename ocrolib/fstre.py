@@ -7,12 +7,12 @@
 
 import sys,os,re,codecs
 import openfst
-import ocropus,iulib
+import iulib
 import common
 import ligatures
 
 epsilon = openfst.epsilon
-sigma = ocropus.L_RHO
+sigma = -3 # FIXME
 
 Fst = openfst.StdVectorFst
 
