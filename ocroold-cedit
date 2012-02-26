@@ -628,7 +628,7 @@ def build_toolbar():
 
 def main():
     global main_widget_tree,class_selector,cluster_viewer,info_area
-    gladefile = ocrolib.findfile("gui/ocropus-cedit.glade")
+    gladefile = ocrolib.findfile("gui/ocroold-cedit.glade")
     windowname = "window1" 
     main_widget_tree = gtk.glade.XML(gladefile)
     dic = {

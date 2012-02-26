@@ -24,7 +24,7 @@ import gnome
 from matplotlib import patches
 import scipy
 import ocrolib
-from ocrolib import fstutils,utils
+from ocrolib import fstutils
 
 default_model = "2m2-reject.cmodel"
 default_segmenter = "DpSegmenter"
@@ -111,7 +111,7 @@ class LineWindow:
         self.lmodel = None
         self.linerec = None
         
-        gladefile = ocrolib.findfile("ocropus-gtedit.glade")
+        gladefile = ocrolib.findfile("gui/ocroold-gtedit.glade")
         self.windowname = "gtedit" 
         self.wtree = gtk.glade.XML(gladefile,self.windowname) 
         self.window = self.wtree.get_widget(self.windowname)
