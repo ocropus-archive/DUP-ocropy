@@ -27,7 +27,7 @@ parser = argparse.ArgumentParser(description = """
 """)
 
 parser.add_argument("-b","--beam",type=int,default=10000)
-parser.add_argument("-l","--langmod",help="language model",default=None)
+parser.add_argument("-l","--langmod",help="language model",default="default.fst")
 
 parser.add_argument("-s","--suffix",help="output suffix for writing result",default="")
 parser.add_argument("-O","--overwrite",help="overwrite outputs",action="store_true")
@@ -43,11 +43,15 @@ parser.add_argument('--dgrid',default=8,help="grid size for display")
 parser.add_argument("files",default=[],nargs='*',help="input lines)")
 args = parser.parse_args()
 args.files = concatenate([glob.glob(file) for file in args.files])
+args.files = concatenate([glob.glob(file+"/????/??????.fst") if os.path.isdir(file) else file for file in args.files])
+
 
 debug = 0
 
+lmodel = ocrolib.ocropus_find_file(args.langmod)
 langmod = ocrofst.OcroFST()
-langmod.load(args.langmod)
+print "# loading",lmodel
+langmod.load(lmodel)
 
 def align1(job):
     fname = job
