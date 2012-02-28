@@ -1,0 +1,24 @@
+#!/usr/bin/python
+
+import sys,os,re,glob,math,glob,signal,traceback
+import matplotlib
+from collections import Counter
+import argparse
+from math import log
+
+parser = argparse.ArgumentParser(description = """
+""")
+parser.add_argument("-o","--output",default="hack.fst")
+args = parser.parse_args()
+
+import openfst
+def Fst():
+    return openfst.StdVectorFst()
+
+from ocrolib.fstre import *
+
+word = ALT(PLUS(Y("A-B-")),
+           PLUS(Y("a-b-")))
+fst = GEN(word)
+
+fst.Write(args.output)
