@@ -1,27 +1,51 @@
 #!/usr/bin/python
 
+### Largely self-contained image binarization and deskewing.  You can easily 
+### use this as a basis for other kinds of preprocessing.
+
 import sys,os,re,optparse,shutil,glob,fcntl
+import signal
+signal.signal(signal.SIGINT,lambda *args:sys.exit(1))
+import traceback
+import argparse
+import multiprocessing
+
 import matplotlib
 if "DISPLAY" not in os.environ: matplotlib.use("AGG")
 else: matplotlib.use("GTK")
-import signal
-signal.signal(signal.SIGINT,lambda *args:sys.exit(1))
 from matplotlib import patches
+
+# all the image processing code comes from scipy and pylab
 from pylab import *
 from scipy.stats.stats import trim1
 from multiprocessing import Pool
 from scipy.ndimage import measurements,interpolation
 from scipy.misc import imsave
-import traceback
-import argparse
-import multiprocessing
 from pylab import gray as gray_
 
-from ocrolib import number_of_processors
+# ocrolib is only used for image I/O and pathname manipulation
 import ocrolib
+# ocrorast is used for estimating the skew angle
+import ocrorast
 
 parser = argparse.ArgumentParser(description = """
 %prog -o dir [options] image1 image2 ...
+
+Perform document image preprocessing:
+
+- Sauvola binarization
+- deskewing
+- large and small component removal
+
+Images are processed from the command line and put into a standard book directory,
+creating
+
+- book/0001.png (deskewed grayscale page image)
+- book/0001.bin.png (deskewed and cleaned binary page image)
+
+This assumes 300dpi images (i.e., all the internal thresholds and constants
+are set up for that).  If your image is a different resolution, use the -z (zoom)
+argument.
 """)
 
 parser.add_argument("args",default=[],nargs='*',help="input lines")
@@ -33,30 +57,25 @@ parser.add_argument("-D","--Display",help="display continuously",action="store_t
 parser.add_argument("-q","--silent",action="store_true",help="disable warnings")
 parser.add_argument("-Q","--parallel",type=int,default=multiprocessing.cpu_count(),help="number of parallel processes to use")
 parser.add_argument("-g","--gtextension",help="ground truth extension for copying in ground truth (include all dots)",default=None)
+parser.add_argument("--debug",action="store_true")
 
-# other parameters
-parser.add_argument("--dpi",help="resolution (DPI) (300)",default=300,type=float)
-parser.add_argument("--scale",type=float,default=1.0)
-parser.add_argument("--maxsize",type=int,default=300)
-parser.add_argument("--minsize",type=int,default=5)
-parser.add_argument("--binarize",action="store_true")
-parser.add_argument("--invert",action="store_true")
-# parser.add_argument("--autoinv",action="store_true")
-parser.add_argument("--htrem",action="store_true")
-parser.add_argument("--nohtrem",action="store_true")
-parser.add_argument("--uncleaned",action="store_true")
-parser.add_argument("--noskew",action="store_true")
+# parser.add_argument("--dpi",default=300,type=float,help="resolution (DPI) (300)")
+parser.add_argument("-z","--zoom",type=float,default=1.0,help="rescale the image prior to processing")
+parser.add_argument("--maxsize",type=int,default=300,help="maximum character component size")
+parser.add_argument("--minsize",type=int,default=5,help="minimum character component size")
+parser.add_argument("--binarize",action="store_true",help="always run binarization, even if image appears binary already")
+parser.add_argument("--invert",action="store_true",help="invert the image prior to binarization")
+parser.add_argument("--htrem",action="store_true",help="always remove halftones (even if there don't appear to be any)")
+parser.add_argument("--nohtrem",action="store_true",help="never remove halftones (even if there appear to be some)")
+parser.add_argument("--uncleaned",action="store_true",help="output only the deskewed binary image with no further cleanup")
+parser.add_argument("--noskew",action="store_true",help="do not perform skew correction")
 
 # sauvola
-parser.add_argument("--sigma",type=float,default=150)
-parser.add_argument("-k","--k",type=float,default=0.3)
-
-# debugging
-parser.add_argument("--debug",action="store_true")
+parser.add_argument("-s","--sigma",type=float,default=150,help="sigma arguent for Sauvola binarization")
+parser.add_argument("-k","--k",type=float,default=0.3,help="k value for Sauvola binarization")
 
 # hysteresis thresholding
 # TBD
-
 
 args = parser.parse_args()
 
@@ -72,7 +91,6 @@ if args.debug or args.display or args.Display: args.parallel = 1
 
 import os,os.path
 from pylab import *
-import ocrorast
 from scipy.ndimage import measurements,interpolation,filters,morphology
 import math
 
@@ -281,8 +299,8 @@ def preprocess(raw,title=None):
 
     # zoom if requested
 
-    if args.scale!=1.0:
-        raw = interpolation.zoom(raw,args.scale,mode='nearest',order=1)
+    if args.zoom!=1.0:
+        raw = interpolation.zoom(raw,args.zoom,mode='nearest',order=1)
         if args.debug: 
             cla(); xlabel("zoomed")
             imshow(raw); ginput(1,9999)
@@ -389,10 +407,6 @@ def process_image(image,arg,count):
             raw_input("hit ENTER to continue")
         else:
             ginput(1,timeout=1)
-    if not args.silent:
-        if ocrolib.quick_check_page_components(bin,dpi=args.dpi)<0.5:
-            print "# skipping page"
-            return 0
     if args.Output:
         dest,_ = ocrolib.allsplitext(arg)
         print "# writing",dest
