@@ -23,6 +23,7 @@ Computes recognition lattices for text lines.  Also displays the bestpath
 result (recognition result without language model).
 """)
 parser.add_argument("-m","--model",help="model file",default="default.cmodel")
+parser.add_argument("-F","--fst",action="store_true",help="write fst files instead of lattice files")
 parser.add_argument("-w","--whitespace",help="space model file",default="space.model")
 parser.add_argument("-c","--cont",help="continue even when unexpected errors occur",action="store_true")
 parser.add_argument("-r","--rejects",help="generate rejects in lattices",action="store_true")
@@ -137,19 +138,22 @@ def extract(t):
         print fname,": no output lattice"
         return
 
-    tlattice_file = ocrolib.fvariant(fname,"lattice",options.suffix)
-    with open(tlattice_file,"w") as stream:
-        linerec.saveLattice(stream)
-
-    lattice_file = ocrolib.fvariant(fname,"fst",options.suffix)
-    if os.path.exists(lattice_file) and not options.overwrite:
-        die("%s: %s",lattice_file,"already exists")
-    if 1:
-        lattice.save(lattice_file)
+    if options.fst:
+        lattice_file = ocrolib.fvariant(fname,"fst",options.suffix)
+        if os.path.exists(lattice_file) and not options.overwrite:
+            die("%s: %s",lattice_file,"already exists")
+        if 1:
+            lattice.save(lattice_file)
+        else:
+            olattice = lattice.as_openfst()
+            olattice.SetOutputSymbols(lig.SymbolTable())
+            olattice.Write(lattice_file)
     else:
-        olattice = lattice.as_openfst()
-        olattice.SetOutputSymbols(lig.SymbolTable())
-        olattice.Write(lattice_file)
+        tlattice_file = ocrolib.fvariant(fname,"lattice",options.suffix)
+        if os.path.exists(tlattice_file) and not options.overwrite:
+            die("%s: %s",tlattice_file,"already exists")
+        with open(tlattice_file,"w") as stream:
+            linerec.saveLattice(stream)
 
     rseg_file = ocrolib.fvariant(fname,"rseg",options.suffix)
     if os.path.exists(rseg_file) and not options.overwrite:

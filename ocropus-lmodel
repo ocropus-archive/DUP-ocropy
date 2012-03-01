@@ -1,7 +1,7 @@
 #!/usr/bin/python
 
 ################################################################
-### Align transcriptions with lattices.
+### Apply language models.
 ################################################################
 
 import sys,os,re,glob,math,glob,signal,traceback,sqlite3
@@ -15,7 +15,7 @@ from multiprocessing import Pool
 import ocrolib
 from ocrolib import number_of_processors,fstutils,die,docproc
 from scipy import stats
-from ocrolib import dbhelper,ocroio,ocrofst,grouper
+from ocrolib import dbhelper,ocroio,ocrofst
 from ocrolib import ligatures,rect_union,Record
 import multiprocessing
 
@@ -44,7 +44,12 @@ parser.add_argument('--dgrid',default=8,help="grid size for display")
 parser.add_argument("files",default=[],nargs='*',help="input lines)")
 args = parser.parse_args()
 args.files = concatenate([glob.glob(file) for file in args.files])
-args.files = concatenate([glob.glob(file+"/????/??????.fst") if os.path.isdir(file) else [file] for file in args.files])
+if args.usefst:
+    args.files = concatenate([glob.glob(file+"/????/??????.fst")
+                              if os.path.isdir(file) else [file] for file in args.files])
+else:
+    args.files = concatenate([glob.glob(file+"/????/??????.lattice")
+                              if os.path.isdir(file) else [file] for file in args.files])
 
 
 debug = 0
@@ -53,6 +58,81 @@ lmodel = ocrolib.ocropus_find_file(args.langmod)
 langmod = ocrofst.OcroFST()
 print "# loading",lmodel
 langmod.load(lmodel)
+
+class Lattice:
+    """Class for constructing an FST for a lattice."""
+    def loadLattice(self,stream,segmentation=None):
+        self.segmentation = segmentation
+        self.groups = []
+        self.costs = []
+        self.space_costs = []
+        for lineno,line in enumerate(stream.readlines()):
+            f = line[:-1].split()
+            if f[0]=="segment":
+                i = int(f[1])
+                assert i==len(self.groups),"bad input format ('segment' out of order), line %d"%lineno
+                start,end = [int(x) for x in f[2].split(":")]
+                (x0,y0,x1,y1) = [int(x) for x in f[3].split(":")]
+                box = (slice(y0,y1),slice(x0,x1))
+                yes,no = [float(x) for x in f[4:6]]
+                self.groups.append((box,range(start,end+1)))
+                self.space_costs.append((yes,no))
+                self.costs.append([])
+            elif f[0]=="chr":
+                i = int(f[1])
+                j = int(f[2])
+                assert i==len(self.groups)-1,"bad input format ('segment' out of order), line %d"%lineno
+                assert j==len(self.costs[i]),"bad input format ('chr' out of order), line %d"%lineno
+                cost = float(f[3])
+                cls = f[4]
+                self.costs[i].append((cost,cls))
+            elif f[0]=="#":
+                pass
+            else:
+                raise Error("bad input format")
+    def getLatticeAsFST(self,fst=None):
+        """Construct the lattice for the group, using the setClass and setSpaceCost information."""
+        if fst is None:
+            fst = ocrofst.OcroFST()
+        final = max([amax(segs) for (box,segs) in self.groups])+1
+        if self.segmentation is not None:
+            assert final==amax(self.segmentation)+1
+        states = [-1]+[fst.newState() for i in range(1,final+1)]
+        fst.setStart(states[1])
+        fst.setAccept(states[final])
+        for i in range(len(self.groups)):
+            box,segs = self.groups[i]
+            start = amin(segs)
+            end = amax(segs)
+            sid = (start<<16)+end
+            yes = self.space_costs[i][0]
+            no = self.space_costs[i][1]
+            if yes>9999.0 and no>9999.0: no = 0.0
+            for j in range(len(self.costs[i])):
+                cost,cls = self.costs[i][j]
+                n = len(cls)
+                state = states[start]
+                for k in range(n):
+                    c = ord(cls[k])
+                    next = -1
+                    if k<n-1:
+                        next = fst.newState()
+                        states.append(next)
+                    else:
+                        next = states[end+1]
+                    ccost = 0.0
+                    if k==0: ccost += cost
+                    if k==n-1: ccost += no
+                    if ccost<1000.0:
+                        fst.addTransition(state,next,c,float(ccost),int(sid))
+                    if k==n-1 and yes<1000.0:
+                        ccost = cost if k==0 else 0.0
+                        space_state = fst.newState()
+                        states.append(space_state)
+                        fst.addTransition(state,space_state,c,float(ccost),int(sid))
+                        fst.addTransition(space_state,next,32,float(yes),0)
+                    state = next
+        return fst
 
 def align1(job):
     fname = job
@@ -66,10 +146,10 @@ def align1(job):
     else:
         lattice_file = ocrolib.fvariant(fname,"lattice")
         assert os.path.exists(lattice_file),lattice_file+": does not exist"
-        gr = grouper.Grouper()
+        gr = Lattice()
         with open(lattice_file) as stream:
             gr.loadLattice(stream)
-        fst = gr.getLattice()
+        fst = gr.getLatticeAsFST()
         fname = lattice_file
 
     result = ocrofst.beam_search(fst,langmod,args.beam)
