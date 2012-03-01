@@ -458,6 +458,27 @@ class CmodelLineRecognizer:
                                             split=self.grouper.isSplit(i)))
         self.rseg = rseg
 
+    def bestpath(self):
+        """Return the bestpath through the recognition lattice, as a string.
+        This is used for debugging."""
+        return self.grouper.bestpath()
+
+    def saveLattice(self,stream):
+        """Save the recognition lattice to a file."""
+        self.grouper.saveLattice(stream)
+
+    def save(self,file):
+        with open(file,"w") as stream:
+            pickle.dump(self,stream)
+    def load(self,file):
+        with open(file,"r") as stream:
+            obj = pickle.load(self,stream)
+        self.__dict__.update(obj.__dict__)
+
+    ################################################################
+    ### The rest is deprecated.
+    ################################################################
+
     def getLattice(self):
         # extract the recognition lattice from the grouper
         if self.use_ligatures:
@@ -467,10 +488,6 @@ class CmodelLineRecognizer:
             lattice = self.grouper.getLattice()
             assert lattice is not None
         return lattice
-
-    def saveLattice(self,stream):
-        self.grouper.saveLattice(stream)
-
     def recognizeLineSeg(self,image):
         """Recognizes a line and returns a lattice in FST format, together 
         with a raw segmentation.
@@ -482,14 +499,10 @@ class CmodelLineRecognizer:
         lattice = self.getLattice()
         if self.display: ginput(1,10000)
         return lattice,self.rseg
-
     def recognizeLine(self,image):
         "Recognize a line, outputting a recognition lattice."""
         lattice,rseg = self.recognizeLineSeg(image)
         return lattice
-
-    # align the text line image with the transcription
-
     def align(self,image,transcription):
         raise Exception("unimplemented")
         """Takes an image and a transcription and aligns the two.  Output is
@@ -503,19 +516,6 @@ class CmodelLineRecognizer:
         alignment = compute_alignment(lattice,rseg,lmodel)
         alignment.raw = raw
         return alignment
-
-    # saving and loading this component
-    
-    def save(self,file):
-        with open(file,"w") as stream:
-            pickle.dump(self,stream)
-    def load(self,file):
-        with open(file,"r") as stream:
-            obj = pickle.load(self,stream)
-        self.__dict__.update(obj.__dict__)
-
-    # training is handled separately
-
     def startTraining(self,type="adaptation"):
         raise Unimplemented()
     def addTrainingLine(self,image,transcription):

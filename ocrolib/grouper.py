@@ -10,6 +10,43 @@ from pycomp import PyComponent
 from collections import Counter
 import ligatures
 
+import heapq
+
+def shortest_path(transitions,start=0,end=None):
+    """Simple implementation of shortest path algorithm, used
+    for finding the language model free best result from the
+    grouper.  For more complex searches, use the FST library 
+    and a language model."""
+    if end is None: end = len(transitions)-1
+    # each transition is (cost,dest,label)
+    costs = [inf]*len(transitions)
+    sources = [None]*len(transitions)
+    labels = [""]*len(transitions)
+    costs[start] = 0.0
+    queue = []
+    heapq.heappush(queue,(0.0,start))
+    while len(queue)>0:
+        (ocost,i) = heapq.heappop(queue)
+        for (cost,j,label) in transitions[i]:
+            ncost = ocost+cost
+            if ncost<costs[j]:
+                sources[j] = i
+                costs[j] = ncost
+                labels[j] = label
+                heapq.heappush(queue,(costs[j],j))
+    if costs[end]==inf:
+        return None
+    rcosts = []
+    rstates = []
+    result = []
+    j = end
+    while j!=start:
+        rcosts.append(costs[j])
+        result.append(labels[j])
+        rstates.append(j)
+        j = sources[j]
+    return "".join(reversed(result))
+
 class Grouper(PyComponent):
     """Perform grouping operations on segmented text lines, and
     create a finite state transducer for classification results."""
@@ -186,6 +223,20 @@ class Grouper(PyComponent):
         """Set the cost of putting a space or not putting a space after
         group i."""
         self.space_costs[i] = (yes_cost,no_cost)
+    def bestpath(self):
+        """Compute a best path through the lattice for debugging purposes.
+        This assumes that all costs are non-negative and that there are no loops."""
+        n = 1+max([amax(segs) for box,segs in self.groups])
+        transitions = [[] for i in range(n)]
+        for i in range(len(self.groups)):
+            box,segs = self.groups[i]
+            start = amin(segs)
+            end = amax(segs)
+            sp = " " if self.space_costs[i][0]<self.space_costs[i][1] else ""
+            for j in range(len(self.costs[i])):
+                cost,cls = self.costs[i][j]
+                transitions[start-1].append((cost,end,cls+sp))
+        return shortest_path(transitions,0,n-1)
     def saveLattice(self,stream):
         """Write the lattice in a simple text format."""
         for i in range(len(self.groups)):
@@ -230,8 +281,14 @@ class Grouper(PyComponent):
                 pass
             else:
                 raise Error("bad input format")
+
+    ################################################################
+    ### the rest is deprecated
+    ################################################################
+
     def getLatticeAsFST(self,fst=None):
-        """Construct the lattice for the group, using the setClass and setSpaceCost information."""
+        """Construct the lattice for the group, using the setClass and setSpaceCost 
+        information."""
         if fst is None:
             fst = ocrofst.OcroFST()
         final = max([amax(segs) for (box,segs) in self.groups])+1
@@ -329,3 +386,4 @@ class Grouper(PyComponent):
         raise Exception("unimplemented")
     def getGtClass(self,i):
         raise Exception("unimplemented")
+

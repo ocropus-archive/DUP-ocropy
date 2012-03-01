@@ -125,6 +125,7 @@ def extract(t):
         gray()
         imshow(image)
         ginput(1,timeout=1)
+
     try:
         lattice,rseg = linerec.recognizeLineSeg(image)
     except ocrolib.RecognitionError,e:
@@ -134,11 +135,14 @@ def extract(t):
         traceback.print_exc()
         if not options.cont: die("internal error")
         return
+
     if lattice is None:
         print fname,": no output lattice"
         return
 
     if options.fst:
+        # this is deprecated; all the FST stuff will be removed
+        # from ocropy (but not ocropus!)
         lattice_file = ocrolib.fvariant(fname,"fst",options.suffix)
         if os.path.exists(lattice_file) and not options.overwrite:
             die("%s: %s",lattice_file,"already exists")
@@ -148,19 +152,20 @@ def extract(t):
             olattice = lattice.as_openfst()
             olattice.SetOutputSymbols(lig.SymbolTable())
             olattice.Write(lattice_file)
+        s = lattice.bestpath()
     else:
         tlattice_file = ocrolib.fvariant(fname,"lattice",options.suffix)
         if os.path.exists(tlattice_file) and not options.overwrite:
             die("%s: %s",tlattice_file,"already exists")
         with open(tlattice_file,"w") as stream:
             linerec.saveLattice(stream)
+        s = linerec.bestpath()
 
     rseg_file = ocrolib.fvariant(fname,"rseg",options.suffix)
     if os.path.exists(rseg_file) and not options.overwrite:
         die("%s: %s",rseg_file,"already exists")
     ocrolib.write_line_segmentation(rseg_file,rseg)
 
-    s = lattice.bestpath()
     print fname,":",repr(s)
 
     raw_file = ocrolib.fvariant(fname,"txt","raw")
