@@ -211,7 +211,6 @@ class Grouper(PyComponent):
             if f[0]=="segment":
                 i = int(f[1])
                 assert i==len(self.groups),"bad input format ('segment' out of order), line %d"%lineno
-                print f[2]
                 start,end = [int(x) for x in f[2].split(":")]
                 (x0,y0,x1,y1) = [int(x) for x in f[3].split(":")]
                 box = (slice(y0,y1),slice(x0,x1))
@@ -231,11 +230,13 @@ class Grouper(PyComponent):
                 pass
             else:
                 raise Error("bad input format")
-    def getLattice(self,fst=None):
+    def getLatticeAsFST(self,fst=None):
         """Construct the lattice for the group, using the setClass and setSpaceCost information."""
         if fst is None:
             fst = ocrofst.OcroFST()
-        final = amax(self.segmentation)+1
+        final = max([amax(segs) for (box,segs) in self.groups])+1
+        if self.segmentation is not None:
+            assert final==amax(self.segmentation)+1
         states = [-1]+[fst.newState() for i in range(1,final+1)]
         fst.setStart(states[1])
         fst.setAccept(states[final])
@@ -272,7 +273,7 @@ class Grouper(PyComponent):
                         fst.addTransition(space_state,next,32,float(yes),0)
                     state = next
         return fst
-    def getLatticeLig(self,fst=None):
+    def getLatticeLigAsFST(self,fst=None):
         """Construct the lattice for the group, using the setClass and setSpaceCost information."""
         lig = self.lig
         if fst is None:
@@ -310,6 +311,12 @@ class Grouper(PyComponent):
                     fst.addTransition(space_state,next,32,yes,0)
                 state = next
         return fst
+    def getLattice(self):
+        ### DEPRECATED
+        return self.getLatticeAsFST()
+    def getLatticeLig(self):
+        ### DEPRECATED
+        return self.getLatticeLigAsFST()
     def pixelSpace(self,i):
         raise Exception("unimplemented")
     def setSegmentationAndGt(self,rseg,cseg,gt):

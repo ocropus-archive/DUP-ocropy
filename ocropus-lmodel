@@ -15,7 +15,7 @@ from multiprocessing import Pool
 import ocrolib
 from ocrolib import number_of_processors,fstutils,die,docproc
 from scipy import stats
-from ocrolib import dbhelper,ocroio,ocrofst
+from ocrolib import dbhelper,ocroio,ocrofst,grouper
 from ocrolib import ligatures,rect_union,Record
 import multiprocessing
 
@@ -27,6 +27,7 @@ parser = argparse.ArgumentParser(description = """
 """)
 
 parser.add_argument("-b","--beam",type=int,default=10000)
+parser.add_argument("-F","--usefst",action="store_true",help="use fst instead of lattice file")
 parser.add_argument("-l","--langmod",help="language model",default="default.fst")
 
 parser.add_argument("-s","--suffix",help="output suffix for writing result",default="")
@@ -43,7 +44,7 @@ parser.add_argument('--dgrid',default=8,help="grid size for display")
 parser.add_argument("files",default=[],nargs='*',help="input lines)")
 args = parser.parse_args()
 args.files = concatenate([glob.glob(file) for file in args.files])
-args.files = concatenate([glob.glob(file+"/????/??????.fst") if os.path.isdir(file) else file for file in args.files])
+args.files = concatenate([glob.glob(file+"/????/??????.fst") if os.path.isdir(file) else [file] for file in args.files])
 
 
 debug = 0
@@ -55,13 +56,21 @@ langmod.load(lmodel)
 
 def align1(job):
     fname = job
-    fst_file = ocrolib.fvariant(fname,"fst")
-    fst = ocrofst.OcroFST()
-    fst.load(fst_file)
-
-    if not os.path.exists(fst_file):
-        print fst_file,": NOT FOUND"
-        return
+    loaded = None
+    if args.usefst:
+        fst_file = ocrolib.fvariant(fname,"fst")
+        assert os.path.exists(fst_file),fst_file+": does not exist"
+        fst = ocrofst.OcroFST()
+        fst.load(fst_file)
+        fname = fst_file
+    else:
+        lattice_file = ocrolib.fvariant(fname,"lattice")
+        assert os.path.exists(lattice_file),lattice_file+": does not exist"
+        gr = grouper.Grouper()
+        with open(lattice_file) as stream:
+            gr.loadLattice(stream)
+        fst = gr.getLattice()
+        fname = lattice_file
 
     result = ocrofst.beam_search(fst,langmod,args.beam)
     if args.debug_line:
