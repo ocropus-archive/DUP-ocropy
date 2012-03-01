@@ -1,4 +1,4 @@
-import os,os.path,re,numpy,unicodedata,sys,warnings,inspect,glob,traceback
+import os,os.path,re,numpy,unicodedata,sys,warnings,inspect,glob,traceback,string
 import numpy
 from numpy import *
 from scipy.misc import imsave
@@ -186,6 +186,51 @@ class Grouper(PyComponent):
         """Set the cost of putting a space or not putting a space after
         group i."""
         self.space_costs[i] = (yes_cost,no_cost)
+    def saveLattice(self,stream):
+        """Write the lattice in a simple text format."""
+        for i in range(len(self.groups)):
+            box,segs = self.groups[i]
+            start = amin(segs)
+            end = amax(segs)
+            sid = (start<<16)+end
+            yes = self.space_costs[i][0]
+            no = self.space_costs[i][1]
+            if yes>9999.0 and no>9999.0: no = 0.0
+            stream.write("segment %d\t%d:%d\t%d:%d:%d:%d\t%.4f %.4f\n"%
+                         (i,start,end,box[1].start,box[0].start,box[1].stop,box[0].stop,yes,no))
+            for j in range(len(self.costs[i])):
+                cost,cls = self.costs[i][j]
+                stream.write("chr %d\t%4d\t%.4f\t%s\n"%(i,j,cost,cls))
+    def loadLattice(self,stream,segmentation=None):
+        self.segmentation = segmentation
+        self.groups = []
+        self.costs = []
+        self.space_costs = []
+        for lineno,line in enumerate(stream.readlines()):
+            f = line[:-1].split()
+            if f[0]=="segment":
+                i = int(f[1])
+                assert i==len(self.groups),"bad input format ('segment' out of order), line %d"%lineno
+                print f[2]
+                start,end = [int(x) for x in f[2].split(":")]
+                (x0,y0,x1,y1) = [int(x) for x in f[3].split(":")]
+                box = (slice(y0,y1),slice(x0,x1))
+                yes,no = [float(x) for x in f[4:6]]
+                self.groups.append((box,range(start,end+1)))
+                self.space_costs.append((yes,no))
+                self.costs.append([])
+            elif f[0]=="chr":
+                i = int(f[1])
+                j = int(f[2])
+                assert i==len(self.groups)-1,"bad input format ('segment' out of order), line %d"%lineno
+                assert j==len(self.costs[i]),"bad input format ('chr' out of order), line %d"%lineno
+                cost = float(f[3])
+                cls = f[4]
+                self.costs[i].append((cost,cls))
+            elif f[0]=="#":
+                pass
+            else:
+                raise Error("bad input format")
     def getLattice(self,fst=None):
         """Construct the lattice for the group, using the setClass and setSpaceCost information."""
         if fst is None:

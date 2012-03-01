@@ -137,6 +137,10 @@ def extract(t):
         print fname,": no output lattice"
         return
 
+    tlattice_file = ocrolib.fvariant(fname,"lattice",options.suffix)
+    with open(tlattice_file,"w") as stream:
+        linerec.saveLattice(stream)
+
     lattice_file = ocrolib.fvariant(fname,"fst",options.suffix)
     if os.path.exists(lattice_file) and not options.overwrite:
         die("%s: %s",lattice_file,"already exists")

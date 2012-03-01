@@ -382,6 +382,8 @@ def fvariant(fname,kind,gt=None):
     base,ext = allsplitext(fname)
     if kind=="line" or kind=="png":
         return base+gt+".png"
+    if kind=="lattice":
+        return base+gt+".lattice"
     if kind=="aligned":
         return base+".aligned"+gt+".txt"
     if kind=="rseg":

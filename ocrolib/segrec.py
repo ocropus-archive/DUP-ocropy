@@ -275,16 +275,8 @@ class CmodelLineRecognizer:
         self.grouper.pset("maxdist",self.maxdist)
         self.grouper.pset("maxrange",self.maxrange)
 
-    def recognizeLine(self,image):
-        "Recognize a line, outputting a recognition lattice."""
-        lattice,rseg = self.recognizeLineSeg(image)
-        return lattice
-
-    def recognizeLineSeg(self,image):
-        """Recognize a line.
-        lattice: result of recognition
-        rseg: intarray where the raw segmentation will be put
-        image: line image to be recognized"""
+    def recognize(self,image):
+        """Recognize a line. Leaves the results in self.grouper and self.rseg."""
 
         # first check whether the input dimensions are reasonable
 
@@ -464,8 +456,9 @@ class CmodelLineRecognizer:
                                             segcost=segcost,
                                             comb=self.grouper.isCombined(i),
                                             split=self.grouper.isSplit(i)))
+        self.rseg = rseg
 
-
+    def getLattice(self):
         # extract the recognition lattice from the grouper
         if self.use_ligatures:
             lattice = self.grouper.getLatticeLig()
@@ -473,12 +466,27 @@ class CmodelLineRecognizer:
         else:
             lattice = self.grouper.getLattice()
             assert lattice is not None
+        return lattice
 
-        if self.display:
-            ginput(1,10000)
+    def saveLattice(self,stream):
+        self.grouper.saveLattice(stream)
 
-        # return the raw segmentation as a result
-        return lattice,rseg
+    def recognizeLineSeg(self,image):
+        """Recognizes a line and returns a lattice in FST format, together 
+        with a raw segmentation.
+
+        lattice: result of recognition
+        rseg: intarray where the raw segmentation will be put
+        image: line image to be recognized"""
+        self.recognize(image)
+        lattice = self.getLattice()
+        if self.display: ginput(1,10000)
+        return lattice,self.rseg
+
+    def recognizeLine(self,image):
+        "Recognize a line, outputting a recognition lattice."""
+        lattice,rseg = self.recognizeLineSeg(image)
+        return lattice
 
     # align the text line image with the transcription
 
