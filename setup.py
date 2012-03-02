@@ -26,5 +26,6 @@ setup (name = 'ocropy',
                    ],
        scripts = [i for i in glob.glob("ocropus-*[a-z5]") if not i.endswith('.glade')] +
                  glob.glob("ocroex-*[a-z]") +
-                 glob.glob("ocrotest-*[a-z]"),
+                 glob.glob("ocrotest-*[a-z]") +
+                 ["ocropus"],
        )
