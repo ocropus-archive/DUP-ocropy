@@ -23,7 +23,6 @@ Computes recognition lattices for text lines.  Also displays the bestpath
 result (recognition result without language model).
 """)
 parser.add_argument("-m","--model",help="model file",default="default.cmodel")
-parser.add_argument("-F","--fst",action="store_true",help="write fst files instead of lattice files")
 parser.add_argument("-w","--whitespace",help="space model file",default="space.model")
 parser.add_argument("-c","--cont",help="continue even when unexpected errors occur",action="store_true")
 parser.add_argument("-r","--rejects",help="generate rejects in lattices",action="store_true")
@@ -118,7 +117,7 @@ for s in options.parameter:
 def extract(t):
     fname = t
     image = ocrolib.read_image_gray(fname)
-    ocrolib.fcleanup(fname,options.suffix,["cseg","txt","costs","fst"])
+    ocrolib.fcleanup(fname,options.suffix,["cseg","txt","costs","fst","lattice"])
 
     if options.display:
         clf()
@@ -127,7 +126,7 @@ def extract(t):
         ginput(1,timeout=1)
 
     try:
-        lattice,rseg = linerec.recognizeLineSeg(image)
+        linerec.recognize(image)
     except ocrolib.RecognitionError,e:
         print fname,"*** %s ***"%e
         return
@@ -136,30 +135,19 @@ def extract(t):
         if not options.cont: die("internal error")
         return
 
-    if lattice is None:
+    s = linerec.bestpath()
+
+    if s is None:
         print fname,": no output lattice"
         return
 
-    if options.fst:
-        # this is deprecated; all the FST stuff will be removed
-        # from ocropy (but not ocropus!)
-        lattice_file = ocrolib.fvariant(fname,"fst",options.suffix)
-        if os.path.exists(lattice_file) and not options.overwrite:
-            die("%s: %s",lattice_file,"already exists")
-        if 1:
-            lattice.save(lattice_file)
-        else:
-            olattice = lattice.as_openfst()
-            olattice.SetOutputSymbols(lig.SymbolTable())
-            olattice.Write(lattice_file)
-        s = lattice.bestpath()
-    else:
-        tlattice_file = ocrolib.fvariant(fname,"lattice",options.suffix)
-        if os.path.exists(tlattice_file) and not options.overwrite:
-            die("%s: %s",tlattice_file,"already exists")
-        with open(tlattice_file,"w") as stream:
-            linerec.saveLattice(stream)
-        s = linerec.bestpath()
+    rseg = linerec.rseg
+
+    tlattice_file = ocrolib.fvariant(fname,"lattice",options.suffix)
+    if os.path.exists(tlattice_file) and not options.overwrite:
+        die("%s: %s",tlattice_file,"already exists")
+    with open(tlattice_file,"w") as stream:
+        linerec.saveLattice(stream)
 
     rseg_file = ocrolib.fvariant(fname,"rseg",options.suffix)
     if os.path.exists(rseg_file) and not options.overwrite:
@@ -168,11 +156,12 @@ def extract(t):
 
     print fname,":",repr(s)
 
-    raw_file = ocrolib.fvariant(fname,"txt","raw")
-    if os.path.exists(raw_file) and not options.overwrite:
-        die("%s: %s",raw_file,"already exists")
-    with codecs.open(raw_file,"w",encoding="utf8") as stream:
-        stream.write(s)
+    if s is not None:
+        raw_file = ocrolib.fvariant(fname,"txt","raw")
+        if os.path.exists(raw_file) and not options.overwrite:
+            die("%s: %s",raw_file,"already exists")
+        with codecs.open(raw_file,"w",encoding="utf8") as stream:
+            stream.write(s)
 
 if options.parallel<2:
     for arg in args: extract(arg)

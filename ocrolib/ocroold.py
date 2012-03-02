@@ -10,7 +10,6 @@ from scipy.misc import imsave
 from scipy.ndimage import interpolation,measurements,morphology
 import common
 import ocroold
-import ocrofst
 from iuutils import *
 from ocroio import *
 from improc import cut

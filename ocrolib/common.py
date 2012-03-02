@@ -11,10 +11,7 @@ from scipy.ndimage import interpolation,measurements,morphology
 import improc
 import docproc
 import ligatures
-import fstutils
-import openfst
 import segrec
-import ocrofst
 import ocrorast
 import ocrolseg
 import ocropreproc
@@ -632,36 +629,10 @@ def intarray_as_unicode(a,skip0=1):
             result += unichr(a[i])
     return result
     
-def read_lmodel_or_textlines(file):
-    """Either reads a language model in .fst format, or reads a text file
-    and corresponds a language model out of its lines."""
-    if not os.path.exists(file): raise IOError(file)
-    if file[-4:]==".fst":
-        return ocrofst.OcroFST().load(file)
-    else:
-        import fstutils
-        result = fstutils.load_text_file_as_fst(file)
-        assert isinstance(result,ocrofst.OcroFST)
-        return result
-
 def rect_union(rectangles):
     if len(rectangles)<1: return (0,0,-1,-1)
     r = array(rectangles)
     return (amin(r[:,0]),amax(r[:,0]),amin(r[:,1]),amax(r[:1]))
-
-def recognize_and_align(image,linerec,lmodel,beam=1000,nocseg=0,lig=ligatures.lig):
-    """Perform line recognition with the given line recognizer and
-    language model.  Outputs an object containing the result (as a
-    Python string), the costs, the rseg, the cseg, the lattice and the
-    total cost.  The recognition lattice needs to have rseg's segment
-    numbers as inputs (pairs of 16 bit numbers); SimpleGrouper
-    produces such lattices.  cseg==None means that the connected
-    component renumbering failed for some reason."""
-
-    lattice,rseg = linerec.recognizeLineSeg(image)
-    v1,v2,ins,outs,costs = ocrofst.beam_search(lattice,lmodel,beam)
-    result = compute_alignment(lattice,rseg,lmodel,beam=beam,lig=lig)
-    return result
 
 ################################################################
 ### loading and saving components

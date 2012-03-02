@@ -4,7 +4,6 @@ from numpy import *
 from scipy.misc import imsave
 from scipy.ndimage import interpolation,measurements,morphology
 import common
-import ocrofst
 import sl
 from pycomp import PyComponent
 from collections import Counter
@@ -253,6 +252,7 @@ class Grouper(PyComponent):
                 cost,cls = self.costs[i][j]
                 stream.write("chr %d\t%4d\t%.4f\t%s\n"%(i,j,cost,cls))
     def loadLattice(self,stream,segmentation=None):
+        """Load a lattice written with saveLattice."""
         self.segmentation = segmentation
         self.groups = []
         self.costs = []
@@ -281,109 +281,3 @@ class Grouper(PyComponent):
                 pass
             else:
                 raise Error("bad input format")
-
-    ################################################################
-    ### the rest is deprecated
-    ################################################################
-
-    def getLatticeAsFST(self,fst=None):
-        """Construct the lattice for the group, using the setClass and setSpaceCost 
-        information."""
-        if fst is None:
-            fst = ocrofst.OcroFST()
-        final = max([amax(segs) for (box,segs) in self.groups])+1
-        if self.segmentation is not None:
-            assert final==amax(self.segmentation)+1
-        states = [-1]+[fst.newState() for i in range(1,final+1)]
-        fst.setStart(states[1])
-        fst.setAccept(states[final])
-        for i in range(len(self.groups)):
-            box,segs = self.groups[i]
-            start = amin(segs)
-            end = amax(segs)
-            sid = (start<<16)+end
-            yes = self.space_costs[i][0]
-            no = self.space_costs[i][1]
-            if yes>9999.0 and no>9999.0: no = 0.0
-            for j in range(len(self.costs[i])):
-                cost,cls = self.costs[i][j]
-                n = len(cls)
-                state = states[start]
-                for k in range(n):
-                    c = ord(cls[k])
-                    next = -1
-                    if k<n-1:
-                        next = fst.newState()
-                        states.append(next)
-                    else:
-                        next = states[end+1]
-                    ccost = 0.0
-                    if k==0: ccost += cost
-                    if k==n-1: ccost += no
-                    if ccost<1000.0:
-                        fst.addTransition(state,next,c,float(ccost),int(sid))
-                    if k==n-1 and yes<1000.0:
-                        ccost = cost if k==0 else 0.0
-                        space_state = fst.newState()
-                        states.append(space_state)
-                        fst.addTransition(state,space_state,c,float(ccost),int(sid))
-                        fst.addTransition(space_state,next,32,float(yes),0)
-                    state = next
-        return fst
-    def getLatticeLigAsFST(self,fst=None):
-        """Construct the lattice for the group, using the setClass and setSpaceCost information."""
-        lig = self.lig
-        if fst is None:
-            fst = ocrofst.OcroFST()
-        final = amax(self.segmentation)+1
-        states = [-1]+[fst.newState() for i in range(1,final+1)]
-        fst.setStart(states[1])
-        fst.setAccept(states[final])
-        for i in range(len(self.groups)):
-            box,segs = self.groups[i]
-            start = amin(segs)
-            end = amax(segs)
-            sid = (start<<16)+end
-            yes = self.space_costs[i][0]
-            no = self.space_costs[i][1]
-            if yes>9999.0 and no>9999.0: no = 0.0
-            for j in range(len(self.costs[i])):
-                cost,cls = self.costs[i][j]
-                state = states[start]
-                next = states[end+1]
-                c = lig.ord(cls)
-                if c is None or c<0:
-                    raise common.RecognitionError("unknown output ligature: %s"%cls)
-                # no space
-                ccost = cost + no
-                if ccost<1000.0:
-                    fst.addTransition(state,next,c,float(ccost),int(sid))
-                # yes space
-                ccost = cost + yes
-                if ccost<1000.0:
-                    space_state = fst.newState()
-                    states.append(space_state)
-                    # split the cost between classification and space between the two transition
-                    fst.addTransition(state,space_state,c,float(cost),int(sid))
-                    fst.addTransition(space_state,next,32,yes,0)
-                state = next
-        return fst
-    def getLattice(self):
-        ### DEPRECATED
-        return self.getLatticeAsFST()
-    def getLatticeLig(self):
-        ### DEPRECATED
-        return self.getLatticeLigAsFST()
-    def pixelSpace(self,i):
-        raise Exception("unimplemented")
-    def setSegmentationAndGt(self,rseg,cseg,gt):
-        self.setSegmentation(rseg)
-        temp = unique(rseg*10000+cseg)
-        cs = temp%10000
-        rs = temp//10000
-        raise Exception("unimplemented")
-    def getGtIndex(self,i):
-        raise Exception("unimplemented")
-    def getGtClass(self,i):
-        raise Exception("unimplemented")
-

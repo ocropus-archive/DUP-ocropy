@@ -6,7 +6,6 @@
 
 import sys,os,unicodedata,re
 from pylab import uint32,uint16,uint64
-import openfst
 
 ### These aren't formal ligatures, they are character pairs
 ### that are frequently touching in Latin script documents.
@@ -68,13 +67,6 @@ class LigatureTable:
         result = self.code2lig.get(code,None)
         if code<0: return u"~"
         if code<0x10000 and result is None: return unichr(code)
-        return result
-    def SymbolTable(self,name="ligature_table"):
-        result = openfst.SymbolTable(name)
-        for name,code in self.lig2code.items():
-            if type(name)==unicode:
-                name = name.encode("utf-8")
-            result.AddSymbol(name,code)
         return result
     def writeText(self,name):
         with open(name,"w") as stream:

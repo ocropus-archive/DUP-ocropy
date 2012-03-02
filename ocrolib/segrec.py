@@ -12,9 +12,6 @@ from scipy.ndimage import interpolation,measurements,morphology
 
 import docproc
 import ligatures
-import fstutils
-import openfst
-import ocrofst
 import ocrorast
 import ocrolseg
 import ocropreproc
@@ -351,7 +348,7 @@ class CmodelLineRecognizer:
             # Note that for typical character widths, this is going
             # to be much larger than any per-charcter cost.
             if self.add_rho:
-                self.grouper.setClass(i,ocrofst.L_RHO,self.rho_scale*raw.shape[1])
+                self.grouper.setClass(i,"_",self.rho_scale*raw.shape[1])
 
             # compute the classifier output for this character
             # FIXME parallelize this
@@ -463,6 +460,9 @@ class CmodelLineRecognizer:
         This is used for debugging."""
         return self.grouper.bestpath()
 
+    def getLattice(self):
+        return self.grouper
+    
     def saveLattice(self,stream):
         """Save the recognition lattice to a file."""
         self.grouper.saveLattice(stream)
@@ -474,56 +474,6 @@ class CmodelLineRecognizer:
         with open(file,"r") as stream:
             obj = pickle.load(self,stream)
         self.__dict__.update(obj.__dict__)
-
-    ################################################################
-    ### The rest is deprecated.
-    ################################################################
-
-    def getLattice(self):
-        # extract the recognition lattice from the grouper
-        if self.use_ligatures:
-            lattice = self.grouper.getLatticeLig()
-            assert lattice is not None
-        else:
-            lattice = self.grouper.getLattice()
-            assert lattice is not None
-        return lattice
-    def recognizeLineSeg(self,image):
-        """Recognizes a line and returns a lattice in FST format, together 
-        with a raw segmentation.
-
-        lattice: result of recognition
-        rseg: intarray where the raw segmentation will be put
-        image: line image to be recognized"""
-        self.recognize(image)
-        lattice = self.getLattice()
-        if self.display: ginput(1,10000)
-        return lattice,self.rseg
-    def recognizeLine(self,image):
-        "Recognize a line, outputting a recognition lattice."""
-        lattice,rseg = self.recognizeLineSeg(image)
-        return lattice
-    def align(self,image,transcription):
-        raise Exception("unimplemented")
-        """Takes an image and a transcription and aligns the two.  Output is
-        an alignment record, which contains the following fields:
-        ins (input symbols), outs (output symbols), costs (corresponding costs)
-        cseg (aligned segmentation), rseg (raw segmentation), lattice (recognition lattice),
-        raw (raw recognized string without language model), cost (total cost)"""
-        lmodel = make_alignment_fst(transcription)
-        lattice,rseg = self.recognizeLineSeg(image)
-        raw = lattice.bestpath()
-        alignment = compute_alignment(lattice,rseg,lmodel)
-        alignment.raw = raw
-        return alignment
-    def startTraining(self,type="adaptation"):
-        raise Unimplemented()
-    def addTrainingLine(self,image,transcription):
-        raise Unimplemented()
-    def addTrainingLine(self,segmentation,image,transcription):
-        raise Unimplemented()
-    def finishTraining(self):
-        raise Unimplemented()
 
 import mlp
 
