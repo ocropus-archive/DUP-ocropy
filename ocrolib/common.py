@@ -11,10 +11,7 @@ from scipy.ndimage import interpolation,measurements,morphology
 import improc
 import docproc
 import ligatures
-import fstutils
-import openfst
 import segrec
-import ocrofst
 import ocrorast
 import ocrolseg
 import ocropreproc
@@ -125,11 +122,11 @@ class RegionExtractor:
         """Set the image to be iterated over.  This should be an RGB image,
         ndim==3, dtype=='B'.  This iterates over the paragraphs (if present
         in the segmentation)."""
-        self.setImageMasked(image,0x00ff00,hi=0x800000)
+        self.setImageMasked(image,0xffff00,hi=0x800000)
     def setPageLines(self,image):
         """Set the image to be iterated over.  This should be an RGB image,
         ndim==3, dtype=='B'.  This iterates over the lines."""
-        self.setImageMasked(image,0x00ffff,hi=0x800000)
+        self.setImageMasked(image,0xffffff,hi=0x800000)
     def id(self,i):
         """Return the RGB pixel value for this segment."""
         return self.correspondence[i]
@@ -382,6 +379,10 @@ def fvariant(fname,kind,gt=None):
     base,ext = allsplitext(fname)
     if kind=="line" or kind=="png":
         return base+gt+".png"
+    if kind=="lattice":
+        return base+gt+".lattice"
+    if kind=="aligned":
+        return base+".aligned"+gt+".txt"
     if kind=="rseg":
         return base+".rseg"+gt+".png"
     if kind=="cseg":
@@ -533,7 +534,9 @@ def mkpython(name):
     """Tries to instantiate a Python class.  Gives an error if it looks
     like a Python class but can't be instantiated.  Returns None if it
     doesn't look like a Python class."""
-    if type(name) is not str:
+    if name is None or len(name)==0:
+        return None
+    elif type(name) is not str:
         return name()
     elif name[0]=="=":
         return pyconstruct(name[1:])
@@ -545,43 +548,74 @@ def mkpython(name):
 def make_ICleanupGray(name):
     """Make a native component or a Python component.  Anything containing
     a "(" is assumed to be a Python component."""
-    return mkpython(name) or CleanupGray().make(name)
+    result = mkpython(name)
+    assert result is not None,"cannot create CleanupGray component for '%s'"%name
+    assert "cleanup_gray" in dir(result)
+    return result
 def make_ICleanupBinary(name):
     """Make a native component or a Python component.  Anything containing
     a "(" is assumed to be a Python component."""
-    return mkpython(name) or CleanupBinary().make(name)
+    result = mkpython(name)
+    assert result is not None,"cannot create CleanupBinary component for '%s'"%name
+    assert "cleanup_binary" in dir(result)
+    return result
 def make_IBinarize(name):
     """Make a native component or a Python component.  Anything containing
     a "(" is assumed to be a Python component."""
-    return mkpython(name) or Binarize().make(name)
+    result = mkpython(name)
+    assert result is not None,"cannot create Binarize component for '%s'"%name
+    assert "binarize" in dir(result)
+    return result
 def make_ITextImageClassification(name):
     """Make a native component or a Python component.  Anything containing
     a "(" is assumed to be a Python component."""
-    return mkpython(name) or TextImageClassification().make(name)
+    result = mkpython(name)
+    assert result is not None,"cannot create TextImageClassification component for '%s'"%name
+    assert "textImageProbabilities" in dir(result)
+    return result
 def make_ISegmentPage(name):
     """Make a native component or a Python component.  Anything containing
     a "(" is assumed to be a Python component."""
-    return mkpython(name) or SegmentPage().make(name)
+    result = mkpython(name)
+    assert result is not None,"cannot create SegmentPage component for '%s'"%name
+    assert "segment" in dir(result)
+    return result
 def make_ISegmentLine(name):
     """Make a native component or a Python component.  Anything containing
     a "(" is assumed to be a Python component."""
-    return mkpython(name) or SegmentLine().make(name)
+    result = mkpython(name)
+    assert result is not None,"cannot create SegmentLine component for '%s'"%name
+    assert "charseg" in dir(result)
+    return result
 def make_IGrouper(name):
     """Make a native component or a Python component.  Anything containing
     a "(" is assumed to be a Python component."""
-    return mkpython(name) or Grouper().make(name)
+    result = mkpython(name)
+    assert result is not None,"cannot create Grouper component for '%s'"%name
+    assert "setSegmentation" in dir(result)
+    assert "getLattice" in dir(result)
+    return result
 def make_IRecognizeLine(name):
     """Make a native component or a Python component.  Anything containing
     a "(" is assumed to be a Python component."""
-    return mkpython(name) or RecognizeLine().make(name)
+    result = mkpython(name)
+    assert result is not None,"cannot create RecognizeLine component for '%s'"%name
+    assert "recognizeLine" in dir(result)
+    return result
 def make_IModel(name):
     """Make a native component or a Python component.  Anything containing
     a "(" is assumed to be a Python component."""
-    return mkpython(name) or Model().make(name)
+    result = mkpython(name)
+    assert result is not None,"cannot create Model component for '%s'"%name
+    assert "outputs" in dir(result)
+    return result
 def make_IExtractor(name):
     """Make a native component or a Python component.  Anything containing
     a "(" is assumed to be a Python component."""
-    return mkpython(name) or Extractor().make(name)
+    result = mkpython(name)
+    assert result is not None,"cannot create Extractor component for: '%s'"%name
+    assert "extract" in dir(name)
+    return result
 
 ################################################################
 ### alignment, segmentations, and conversions
@@ -595,142 +629,10 @@ def intarray_as_unicode(a,skip0=1):
             result += unichr(a[i])
     return result
     
-def read_lmodel_or_textlines(file):
-    """Either reads a language model in .fst format, or reads a text file
-    and corresponds a language model out of its lines."""
-    if not os.path.exists(file): raise IOError(file)
-    if file[-4:]==".fst":
-        return ocrofst.OcroFST().load(file)
-    else:
-        import fstutils
-        result = fstutils.load_text_file_as_fst(file)
-        assert isinstance(result,ocrofst.OcroFST)
-        return result
-
 def rect_union(rectangles):
     if len(rectangles)<1: return (0,0,-1,-1)
     r = array(rectangles)
     return (amin(r[:,0]),amax(r[:,0]),amin(r[:,1]),amax(r[:1]))
-
-def compute_alignment(lattice,rseg,lmodel,beam=1000,verbose=0,lig=ligatures.lig):
-    """Given a lattice produced by a recognizer, a raw segmentation,
-    and a language model, computes the best solution, the cseg, and
-    the corresponding costs.  These are returned as Python data structures.
-    The recognition lattice needs to have rseg's segment numbers as inputs
-    (pairs of 16 bit numbers); SimpleGrouper produces such lattices."""
-
-    v1,v2,ins,outs,costs = ocrofst.beam_search(lattice,lmodel,beam)
-
-    # useful for debugging
-
-    if 0:
-        for i in range(len(ins)):
-            print i,ins[i]>>16,ins[i]&0xffff,lig.chr(outs[i]),costs[i]
-
-    assert len(ins)==len(outs)
-    n = len(ins)
-
-    # This is a little tricky because we need to deal with ligatures.
-    # For any transition followed by epsilon transitions on the
-    # output, we group all the segments of the epsilon transition with
-    # the preceding non-epsilon transition.
-
-    result_l = [""]
-    costs_l = [0.0]
-    segs = [(-1,-1)]
-
-    i = 0
-    while i<n:
-        j = i+1
-        start = ins[i]>>16
-        end = ins[i]&0xffff
-        cls = [outs[i]]
-        # print "  %4d (%2d,%2d) %3d %s"%(i,start,end,outs[i],unichr(outs[i]))
-        # while j<n and ((ins[j]==0 and outs[j]!=32) or outs[j]==0):
-        while j<n and outs[j]==0:
-            # print " +%4d (%2d,%2d) %3d %s"%(i,ins[j]>>16,ins[j]&0xffff,outs[j],unichr(outs[j]))
-            if ins[j]!=0:
-                start = min(start,ins[j]>>16)
-                end = max(end,ins[j]&0xffff)
-            if outs[j]!=0:
-                cls.append(outs[j])
-            j = j+1
-        cls = "".join([lig.chr(x) for x in cls])
-        if cls!="":
-            result_l.append(cls)
-            costs_l.append(sum(costs[i:j]))
-            segs.append((start,end))
-        i = j
-
-    rseg_boxes = docproc.seg_boxes(rseg)
-
-    # Now run through the segments and create a table that maps rseg
-    # labels to the corresponding output element.
-
-    assert len(result_l)==len(segs)
-    assert len(costs_l)==len(segs)
-    bboxes = []
-
-    rmap = zeros(amax(rseg)+1,'i')
-    for i in range(1,len(segs)):
-        start,end = segs[i]
-        if verbose: print i+1,start,end,"'%s'"%result[i],costs.at(i)
-        if start==0 or end==0: continue
-        rmap[start:end+1] = i
-        bboxes.append(rect_union(rseg_boxes[start:end+1]))
-    assert rmap[0]==0
-
-    # Finally, to get the cseg, apply the rmap table from above.
-
-    cseg = zeros(rseg.shape,'i')
-    for i in range(cseg.shape[0]):
-        for j in range(cseg.shape[1]):
-            cseg[i,j] = rmap[rseg[i,j]]
-
-    if 0:
-        print len(rmap),rmap
-        print len(segs),segs
-        print len(result_l),result_l
-        print len(costs_l),costs_l
-        print amin(cseg),amax(cseg)
-
-    # assert len(segs)==len(rmap) 
-    assert len(segs)==len(result_l) 
-    assert len(segs)==len(costs_l)
-    return Record(
-        # alignment output; these all have the same lengths
-        output_l=result_l,
-        segs=segs,
-        costs=array(costs_l,'f'),
-        # other convenient output representation
-        output="".join(result_l),
-        output_t=fstutils.implode_transcription(result_l),
-        cost=sum(costs_l),
-        # raw beam search output
-        ins=ins,
-        outs=outs,
-        # segmentation images
-        rseg=rseg,
-        cseg=cseg,
-        # the lattice
-        lattice=lattice,
-        # bounding boxes
-        bboxes=bboxes,
-        )
-
-def recognize_and_align(image,linerec,lmodel,beam=1000,nocseg=0,lig=ligatures.lig):
-    """Perform line recognition with the given line recognizer and
-    language model.  Outputs an object containing the result (as a
-    Python string), the costs, the rseg, the cseg, the lattice and the
-    total cost.  The recognition lattice needs to have rseg's segment
-    numbers as inputs (pairs of 16 bit numbers); SimpleGrouper
-    produces such lattices.  cseg==None means that the connected
-    component renumbering failed for some reason."""
-
-    lattice,rseg = linerec.recognizeLineSeg(image)
-    v1,v2,ins,outs,costs = ocrofst.beam_search(lattice,lmodel,beam)
-    result = compute_alignment(lattice,rseg,lmodel,beam=beam,lig=lig)
-    return result
 
 ################################################################
 ### loading and saving components

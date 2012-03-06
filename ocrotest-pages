@@ -12,6 +12,7 @@ resource.setrlimit(resource.RLIMIT_DATA,(2e9,2e9))
 import ocrolib
 from ocrolib import plotutils
 from ocrolib import hocr
+from ocrolib import RecognitionError
 import ocropreproc
 import ocrorast
 import ocrofst
@@ -117,6 +118,7 @@ segmenter = ocrolib.make_ISegmentPage(options.pseg)
 # line recognizer, a C++ character recognizer, or a pickled Python line
 # recognizer respectively.
 linerec = ocrolib.load_linerec(ocrolib.ocropus_find_file(options.linerec))
+linerec.norejects = 1
 alert("[note]","line recognizer:",linerec)
 
 # The language model, loaded from disk.
@@ -208,6 +210,8 @@ for page_gray,pagefile in ocrolib.page_iterator(args):
 
         try:
             fst,rseg = linerec.recognizeLineSeg(line)
+        except RecognitionError,e:
+            print "FAILED:",re.sub('\n',' ',str(e)[:80])
         except:
             traceback.print_exc()
             alert("[error]","line recognizer failed")

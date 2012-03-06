@@ -1,0 +1,206 @@
+#!/usr/bin/env python
+
+### FIXME
+### -- replace comboboxes with file menu
+### -- check for "path exists"
+### -- add editors for ground truth
+
+import sys,re,os,glob,traceback,sqlite3
+import matplotlib
+if "DISPLAY" not in os.environ: matplotlib.use("AGG")
+else: matplotlib.use("GTK")
+from optparse import OptionParser
+from matplotlib.figure import Figure 
+from matplotlib.axes import Subplot 
+from matplotlib.backends.backend_gtk import FigureCanvasGTK, NavigationToolbar 
+from numpy import arange,sin, pi 
+import pygtk 
+pygtk.require("2.0") 
+import gtk 
+import gtk.glade
+import gobject
+from pylab import *
+import gnome
+from matplotlib import patches
+import scipy
+import ocrolib
+from ocrolib import fstutils
+
+default_model = "2m2-reject.cmodel"
+default_segmenter = "DpSegmenter"
+default_langmod = "default.fst"
+
+from matplotlib.backends.backend_gtk import FigureCanvasGTK as FigureCanvas
+from matplotlib.backends.backend_gtk import NavigationToolbar2GTK as NavigationToolbar
+
+#from matplotlib.backends.backend_gtkcairo import FigureCanvasGTKCairo as FigureCanvas
+#from matplotlib.backends.backend_gtkcairo import NavigationToolbar2Cairo as NavigationToolbar
+#from matplotlib.backends.backend_gtkagg import FigureCanvasGTKAgg as FigureCanvas
+#from matplotlib.backends.backend_gtkagg import NavigationToolbar2GTKAgg as NavigationToolbar
+
+parser = OptionParser(usage="""
+%prog [options] line1.png line2.png ...
+
+Interactively explore line recognition and line recognition errors.
+""")
+parser.add_option("-v","--verbose",help="verbose",action="store_true")
+parser.add_option("-s","--spaces",help="count spaces",action="store_true")
+parser.add_option("-c","--case",help="case sensitive",action="store_true")
+parser.add_option("-B","--nbest",help="nbest chars",default=10,type="int")
+parser.add_option("-M","--maxccost",help="maxcost for characters in recognizer",default=10.0,type="float")
+parser.add_option("-b","--beam",help="beam width",default=1000,type="int")
+parser.add_option("-R","--recognizer",help="line model",default=None)
+parser.add_option("-L","--langmod",help="language model",default=None)
+#parser.add_option("-C","--linerecognizer",help="class used for wrapping .cmodels",default="oldlinerec.LineRecognizer")
+(options,args) = parser.parse_args()
+
+if len(args)<1:
+    parser.print_help()
+    sys.exit(0)
+
+iconwidth = 200
+lscale = 1.0
+
+def pixbuf_for_in_memory_file(data):
+    tmpfile = "/tmp/temp.png"
+    with open(tmpfile,"w") as stream:
+        stream.write(data)
+    pixbuf = gtk.gdk.pixbuf_new_from_file(tmpfile)
+    os.unlink(tmpfile)
+    return pixbuf
+
+def readfile(file):
+    with open(file) as stream:
+        return stream.read()
+
+def gtk_yield():
+    while gtk.events_pending():
+       gtk.main_iteration(False)
+
+def numpy2pixbuf(a):
+    """Convert a numpy array to a pixbuf."""
+    if len(a.shape)==3:
+        data = zeros(list(a.shape),'B')
+        data[:,:,:] = 255*a
+        return gtk.gdk.pixbuf_new_from_array(data,gtk.gdk.COLORSPACE_RGB,8)
+    elif len(a.shape)==2:
+        data = zeros(list(a.shape)+[3],'B')
+        data[:,:,0] = 255*a
+        data[:,:,1] = 255*a
+        data[:,:,2] = 255*a
+        return gtk.gdk.pixbuf_new_from_array(data,gtk.gdk.COLORSPACE_RGB,8)
+
+def float_sort(model,x,y,col):
+    x = model[x][col]
+    y = model[y][col]
+    if y=="": return -1
+    if x=="": return 1
+    if float(x)<float(y): return -1
+    if float(x)>float(y): return 1
+    return 0    
+
+def line_image(file):
+    base,ext = ocrolib.allsplitext(file)
+    s = base+".bin.png"
+    if os.path.exists(s): return s
+    return file
+
+class LineWindow: 
+    def __init__(self): 
+        self.file = None
+        self.lmodel = None
+        self.linerec = None
+        
+        gladefile = ocrolib.findfile("gui/ocroold-gtedit.glade")
+        self.windowname = "gtedit" 
+        self.wtree = gtk.glade.XML(gladefile,self.windowname) 
+        self.window = self.wtree.get_widget(self.windowname)
+        dic = {
+            "on_window1_destroy" : gtk.main_quit,
+            }
+
+        self.wtree.signal_autoconnect(dic)
+        self.linelist = self.wtree.get_widget("linelist")
+        assert self.linelist is not None
+        self.initLines()
+        self.linelist.set_model(self.lines)
+        self.setupTreeView()
+        self.window.show_all()
+    def setupTreeView(self):
+        headers = ["Cost","Image","Text","File","MD5"]
+        types = ["text","pixbuf","text+","text","text"]
+        self.columns = []
+        for i in range(len(headers)):
+            if types[i]=="pixbuf":
+                renderer = gtk.CellRendererPixbuf()
+                col = gtk.TreeViewColumn(headers[i],renderer,pixbuf=i)
+                col.pack_start(renderer)
+            else:
+                renderer = gtk.CellRendererText()
+                if "+" in types[i]:
+                    renderer.set_property("editable",True)
+                    renderer.connect('editing-started',self.editing)
+                    renderer.connect('edited',self.edited,i)
+                else:
+                    renderer.set_property("editable",False)
+                col = gtk.TreeViewColumn(headers[i],renderer,text=i)
+                col.pack_start(renderer)
+            col.set_sort_column_id(i)
+            self.linelist.append_column(col)
+            self.columns.append(col)
+        self.linelist.show()
+    def editing(self,*args):
+        print "editing",args
+    def edited(self,cell,path,new_text,col):
+        assert col==2
+        new_text = new_text.decode("utf-8")
+        print "edited",cell,path,new_text
+        row = self.lines[path]
+        if new_text==".skip":
+            row[col] = new_text
+            row[0] = -1
+            result = self.db.execute("update transcripts set skip=1 where cimage = ?",(row[4],))
+        else:
+            row[col] = new_text
+            row[0] = -1
+            result = self.db.execute("update transcripts set transcript = ?,cost=-1,corrected=1 "+
+                                     "where cimage = ?",(new_text,row[4]))
+        assert result.rowcount==1
+        self.db.commit()
+        self.linelist.set_cursor(str(int(path)+1),self.columns[col],start_editing=True)
+        
+    def initLines(self):
+        self.lines = gtk.ListStore(str,gtk.gdk.Pixbuf,str,str,str)
+        self.lines.set_sort_func(0,float_sort,0)
+        self.lines.set_sort_func(2,float_sort,2)
+        self.lines.set_sort_func(3,float_sort,3)
+        self.lines.set_sort_func(3,float_sort,4)
+    def setDb(self,dbfile):
+        """Set the store for the target class."""
+        db = sqlite3.connect(dbfile,timeout=600.0)
+        self.db = db
+        db.row_factory = utils.DbRow
+        db.text_factory = sqlite3.OptimizedUnicode
+        self.initLines()
+        for row in db.execute("select cimage,cost,image,transcript,fname from transcripts "+
+                              "where skip=0 "+
+                              "order by cost desc "+
+                              "limit 1000"):
+            cimage,cost,image,transcript,fname = row
+            pixbuf = pixbuf_for_in_memory_file(image)
+            w = pixbuf.get_width()
+            h = pixbuf.get_height()
+            scale = max(w/1000.0,h/15.0)
+            if scale>1:
+                pixbuf = pixbuf.scale_simple(int(w/scale),int(h/scale),gtk.gdk.INTERP_BILINEAR)
+            row = ["%g"%cost,pixbuf,transcript,fname,cimage]
+            self.lines.append(row)
+        print row
+        self.linelist.set_model(self.lines)
+
+def main():
+    app = LineWindow()
+    app.setDb(args[0])
+    gtk.main()
+
+main()

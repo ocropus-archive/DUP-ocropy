@@ -1,0 +1,111 @@
+#!/usr/bin/python
+
+import code,pickle,sys,os,signal,re,traceback
+import matplotlib
+if "DISPLAY" not in os.environ: matplotlib.use("AGG")
+else: matplotlib.use("GTK")
+from pylab import *
+from optparse import OptionParser
+
+import ocrolib
+from ocrolib import dbtables,docproc
+
+signal.signal(signal.SIGINT,lambda s,f:sys.exit(1))
+
+parser = OptionParser("""
+usage: %prog [options] .../.../010001.png ...
+
+Extract character images from raw text line files.  This uses a segmenter
+to get character candidates.  No model is used, instead it uses a connected
+component segmenter that will yield a lot of good characters on normal quality
+input data.
+
+Afterwards, it's useful to run a clustering step (ocropus-cluster-*) or a
+classification step (ocropus-dbclass).  Then, the images can be classified
+and edited in ocropus-cedit.
+""")
+parser.add_option("-o","--output",help="output file",default="chars.db")
+parser.add_option("-d","--display",help="display characters")
+parser.add_option("-v","--verbose",help="verbose output")
+parser.add_option("-m","--minsize",help="minimum component width and height",type="int",default=8)
+parser.add_option("-a","--absolute",help="output absolute images",action="store_true")
+parser.add_option("-s","--segmenter",help="segmenter",default="ocrolseg.SegmentLineByGCCS")
+parser.add_option("-n","--n",help="maximum number of chars",type=int,default=100000000)
+parser.add_option("-N","--nosource",help="do not record source info",action="store_true")
+#parser.add_option("-r","--raw",help="output unsegmented",action="store_true",default=True)
+#parser.add_option("-a","--maxage",help="output missegmented",default=10000000,type="int")
+(options,args) = parser.parse_args()
+
+if len(args)<1:
+    parser.print_help()
+    sys.exit(0)
+
+segmenter = ocrolib.make_ISegmentLine(options.segmenter)
+
+try:
+    segmenter.pset("swidth",0)
+    segmenter.pset("sheight",30)
+except:
+    pass
+
+grouper = ocrolib.Grouper(maxrange=1,maxdist=1)
+
+ion()
+show()
+
+def chars(files):
+    for fname in files:
+        print "# loading",fname
+        binfile = re.sub(r'.png','.bin.png',fname)
+        if os.path.exists(binfile):
+            image = ocrolib.read_image_gray(binfile)
+        else:
+            image = ocrolib.read_image_gray(fname)
+        try:
+            segmentation = segmenter.charseg(image)
+        except:
+            print "# segmentation failed"
+            continue
+        geo = docproc.seg_geometry(segmentation)
+        grouper.setSegmentation(segmentation)
+        image = 255-image
+        if options.display:
+            clf(); gray(); imshow(image); draw()
+        for i in range(grouper.length()):
+            cls = None
+            raw,mask = grouper.extractWithMask(image,i,1)
+            yield raw,mask,cls,fname,grouper.bboxMath(i),geo
+
+if options.output[-3:]==".db":
+    table = dbtables.Table(options.output,"chars")
+    table.converter("image",dbtables.SmallImage())
+    table.create(image="blob",count="integer",cls="text",classes="text",key="text",
+                 file="text",bbox="text",cluster="integer",lgeo="text",rel="text")
+else:
+    raise Exception("HDF5 output not implemented yet")
+
+total = 0
+for raw,mask,cls,fname,bbox,geo in chars(args):
+    clf()
+    if raw.shape[0]>255 or raw.shape[1]>255: continue
+    if raw.shape[0]<options.minsize or raw.shape[1]<options.minsize: continue
+    if 0 and options.display:
+        print amin(raw),amax(raw)
+        clf(); gray(); imshow(raw); draw()
+    x0,y0,x1,y1 = bbox
+    try:
+        rel = docproc.rel_char_geom((y0,y1,x0,x1),geo)
+    except:
+        print "bad docproc.rel_char_geom"
+        traceback.print_exc()
+        continue
+    ry,rw,rh = rel
+    assert rw>0 and rh>0
+    table.set(image=raw,cls="_",count=1,file=fname,bbox="%g %g %g %g"%bbox,
+              cluster=-1,lgeo="%g %g %g"%geo,rel="%g %g %g"%rel)
+    total += 1
+    if total%10000==0: table.commit()
+    if total>=options.n: break
+
+table.commit()
+table.close()

@@ -1,0 +1,51 @@
+#!/usr/bin/env python
+
+import sys,os,re,glob,math,glob,signal,traceback
+import matplotlib
+if "DISPLAY" not in os.environ: matplotlib.use("AGG")
+else: matplotlib.use("GTK")
+from scipy.ndimage import interpolation
+from pylab import *
+from optparse import OptionParser
+from multiprocessing import Pool
+from collections import namedtuple,defaultdict
+import ocrolib
+from ocrolib import ocrofst,ligatures
+from ocrolib import number_of_processors,die
+
+
+
+import argparse
+parser = argparse.ArgumentParser(description = """
+Computes recognition lattices for text lines.  Also displays the bestpath
+result (recognition result without language model).
+""")
+parser.add_argument("-m","--model",help="model file",default="default.cmodel")
+parser.add_argument("lattice",default=None,help="input lines")
+# args = parser.parse_args(["01000d.fst"])
+args = parser.parse_args()
+
+fst = ocrofst.OcroFST()
+fst.load(args.lattice)
+print fst
+
+all_segs = []
+best_segs = {}
+seg_assocs = defaultdict(set)
+
+Entry = namedtuple('Entry',['c','cost','seg0','seg1','src','dst'])
+
+for i in range(fst.nStates()):
+    try: dests,outputs,costs,inputs = fst.getTransitions(i)
+    except: continue
+    froms = (inputs>>16)
+    tos = (inputs&0xffff)
+    for j in range(len(dests)):
+        c=ligatures.lig.chr(outputs[j])
+        cost=costs[j]
+        src=i
+        dst=dests[j]
+        seg0=froms[j]
+        seg1=tos[j]
+        print "[%3d %3d] (%3d %3d) %6.2f %s (%d,%x)"%(src,dst,seg0,seg1,cost,c,outputs[j],outputs[j])
+

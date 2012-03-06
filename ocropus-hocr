@@ -30,8 +30,7 @@ book/0001/010001.cseg.png    # character segmentation for lines
 
 etc.
 """)
-parser.add_option("-b","--breaks",action="store_true",
-                  help="output line breaks")
+parser.add_option("-b","--nobreaks",action="store_true", help="output line breaks")
 options,args = parser.parse_args()
 if len(args)==1 and os.path.isdir(args[0]):
     args = sorted(glob.glob(args[0]+"/????.png"))
@@ -69,7 +68,7 @@ for arg in args:
             text = re.sub(r'\&','\&amp;',text)
             text = re.sub(r'\<','\&lt;',text)
             P("<span class='ocr_line' title='bbox %d %d %d %d'>"%(x0,y0,x1,y1),text,"</span>")
-            if options.breaks:
+            if not options.nobreaks:
                 P("<br />")
     finally:
         P("</div>")

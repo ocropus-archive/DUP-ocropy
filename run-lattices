@@ -1,0 +1,10 @@
+#!/bin/sh
+
+model=models/full-300-8-40r.cmodel 
+
+find unlv-zones/. uw3-lines/. | egrep '/......\.rseg\.png$' | xargs -r rm 
+find unlv-zones/. uw3-lines/. | egrep '/......\.fst$' | xargs -r rm 
+find unlv-zones/. uw3-lines/. | egrep '/......\.raw\.txt$' | xargs -r rm 
+
+$HOME/ocropus/ocropy/ocropus-lattices -r -m $model 'unlv-zones/????/??????.png'
+ $HOME/ocropus/ocropy/ocropus-lattices -r -m $model 'uw3-lines/????/??????.png'

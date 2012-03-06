@@ -1,0 +1,57 @@
+#!/usr/bin/python
+
+### Simple command line tool driving the ocropus pipeline.
+
+import sys,os,re,glob,math,glob,signal,traceback
+import argparse,subprocess
+from itertools import *
+signal.signal(signal.SIGINT,lambda *args:sys.exit(1))
+
+def concat(l):
+    result = []
+    for x in l: result += x
+    return result
+
+parser = argparse.ArgumentParser(description = """
+%prog [-m charmodel] [-l langmod] image1.png ... > result.hocr
+""")
+parser.add_argument("files",nargs='*',default=None,help="input images")
+parser.add_argument("-D","--Display",help="display",action="store_true")
+parser.add_argument("-m","--model",default=None,help="character model")
+parser.add_argument("-l","--lmodel",default=None,help="language model")
+parser.add_argument("-b","--book",default=None,help="book directory to be used for intermediate computations")
+parser.add_argument("-B","--keep",action="store_true",help="keep the book directory")
+parser.add_argument("-o","--output",default="book.html",help="output file (HTML/hOCR format)")
+args = parser.parse_args()
+args.files = concat([glob.glob(file) for file in args.files])
+
+def run(*args,**kw):
+    args = [x if type(x)==list else list(x) for x in args]
+    args = concat(args)
+    print "#"," ".join(args)
+    status = subprocess.call(args,**kw)
+    if status!=0:
+        print "exit",status
+        sys.exit(1)
+
+if args.book is None:
+    args.book = "_book-%06d"%os.getpid()
+
+print "book directory",args.book
+
+run(["ocropus-preproc","-o",args.book],args.files)
+
+run(["ocropus-prast",args.book])
+
+run(["ocropus-lattices"],
+    ["-m",args.model] if args.model else [],
+    [args.book])
+
+run(["ocropus-lmodel"],
+    ["-l",args.lmodel] if args.lmodel else [],
+    [args.book])
+
+with open(args.output,"w") as stream:
+    run(["ocropus-hocr"],
+        [args.book],
+        stdout=stream)

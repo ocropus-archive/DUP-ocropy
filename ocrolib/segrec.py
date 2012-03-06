@@ -12,9 +12,6 @@ from scipy.ndimage import interpolation,measurements,morphology
 
 import docproc
 import ligatures
-import fstutils
-import openfst
-import ocrofst
 import ocrorast
 import ocrolseg
 import ocropreproc
@@ -22,6 +19,7 @@ import common
 import grouper
 from pycomp import PyComponent
 from ocroio import renumber_labels
+from pylab import *
 
 import cPickle as pickle
 pickle_mode = 2
@@ -217,6 +215,19 @@ class Classifier(PyComponent):
         """Compute the ouputs corresponding to each input data vector."""
         raise Unimplemented()
 
+class SegWithCost:
+    def __init__(self):
+        self.segmenter0 = ocrolseg.SegmentLineByGCCS()
+        self.segmenter1 = ocrolseg.DpSegmenter()
+    def segment(self,image):
+        seg0 = self.segmenter0.charseg(image)
+        assert amax(seg0)<32000
+        seg1 = self.segmenter1.charseg(image)
+        assert amax(seg1)<32000
+        cor = ((seg0<<16)|seg1)
+        hist = Counter(cor.ravel())
+        
+
 class CmodelLineRecognizer:
     def __init__(self,**kw):
         """Initialize a line recognizer that works from character models.
@@ -229,52 +240,51 @@ class CmodelLineRecognizer:
         at all.  The minheight_letter threshold is the minimum height of a
         component (expressed as fraction of the medium segment height) in
         order to be added as a letter to the lattice."""
+        self.norejects = 0
+        self.gccs = 0
         self.cmodel = None
-        self.debug = 0
+        self.display = 0
+        self.display_shape = (7,7)
         self.minsegs = 3
+        self.spaces = 1 # add spaces (turn off for debugging)
         self.maxspacecost = 20.0
         self.whitespace = "space.model"
-        self.segmenter = ocrolseg.DpSegmenter()
-        self.nbest = 5
+        self.nbest = 5 # use at most this many outputs
         self.maxcost = 15.0
         self.reject_cost = self.maxcost
         self.min_height = 0.5
         self.rho_scale = 1.0
-        self.maxdist = 10
-        self.maxrange = 5
-        self.use_ligatures = 1
+        self.maxdist = 2
+        self.use_ligatures = 0
         self.add_rho = 0
         self.verbose = 0
-        self.debug_cls = []
+        self.debug_cls = None
         self.allow_any = 0 # allow non-unicode characters
+        self.combined_cost = 2.0 # extra cost for combining connected components
+        self.split_cost = 0.0 # extra cost for combining connected components
+        self.maxrange = 4
+        self.segmenter = ocrolseg.DpSegmenter()
+        self.segmenter0 = ocrolseg.SegmentLineByGCCS()
         common.set_params(self,kw)
         if type(self.whitespace)==str:
             self.whitespace = common.load_component(common.ocropus_find_file(self.whitespace))
         self.grouper = grouper.Grouper()
-        # self.grouper.pset("maxdist",self.maxdist)
-        # self.grouper.pset("maxrange",self.maxrange)
+        self.grouper.pset("maxdist",self.maxdist)
+        self.grouper.pset("maxrange",self.maxrange)
 
-    def recognizeLine(self,image):
-        "Recognize a line, outputting a recognition lattice."""
-        lattice,rseg = self.recognizeLineSeg(image)
-        return lattice
-
-    def recognizeLineSeg(self,image):
-        """Recognize a line.
-        lattice: result of recognition
-        rseg: intarray where the raw segmentation will be put
-        image: line image to be recognized"""
+    def recognize(self,image):
+        """Recognize a line. Leaves the results in self.grouper and self.rseg."""
 
         # first check whether the input dimensions are reasonable
 
         if image.shape[0]<10:
-            raise RecognitionError("line image not high enough (maybe rescale?)",image=image)
+            raise common.RecognitionError("line image not high enough (maybe rescale?)",image=image)
         if image.shape[0]>200:
-            raise RecognitionError("line image too high (maybe rescale?)",image=image)
+            raise common.RecognitionError("line image too high (maybe rescale?)",image=image)
         if image.shape[1]<10:
-            raise RecognitionError("line image not wide enough (segmentation error?)",image=image)
+            raise common.RecognitionError("line image not wide enough (segmentation error?)",image=image)
         if image.shape[1]>10000:
-            raise RecognitionError("line image too wide???",image=image)
+            raise common.RecognitionError("line image too wide???",image=image)
 
         # FIXME for some reason, something down below
         # depends on this being a bytearray image, so
@@ -283,27 +293,19 @@ class CmodelLineRecognizer:
 
         # compute the raw segmentation
         rseg = self.segmenter.charseg(image)
-        if self.debug: show_segmentation(rseg) # FIXME
+        # if self.display:
+        # show_segmentation(rseg) # FIXME
         rseg = renumber_labels(rseg,1) # FIXME
         if amax(rseg)<self.minsegs: 
-            raise RecognitionError("not enough segments in raw segmentation",rseg=rseg)
+            raise common.RecognitionError("not enough segments in raw segmentation",rseg=rseg)
         # self.grouper = grouper.Grouper()
-        self.grouper.setSegmentation(rseg)
+        pseg = self.segmenter0.charseg(image)
+        self.grouper.setSegmentation(rseg,preferred=pseg)
 
         # compute the geometry (might have to use
         # CCS segmenter if this doesn't work well)
         geo = docproc.seg_geometry(rseg)
-
-        # compute the median segment height
-        heights = []
-        for i in range(self.grouper.length()):
-            (y0,x0,y1,x1) = self.grouper.boundingBox(i)
-            heights.append(y1-y0)
-        mheight = median(array(heights))
-        if mheight<8:
-            raise RecognitionError("median line height too small (maybe rescale prior to recognition)",mheight=mheight)
-        if mheight>100:
-            raise RecognitionError("median line height too large (maybe rescale prior to recognition)",mheight=mheight)
+        mheight = geo[0]
         self.mheight = mheight
 
         # invert the input image (make a copy first)
@@ -316,6 +318,11 @@ class CmodelLineRecognizer:
         # this holds the list of recognized characters if keep!=0
         self.chars = []
         
+        # debugging display
+        if self.display:
+            clf()
+            gray()
+
         # now iterate through the characters
         for i in range(self.grouper.length()):
             # get the bounding box for the character (used later)
@@ -327,7 +334,7 @@ class CmodelLineRecognizer:
                 rel = docproc.rel_char_geom((y0,y1,x0,x1),geo)
             except:
                 traceback.print_exc()
-                raise RecognitionError("bad line geometry",geo=geo)
+                raise common.RecognitionError("bad line geometry",geo=geo)
             ry,rw,rh = rel
             assert rw>0 and rh>0,"error: rw=%g rh=%g"%(rw,rh)
             rel = docproc.rel_geo_normalize(rel)
@@ -335,22 +342,20 @@ class CmodelLineRecognizer:
             # extract the character image (and optionally display it)
             (raw,mask) = self.grouper.extractWithMask(image,i,1)
             char = raw/255.0
-            if self.debug:
-                imshow(char)
-                raw_input()
 
             # Add a skip transition with the pixel width as cost.
             # This ensures that the lattice is at least connected.
             # Note that for typical character widths, this is going
             # to be much larger than any per-charcter cost.
             if self.add_rho:
-                self.grouper.setClass(i,ocrofst.L_RHO,self.rho_scale*raw.shape[1])
+                self.grouper.setClass(i,"_",self.rho_scale*raw.shape[1])
 
             # compute the classifier output for this character
             # FIXME parallelize this
             outputs = self.cmodel.coutputs(char,geometry=rel)
+            assert len(set(map(lambda x:x[0],outputs)))==len(outputs),"classifier outputs contains repeated classes"
             outputs = [(x[0],-log(x[1])) for x in outputs]
-            self.chars.append(common.Record(index=i,image=char,outputs=outputs))
+            # print "@@@",i,self.grouper.getSegments(i),outputs[:2]
 
             # estimate the space cost
             sc = self.whitespace.classifySpace(x1)
@@ -359,17 +364,40 @@ class CmodelLineRecognizer:
 
             # maybe add a transition on "_" that we can use to skip 
             # this character if the transcription contains a "~"
-            self.grouper.setClass(i,"~",self.reject_cost)
+            if not self.norejects:
+                self.grouper.setClass(i,"~",self.reject_cost)
+
+            # extra penalty based on segmentation
+            # (right now, it's only for combining characters, but
+            # we may add costs for splitting too)
+            segcost = 0.0
+            if self.grouper.isCombined(i):
+                if self.combined_cost>0.0:
+                    segcost += self.combined_cost
+            elif self.grouper.isSplit(i):
+                if self.split_cost>0.0:
+                    segcost += self.split_cost
             
+            if self.debug_cls is not None:
+                matching = [k for k,v in outputs[:int(self.nbest)] if re.match(self.debug_cls,k)]
+                if len(matching)>0:
+                    print "grouper","%3d"%i,
+                    print "(%3d,%3d)"%char.shape,
+                    print "   (y %5.2f w %5.2f h %5.2f)"%(rel[0],rel[1],rel[2]),
+                    print "   %6.2f+"%segcost,
+                    print "%-15s"%("-".join([str(x) for x in self.grouper.getSegments(i)])),
+                    for c,v in outputs[:5]: print "%s_%.2f"%(c,v),
+                    print
+
             # add the top classes to the lattice
             outputs.sort(key=lambda x:x[1])
-            for cls,cost in outputs[:self.nbest]:
+            for cls,cost in outputs[:int(self.nbest)]:
                 # don't add anything with a cost above maxcost
                 # if cost>self.maxcost and cls!="~": continue
-                if cls=="~": continue
-                if cls in self.debug_cls:
-                    print "debug",self.grouper.start(i),self.grouper.end(i),"cls",cls,"cost",cost,\
-                        "y %.2f w %.2f h %.2f"%(rel[0],rel[1],rel[2])
+
+                # add rejects only if there is nothing else
+                if self.norejects and cls=="~" and len(outputs)>1:
+                    continue
 
                 # letters are never small, so we skip small bounding boxes that
                 # are categorized as letters; this is an ugly special case, but
@@ -390,37 +418,55 @@ class CmodelLineRecognizer:
                         ("classifier returned too many chars: %s",cls)
                 # for anything else, just add the classified character to the grouper
                 if type(cls)==str or type(cls)==unicode:
-                    self.grouper.setClass(i,cls,cost)
+                    self.grouper.setClass(i,cls,cost+segcost)
                 elif type(cls)==int:
                     assert cls>=0 and cls<0x110000,"bad class: %s"%(hex(cls),)
                     self.grouper.setClass(i,cls,cost)
                 else:
                     raise Exception("bad class type: %s"%type(cls))
-                self.grouper.setSpaceCost(i,float(yes_space),float(no_space))
+                if self.spaces:
+                    self.grouper.setSpaceCost(i,float(yes_space),float(no_space))
 
-        # extract the recognition lattice from the grouper
-        lattice = self.grouper.getLattice()
+            # display it for debugging purposes
+            if self.display:
+                cls,cost = outputs[0]
+                subplot(self.display_shape[0],self.display_shape[1],1+i%prod(self.display_shape))
+                gca().set_frame_on(False)
+                if cost>0.2: ylabel("%d"%int(10*cost),color='red',size=10)
+                if self.grouper.isCombined(i): l = "*"
+                elif self.grouper.isSplit(i): l= "-"
+                else: l = " "
+                xlabel("%d%s %s"%(i,l,cls),color='blue',size=10)
+                xticks([])
+                yticks([])
+                imshow(char,interpolation='nearest'); ginput(1,0.001)
+                if (i+1)%prod(self.display_shape)==0:
+                    ginput(1,10000)
+                    clf()
+                    ginput(1,0.001)
+                
 
-        # return the raw segmentation as a result
-        return lattice,rseg
+            # record information for debugging
+            self.chars.append(common.Record(index=i,
+                                            image=char,
+                                            outputs=outputs,
+                                            segcost=segcost,
+                                            comb=self.grouper.isCombined(i),
+                                            split=self.grouper.isSplit(i)))
+        self.rseg = rseg
 
-    # align the text line image with the transcription
+    def bestpath(self):
+        """Return the bestpath through the recognition lattice, as a string.
+        This is used for debugging."""
+        return self.grouper.bestpath()
 
-    def align(self,image,transcription):
-        """Takes an image and a transcription and aligns the two.  Output is
-        an alignment record, which contains the following fields:
-        ins (input symbols), outs (output symbols), costs (corresponding costs)
-        cseg (aligned segmentation), rseg (raw segmentation), lattice (recognition lattice),
-        raw (raw recognized string without language model), cost (total cost)"""
-        lmodel = make_alignment_fst(transcription)
-        lattice,rseg = self.recognizeLineSeg(image)
-        raw = lattice.bestpath()
-        alignment = compute_alignment(lattice,rseg,lmodel)
-        alignment.raw = raw
-        return alignment
-
-    # saving and loading this component
+    def getLattice(self):
+        return self.grouper
     
+    def saveLattice(self,stream):
+        """Save the recognition lattice to a file."""
+        self.grouper.saveLattice(stream)
+
     def save(self,file):
         with open(file,"w") as stream:
             pickle.dump(self,stream)
@@ -428,17 +474,6 @@ class CmodelLineRecognizer:
         with open(file,"r") as stream:
             obj = pickle.load(self,stream)
         self.__dict__.update(obj.__dict__)
-
-    # training is handled separately
-
-    def startTraining(self,type="adaptation"):
-        raise Unimplemented()
-    def addTrainingLine(self,image,transcription):
-        raise Unimplemented()
-    def addTrainingLine(self,segmentation,image,transcription):
-        raise Unimplemented()
-    def finishTraining(self):
-        raise Unimplemented()
 
 import mlp
 

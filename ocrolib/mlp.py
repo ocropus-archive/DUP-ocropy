@@ -128,6 +128,7 @@ void backward(int n,int m,int l,float w1[m][n],float b1[m],float w2[l][m],float 
     if(verbose) printf("backward %d:%d:%d (%d)\n",n,m,l,k);
     assert(eta>0.0);
     assert(eta<10.0);
+    /* NB: these are lock-free parallel updates */
 #pragma omp parallel for num_threads (maxthreads)
     for(int trial=0;trial<ntrain;trial++) {
         int row;
@@ -225,6 +226,7 @@ void backward_b(int n,int m,int l,float w1[m][n],float b1[m],float w2[l][m],floa
     if(verbose) printf("backward %d:%d:%d (%d)\n",n,m,l,k);
     assert(eta>0.0);
     assert(eta<10.0);
+    /* NB: these are lock-free parallel updates */
 #pragma omp parallel for num_threads (maxthreads_train)
     for(int trial=0;trial<ntrain;trial++) {
         int row;

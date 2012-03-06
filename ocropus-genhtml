@@ -1,0 +1,95 @@
+#!/usr/bin/python
+
+import sys,os,re,glob,math,glob,signal,traceback
+import matplotlib
+if "DISPLAY" not in os.environ: matplotlib.use("AGG")
+else: matplotlib.use("GTK")
+from scipy.ndimage import interpolation
+import pylab
+from pylab import *
+from optparse import OptionParser
+from multiprocessing import Pool
+import ocrolib
+from ocrolib import number_of_processors,die
+from ocrolib.grouper import Grouper
+from scipy.misc import imsave
+
+signal.signal(signal.SIGINT,lambda *args:sys.exit(1))
+
+# these options control alignment
+import argparse
+parser = argparse.ArgumentParser(description = """Generate HTML for debugging a book directory.""")
+parser.add_argument("book",default="book")
+parser.add_argument("-N","--npages",type=int,default=100000,help="max number of pages")
+args = parser.parse_args()
+
+def write_cseg(stream,cseg_file):
+    cseg = ocrolib.read_line_segmentation(cseg_file)
+    grouper = Grouper()
+    grouper.setCSegmentation(cseg)
+    stream.write("<table><tr>")
+    for i in range(grouper.length()):
+        img = grouper.getMask(i)
+        if img is None: continue
+        out = ".__"+cseg_file+"_%03d.png"%i
+        pylab.imsave(out,amax(img)-img,cmap=cm.gray)
+        stream.write("<td><img src=%s height=%d style='border: 1px #ccccff solid;'></td>"%(out,max(2,img.shape[0]/2)))
+    stream.write("</tr></table>")
+    stream.write("\n")
+
+def genpage(d):
+    print "===",d
+    here = os.getcwd()
+    try:
+        os.chdir(d)
+        with open("index.html","w") as stream:
+            stream.write("<h1>%s</h1>\n"%d)
+            images = sorted(glob.glob("??????.png"))
+            for img in images:
+                image = imread(img)
+                stream.write("<img width='%d' src='%s'><br>\n"%(max(10,image.shape[1]/2),img))
+                stream.write("<font size=-2>")
+                stream.write("<a href=%s>%s</a> / "%(args.book,args.book))
+                stream.write("<a href=%s>%s</a> / "%(args.book+"/"+d,d))
+                stream.write("<a href=%s>%s</a>"%(args.book+"/"+d+"/"+img,img))
+                stream.write("</font><p>")
+                # if os.path.exists(cseg): stream.write("<img src='%s'><br>\n"%cseg)
+                rtxt = ocrolib.fvariant(img,"txt","raw")
+                if os.path.exists(rtxt):
+                    with open(rtxt) as tf: rtext = tf.read()
+                    stream.write("<font color='gray'>%s</font><br>\n"%rtext)
+                txt = ocrolib.fvariant(img,"txt","")
+                if os.path.exists(txt):
+                    with open(txt) as tf: text = tf.read()
+                    stream.write("<font color='blue'>%s</font><br>\n"%text)
+                cseg = ocrolib.fvariant(img,"cseg")
+                if os.path.exists(cseg):
+                    write_cseg(stream,cseg)
+                stream.write("<hr>\n")
+    finally:
+        os.chdir(here)
+
+os.chdir(args.book)
+with open("index.html","w") as stream:
+    for d in sorted(glob.glob("????"))[:args.npages]:
+        genpage(d)
+        image = imread(d+".png")
+        out = ".__"+d+".png"
+        image = interpolation.zoom(image,(0.125,0.125,1))
+        imsave(out,image)
+        stream.write("<table border=1><tr>\n")
+        stream.write("<td>")
+        stream.write("<a href='%s/index.html'><img src='%s'></a>"%(d,out))
+        stream.write("<br>%s<br>"%d)
+        stream.write("</td>\n")
+        stream.write("<td>")
+        count = 0
+        for fname in sorted(glob.glob(d+"/??????.txt")):
+            with open(fname) as tf: s = tf.read()
+            if len(s)<20: continue
+            stream.write("%s<br>\n"%s[:100])
+            count += 1
+            if count>=10: break
+        stream.write("</td>\n")
+        stream.write("</tr></table>\n")
+

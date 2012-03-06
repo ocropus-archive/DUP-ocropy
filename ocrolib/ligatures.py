@@ -6,7 +6,6 @@
 
 import sys,os,unicodedata,re
 from pylab import uint32,uint16,uint64
-import openfst
 
 ### These aren't formal ligatures, they are character pairs
 ### that are frequently touching in Latin script documents.
@@ -69,13 +68,6 @@ class LigatureTable:
         if code<0: return u"~"
         if code<0x10000 and result is None: return unichr(code)
         return result
-    def SymbolTable(self,name="ligature_table"):
-        result = openfst.SymbolTable(name)
-        for name,code in self.lig2code.items():
-            if type(name)==unicode:
-                name = name.encode("utf-8")
-            result.AddSymbol(name,code)
-        return result
     def writeText(self,name):
         with open(name,"w") as stream:
             for name,code in self.lig2code.items():
@@ -96,7 +88,7 @@ ucase = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 lcase = "abcdefghijklmnopqrstuvwxyz"
 digits = "0123456789"
 quotes = "".join(["'",'"'])
-punctuation = ".,:;?!"
+punctuation = ".,:;?!"  # "-" is missing here, added below
 common = ucase+lcase+digits+quotes+punctuation
 
 for c1 in common:
@@ -124,5 +116,12 @@ for c in german:
     for c2 in common:
         lig.add(c+c2,ligcode)
         ligcode += 1
+
+# add ligatures involving a "-"
+
+for c1 in common:
+    lig.add(c1+"-",ligcode)
+    lig.add("-"+c1,ligcode)
+    ligcode += 1
 
 # ADD ADDITIONAL CHARACTERS AND LIGATURES BELOW

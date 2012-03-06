@@ -1,0 +1,18 @@
+#!/bin/sh
+
+# workaround for problem with current classifier
+cat > confusions <<EOF
+f ff 0.0
+f fi 0.0
+f fl 0.0
+f ft 0.0
+'' " 0.0
+" '' 0.0
+,, " 0.0
+,, '' 0.0
+EOF
+
+#rm -f unlv-zones.h5
+#$HOME/ocropus/ocropy/ocropus-lalign -r -O -s gt -T confusions -M 2 -A 2 -x unlv-zones.h5 -p unlv-zones/????.gt.txt 
+rm -f uw3-lines.h5
+$HOME/ocropus/ocropy/ocropus-lalign -r -O -s gt -T confusions -M 2 -A 2 -x uw3-lines.h5 -g .gt.txt 'uw3-lines/????/??????.png'

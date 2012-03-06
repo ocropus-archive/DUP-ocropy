@@ -32,6 +32,8 @@ def seg_boxes(seg,math=0):
     return result
 
 seg_geometry_display = 0
+geowin = None
+geoax = None
 
 def seg_geometry(segmentation,math=1):
     """Given a line segmentation (either an rseg--preferably connected
@@ -49,10 +51,27 @@ def seg_geometry(segmentation,math=1):
     centers = [(avg(y0,y1),avg(x0,x1)) for (y0,y1,x0,x1) in boxes]
     xs = array([x for y,x in centers])
     ys = array([y for y,x in centers])
-    if seg_geometry_display:
-        if not math: plot(xs,ys,"g.")
-        else: plot(xs,segmentation.shape[0]-ys-1,"g.")
     a,b = polyfit(xs,ys,1)
+    if seg_geometry_display:
+        print "seggeo",math
+        from matplotlib import patches
+        global geowin,geoax
+        old = gca()
+        if geowin is None:
+            geowin = figure()
+            geoax = geowin.add_subplot(111)
+        geoax.cla()
+        geoax.imshow(segmentation!=0,cmap=cm.gray)
+        for (y0,y1,x0,x1) in boxes:
+            p = patches.Rectangle((x0,y0),x1-x0,y1-y0,edgecolor="red",fill=0)
+            geoax.add_patch(p)
+        xm = max(xs)
+        geoax.plot([0,xm],[b,a*xm+b],'b')
+        geoax.plot([0,xm],[b-mh/2,a*xm+b-mh/2],'y')
+        geoax.plot([0,xm],[b+mh/2,a*xm+b+mh/2],'y')
+        geoax.plot(xs,[y for y in ys],"g.")
+        sca(old)
+        print "mh",mh,"a",a,"b",b
     return mh,a,b
 
 def normalize_line_image(line,geo=None,target_h=32,target_mh=16):
@@ -83,10 +102,11 @@ def rel_char_geom(box,params):
 def rel_geo_normalize(rel):
     """Given a set of geometric parameters, normalize them into the
     range -1...1 so that they can be used as input to a neural network."""
+    if rel is None: return None
     if type(rel)==str:
         rel = [float(x) for x in rel.split()]
     ry,rw,rh = rel
-    assert rw>0 and rh>0
+    if not (rw>0 and rh>0): return None
     ry = clip(2*ry,-1.0,1.0)
     rw = clip(log(rw),-1.0,1.0)
     rh = clip(log(rh),-1.0,1.0)
