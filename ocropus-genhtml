@@ -73,7 +73,10 @@ os.chdir(args.book)
 with open("index.html","w") as stream:
     for d in sorted(glob.glob("????"))[:args.npages]:
         genpage(d)
-        image = imread(d+".png")
+        if os.path.exists(d+".png"):
+            image = imread(d+".png")
+        else:
+            image = zeros((300,300,3))
         out = ".__"+d+".png"
         image = interpolation.zoom(image,(0.125,0.125,1))
         imsave(out,image)
