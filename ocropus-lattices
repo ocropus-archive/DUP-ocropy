@@ -103,6 +103,7 @@ elif hasattr(cmodel,'coutputs'):
     linerec.norejects = not options.rejects
 else:
     print "%s (%s): don't know what kind of model this is"%(options.model,cmodel)
+    sys.exit(1)
 
 if len(options.parameter)>0: print options.parameter
 for s in options.parameter:
@@ -118,6 +119,7 @@ def extract(t):
     fname = t
     image = ocrolib.read_image_gray(fname)
     ocrolib.fcleanup(fname,options.suffix,["cseg","txt","costs","fst","lattice"])
+    assert linerec is not None,"failed to load line recognizer"
 
     if options.display:
         clf()
@@ -132,7 +134,7 @@ def extract(t):
         return
     except:
         traceback.print_exc()
-        if not options.cont: die("internal error")
+        if not options.cont: die("internal error %s"%(linerec,))
         return
 
     s = linerec.bestpath()
