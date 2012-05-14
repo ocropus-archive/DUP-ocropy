@@ -399,6 +399,10 @@ class CmodelLineRecognizer:
                 if self.norejects and cls=="~" and len(outputs)>1:
                     continue
 
+                if cls=="":
+                    print "warning: empty class label from classifier"
+                    cls = "~"
+
                 # letters are never small, so we skip small bounding boxes that
                 # are categorized as letters; this is an ugly special case, but
                 # it is quite common
