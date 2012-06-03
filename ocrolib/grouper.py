@@ -193,7 +193,7 @@ class Grouper(PyComponent):
         box,labels = self.groups[i]
         image = sl.cut(source,box,margin=margin,bg=bg,dtype=dtype)
         mask = sl.cut(self.segmentation,box,margin=grow)
-        mask = 0+in1d(mask.ravel(),array(labels,'i')).reshape(image.shape)
+        mask = in1d(mask.ravel(),array(labels,'i')).reshape(image.shape)
         if grow>0: mask = morphology.binary_dilation(mask,iterations=grow)
         return where(mask,image,bg),mask
     def extractSliced(self,source,dflt,i,grow=0):
