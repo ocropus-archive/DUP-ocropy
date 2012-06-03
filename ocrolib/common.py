@@ -16,6 +16,7 @@ import ocrorast
 import ocrolseg
 import ocropreproc
 import sl
+import multiprocessing
 
 import cPickle as pickle
 pickle_mode = 2
@@ -40,6 +41,7 @@ def renumber_labels_ordered(a,correspondence=0):
         return renum[a]
 
 def renumber_labels(a):
+    """Alias for renumber_labels_ordered"""
     return renumber_labels_ordered(a)
 
 def pyargsort(seq,cmp=cmp,key=lambda x:x):
@@ -67,6 +69,8 @@ def renumber_labels_by_boxes(a,cmp=cmp,key=lambda x:x,correspondence=0):
         return order[labels]
 
 def flexible_find_objects(image):
+    """Like measurements.find_objects, but tries to
+    be a bit more flexible about the datatypes it accepts."""
     # first try the default type
     try: return measurements.find_objects(image)
     except: pass
@@ -79,6 +83,8 @@ def flexible_find_objects(image):
     return measurements.find_objects(image)
 
 def rgb2int(image):
+    """Converts a rank 3 array with RGB values stored in the
+    last axis into a rank 2 array containing 32 bit RGB values."""
     assert image.dtype==dtype('B')
     orig = image
     image = zeros(image.shape[:2],'i')
@@ -189,6 +195,8 @@ class RegionExtractor:
 ################################################################
 
 class Record:
+    """A simple record datatype that allows initialization with
+    keyword arguments, as in Record(x=3,y=9)"""
     def __init__(self,**kw):
         self.__dict__.update(kw)
     def like(self,obj):
@@ -200,6 +208,8 @@ class Record:
 ################################################################
 
 def chist(l):
+    """Simple counting histogram.  Takes a list of items
+    and returns a list of (count,object) tuples."""
     counts = {}
     for c in l:
         counts[c] = counts.get(c,0)+1
@@ -211,24 +221,26 @@ def chist(l):
 ################################################################
 
 def number_of_processors():
-    try:
-        return int(os.popen("cat /proc/cpuinfo  | grep 'processor.*:' | wc -l").read())
-    except:
-        return 1
+    """Estimates the number of processors."""
+    return multiprocessing.cpu_count()
+    # return int(os.popen("cat /proc/cpuinfo  | grep 'processor.*:' | wc -l").read())
 
 ################################################################
 ### exceptions
 ################################################################
 
 class Unimplemented():
+    "Exception raised when a feature is unimplemented."
     def __init__(self,s):
         Exception.__init__(self,inspect.stack()[1][3])
 
 class BadClassLabel(Exception):
+    "Exception for bad class labels in a dataset or input."
     def __init__(self,s):
         Exception.__init__(self,s)
 
 class RecognitionError(Exception):
+    "Some kind of error during recognition."
     def __init__(self,explanation,**kw):
         self.context = kw
         s = [explanation]
@@ -237,6 +249,8 @@ class RecognitionError(Exception):
         Exception.__init__(self,message)
 
 def check_valid_class_label(s):
+    """Determines whether the given character is a valid class label.
+    Control characters and spaces are not permitted."""
     if type(s)==unicode:
         if re.search(r'[\0-\x20]',s):
             raise BadClassLabel(s)
@@ -247,6 +261,7 @@ def check_valid_class_label(s):
         raise BadClassLabel(s)
 
 def summary(x):
+    """Summarize a datatype as a string (for display and debugging)."""
     if type(x)==numpy.ndarray:
         return "<ndarray %s %s>"%(x.shape,x.dtype)
     if type(x)==str and len(x)>10:
@@ -260,6 +275,9 @@ def summary(x):
 ################################################################
 
 def getlocal():
+    """Get the path to the local directory where OCRopus data is
+    installed. Checks OCROPUS_DATA in the environment first,
+    otherwise defaults to /usr/local/share/ocropus."""
     local = os.getenv("OCROPUS_DATA") or "/usr/local/share/ocropus/"
     return local
 
@@ -315,12 +333,16 @@ def write_text(file,s):
         stream.write(s)
 
 def expand_args(args):
+    """Given a list of command line arguments, if the
+    length is one, assume it's a book directory and expands it.
+    Otherwise returns the arguments unchanged."""
     if len(args)==1 and os.path.isdir(args[0]):
         return sorted(glob.glob(args[0]+"/????/??????.png"))
     else:
         return args
 
 class OcropusFileNotFound:
+    """Some file-not-found error during OCROpus processing."""
     def __init__(self,fname):
         self.fname = fname
     def __str__(self):
@@ -348,6 +370,7 @@ def ocropus_find_file(fname):
     raise OcropusFileNotFound(fname)
 
 def fexists(fname):
+    """Returns fname if it exists, otherwise None."""
     if os.path.exists(fname): return fname
     return None
 
@@ -396,6 +419,8 @@ def fvariant(fname,kind,gt=None):
     raise Exception("unknown kind: %s"%kind)
 
 def fcleanup(fname,gt,kinds):
+    """Removes all the variants of the file given by gt
+    and the list of kinds."""
     for kind in kinds:
         s = fvariant(fname,kind,gt)
         if os.path.exists(s): os.unlink(s)
@@ -435,6 +460,7 @@ def set_params(object,kw,warn=1):
 ################################################################
 
 def caller():
+    """Just returns info about the caller in string for (for error messages)."""
     frame = sys._getframe(2)
     info = inspect.getframeinfo(frame)
     result = "%s:%d (%s)"%(info.filename,info.lineno,info.function)
@@ -622,6 +648,8 @@ def make_IExtractor(name):
 ################################################################
 
 def intarray_as_unicode(a,skip0=1):
+    """Given an integer array containing unicode codepoints,
+    returns a unicode string with those codepoints."""
     result = u""
     for i in range(len(a)):
         if a[i]!=0:
@@ -630,6 +658,9 @@ def intarray_as_unicode(a,skip0=1):
     return result
     
 def rect_union(rectangles):
+    """Given a list of lists or tuples, where each list/tuple
+    represents a rectangle (x0,y0,x1,y1), returns the
+    union of all the rectangles."""
     if len(rectangles)<1: return (0,0,-1,-1)
     r = array(rectangles)
     return (amin(r[:,0]),amax(r[:,0]),amin(r[:,1]),amax(r[:1]))
@@ -642,6 +673,9 @@ def rect_union(rectangles):
 # different formats we have accrued.
 
 def obinfo(ob):
+    """A bit of information about the given object.  Returns
+    the str representation of the object, and if it has a shape,
+    also includes the shape."""
     result = str(ob)
     if hasattr(ob,"shape"): 
         result += " "
@@ -716,6 +750,9 @@ def load_component(file):
         return pickle.load(stream)
 
 def load_linerec(file,wrapper=None):
+    """Loads a line recognizer.  If the argument is
+    a character recognizer, wraps the wrapper around
+    it (default: CmodelLineRecognizer)."""
     if wrapper is None:
         wrapper=segrec.CmodelLineRecognizer
     component = load_component(file)
@@ -725,13 +762,15 @@ def load_linerec(file,wrapper=None):
         return wrapper(cmodel=component)
     raise Exception("wanted linerec, got %s"%component)
 
-def binarize_range(image,dtype='B'):
-    threshold = (amax(image)+amin(image))/2
+def binarize_range(image,dtype='B',threshold=0.5):
+    """Binarize an image by its range."""
+    threshold = (amax(image)+amin(image))*threshold
     scale = 1
     if dtype=='B': scale = 255
     return array(scale*(image>threshold),dtype=dtype)
 
 def simple_classify(model,inputs):
+    """Given a model, classify the inputs with the model."""
     result = []
     for i in range(len(inputs)):
         result.append(model.coutputs(inputs[i]))
