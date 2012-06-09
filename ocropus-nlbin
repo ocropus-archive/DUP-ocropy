@@ -1,0 +1,146 @@
+#!/usr/bin/python
+
+from pylab import *
+import argparse,glob,os,os.path
+from scipy.ndimage import filters,interpolation,morphology
+from scipy import stats
+import multiprocessing
+
+
+
+parser = argparse.ArgumentParser()
+parser.add_argument('-t','--threshold',type=float,default=0.5,help='threshold, determines lightness')
+parser.add_argument('-z','--zoom',type=float,default=0.5,help='zoom for page background estimation, smaller=faster')
+parser.add_argument('-e','--escale',type=float,default=1.0,help='scale for estimating a mask over the text region')
+parser.add_argument('-b','--bignore',type=float,default=0.1,help='ignore this much of the border for threshold estimation')
+parser.add_argument('-p','--perc',type=float,default=80,help='percentage for filters')
+parser.add_argument('-r','--range',type=float,default=20,help='range for filters')
+parser.add_argument('-m','--maxskew',type=float,default=2,help='skew angle estimation parameters (degrees)')
+parser.add_argument('-g','--gray',action='store_true',help='force grayscale processing even if image seems binary')
+parser.add_argument('--lo',type=float,default=5,help='percentile for black estimation')
+parser.add_argument('--hi',type=float,default=90,help='percentile for white estimation')
+parser.add_argument('--skewsteps',type=int,default=8,help='steps for skew angle estimation (per degree)')
+parser.add_argument('--debug',type=float,default=0,help='display intermediate results')
+parser.add_argument('--show',action='store_true',help='display final result')
+parser.add_argument('-o','--output',default=None,help="output directory")
+parser.add_argument('files',nargs='+')
+parser.add_argument('-Q','--parallel',type=int,default=multiprocessing.cpu_count())
+args = parser.parse_args()
+files = args.files
+
+
+
+def estimate_skew_angle(image,angles):
+    estimates = []
+    for a in angles:
+        v = mean(interpolation.rotate(image,a,order=0,mode='constant'),axis=1)
+        v = var(v)
+        estimates.append((v,a))
+    if args.debug>0:
+        plot([y for x,y in estimates],[x for x,y in estimates])
+        ginput(1,args.debug)
+    _,a = max(estimates)
+    return a
+    
+
+def process1(job):
+    fname,i = job
+    comment = ""
+    image = imread(fname)
+    if image.ndim==3: image = mean(image,2)
+    if args.debug>0: ion(); gray(); imshow(image); ginput(1,args.debug)
+    # perform image normalization
+    image -= amin(image)
+    image /= amax(image)
+
+    # check whether the image is already effectively binarized
+    if args.gray:
+        extreme = 0
+    else:
+        extreme = (sum(image<0.05)+sum(image>0.95))*1.0/prod(image.shape)
+    if extreme>0.95:
+        comment += " no-normalization"
+        flat = image
+    else:
+        # if not, we need to flatten it by estimating the local whitelevel
+        m = interpolation.zoom(image,args.zoom)
+        m = filters.percentile_filter(m,args.perc,size=(args.range,2))
+        m = filters.percentile_filter(m,args.perc,size=(2,args.range))
+        m = interpolation.zoom(m,1.0/args.zoom)
+        if args.debug>0: clf(); imshow(m,vmin=0,vmax=1); ginput(1,args.debug)
+        w,h = minimum(array(image.shape),array(m.shape))
+        flat = clip(image[:w,:h]-m[:w,:h]+1,0,1)
+        if args.debug>0: clf(); imshow(flat,vmin=0,vmax=1); ginput(1,args.debug)
+
+    # estimate skew angle and rotate
+    if args.maxskew>0:
+        d0,d1 = flat.shape
+        o0,o1 = int(args.bignore*d0),int(args.bignore*d1)
+        flat = amax(flat)-flat
+        flat -= amin(flat)
+        est = flat[o0:d0-o0,o1:d1-o1]
+        ma = args.maxskew
+        ms = int(2*args.maxskew*args.skewsteps)
+        angle = estimate_skew_angle(est,linspace(-ma,ma,ms+1))
+        flat = interpolation.rotate(flat,angle,mode='constant',reshape=0)
+        flat = amax(flat)-flat
+
+    # estimate low and high thresholds
+    d0,d1 = flat.shape
+    o0,o1 = int(args.bignore*d0),int(args.bignore*d1)
+    est = flat[o0:d0-o0,o1:d1-o1]
+    if args.escale>0:
+        # by default, we use only regions that contain
+        # significant variance; this makes the percentile
+        # based low and high estimates more reliable
+        e = args.escale
+        v = est-filters.gaussian_filter(est,e*20.0)
+        v = filters.gaussian_filter(v**2,e*20.0)**0.5
+        v = (v>0.3*amax(v))
+        v = morphology.binary_dilation(v,structure=ones((e*50,1)))
+        v = morphology.binary_dilation(v,structure=ones((1,e*50)))
+        if args.debug>0: imshow(v); ginput(1,args.debug)
+        est = est[v]
+    lo = stats.scoreatpercentile(est.ravel(),args.lo)
+    hi = stats.scoreatpercentile(est.ravel(),args.hi)
+
+    # rescale the image to get the gray scale image
+    flat -= lo
+    flat /= (hi-lo)
+    flat = clip(flat,0,1)
+    if args.debug>0: imshow(flat,vmin=0,vmax=1); ginput(1,args.debug)
+    bin = 1*(flat>args.threshold)
+
+    # output the normalized grayscale and the thresholded images
+    print fname,"(%.2f %.2f) %4.1f"%(lo,hi,angle),comment
+    if args.debug>0 or args.show: clf(); gray();imshow(bin); ginput(1,max(0.1,args.debug))
+    gray()
+    if args.output:
+        if not os.path.exists(args.output):
+            os.mkdir(args.output)
+        imsave(args.output+"/%04d.png"%i,flat)
+        imsave(args.output+"/%04d.bin.png"%i,bin)
+    else:
+        base,_ = os.path.splitext(fname)
+        imsave(base+".nrm.png",flat)
+        imsave(base+".bin.png",bin)
+
+import ocrolib
+
+if args.debug>0 or args.show>0: args.parallel = 0
+
+if args.output:
+    if not os.path.exists(args.output):
+        os.mkdir(args.output)
+
+if args.parallel<2:
+    count = 0
+    for image,arg in ocrolib.page_iterator(args.args):
+        print "===",arg,count,image.shape
+        count += 1
+        process1(image,arg,count)
+else:
+    pool = multiprocessing.Pool(processes=args.parallel)
+    jobs = []
+    for i,f in enumerate(args.files): jobs += [(f,i+1)]
+    result = pool.map(process1,jobs)
