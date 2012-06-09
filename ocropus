@@ -22,6 +22,8 @@ parser.add_argument("-l","--lmodel",default=None,help="language model")
 parser.add_argument("-b","--book",default=None,help="book directory to be used for intermediate computations")
 parser.add_argument("-B","--keep",action="store_true",help="keep the book directory")
 parser.add_argument("-o","--output",default="book.html",help="output file (HTML/hOCR format)")
+parser.add_argument("--preproc",default="ocropus-nlbin",help="preprocessing command")
+parser.add_argument("--pseg",default="ocropus-gpageseg",help="page segmentation command")
 args = parser.parse_args()
 args.files = concat([glob.glob(file) for file in args.files])
 
@@ -39,9 +41,9 @@ if args.book is None:
 
 print "book directory",args.book
 
-run(["ocropus-preproc","-o",args.book],args.files)
+run([args.preproc,"-o",args.book],args.files)
 
-run(["ocropus-prast",args.book])
+run([args.pseg,args.book])
 
 run(["ocropus-lattices"],
     ["-m",args.model] if args.model else [],

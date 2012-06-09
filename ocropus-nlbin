@@ -30,6 +30,16 @@ files = args.files
 
 
 
+def estimate_scale(binary):
+    objects = binary_objects(binary)
+    bysize = sorted(objects,key=A)
+    scalemap = zeros(binary.shape)
+    for o in bysize:
+        if amax(scalemap[o])>0: continue
+        scalemap[o] = A(o)**0.5
+    scale = median(scalemap[(scalemap>3)&(scalemap<100)])
+    return scale
+
 def estimate_skew_angle(image,angles):
     estimates = []
     for a in angles:
@@ -42,13 +52,31 @@ def estimate_skew_angle(image,angles):
     _,a = max(estimates)
     return a
     
+def select_regions(binary,f,min=0,nbest=100000):
+    labels,n = measurements.label(binary)
+    objects = measurements.find_objects(labels)
+    scores = [f(o) for o in objects]
+    best = argsort(scores)
+    keep = zeros(len(objects)+1,'B')
+    for i in best[-nbest:]:
+        if scores[i]<=min: continue
+        keep[i+1] = 1
+    return keep[labels]
+
+def H(s): return s[0].stop-s[0].start
+def W(s): return s[1].stop-s[1].start
+def A(s): return W(s)*H(s)
+
+def dshow(image,info):
+    if args.debug<=0: return
+    ion(); gray(); imshow(image); title(info); ginput(1,args.debug)
 
 def process1(job):
     fname,i = job
     comment = ""
     image = imread(fname)
     if image.ndim==3: image = mean(image,2)
-    if args.debug>0: ion(); gray(); imshow(image); ginput(1,args.debug)
+    dshow(image,"input")
     # perform image normalization
     image -= amin(image)
     image /= amax(image)
