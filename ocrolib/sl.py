@@ -3,6 +3,7 @@
 ################################################################
 
 import numpy
+from pylab import mean
 
 ### inquiry functions
 
@@ -71,12 +72,28 @@ def intersect(u,v):
     if v is None: return u
     return tuple([slice(max(u[i].start,v[i].start),min(u[i].stop,v[i].stop)) for i in range(len(u))])
 
-### Functions with mathematical coordinate conventions
+def xoverlaps(u,v):
+    return u[1].stop>=v[1].start and v[1].stop>=u[1].start
+def yoverlaps(u,v):
+    return u[0].stop>=v[0].start and v[0].stop>=u[0].start
+    
+def xcenter(s):
+    return mean([s[1].stop,s[1].start])
+def ycenter(s):
+    return mean([s[0].stop,s[0].start])
+def center(s):
+    return (ycenter(s),xcenter(s))
+def center_in(u,v):
+    y,x = ycenter(u),xcenter(u)
+    return y>=v[0].start and y<=v[0].stop and x>=v[1].start and x<=v[1].stop
 
 def width(s):
     return s[1].stop-s[1].start
 def height(s):
     return s[0].stop-s[0].start
+
+### Functions with mathematical coordinate conventions
+
 def mbox(x0,y0,x1,y1,h):
     return (slice(h-y1-1,h-y0-1),slice(x0,x1))
 def math(u,h):

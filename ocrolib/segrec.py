@@ -244,7 +244,7 @@ class CmodelLineRecognizer:
         self.gccs = 0
         self.cmodel = None
         self.display = 0
-        self.display_shape = (7,7)
+        self.display_shape = (10,16)
         self.minsegs = 3
         self.spaces = 1 # add spaces (turn off for debugging)
         self.maxspacecost = 20.0
@@ -260,8 +260,8 @@ class CmodelLineRecognizer:
         self.verbose = 0
         self.debug_cls = None
         self.allow_any = 0 # allow non-unicode characters
-        self.combined_cost = 2.0 # extra cost for combining connected components
-        self.split_cost = 0.0 # extra cost for combining connected components
+        self.combined_cost = 0.0 # extra cost for combining connected components
+        self.split_cost = 0.0 # extra cost for splitting connected components
         self.maxrange = 4
         self.segmenter = ocrolseg.DpSegmenter()
         self.segmenter0 = ocrolseg.SegmentLineByGCCS()
@@ -377,7 +377,7 @@ class CmodelLineRecognizer:
             elif self.grouper.isSplit(i):
                 if self.split_cost>0.0:
                     segcost += self.split_cost
-            
+
             if self.debug_cls is not None:
                 matching = [k for k,v in outputs[:int(self.nbest)] if re.match(self.debug_cls,k)]
                 if len(matching)>0:
@@ -437,7 +437,7 @@ class CmodelLineRecognizer:
                 subplot(self.display_shape[0],self.display_shape[1],1+i%prod(self.display_shape))
                 gca().set_frame_on(False)
                 if cost>0.2: ylabel("%d"%int(10*cost),color='red',size=10)
-                if self.grouper.isCombined(i): l = "*"
+                if self.grouper.isCombined(i): l = "+"
                 elif self.grouper.isSplit(i): l= "-"
                 else: l = " "
                 xlabel("%d%s %s"%(i,l,cls),color='blue',size=10)
@@ -457,6 +457,9 @@ class CmodelLineRecognizer:
                                             segcost=segcost,
                                             comb=self.grouper.isCombined(i),
                                             split=self.grouper.isSplit(i)))
+        if self.display:
+            title("waiting")
+            ginput(1,10000)
         self.rseg = rseg
 
     def bestpath(self):

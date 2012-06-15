@@ -165,6 +165,9 @@ def extract(t):
         with codecs.open(raw_file,"w",encoding="utf8") as stream:
             stream.write(s)
 
+if options.display or options.Display:
+    options.parallel = 0
+
 if options.parallel<2:
     for arg in args: extract(arg)
 else:
