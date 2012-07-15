@@ -1,6 +1,7 @@
 from pylab import *
 from scipy.ndimage import filters,morphology,measurements
 import psegutils
+import common
 
 
 
@@ -85,7 +86,7 @@ def ccslineseg(image):
     center = filters.maximum_filter(center,(3,3))
     center = psegutils.keep_marked(image>0.5,center)
     center = filters.maximum_filter(center,(2,2))
-    center,_ = measurements.label(center)
+    center,_ = common.label(center)
     center = psegutils.spread_labels(center)
     center *= image
     return center
@@ -136,7 +137,7 @@ class DPSegmentLine(SimpleParams):
         tracks = dplineseg2(line,imweight=self.imweight,bweight=self.bweight,
                             diagweight=self.diagweight,debug=self.debug,r=self.r)
         tracks = array(tracks<0.5*amax(tracks),'i')
-        tracks,_ = measurements.label(tracks)
+        tracks,_ = common.label(tracks)
         self.tracks = tracks
         rsegs = psegutils.spread_labels(tracks)
         rsegs = rsegs*(line>0.5*amax(line))

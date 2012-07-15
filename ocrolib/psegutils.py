@@ -4,6 +4,7 @@ import argparse,glob,os,os.path
 from scipy.ndimage import filters,interpolation,morphology,measurements
 from scipy import stats
 from scipy.misc import imsave
+import common
 
 class record:
     def __init__(self,**kw): self.__dict__.update(kw)
@@ -80,7 +81,7 @@ def spread_labels(labels,maxdist=9999999):
     return spread
 
 def keep_marked(image,markers):
-    labels,_ = measurements.label(image)
+    labels,_ = common.label(image)
     marked = unique(labels*(markers!=0))
     kept = in1d(labels.ravel(),marked)
     return (image!=0)*kept.reshape(*labels.shape)
@@ -100,7 +101,7 @@ def correspondences(labels1,labels2):
 
 def propagate_labels_simple(regions,labels):
     """Spread the labels to the corresponding regions."""
-    rlabels,_ = measurements.label(regions)
+    rlabels,_ = common.label(regions)
     cors = correspondences(rlabels,labels)
     outputs = zeros(amax(rlabels)+1,'i')
     for o,i in cors.T: outputs[o] = i
@@ -109,7 +110,7 @@ def propagate_labels_simple(regions,labels):
 
 def propagate_labels(regions,labels,conflict=0):
     """Spread the labels to the corresponding regions."""
-    rlabels,_ = measurements.label(regions)
+    rlabels,_ = common.label(regions)
     cors = correspondences(rlabels,labels)
     outputs = zeros(amax(rlabels)+1,'i')
     oops = -(1<<30)
@@ -126,8 +127,8 @@ def A(s): return W(s)*H(s)
 def M(s): return mean([s[0].start,s[0].stop]),mean([s[1].start,s[1].stop])
 
 def binary_objects(binary):
-    labels,n = measurements.label(binary)
-    objects = measurements.find_objects(labels)
+    labels,n = common.label(binary)
+    objects = common.find_objects(labels)
     return objects
 
 def estimate_scale(binary):
@@ -153,7 +154,7 @@ def compute_boxmap(binary,scale,threshold=(.5,4),dtype='i'):
 def compute_lines(segmentation,scale):
     """Given a line segmentation map, computes a list
     of tuples consisting of 2D slices and masked images."""
-    lobjects = measurements.find_objects(segmentation)
+    lobjects = common.find_objects(segmentation)
     lines = []
     for i,o in enumerate(lobjects):
         if o is None: continue
@@ -291,8 +292,8 @@ def rgbshow(r,g,b=None,gn=1,cn=0,ab=0,**kw):
     imshow(clip(combo,0,1),**kw)
 
 def select_regions(binary,f,min=0,nbest=100000):
-    labels,n = measurements.label(binary)
-    objects = measurements.find_objects(labels)
+    labels,n = common.label(binary)
+    objects = common.find_objects(labels)
     scores = [f(o) for o in objects]
     best = argsort(scores)
     keep = zeros(len(objects)+1,'B')

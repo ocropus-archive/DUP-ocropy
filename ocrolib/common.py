@@ -50,7 +50,7 @@ def pyargsort(seq,cmp=cmp,key=lambda x:x):
     return sorted(range(len(seq)),key=lambda x:key(seq.__getitem__(x)),cmp=cmp)
 
 def renumber_by_xcenter(seg):
-    objects = [(slice(0,0),slice(0,0))]+measurements.find_objects(seg)
+    objects = [(slice(0,0),slice(0,0))]+find_objects(seg)
     def xc(o): return mean((o[1].start,o[1].stop))
     xs = array([xc(o) for o in objects])
     order = argsort(xs)
@@ -58,20 +58,32 @@ def renumber_by_xcenter(seg):
     for i,j in enumerate(order): segmap[j] = i
     return segmap[seg]
 
-def flexible_find_objects(image):
-    """Like measurements.find_objects, but tries to
-    be a bit more flexible about the datatypes it accepts."""
-    # first try the default type
-    try: return measurements.find_objects(image)
+def label(image,**kw):
+    """measurements.label fails to document what types it accepts,
+    and it fails randomly with different types on different
+    platforms.  This tries to work around that."""
+    try: return measurements.label(image,**kw)
     except: pass
-    types = ["int32","int64","int16"]
+    types = ["int32","uint32","int64","unit64","int16","uint16"]
     for t in types:
-        # try with type conversions
-	try: return measurements.find_objects(array(image,dtype=t)) 
+	try: return measurements.label(array(image,dtype=t),**kw) 
 	except: pass
     # let it raise the same exception as before
-    return measurements.find_objects(image)
+    return measurements.label(image,**kw)
 
+def find_objects(image,**kw):
+    """measurements.find_objects fails to document what types it accepts,
+    and it fails randomly with different types on different
+    platforms.  This tries to work around that."""
+    try: return measurements.find_objects(image,**kw)
+    except: pass
+    types = ["int32","uint32","int64","unit64","int16","uint16"]
+    for t in types:
+	try: return measurements.find_objects(array(image,dtype=t),**kw) 
+	except: pass
+    # let it raise the same exception as before
+    return measurements.find_objects(image,**kw)
+    
 def rgb2int(image):
     """Converts a rank 3 array with RGB values stored in the
     last axis into a rank 2 array containing 32 bit RGB values."""
@@ -109,7 +121,7 @@ class RegionExtractor:
         labels,correspondence = renumber_labels_ordered(labels,correspondence=1)
         self.labels = labels
         self.correspondence = correspondence
-        self.objects = [None]+flexible_find_objects(labels)
+        self.objects = [None]+find_objects(labels)
     def setPageColumns(self,image):
         """Set the image to be iterated over.  This should be an RGB image,
         ndim==3, dtype=='B'.  This iterates over the columns."""
@@ -811,7 +823,7 @@ def estimate_xheight(line,scale=1.0,debug=0):
     return bottom-top,bottom
 
 def keep_marked(image,markers):
-    labels,_ = measurements.label(image)
+    labels,_ = label(image)
     imshow(sin(17.1*labels),cmap=cm.jet)
     marked = unique(labels*(markers!=0))
     print marked
@@ -840,7 +852,7 @@ def latin_filter(line,scale=1.0,r=1.2,debug=0):
 
 def remove_noise(line,minsize=8):
     bin = (line>0.5*amax(line))
-    labels,n = measurements.label(bin)
+    labels,n = label(bin)
     sums = measurements.sum(bin,labels,range(n+1))
     sums = sums[labels]
     good = minimum(bin,1-(sums>0)*(sums<minsize))

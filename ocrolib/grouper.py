@@ -69,7 +69,7 @@ class Grouper(PyComponent):
             # print sorted(correspondences)
             self.pre2seg = correspondences
         # compute the bounding boxes in order
-        boxes = [None]+measurements.find_objects(segmentation)
+        boxes = [None]+common.find_objects(segmentation)
         n = len(boxes)
         # now consider groups of boxes
         groups = []
@@ -107,7 +107,7 @@ class Grouper(PyComponent):
         the groups corresponding to each labeled object.  Objects should be labeled
         consecutively."""
         # compute the bounding boxes in order
-        boxes = [None] + measurements.find_objects(segmentation)
+        boxes = [None] + common.find_objects(segmentation)
         n = len(boxes)
         # now consider groups of boxes
         groups = []

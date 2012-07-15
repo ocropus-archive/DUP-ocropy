@@ -6,8 +6,8 @@ import scipy
 from scipy import stats
 from scipy.ndimage import measurements
 from pylab import *
-
 from common import *
+import common
 
 def avg(*args):
     return mean(args)
@@ -19,7 +19,7 @@ def seg_boxes(seg,math=0):
     coordinates are used (however, the order of the values in the
     tuple doesn't change)."""
     seg = array(seg,'uint32')
-    slices = measurements.find_objects(seg)
+    slices = common.find_objects(seg)
     h = seg.shape[0]
     result = []
     for i in range(len(slices)):
@@ -117,7 +117,7 @@ def bbox(image):
     """Compute the bounding box for the pixels in the image."""
     assert len(image.shape)==2,"wrong shape: "+str(image.shape)
     image = array(image!=0,'uint32')
-    cs = scipy.ndimage.measurements.find_objects(image)
+    cs = common.find_objects(image)
     if len(cs)<1: return None
     c = cs[0]
     return (c[0].start,c[1].start,c[0].stop,c[1].stop)
