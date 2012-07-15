@@ -180,6 +180,60 @@ if __name__=="__main__":
                 draw()
         raw_input()
 
+def cairo_render_at(s,loc=None,shape=None,
+                    fontname=None,fontfile=None,size=None,
+                    slant=cairo.FONT_SLANT_NORMAL,
+                    weight=cairo.FONT_WEIGHT_NORMAL,
+                    bg=(0.0,0.0,0.0),fg=(0.9,0.9,0.9)):
+    """Render a string using Cairo and the Cairo text rendering interface.  Fonts can either be given
+    as a fontfile or as a fontname.  Size should be in pixels (?).  You can specify a background and
+    foreground color as RGB floating point triples.  Images are padded by pad pixels on all sides."""
+    assert loc is not None
+    assert shape is not None
+    assert size is not None
+    w,h = shape
+    x,y = loc
+    face = None
+    if fontfile is not None:
+        # "/usr/share/fonts/truetype/msttcorefonts/comic.ttf"
+        if fontfile in facecache:
+            face = facecache[fontfile]
+        else:
+            face = create_cairo_font_face_for_file(fontfile,0)
+            facecache[fontfile] = face
+
+    surface = cairo.ImageSurface(cairo.FORMAT_ARGB32,w,h)
+    cr = cairo.Context(surface)
+    if face is not None:
+        cr.set_font_face(face)
+    else:
+        if fontname is None: fontname = "Helvetica"
+        if type(slant)==str:
+            if slant[0]=="i": slant = cairo.FONT_SLANT_ITALIC
+            elif slant[0]=="o": slant = cairo.FONT_SLANT_OBLIQUE
+            elif slant[0]=="n": slant = cairo.FONT_SLANT_NORMAL
+            else: raise Exception("bad font slant specification (use n/i/o)")
+        if type(weight)==str:
+            if weight[0]=="b": weight = cairo.FONT_WEIGHT_BOLD
+            elif weight[0]=="n": weight = cairo.FONT_WEIGHT_NORMAL
+            else: raise Exception("bad font weight specification (use b/n)")
+        cr.select_font_face(fontname,slant,weight)
+    if size is not None:
+        cr.set_font_size(size)
+    cr.set_source_rgb(*bg)
+    cr.rectangle(0,0,w,h)
+    cr.fill()
+    cr.move_to(x,y)
+    cr.set_source_rgb(*fg)
+    cr.show_text(s)
+    data = surface.get_data()
+    data = bytearray(data)
+    a = array(data,'B')
+    a.shape = (h,w,4)
+    a = a[:,:,:3]
+    a = a[:,:,::-1]
+    return a
+
 if __name__=="x__main__":
     s = u"hello, world: \u00E4\u0182\u03c0\u4eb0"
     subplot(311)

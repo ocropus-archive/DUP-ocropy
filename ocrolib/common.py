@@ -49,24 +49,14 @@ def pyargsort(seq,cmp=cmp,key=lambda x:x):
     function.  Takes an optional cmp."""
     return sorted(range(len(seq)),key=lambda x:key(seq.__getitem__(x)),cmp=cmp)
 
-def renumber_labels_by_boxes(a,cmp=cmp,key=lambda x:x,correspondence=0):
-    """Renumber the labels of the input array according to some
-    order on their bounding boxes.  If you provide a cmp function,
-    it is passed the outputs of find_objects for sorting.
-    The default is lexicographic."""
-    if cmp=='rlex':
-        import __builtin__
-        cmp = lambda x,y: __builtin__.cmp(x[::-1],y[::-1])
-    assert a.dtype==dtype('B') or a.dtype==dtype('i')
-    labels = renumber_labels_ordered(a)
-    objects = flexible_find_objects(labels)
-    order = array(pyargsort(objects,cmp=cmp,key=key),'i')
-    assert len(objects)==len(order)
-    order = concatenate(([0],order+1))
-    if correspondence:
-        return order[labels],argsort(order)
-    else:
-        return order[labels]
+def renumber_by_xcenter(seg):
+    objects = [(slice(0,0),slice(0,0))]+measurements.find_objects(seg)
+    def xc(o): return mean((o[1].start,o[1].stop))
+    xs = array([xc(o) for o in objects])
+    order = argsort(xs)
+    segmap = zeros(amax(seg)+1,'i')
+    for i,j in enumerate(order): segmap[j] = i
+    return segmap[seg]
 
 def flexible_find_objects(image):
     """Like measurements.find_objects, but tries to
@@ -776,3 +766,84 @@ def simple_classify(model,inputs):
         result.append(model.coutputs(inputs[i]))
     return result
 
+################################################################
+# text line related utilities
+################################################################
+
+from scipy.ndimage import filters,morphology
+from pylab import imshow
+import psegutils
+
+def estimate_baseline(line):
+    """Compute the baseline by fitting a polynomial to the gradient.
+    TODO: use robust fitting, special case very short line, limit parameter ranges"""
+    line = line*1.0/amax(line)
+    vgrad = morphology.grey_closing(line,(1,40))
+    vgrad = filters.gaussian_filter(vgrad,(2,60),(1,0))
+    if amin(vgrad)>0 or amax(vgrad)<0: raise BadLine()
+    h,w = vgrad.shape
+    baseline = fitext(vgrad)
+    return baseline
+
+def dewarp_line(line,show=0):
+    line = line*1.0/amax(line)
+    line = r_[zeros(line.shape),line]
+    h,w = line.shape
+    baseline = estimate_baseline(line)
+    ys = polyval(baseline,arange(w))
+    base = 2*h/3
+    temp = zeros(line.shape)
+    for x in range(w):
+        temp[:,x] = interpolation.shift(line[:,x],(base-ys[x]),order=1)
+    return temp
+
+    line = line*1.0/amax(line)
+
+def estimate_xheight(line,scale=1.0,debug=0):
+    vgrad = morphology.grey_closing(line,(1,int(scale*40)))
+    vgrad = filters.gaussian_filter(vgrad,(2,int(scale*60)),(1,0))
+    if amin(vgrad)>0 or amax(vgrad)<0: raise Exception("bad line")
+    if debug: imshow(vgrad)
+    proj = sum(vgrad,1)
+    proj = filters.gaussian_filter(proj,0.5)
+    top = argmax(proj)
+    bottom = argmin(proj)
+    return bottom-top,bottom
+
+def keep_marked(image,markers):
+    labels,_ = measurements.label(image)
+    imshow(sin(17.1*labels),cmap=cm.jet)
+    marked = unique(labels*(markers!=0))
+    print marked
+    kept = in1d(labels.ravel(),marked)
+    return (image!=0)*kept.reshape(*labels.shape)
+
+def latin_kernel(line,scale=1.0,r=1.2,debug=0):
+    vgrad = morphology.grey_closing(1.0*line,(1,int(scale*40)))
+    vgrad = filters.gaussian_filter(vgrad,(2,int(scale*60)),(1,0))
+    tops = argmax(vgrad,0)
+    bottoms = argmin(vgrad,0)
+    mask = zeros(line.shape)
+    xheight = mean(bottoms-tops)
+    for i in range(len(bottoms)):
+        d = bottoms[i]-tops[i]
+        y0 = int(maximum(0,bottoms[i]-r*d))
+        mask[y0:bottoms[i],i] = 1
+    return mask
+
+def latin_filter(line,scale=1.0,r=1.2,debug=0):
+    bin = (line>0.5*amax(line))
+    mask = latin_kernel(bin,scale=scale,r=r,debug=debug)
+    mask = psegutils.keep_marked(bin,mask)
+    mask = filters.maximum_filter(mask,3)
+    return line*mask
+
+def remove_noise(line,minsize=8):
+    bin = (line>0.5*amax(line))
+    labels,n = measurements.label(bin)
+    sums = measurements.sum(bin,labels,range(n+1))
+    sums = sums[labels]
+    good = minimum(bin,1-(sums>0)*(sums<minsize))
+    return good
+    
+    

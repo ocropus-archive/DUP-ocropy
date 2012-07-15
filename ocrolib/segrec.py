@@ -17,6 +17,7 @@ import ocrolseg
 import ocropreproc
 import common
 import grouper
+import lineseg
 from pycomp import PyComponent
 from ocroio import renumber_labels
 from pylab import *
@@ -217,8 +218,10 @@ class Classifier(PyComponent):
 
 class SegWithCost:
     def __init__(self):
-        self.segmenter0 = ocrolseg.SegmentLineByGCCS()
-        self.segmenter1 = ocrolseg.DpSegmenter()
+        # self.segmenter0 = ocrolseg.SegmentLineByGCCS()
+        # self.segmenter1 = ocrolseg.DpSegmenter()
+        self.segmenter0 = lineseg.CCSSegmentLine
+        self.segmenter1 = lineseg.DPSegmentLine
     def segment(self,image):
         seg0 = self.segmenter0.charseg(image)
         assert amax(seg0)<32000
@@ -263,8 +266,15 @@ class CmodelLineRecognizer:
         self.combined_cost = 0.0 # extra cost for combining connected components
         self.split_cost = 0.0 # extra cost for splitting connected components
         self.maxrange = 4
-        self.segmenter = ocrolseg.DpSegmenter()
-        self.segmenter0 = ocrolseg.SegmentLineByGCCS()
+        self.latin_cleaner = 1
+        self.min_xheight = 10
+        self.max_xheight = 40
+        self.check_white_on_black = 1
+        self.noise_threshold = 8
+        #self.segmenter = ocrolseg.DpSegmenter()
+        #self.segmenter0 = ocrolseg.SegmentLineByGCCS()
+        self.segmenter = lineseg.DPSegmentLine()
+        self.segmenter0 = lineseg.CCSSegmentLine()
         common.set_params(self,kw)
         if type(self.whitespace)==str:
             self.whitespace = common.load_component(common.ocropus_find_file(self.whitespace))
@@ -286,16 +296,37 @@ class CmodelLineRecognizer:
         if image.shape[1]>10000:
             raise common.RecognitionError("line image too wide???",image=image)
 
-        # FIXME for some reason, something down below
-        # depends on this being a bytearray image, so
-        # we're normalizing it here to that type
-        image = array(image*255.0/amax(image),'B')
+        # convert to floating point image
+        image = image*1.0/amax(image)
 
+        if self.check_white_on_black:
+            if mean(image)<0.5*amax(image):
+                raise common.RecognitionError("image may not be white on black text (maybe invert?)",image=image)
+
+        # make sure the xheight is reasonable
+        xheight,_ = common.estimate_xheight(1-image)
+        self.xheight = xheight
+        if xheight<self.min_xheight:
+            raise common.RecognitionError("xheight %f too small (maybe rescale?)"%xheight,image=image)
+        if xheight>self.max_xheight:
+            raise common.RecognitionError("xheight %f too large (maybe rescale?)"%xheight,image=image)
+
+        # clean up connected components around the edges
+        if self.latin_cleaner:
+            image = 1-image
+            image = common.latin_filter(image)
+            image = common.remove_noise(image,self.noise_threshold)
+            image = 1-image
+
+        # keep a copy of the cleaned up image
+        self.image = image.copy()
+        
         # compute the raw segmentation
         rseg = self.segmenter.charseg(image)
         # if self.display:
         # show_segmentation(rseg) # FIXME
         rseg = renumber_labels(rseg,1) # FIXME
+        self.rseg = rseg
         if amax(rseg)<self.minsegs: 
             raise common.RecognitionError("not enough segments in raw segmentation",rseg=rseg)
         # self.grouper = grouper.Grouper()
@@ -460,7 +491,6 @@ class CmodelLineRecognizer:
         if self.display:
             title("waiting")
             ginput(1,10000)
-        self.rseg = rseg
 
     def bestpath(self):
         """Return the bestpath through the recognition lattice, as a string.

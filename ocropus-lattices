@@ -13,6 +13,7 @@ from multiprocessing import Pool
 import ocrolib
 from ocrolib import number_of_processors,die
 from ocrolib.ligatures import lig
+from ocrolib import lineseg
 
 signal.signal(signal.SIGINT,lambda *args:sys.exit(1))
 
@@ -30,7 +31,7 @@ parser.add_argument("-R","--maxrange",help="max range for grouping",type=int,def
 parser.add_argument("-L","--ligatures",help="output ligatures",action="store_true")
 parser.add_argument("-N","--nbest",help="use the nbest results from classifier",type=int,default=3)
 parser.add_argument("-C","--maxcost",help="maximum cost to be considered",type=float,default=10.0)
-parser.add_argument("-s","--segmenter",help="segmenter",default="ocrolseg.DpSegmenter()")
+parser.add_argument("-s","--segmenter",help="segmenter",default="lineseg.DPSegmentLine()")
 parser.add_argument("-S","--suffix",help="suffix for writing rseg/cseg files",default=None)
 parser.add_argument("-O","--overwrite",help="overwrite rseg/cseg files",action="store_true")
 parser.add_argument("-Q","--parallel",type=int,default=number_of_processors(),help="number of parallel processes to use")

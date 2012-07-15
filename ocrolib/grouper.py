@@ -60,9 +60,9 @@ class Grouper(PyComponent):
     def setSegmentation(self,segmentation,cseg=0,preferred=None):
         """Set the line segmentation."""
         # reorder the labels by the x center of bounding box
-        segmentation = common.renumber_labels_by_boxes(segmentation,key=lambda x:mean((x[1].start,x[1].stop)))
+        segmentation = common.renumber_by_xcenter(segmentation)
         if preferred is not None:
-            preferred = common.renumber_labels_by_boxes(preferred,key=lambda x:mean((x[1].start,x[1].stop)))
+            preferred = common.renumber_by_xcenter(preferred)
             assert amax(segmentation)<32000 and amax(preferred)<32000
             combined = ((preferred<<16)|segmentation)
             correspondences = [(k>>16,k&0xffff) for k,v in Counter(combined.ravel()).most_common() if v>5]

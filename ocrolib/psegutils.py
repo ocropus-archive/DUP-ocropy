@@ -83,7 +83,7 @@ def keep_marked(image,markers):
     labels,_ = measurements.label(image)
     marked = unique(labels*(markers!=0))
     kept = in1d(labels.ravel(),marked)
-    return kept.reshape(*labels.shape)
+    return (image!=0)*kept.reshape(*labels.shape)
 
 def remove_marked(image,markers):
     marked = keep_marked(image,markers)
