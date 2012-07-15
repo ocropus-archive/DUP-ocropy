@@ -270,7 +270,10 @@ class CmodelLineRecognizer:
         self.min_xheight = 10
         self.max_xheight = 40
         self.check_white_on_black = 1
-        self.noise_threshold = 8
+        # components smaller than this are removed
+        self.noise_threshold = 3
+        # components up to xheight*r are captured
+        self.latin_r = 1.5
         #self.segmenter = ocrolseg.DpSegmenter()
         #self.segmenter0 = ocrolseg.SegmentLineByGCCS()
         self.segmenter = lineseg.DPSegmentLine()
@@ -314,7 +317,7 @@ class CmodelLineRecognizer:
         # clean up connected components around the edges
         if self.latin_cleaner:
             image = 1-image
-            image = common.latin_filter(image)
+            image = common.latin_filter(image,r=self.latin_r)
             image = common.remove_noise(image,self.noise_threshold)
             image = 1-image
 

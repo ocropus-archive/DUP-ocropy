@@ -843,7 +843,7 @@ def latin_kernel(line,scale=1.0,r=1.2,debug=0):
         mask[y0:bottoms[i],i] = 1
     return mask
 
-def latin_filter(line,scale=1.0,r=1.2,debug=0):
+def latin_filter(line,scale=1.0,r=1.5,debug=0):
     bin = (line>0.5*amax(line))
     mask = latin_kernel(bin,scale=scale,r=r,debug=debug)
     mask = psegutils.keep_marked(bin,mask)
