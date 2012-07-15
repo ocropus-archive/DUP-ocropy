@@ -162,11 +162,8 @@ if args.output:
         os.mkdir(args.output)
 
 if args.parallel<2:
-    count = 0
-    for image,arg in ocrolib.page_iterator(args.args):
-        print "===",arg,count,image.shape
-        count += 1
-        process1(image,arg,count)
+    for i,f in enumerate(args.files): 
+        process1((f,i+1))
 else:
     pool = multiprocessing.Pool(processes=args.parallel)
     jobs = []
