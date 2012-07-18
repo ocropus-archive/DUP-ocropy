@@ -112,6 +112,8 @@ def process1(job):
         angle = estimate_skew_angle(est,linspace(-ma,ma,ms+1))
         flat = interpolation.rotate(flat,angle,mode='constant',reshape=0)
         flat = amax(flat)-flat
+    else:
+        angle = 0
 
     # estimate low and high thresholds
     d0,d1 = flat.shape
