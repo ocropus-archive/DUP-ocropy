@@ -1,12 +1,11 @@
 ################################################################
 ### common functions for data structures, file name manipulation, etc.
 ################################################################
-
 import os,os.path,re,numpy,unicodedata,sys,warnings,inspect,glob,traceback
 import numpy
 from numpy import *
 from scipy.misc import imsave
-from scipy.ndimage import interpolation,measurements,morphology
+from scipy.ndimage import interpolation, measurements, morphology, filters
 
 import improc
 import docproc
@@ -19,6 +18,12 @@ import sl
 import multiprocessing
 
 import cPickle as pickle
+from pylab import imshow
+import psegutils
+from pylab import imshow
+import psegutils
+
+
 pickle_mode = 2
 
 
@@ -774,15 +779,6 @@ def binarize_range(image,dtype='B',threshold=0.5):
 def simple_classify(model,inputs):
     """Given a model, classify the inputs with the model."""
     result = []
-    for i in range(len(inputs)):
-        result.append(model.coutputs(inputs[i]))
-    return result
-
-################################################################
-# text line related utilities
-################################################################
-
-from scipy.ndimage import filters,morphology
 from pylab import imshow
 import psegutils
 

@@ -5,7 +5,6 @@ from scipy.misc import imsave
 from scipy.ndimage import interpolation,measurements,morphology
 import common
 import sl
-from pycomp import PyComponent
 from collections import Counter
 import ligatures
 
@@ -45,6 +44,26 @@ def shortest_path(transitions,start=0,end=None):
         rstates.append(j)
         j = sources[j]
     return "".join(reversed(result))
+
+class PyComponent:
+    """Defines common methods similar to CommonComponent, but for Python
+    classes. Use of this base class is optional."""
+    def init(self):
+        pass
+    def name(self):
+        return "%s"%self
+    def description(self):
+        return "%s"%self
+    def set(self,**kw):
+        kw = set_params(self,kw)
+        assert kw=={},"extra params to %s: %s"%(self,kw)
+    def pset(self,key,value):
+        if hasattr(self,key):
+            self.__dict__[key] = value
+    def pget(self,key):
+        return getattr(self,key)
+    def pgetf(self,key):
+        return float(getattr(self,key))
 
 class Grouper(PyComponent):
     """Perform grouping operations on segmented text lines, and

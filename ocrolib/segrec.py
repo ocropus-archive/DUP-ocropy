@@ -2,7 +2,6 @@
 ### Segmenting line recognizer.  This is the main recognizer
 ### in OCRopus right now.
 ################################################################
-
 import os,os.path,re,numpy,unicodedata,sys,warnings,inspect,glob,traceback
 import numpy
 from numpy import *
@@ -18,14 +17,37 @@ import ocropreproc
 import common
 import grouper
 import lineseg
-from pycomp import PyComponent
 from ocroio import renumber_labels
 from pylab import *
 
 import cPickle as pickle
+
+import mlp
+import mlp
+
 pickle_mode = 2
 
 
+
+class PyComponent:
+    """Defines common methods similar to CommonComponent, but for Python
+    classes. Use of this base class is optional."""
+    def init(self):
+        pass
+    def name(self):
+        return "%s"%self
+    def description(self):
+        return "%s"%self
+    def set(self,**kw):
+        kw = set_params(self,kw)
+        assert kw=={},"extra params to %s: %s"%(self,kw)
+    def pset(self,key,value):
+        if hasattr(self,key):
+            self.__dict__[key] = value
+    def pget(self,key):
+        return getattr(self,key)
+    def pgetf(self,key):
+        return float(getattr(self,key))
 
 class ClassifierModel(PyComponent):
     """Wraps all the necessary functionality around a classifier in order to
@@ -513,8 +535,6 @@ class CmodelLineRecognizer:
     def load(self,file):
         with open(file,"r") as stream:
             obj = pickle.load(self,stream)
-        self.__dict__.update(obj.__dict__)
-
 import mlp
 
 class MlpModel(ClassifierModel):
