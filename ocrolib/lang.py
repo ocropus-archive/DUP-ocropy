@@ -3,7 +3,6 @@
 ################################################################
 
 import sys,os,re,glob,math,glob,signal
-import iulib,ocropus
 from pylab import amax,zeros
 
 ### character properties

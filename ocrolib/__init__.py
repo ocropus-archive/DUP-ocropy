@@ -8,11 +8,8 @@ __all__ = [
 ### top level imports
 ################################################################
 
-# from utils import *
-from dbhelper import *
 from common import *
 from mlp import MLP,AutoMLP
-from ocroio import *
 from segrec import *
 from grouper import *
 

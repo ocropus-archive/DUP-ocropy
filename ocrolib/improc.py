@@ -3,7 +3,6 @@
 ################################################################
 
 import sys,os,re,glob,math,glob,signal
-import iulib
 from numpy import *
 from scipy.ndimage import interpolation
 import sl

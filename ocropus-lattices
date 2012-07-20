@@ -50,7 +50,6 @@ args = options.args
 if options.displaygeo:
     from ocrolib import docproc
     docproc.seg_geometry_display = 1
-import ocrolseg
 segmenter = eval(options.segmenter)
 
 if len(args)==0:

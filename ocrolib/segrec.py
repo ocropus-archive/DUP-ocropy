@@ -11,13 +11,9 @@ from scipy.ndimage import interpolation,measurements,morphology
 
 import docproc
 import ligatures
-import ocrorast
-import ocrolseg
-import ocropreproc
 import common
 import grouper
 import lineseg
-from ocroio import renumber_labels
 from pylab import *
 
 import cPickle as pickle
@@ -240,8 +236,6 @@ class Classifier(PyComponent):
 
 class SegWithCost:
     def __init__(self):
-        # self.segmenter0 = ocrolseg.SegmentLineByGCCS()
-        # self.segmenter1 = ocrolseg.DpSegmenter()
         self.segmenter0 = lineseg.CCSSegmentLine
         self.segmenter1 = lineseg.DPSegmentLine
     def segment(self,image):
@@ -296,8 +290,6 @@ class CmodelLineRecognizer:
         self.noise_threshold = 3
         # components up to xheight*r are captured
         self.latin_r = 1.5
-        #self.segmenter = ocrolseg.DpSegmenter()
-        #self.segmenter0 = ocrolseg.SegmentLineByGCCS()
         self.segmenter = lineseg.DPSegmentLine()
         self.segmenter0 = lineseg.CCSSegmentLine()
         common.set_params(self,kw)
@@ -348,9 +340,7 @@ class CmodelLineRecognizer:
         
         # compute the raw segmentation
         rseg = self.segmenter.charseg(image)
-        # if self.display:
-        # show_segmentation(rseg) # FIXME
-        rseg = renumber_labels(rseg,1) # FIXME
+        rseg = common.renumber_labels(rseg)
         self.rseg = rseg
         if amax(rseg)<self.minsegs: 
             raise common.RecognitionError("not enough segments in raw segmentation",rseg=rseg)

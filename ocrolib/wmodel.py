@@ -8,7 +8,7 @@ import code,pickle,sys,os,re,traceback
 from optparse import OptionParser
 from pylab import *
 import common as ocrolib
-import dbtables,docproc,mlp
+import docproc,mlp
 from scipy.ndimage import interpolation
 
 display_training = 0

@@ -11,9 +11,6 @@ import improc
 import docproc
 import ligatures
 import segrec
-import ocrorast
-import ocrolseg
-import ocropreproc
 import sl
 import multiprocessing
 
@@ -27,6 +24,87 @@ import psegutils
 pickle_mode = 2
 
 
+
+################################################################
+### Image I/O
+################################################################
+
+import PIL
+
+def pil2array(im):
+    assert im.mode in ("L","F","RGB")
+    if im.mode=="L":
+        a = numpy.fromstring(im.tostring(),'B')
+        a.shape = im.size[1],im.size[0]
+    elif im.mode=="F":
+        a = numpy.fromstring(im.tostring(),'float32')
+        a.shape = im.size[1],im.size[0]
+    elif im.mode=="RGB":
+        a = numpy.fromstring(im.tostring(),'B')
+        a.shape = im.size[1],im.size[0],3   
+    return a
+
+def array2pil(a):
+    if a.dtype==dtype("B"):
+        if a.ndim==2:
+            return PIL.Image.fromstring("L",(a.shape[1],a.shape[0]),a.tostring())
+        elif a.ndim==3:
+            return PIL.Image.fromstring("RGB",(a.shape[1],a.shape[0]),a.tostring())
+        else:
+            raise Exception("bad image rank")
+    elif a.dtype==dtype('float32'):
+        return PIL.Image.fromstring("F",(a.shape[1],a.shape[0]),a.tostring())
+    else:
+        raise Exception("unknown image type")
+
+def read_image_gray(file,type='B',pageno=None):
+    pil = PIL.Image.open(file)
+    a = pil2array(pil)
+    if a.ndim==3: return mean(a,2)
+    return a
+
+def write_image_gray(fname,image):
+    im = array2pil(image)
+    im.save(fname)
+
+def read_line_segmentation(fname):
+    pil = PIL.Image.open(fname)
+    a = pil2array(pil)
+    assert a.dtype==dtype('B')
+    assert a.ndim==3
+    return array(65536*a[:,:,0]+256*a[:,:,1]+a[:,:,2],'i')
+
+def write_line_segmentation(fname,image):
+    assert image.ndim==2
+    assert image.dtype in [dtype('int32'),dtype('int64')]
+    a = zeros(list(image.shape)+[3],'B')
+    a[:,:,0] = image//65536
+    a[:,:,1] = image//256
+    a[:,:,2] = image
+    im = array2pil(a)
+    im.save(fname)
+
+def read_page_segmentation(fname):
+    pil = PIL.Image.open(fname)
+    a = pil2array(pil)
+    assert a.dtype==dtype('B')
+    assert a.ndim==3
+    return array(65536*a[:,:,0]+256*a[:,:,1]+a[:,:,2],'i')
+
+def write_page_segmentation(fname,image):
+    assert image.ndim==2
+    assert image.dtype in [dtype('int32'),dtype('int64')]
+    a = zeros(list(image.shape)+[3],'B')
+    a[:,:,0] = image//65536
+    a[:,:,1] = image//256
+    a[:,:,2] = image
+    im = array2pil(a)
+    im.save(fname)
+
+def iulib_page_iterator(files):
+    for fname in files:
+        image = read_image_gray(fname)
+        yield image,fname
 
 ################################################################
 ### Iterate through the regions of a color image.
@@ -115,7 +193,7 @@ class RegionExtractor:
         """Set the image to be iterated over.  This should be an RGB image,
         ndim==3, dtype=='B'.  This picks a subset of the segmentation to iterate
         over, using a mask and lo and hi values.."""
-        assert image.dtype==dtype('B') or image.dtype('i'),"image must be type B or i"
+        assert image.dtype==dtype('B') or image.dtype==dtype('i'),"image must be type B or i"
         if image.ndim==3: image = rgb2int(image)
         assert image.ndim==2,"wrong number of dimensions"
         self.image = image
@@ -855,3 +933,54 @@ def remove_noise(line,minsize=8):
     return good
     
     
+def gtk_yield():
+    import gtk
+    while gtk.events_pending():
+       gtk.main_iteration(False)
+
+def draw_pseg(pseg,axis=None):
+    if axis is None:
+        axis = subplot(111)
+    h = pseg.dim(1)
+    regions = ocropy.RegionExtractor()
+    regions.setPageLines(pseg)
+    for i in range(1,regions.length()):
+        x0,y0,x1,y1 = (regions.x0(i),regions.y0(i),regions.x1(i),regions.y1(i))
+        p = patches.Rectangle((x0,h-y1-1),x1-x0,y1-y0,edgecolor="red",fill=0)
+        axis.add_patch(p)
+    
+
+def draw_aligned(result,axis=None):
+    raise Error("FIXME draw_aligned")
+    if axis is None:
+        axis = subplot(111)
+    axis.imshow(NI(result.image),cmap=cm.gray)
+    cseg = result.cseg
+    if type(cseg)==numpy.ndarray: cseg = common.lseg2narray(cseg)
+    ocropy.make_line_segmentation_black(cseg)
+    ocropy.renumber_labels(cseg,1)
+    bboxes = ocropy.rectarray()
+    ocropy.bounding_boxes(bboxes,cseg)
+    s = re.sub(r'\s+','',result.output)
+    h = cseg.dim(1)
+    for i in range(1,bboxes.length()):
+        r = bboxes.at(i)
+        x0,y0,x1,y1 = (r.x0,r.y0,r.x1,r.y1)
+        p = patches.Rectangle((x0,h-y1-1),x1-x0,y1-y0,edgecolor=(0.0,0.0,1.0,0.5),fill=0)
+        axis.add_patch(p)
+        if i>0 and i-1<len(s):
+            axis.text(x0,h-y0-1,s[i-1],color="red",weight="bold",fontsize=14)
+    draw()
+
+def plotgrid(data,d=10,shape=(30,30)):
+    """Plot a list of images on a grid."""
+    ion()
+    gray()
+    clf()
+    for i in range(min(d*d,len(data))):
+        subplot(d,d,i+1)
+        row = data[i]
+        if shape is not None: row = row.reshape(shape)
+        imshow(row)
+    ginput(1,timeout=0.1)
+
