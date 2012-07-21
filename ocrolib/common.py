@@ -19,7 +19,6 @@ import psegutils
 from pylab import imshow
 import psegutils
 
-
 pickle_mode = 2
 
 
@@ -30,8 +29,8 @@ pickle_mode = 2
 
 import PIL
 
-def pil2array(im):
-    assert im.mode in ("L","F","RGB")
+def pil2array(im,alpha=0):
+    assert im.mode in ("L","F","RGB","RGBA"),"unknown image mode: %s"%im.mode
     if im.mode=="L":
         a = numpy.fromstring(im.tostring(),'B')
         a.shape = im.size[1],im.size[0]
@@ -41,6 +40,10 @@ def pil2array(im):
     elif im.mode=="RGB":
         a = numpy.fromstring(im.tostring(),'B')
         a.shape = im.size[1],im.size[0],3   
+    elif im.mode=="RGBA":
+        a = numpy.fromstring(im.tostring(),'B')
+        a.shape = im.size[1],im.size[0],4
+        if not alpha: a = a[:,:,:3]
     return a
 
 def array2pil(a):
@@ -56,16 +59,6 @@ def array2pil(a):
     else:
         raise Exception("unknown image type")
 
-def read_image_gray(file,type='B',pageno=None):
-    pil = PIL.Image.open(file)
-    a = pil2array(pil)
-    if a.ndim==3: return mean(a,2)
-    return a
-
-def write_image_gray(fname,image):
-    im = array2pil(image)
-    im.save(fname)
-
 def isbytearray(a):
     return a.dtype in [dtype('uint8')]
 
@@ -74,6 +67,62 @@ def isfloatarray(a):
 
 def isintarray(a):
     return a.dtype in [dtype('B'),dtype('int16'),dtype('int32'),dtype('int64'),dtype('uint16'),dtype('uint32'),dtype('uint64')]
+
+def read_image_gray(fname,pageno=0):
+    """Read an image and returns it as a floating point array.
+    The optional page number allows images from files containing multiple
+    images to be addressed.  Byte and short arrays are rescaled to
+    the range 0...1 (unsigned) or -1...1 (signed)."""
+    if type(fname)==tuple: fname,pageno = fname
+    assert pageno==0
+    pil = PIL.Image.open(fname)
+    a = pil2array(pil)
+    if a.dtype==dtype('uint8'):
+        a = a/255.0
+    if a.dtype==dtype('int8'):
+        a = a/127.0
+    elif a.dtype==dtype('uint16'):
+        a = a/65536.0
+    elif a.dtype==dtype('uint16'):
+        a = a/32767.0
+    elif isfloatarray(a):
+        pass
+    else:
+        raise Exception("unknown image type: "+a.dtype)
+    if a.ndim==3: return mean(a,2)
+    return a
+
+def write_image_gray(fname,image,normalize=0):
+    """Write an image to disk.  If the image is of floating point
+    type, its values are clipped to the range [0,1],
+    multiplied by 255 and converted to unsigned bytes.  Otherwise,
+    the image must be of type unsigned byte."""
+    if isfloatarray(image):
+        image = array(255*clip(image,0.0,1.0),'B')
+    else:
+        assert image.dtype==dtype('B')
+    im = array2pil(image)
+    im.save(fname)
+
+def read_image_binary(fname,dtype='i',pageno=0):
+    """Read an image from disk and return it as a binary image
+    of the given dtype."""
+    if type(fname)==tuple: fname,pageno = fname
+    assert pageno==0
+    pil = PIL.Image.open(fname)
+    a = pil2array(pil)
+    if a.ndim==3: a = amax(a,axis=2)
+    return array(a>0.5*(amin(a)+amax(a)),dtype)
+
+def write_image_binary(fname,image):
+    """Write a binary image to disk. This verifies first that the given image
+    is, in fact, binary.  The image may be of any type, but must consist of only
+    two values."""
+    assert image.ndim==2
+    assert sum(image==amin(image))+sum(image==amax(image))==prod(image.shape),"image is not binary"
+    image = array(image==amax(image),'B')
+    im = array2pil(image)
+    im.save(fname)
 
 def rgb2int(image):
     """Converts a rank 3 array with RGB values stored in the
@@ -85,7 +134,7 @@ def rgb2int(image):
 def int2rgb(image):
     """Converts a rank 3 array with RGB values stored in the
     last axis into a rank 2 array containing 32 bit RGB values."""
-    assert a.ndim==2
+    assert image.ndim==2
     assert isintarray(image)
     a = zeros(list(image.shape)+[3],'B')
     a[:,:,0] = image//65536
@@ -94,6 +143,8 @@ def int2rgb(image):
     return a
 
 def read_line_segmentation(fname):
+    """Reads a line segmentation, that is an RGB image whose values
+    encode the segmentation of a text line.  Returns an int array."""
     pil = PIL.Image.open(fname)
     a = pil2array(pil)
     assert a.dtype==dtype('B')
@@ -101,6 +152,8 @@ def read_line_segmentation(fname):
     return array(65536*a[:,:,0]+256*a[:,:,1]+a[:,:,2],'i')
 
 def write_line_segmentation(fname,image):
+    """Writes a line segmentation, that is an RGB image whose values
+    encode the segmentation of a text line."""
     assert image.ndim==2
     assert image.dtype in [dtype('int32'),dtype('int64')]
     a = int2rgb(image)
@@ -108,6 +161,8 @@ def write_line_segmentation(fname,image):
     im.save(fname)
 
 def read_page_segmentation(fname):
+    """Reads a page segmentation, that is an RGB image whose values
+    encode the segmentation of a text line.  Returns an int array."""
     pil = PIL.Image.open(fname)
     a = pil2array(pil)
     assert a.dtype==dtype('B')
@@ -115,6 +170,8 @@ def read_page_segmentation(fname):
     return array(65536*a[:,:,0]+256*a[:,:,1]+a[:,:,2],'i')
 
 def write_page_segmentation(fname,image):
+    """Writes a page segmentation, that is an RGB image whose values
+    encode the segmentation of a text line."""
     assert image.ndim==2
     assert image.dtype in [dtype('int32'),dtype('int64')]
     a = zeros(list(image.shape)+[3],'B')
@@ -807,7 +864,6 @@ def simple_classify(model,inputs):
     """Given a model, classify the inputs with the model."""
     result = []
 
-    
 def gtk_yield():
     import gtk
     while gtk.events_pending():

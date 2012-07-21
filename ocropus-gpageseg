@@ -18,7 +18,8 @@ from scipy.ndimage import filters,interpolation,morphology,measurements
 from scipy import stats
 from scipy.misc import imsave
 from scipy.ndimage.filters import gaussian_filter,uniform_filter,maximum_filter,minimum_filter
-from ocrolib.psegutils import *
+import ocrolib
+from ocrolib import psegutils,morph,improc,sl
 import multiprocessing
 from multiprocessing import Pool
 
@@ -57,21 +58,21 @@ if args.debug:
     ion(); gray()
 
 def compute_segmentation(binary,scale):
-    binary = B|binary
+    binary = array(binary,'B')
     
     # start by computing columns
-    cols = compute_columns_morph(binary,scale,debug=args.cdebug,
-                                 maxcols=args.maxcols,
-                                 maxwidth=args.cmaxwidth,
-                                 minheight=args.cminheight)
-    seps = compute_separators_morph(binary,scale)
+    cols = psegutils.compute_columns_morph(binary,scale,debug=args.cdebug,
+                                           maxcols=args.maxcols,
+                                           maxwidth=args.cmaxwidth,
+                                           minheight=args.cminheight)
+    seps = psegutils.compute_separators_morph(binary,scale)
     if args.debug:
         clf(); title("cols"); imshow(maximum(seps,0.7*cols+0.3*binary)); ginput(1,args.debug)
     cols = maximum(cols,seps)
     binary = minimum(binary,1-seps)
     
     # use gradient filtering to find baselines
-    boxmap = compute_boxmap(binary,scale)
+    boxmap = psegutils.compute_boxmap(binary,scale)
     cleaned = boxmap*binary
     if args.debug:
         clf(); title("cleaned"); imshow(cleaned); ginput(1,args.debug)
@@ -84,7 +85,7 @@ def compute_segmentation(binary,scale):
         grad = gaussian_filter(1.0*cleaned,(max(4,args.hscale*0.3*scale),
                                             args.vscale*scale),order=(1,0))
         grad = uniform_filter(grad,(args.hscale,args.vscale*6*scale))
-    bottom = norm_max((grad<0)*(-grad))
+    bottom = improc.norm_max((grad<0)*(-grad))
     if args.debug:
         clf(); title("filtered"); imshow(bottom); ginput(1,args.debug)
 
@@ -95,7 +96,7 @@ def compute_segmentation(binary,scale):
     loc = minimum(loc,1-cols)
 
     # select the longest lines only
-    loc = select_regions(loc,W,min=2*scale,nbest=1000)
+    loc = morph.select_regions(loc,sl.dim1,min=2*scale,nbest=1000)
 
     # thicken it vertically upwards to pick up most bounding boxes
     # on the baseline
@@ -104,19 +105,19 @@ def compute_segmentation(binary,scale):
     # label lines, propagate to bounding boxes
     if args.debug:
         clf(); title("boxmap"); imshow(0.7*boxmap+0.3*binary); ginput(1,args.debug)
-    lloc,_ = measurements.label(locm)
-    llines = maximum(lloc,propagate_labels(boxmap,lloc,conflict=-1))
+    lloc,_ = morph.label(locm)
+    llines = maximum(lloc,morph.propagate_labels(boxmap,lloc,conflict=-1))
 
     # where there are conflicts, resolve using spread
-    spread = spread_labels(lloc,maxdist=scale)
+    spread = morph.spread_labels(lloc,maxdist=scale)
     llines = where(llines==-1,spread,llines)
     if args.debug:
-        clf(); title("spread"); segshow(llines); ginput(1,args.debug)
+        clf(); title("spread"); morph.showlabels(llines); ginput(1,args.debug)
 
     # label all the remaining pixels
     llines = where(llines!=0,llines,binary*spread)
     if args.debug:
-        clf(); title("remaining"); segshow(llines); ginput(1,args.debug)
+        clf(); title("remaining"); morph.showlabels(llines); ginput(1,args.debug)
 
     # now restrict to the foreground pixels
     segmentation = llines*binary
@@ -130,25 +131,25 @@ def process1(job):
     base,_ = os.path.splitext(fname)
     if os.path.exists(base+".bin.png"):
         if os.path.exists(base+".nrm.png"):
-            gray = read_gray(base+".nrm.png")
+            gray = ocrolib.read_image_gray(base+".nrm.png")
         else:
-            gray = read_gray(fname)
-        binary = read_binary(base+".bin.png")
+            gray = ocrolib.read_image_gray(fname)
+        binary = 1-ocrolib.read_image_binary(base+".bin.png")
     else:
-        binary = read_binary(fname)
+        binary = 1-ocrolib.read_image_binary(fname)
         gray = binary
     if args.debug:
         clf(); imshow(binary); title("binary"); ginput(1,maximum(args.show,args.debug))
-    scale = estimate_scale(binary)
+    scale = psegutils.estimate_scale(binary)
     if scale<args.minscale:
         sys.stderr.write("%s: scale (%g) less than --minscale; skipping\n"%(fname,scale))
         return
     segmentation = compute_segmentation(binary,scale)
-    lines = compute_lines(segmentation,scale)
-    order = reading_order([l.bounds for l in lines],debug=args.debug)
-    lsort = topsort(order)
+    lines = psegutils.compute_lines(segmentation,scale)
+    order = psegutils.reading_order([l.bounds for l in lines],debug=args.debug)
+    lsort = psegutils.topsort(order)
     if args.show or args.debug:
-        clf(); title("output"); show_lines(gray,lines,lsort); ginput(1,maximum(args.show,args.debug))
+        clf(); title("output"); psegutils.show_lines(gray,lines,lsort); ginput(1,maximum(args.show,args.debug))
     base,_ = os.path.splitext(fname)
     if not os.path.exists(base):
         os.mkdir(base)
@@ -160,12 +161,10 @@ def process1(job):
     imsave("%s.pseg.png"%base,pseg)
     for i,l in enumerate(lines):
         clf()
-        imsave("%s/01%04x.png"%(base,i+1),extract_masked(gray,l,pad=args.pad,expand=args.expand))
+        imsave("%s/01%04x.png"%(base,i+1),psegutils.extract_masked(gray,l,pad=args.pad,expand=args.expand))
         clf()
-        imsave("%s/01%04x.bin.png"%(base,i+1),extract_masked(1-binary,l,pad=args.pad))
+        imsave("%s/01%04x.bin.png"%(base,i+1),psegutils.extract_masked(1-binary,l,pad=args.pad))
     print "%6d"%i,fname,"%4.1f"%scale,len(lines)
-
-import ocrolib
 
 if args.debug>0 or args.show>0: args.parallel = 0
 
@@ -177,6 +176,7 @@ else:
 if args.parallel<2:
     count = 0
     for i,f in enumerate(files):
+        if args.parallel==0: print f
         count += 1
         process1((f,i+1))
 else:

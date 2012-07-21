@@ -131,7 +131,7 @@ def correspondences(labels1,labels2):
 
 def propagate_labels_simple(regions,labels):
     """Spread the labels to the corresponding regions."""
-    rlabels,_ = common.label(regions)
+    rlabels,_ = label(regions)
     cors = correspondences(rlabels,labels)
     outputs = zeros(amax(rlabels)+1,'i')
     for o,i in cors.T: outputs[o] = i
@@ -142,7 +142,7 @@ def propagate_labels(image,labels,conflict=0):
     """Given an image and a set of labels, apply the labels
     to all the regions in the image that overlap a label.
     Assign the value `conflict` to any labels that have a conflict."""
-    rlabels,_ = common.label(image)
+    rlabels,_ = label(image)
     cors = correspondences(rlabels,labels)
     outputs = zeros(amax(rlabels)+1,'i')
     oops = -(1<<30)
@@ -157,8 +157,8 @@ def select_regions(binary,f,min=0,nbest=100000):
     """Given a scoring function f over slice tuples (as returned by
     find_objects), keeps at most nbest regions whose scores is higher
     than min."""
-    labels,n = common.label(binary)
-    objects = common.find_objects(labels)
+    labels,n = label(binary)
+    objects = find_objects(labels)
     scores = [f(o) for o in objects]
     best = argsort(scores)
     keep = zeros(len(objects)+1,'B')

@@ -5,20 +5,23 @@ import argparse,glob,os,os.path
 from scipy.ndimage import filters,interpolation,morphology,measurements
 from scipy import stats
 from scipy.misc import imsave
-import common
-import sl
+import common,sl,morph
+
+def B(a):
+    if a.dtype==dtype('B'): return a
+    return array(a,'B')
 
 class record:
     def __init__(self,**kw): self.__dict__.update(kw)
 
 def binary_objects(binary):
-    labels,n = common.label(binary)
-    objects = common.find_objects(labels)
+    labels,n = morph.label(binary)
+    objects = morph.find_objects(labels)
     return objects
 
 def estimate_scale(binary):
     objects = binary_objects(binary)
-    bysize = sorted(objects,key=A)
+    bysize = sorted(objects,key=sl.area)
     scalemap = zeros(binary.shape)
     for o in bysize:
         if amax(scalemap[o])>0: continue
@@ -28,7 +31,7 @@ def estimate_scale(binary):
 
 def compute_boxmap(binary,scale,threshold=(.5,4),dtype='i'):
     objects = binary_objects(binary)
-    bysize = sorted(objects,key=A)
+    bysize = sorted(objects,key=sl.area)
     boxmap = zeros(binary.shape,dtype)
     for o in bysize:
         if sl.area(o)**.5<threshold[0]*scale: continue
@@ -39,7 +42,7 @@ def compute_boxmap(binary,scale,threshold=(.5,4),dtype='i'):
 def compute_lines(segmentation,scale):
     """Given a line segmentation map, computes a list
     of tuples consisting of 2D slices and masked images."""
-    lobjects = common.find_objects(segmentation)
+    lobjects = morph.find_objects(segmentation)
     lines = []
     for i,o in enumerate(lobjects):
         if o is None: continue
@@ -179,56 +182,32 @@ def rgbshow(r,g,b=None,gn=1,cn=0,ab=0,**kw):
     if amin(combo)<0: print "warning: values less than zero"
     imshow(clip(combo,0,1),**kw)
 
-def select_regions(binary,f,min=0,nbest=100000):
-    labels,n = common.label(binary)
-    objects = common.find_objects(labels)
-    scores = [f(o) for o in objects]
-    best = argsort(scores)
-    keep = zeros(len(objects)+1,'B')
-    for i in best[-nbest:]:
-        if scores[i]<=min: continue
-        keep[i+1] = 1
-    return keep[labels]
-
-def all_neighbors(image):
-    q = 100000
-    assert amax(image)<q
-    assert amin(image)>=0
-    u = unique(q*image+roll(image,1,0))
-    d = unique(q*image+roll(image,-1,0))
-    l = unique(q*image+roll(image,1,1))
-    r = unique(q*image+roll(image,-1,1))
-    all = unique(r_[u,d,l,r])
-    all = c_[all//q,all%q]
-    all = unique(array([sorted(x) for x in all]))
-    return all
-
 def compute_separators_morph(binary,scale):
-    thick = r_dilation(binary,(max(5,scale/4),max(5,scale)))
-    vert = rb_opening(thick,(10*scale,1))
-    vert = select_regions(vert,W,min=3,nbest=5)
-    vert = select_regions(vert,H,min=20*scale,nbest=3)
+    thick = morph.r_dilation(binary,(max(5,scale/4),max(5,scale)))
+    vert = morph.rb_opening(thick,(10*scale,1))
+    vert = morph.select_regions(vert,sl.dim1,min=3,nbest=5)
+    vert = morph.select_regions(vert,sl.dim0,min=20*scale,nbest=3)
     return vert
 
 def compute_columns_morph(binary,scale,debug=0,maxcols=3,minheight=20,maxwidth=5):
     boxmap = compute_boxmap(binary,scale,dtype='B')
-    bounds = rb_closing(B|boxmap,(5*scale,5*scale)) 
+    bounds = morph.rb_closing(B(boxmap),(5*scale,5*scale)) 
     if debug>0:
         clf(); title("bounds"); imshow(0.3*boxmap+0.7*bounds); ginput(1,debug)
-    bounds = maximum(B|1-bounds,B|boxmap)
+    bounds = maximum(B(1-bounds),B(boxmap))
     if debug>0:
         clf(); title("input"); imshow(0.3*boxmap+0.7*bounds); ginput(1,debug)
-    cols = 1-rb_closing(boxmap,(20*scale,scale))
+    cols = 1-morph.rb_closing(boxmap,(20*scale,scale))
     if debug>0:
         clf(); title("columns0"); imshow(0.3*boxmap+0.7*cols); ginput(1,debug)
-    cols = select_regions(cols,lambda x:-sl.dim1(x),min=-maxwidth*scale)
+    cols = morph.select_regions(cols,lambda x:-sl.dim1(x),min=-maxwidth*scale)
     if debug>0:
         clf(); title("columns1"); imshow(0.3*boxmap+0.7*cols); ginput(1,debug)
-    cols = select_regions(cols,H,min=minheight*scale,nbest=maxcols)
+    cols = morph.select_regions(cols,sl.dim0,min=minheight*scale,nbest=maxcols)
     if debug>0:
         clf(); title("columns2"); imshow(0.3*boxmap+0.7*cols); ginput(1,debug)
-    cols = r_erosion(cols,(scale,0))
-    cols = r_dilation(cols,(scale,0),origin=(int(scale/2)-1,0))
+    cols = morph.r_erosion(cols,(scale,0))
+    cols = morph.r_dilation(cols,(scale,0),origin=(int(scale/2)-1,0))
     if debug>0:
         clf(); title("columns3"); imshow(0.3*boxmap+0.7*cols); ginput(1,debug)
     return cols
