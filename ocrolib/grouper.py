@@ -1,12 +1,9 @@
 import os,os.path,re,numpy,unicodedata,sys,warnings,inspect,glob,traceback,string
+from collections import Counter
 import numpy
 from numpy import *
-from scipy.misc import imsave
 from scipy.ndimage import interpolation,measurements,morphology
-import common
-import sl
-from collections import Counter
-import ligatures
+import common,ligatures,sl,morph
 
 import heapq
 
@@ -79,16 +76,16 @@ class Grouper(PyComponent):
     def setSegmentation(self,segmentation,cseg=0,preferred=None):
         """Set the line segmentation."""
         # reorder the labels by the x center of bounding box
-        segmentation = common.renumber_by_xcenter(segmentation)
+        segmentation = morph.renumber_by_xcenter(segmentation)
         if preferred is not None:
-            preferred = common.renumber_by_xcenter(preferred)
+            preferred = morph.renumber_by_xcenter(preferred)
             assert amax(segmentation)<32000 and amax(preferred)<32000
             combined = ((preferred<<16)|segmentation)
             correspondences = [(k>>16,k&0xffff) for k,v in Counter(combined.ravel()).most_common() if v>5]
             # print sorted(correspondences)
             self.pre2seg = correspondences
         # compute the bounding boxes in order
-        boxes = [None]+common.find_objects(segmentation)
+        boxes = [None]+morph.find_objects(segmentation)
         n = len(boxes)
         # now consider groups of boxes
         groups = []
@@ -126,7 +123,7 @@ class Grouper(PyComponent):
         the groups corresponding to each labeled object.  Objects should be labeled
         consecutively."""
         # compute the bounding boxes in order
-        boxes = [None] + common.find_objects(segmentation)
+        boxes = [None] + morph.find_objects(segmentation)
         n = len(boxes)
         # now consider groups of boxes
         groups = []

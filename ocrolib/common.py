@@ -8,7 +8,6 @@ from scipy.misc import imsave
 from scipy.ndimage import interpolation, measurements, morphology, filters
 
 import improc
-import docproc
 import ligatures
 import segrec
 import sl
@@ -67,6 +66,33 @@ def write_image_gray(fname,image):
     im = array2pil(image)
     im.save(fname)
 
+def isbytearray(a):
+    return a.dtype in [dtype('uint8')]
+
+def isfloatarray(a):
+    return a.dtype in [dtype('f'),dtype('float32'),dtype('float64')]
+
+def isintarray(a):
+    return a.dtype in [dtype('B'),dtype('int16'),dtype('int32'),dtype('int64'),dtype('uint16'),dtype('uint32'),dtype('uint64')]
+
+def rgb2int(image):
+    """Converts a rank 3 array with RGB values stored in the
+    last axis into a rank 2 array containing 32 bit RGB values."""
+    assert a.ndim==3
+    assert a.dtype==dtype('B')
+    return array(65536*a[:,:,0]+256*a[:,:,1]+a[:,:,2],'i')
+
+def int2rgb(image):
+    """Converts a rank 3 array with RGB values stored in the
+    last axis into a rank 2 array containing 32 bit RGB values."""
+    assert a.ndim==2
+    assert isintarray(image)
+    a = zeros(list(image.shape)+[3],'B')
+    a[:,:,0] = image//65536
+    a[:,:,1] = image//256
+    a[:,:,2] = image
+    return a
+
 def read_line_segmentation(fname):
     pil = PIL.Image.open(fname)
     a = pil2array(pil)
@@ -77,10 +103,7 @@ def read_line_segmentation(fname):
 def write_line_segmentation(fname,image):
     assert image.ndim==2
     assert image.dtype in [dtype('int32'),dtype('int64')]
-    a = zeros(list(image.shape)+[3],'B')
-    a[:,:,0] = image//65536
-    a[:,:,1] = image//256
-    a[:,:,2] = image
+    a = int2rgb(image)
     im = array2pil(a)
     im.save(fname)
 
@@ -105,80 +128,6 @@ def iulib_page_iterator(files):
     for fname in files:
         image = read_image_gray(fname)
         yield image,fname
-
-################################################################
-### Iterate through the regions of a color image.
-################################################################
-
-def renumber_labels_ordered(a,correspondence=0):
-    """Renumber the labels of the input array in numerical order so
-    that they are arranged from 1...N"""
-    assert amin(a)>=0
-    assert amax(a)<=2**25
-    labels = sorted(unique(ravel(a)))
-    renum = zeros(amax(labels)+1,dtype='i')
-    renum[labels] = arange(len(labels),dtype='i')
-    if correspondence:
-        return renum[a],labels
-    else:
-        return renum[a]
-
-def renumber_labels(a):
-    """Alias for renumber_labels_ordered"""
-    return renumber_labels_ordered(a)
-
-def pyargsort(seq,cmp=cmp,key=lambda x:x):
-    """Like numpy's argsort, but using the builtin Python sorting
-    function.  Takes an optional cmp."""
-    return sorted(range(len(seq)),key=lambda x:key(seq.__getitem__(x)),cmp=cmp)
-
-def renumber_by_xcenter(seg):
-    objects = [(slice(0,0),slice(0,0))]+find_objects(seg)
-    def xc(o): return mean((o[1].start,o[1].stop))
-    xs = array([xc(o) for o in objects])
-    order = argsort(xs)
-    segmap = zeros(amax(seg)+1,'i')
-    for i,j in enumerate(order): segmap[j] = i
-    return segmap[seg]
-
-def label(image,**kw):
-    """measurements.label fails to document what types it accepts,
-    and it fails randomly with different types on different
-    platforms.  This tries to work around that."""
-    try: return measurements.label(image,**kw)
-    except: pass
-    types = ["int32","uint32","int64","unit64","int16","uint16"]
-    for t in types:
-	try: return measurements.label(array(image,dtype=t),**kw) 
-	except: pass
-    # let it raise the same exception as before
-    return measurements.label(image,**kw)
-
-def find_objects(image,**kw):
-    """measurements.find_objects fails to document what types it accepts,
-    and it fails randomly with different types on different
-    platforms.  This tries to work around that."""
-    try: return measurements.find_objects(image,**kw)
-    except: pass
-    types = ["int32","uint32","int64","unit64","int16","uint16"]
-    for t in types:
-	try: return measurements.find_objects(array(image,dtype=t),**kw) 
-	except: pass
-    # let it raise the same exception as before
-    return measurements.find_objects(image,**kw)
-    
-def rgb2int(image):
-    """Converts a rank 3 array with RGB values stored in the
-    last axis into a rank 2 array containing 32 bit RGB values."""
-    assert image.dtype==dtype('B')
-    orig = image
-    image = zeros(image.shape[:2],'i')
-    image += orig[:,:,0]
-    image <<= 8
-    image += orig[:,:,1]
-    image <<= 8
-    image += orig[:,:,2]
-    return image
 
 class RegionExtractor:
     """A class facilitating iterating over the parts of a segmentation."""
@@ -857,81 +806,7 @@ def binarize_range(image,dtype='B',threshold=0.5):
 def simple_classify(model,inputs):
     """Given a model, classify the inputs with the model."""
     result = []
-from pylab import imshow
-import psegutils
 
-def estimate_baseline(line):
-    """Compute the baseline by fitting a polynomial to the gradient.
-    TODO: use robust fitting, special case very short line, limit parameter ranges"""
-    line = line*1.0/amax(line)
-    vgrad = morphology.grey_closing(line,(1,40))
-    vgrad = filters.gaussian_filter(vgrad,(2,60),(1,0))
-    if amin(vgrad)>0 or amax(vgrad)<0: raise BadLine()
-    h,w = vgrad.shape
-    baseline = fitext(vgrad)
-    return baseline
-
-def dewarp_line(line,show=0):
-    line = line*1.0/amax(line)
-    line = r_[zeros(line.shape),line]
-    h,w = line.shape
-    baseline = estimate_baseline(line)
-    ys = polyval(baseline,arange(w))
-    base = 2*h/3
-    temp = zeros(line.shape)
-    for x in range(w):
-        temp[:,x] = interpolation.shift(line[:,x],(base-ys[x]),order=1)
-    return temp
-
-    line = line*1.0/amax(line)
-
-def estimate_xheight(line,scale=1.0,debug=0):
-    vgrad = morphology.grey_closing(line,(1,int(scale*40)))
-    vgrad = filters.gaussian_filter(vgrad,(2,int(scale*60)),(1,0))
-    if amin(vgrad)>0 or amax(vgrad)<0: raise Exception("bad line")
-    if debug: imshow(vgrad)
-    proj = sum(vgrad,1)
-    proj = filters.gaussian_filter(proj,0.5)
-    top = argmax(proj)
-    bottom = argmin(proj)
-    return bottom-top,bottom
-
-def keep_marked(image,markers):
-    labels,_ = label(image)
-    imshow(sin(17.1*labels),cmap=cm.jet)
-    marked = unique(labels*(markers!=0))
-    print marked
-    kept = in1d(labels.ravel(),marked)
-    return (image!=0)*kept.reshape(*labels.shape)
-
-def latin_kernel(line,scale=1.0,r=1.2,debug=0):
-    vgrad = morphology.grey_closing(1.0*line,(1,int(scale*40)))
-    vgrad = filters.gaussian_filter(vgrad,(2,int(scale*60)),(1,0))
-    tops = argmax(vgrad,0)
-    bottoms = argmin(vgrad,0)
-    mask = zeros(line.shape)
-    xheight = mean(bottoms-tops)
-    for i in range(len(bottoms)):
-        d = bottoms[i]-tops[i]
-        y0 = int(maximum(0,bottoms[i]-r*d))
-        mask[y0:bottoms[i],i] = 1
-    return mask
-
-def latin_filter(line,scale=1.0,r=1.5,debug=0):
-    bin = (line>0.5*amax(line))
-    mask = latin_kernel(bin,scale=scale,r=r,debug=debug)
-    mask = psegutils.keep_marked(bin,mask)
-    mask = filters.maximum_filter(mask,3)
-    return line*mask
-
-def remove_noise(line,minsize=8):
-    bin = (line>0.5*amax(line))
-    labels,n = label(bin)
-    sums = measurements.sum(bin,labels,range(n+1))
-    sums = sums[labels]
-    good = minimum(bin,1-(sums>0)*(sums<minsize))
-    return good
-    
     
 def gtk_yield():
     import gtk

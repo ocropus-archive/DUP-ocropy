@@ -20,7 +20,7 @@ from ocrolib import number_of_processors
 import ocrolib
 import tables
 import pyflann
-from ocrolib import docproc
+from ocrolib import improc
 from ocrolib import sl
 from ocrolib import Record
 import ocrorast
@@ -91,7 +91,7 @@ def csnormalize(image,f=0.75):
 
 def classifier_normalize(image):
     cimage = array(image*1.0/(1e-6+amax(image)),'f')
-    cimage = docproc.isotropic_rescale(cimage,32)
+    cimage = improc.isotropic_rescale(cimage,32)
     cimage = csnormalize(cimage)
     return cimage
 

@@ -1,9 +1,6 @@
 from pylab import *
 from scipy.ndimage import filters,morphology,measurements
-import psegutils
-import common
-
-
+import common,morph
 
 def dpcuts(image,alpha=0.5,r=2):
     costs = 9999*ones(image.shape)
@@ -84,14 +81,12 @@ def ccslineseg(image):
     smooth = filters.gaussian_filter(image,(sigma,3.0*sigma))
     center = (smooth==amax(smooth,axis=0)[newaxis,:])
     center = filters.maximum_filter(center,(3,3))
-    center = psegutils.keep_marked(image>0.5,center)
+    center = morph.keep_marked(image>0.5,center)
     center = filters.maximum_filter(center,(2,2))
-    center,_ = common.label(center)
-    center = psegutils.spread_labels(center)
+    center,_ = morph.label(center)
+    center = morph.spread_labels(center)
     center *= image
     return center
-
-import psegutils
 
 class SimpleParams:
     def info(self,depth=0):
@@ -118,7 +113,7 @@ class CCSSegmentLine(SimpleParams):
         """Segment a text line into potential character parts."""
         line = (line<0.5*(amax(line)+amin(line)))
         seg = ccslineseg(line)
-        seg = ocrolib.renumber_by_xcenter(seg)
+        seg = morph.renumber_by_xcenter(seg)
         return seg
     
 class DPSegmentLine(SimpleParams):
@@ -137,8 +132,8 @@ class DPSegmentLine(SimpleParams):
         tracks = dplineseg2(line,imweight=self.imweight,bweight=self.bweight,
                             diagweight=self.diagweight,debug=self.debug,r=self.r)
         tracks = array(tracks<0.5*amax(tracks),'i')
-        tracks,_ = common.label(tracks)
+        tracks,_ = morph.label(tracks)
         self.tracks = tracks
-        rsegs = psegutils.spread_labels(tracks)
+        rsegs = morph.spread_labels(tracks)
         rsegs = rsegs*(line>0.5*amax(line))
-        return ocrolib.renumber_by_xcenter(rsegs)
+        return morph.renumber_by_xcenter(rsegs)

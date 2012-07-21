@@ -6,7 +6,7 @@ else: matplotlib.use("GTK")
 from optparse import OptionParser
 from pylab import *
 import ocrolib
-from ocrolib import dbtables,docproc,mlp,wmodel
+from ocrolib import dbtables,improc,mlp,wmodel
 from scipy.ndimage import interpolation
 
 parser = OptionParser("""

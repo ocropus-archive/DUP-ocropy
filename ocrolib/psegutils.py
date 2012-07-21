@@ -1,3 +1,4 @@
+from toplevel import *
 import pdb
 from pylab import *
 import argparse,glob,os,os.path
@@ -5,126 +6,10 @@ from scipy.ndimage import filters,interpolation,morphology,measurements
 from scipy import stats
 from scipy.misc import imsave
 import common
+import sl
 
 class record:
     def __init__(self,**kw): self.__dict__.update(kw)
-
-class B_:
-    def __or__(self,other):
-        if other.dtype==dtype('B'): return other
-        return array(other,'B')
-B = B_()
-
-def check_binary(image):
-    assert image.dtype=='B' or image.dtype=='i' or image.dtype==dtype('bool'),\
-        "array should be binary, is %s %s"%(image.dtype,image.shape)
-    assert amin(image)>=0 and amax(image)<=1,\
-        "array should be binary, has values %g to %g"%(amin(image),amax(image))
-def r_dilation(image,size,origin=0):
-    check_binary(image)
-    return filters.maximum_filter(image,size,origin=origin)
-def r_erosion(image,size,origin=0):
-    check_binary(image)
-    return filters.minimum_filter(image,size,origin=origin)
-def r_opening(image,size,origin=0):
-    check_binary(image)
-    image = r_erosion(image,size,origin=origin)
-    return r_dilation(image,size,origin=origin)
-def r_closing(image,size,origin=0):
-    check_binary(image)
-    image = r_dilation(image,size,origin=0)
-    return r_erosion(image,size,origin=0)
-
-def rb_dilation(image,size,origin=0):
-    output = zeros(image.shape,'f')
-    filters.uniform_filter(image,size,output=output,origin=origin,mode='constant',cval=0)
-    return (output>0)
-def rb_erosion(image,size,origin=0):
-    output = zeros(image.shape,'f')
-    filters.uniform_filter(image,size,output=output,origin=origin,mode='constant',cval=1)
-    return (output==1)
-def rb_opening(image,size,origin=0):
-    check_binary(image)
-    image = rb_erosion(image,size,origin=origin)
-    return rb_dilation(image,size,origin=origin)
-def rb_closing(image,size,origin=0):
-    check_binary(image)
-    image = rb_dilation(image,size,origin=origin)
-    return rb_erosion(image,size,origin=origin)
-
-def rg_dilation(image,size,origin=0):
-    return filters.maximum_filter(image,size,origin=origin)
-def rg_erosion(image,size,origin=0):
-    return filters.minimum_filter(image,size,origin=origin)
-def rg_opening(image,size,origin=0):
-    image = r_erosion(image,size,origin=origin)
-    return r_dilation(image,size,origin=origin)
-def rg_closing(image,size,origin=0):
-    image = r_dilation(image,size,origin=0)
-    return r_erosion(image,size,origin=0)
-
-def progress(*args):
-    if len(args)==0: print; return
-    l = ["%s"%l for l in args]
-    sys.stdout.write(" ".join(l)+" ")
-    sys.stdout.flush()
-
-def segshow(x):
-    imshow(where(x==0,0,10+100*sin(10*x)**2),cmap=cm.cubehelix)
-
-def spread_labels(labels,maxdist=9999999):
-    """Spread the given labels to the background"""
-    distances,features = morphology.distance_transform_edt(labels==0,return_distances=1,return_indices=1)
-    indexes = features[0]*labels.shape[1]+features[1]
-    spread = labels.ravel()[indexes.ravel()].reshape(*labels.shape)
-    spread *= (distances<maxdist)
-    return spread
-
-def keep_marked(image,markers):
-    labels,_ = common.label(image)
-    marked = unique(labels*(markers!=0))
-    kept = in1d(labels.ravel(),marked)
-    return (image!=0)*kept.reshape(*labels.shape)
-
-def remove_marked(image,markers):
-    marked = keep_marked(image,markers)
-    return image*(marked==0)
-
-def correspondences(labels1,labels2):
-    q = 100000
-    assert amin(labels1)>=0 and amin(labels2)>=0
-    assert amax(labels2)<q
-    combo = labels1*q+labels2
-    result = unique(combo)
-    result = array([result//q,result%q])
-    return result
-
-def propagate_labels_simple(regions,labels):
-    """Spread the labels to the corresponding regions."""
-    rlabels,_ = common.label(regions)
-    cors = correspondences(rlabels,labels)
-    outputs = zeros(amax(rlabels)+1,'i')
-    for o,i in cors.T: outputs[o] = i
-    outputs[0] = 0
-    return outputs[rlabels]
-
-def propagate_labels(regions,labels,conflict=0):
-    """Spread the labels to the corresponding regions."""
-    rlabels,_ = common.label(regions)
-    cors = correspondences(rlabels,labels)
-    outputs = zeros(amax(rlabels)+1,'i')
-    oops = -(1<<30)
-    for o,i in cors.T:
-        if outputs[o]!=0: outputs[o] = oops
-        else: outputs[o] = i
-    outputs[outputs==oops] = conflict
-    outputs[0] = 0
-    return outputs[rlabels]
-
-def H(s): return s[0].stop-s[0].start
-def W(s): return s[1].stop-s[1].start
-def A(s): return W(s)*H(s)
-def M(s): return mean([s[0].start,s[0].stop]),mean([s[1].start,s[1].stop])
 
 def binary_objects(binary):
     labels,n = common.label(binary)
@@ -137,7 +22,7 @@ def estimate_scale(binary):
     scalemap = zeros(binary.shape)
     for o in bysize:
         if amax(scalemap[o])>0: continue
-        scalemap[o] = A(o)**0.5
+        scalemap[o] = sl.area(o)**0.5
     scale = median(scalemap[(scalemap>3)&(scalemap<100)])
     return scale
 
@@ -146,8 +31,8 @@ def compute_boxmap(binary,scale,threshold=(.5,4),dtype='i'):
     bysize = sorted(objects,key=A)
     boxmap = zeros(binary.shape,dtype)
     for o in bysize:
-        if A(o)**.5<threshold[0]*scale: continue
-        if A(o)**.5>threshold[1]*scale: continue
+        if sl.area(o)**.5<threshold[0]*scale: continue
+        if sl.area(o)**.5>threshold[1]*scale: continue
         boxmap[o] = 1
     return boxmap
 
@@ -158,7 +43,7 @@ def compute_lines(segmentation,scale):
     lines = []
     for i,o in enumerate(lobjects):
         if o is None: continue
-        if W(o)<2*scale or H(o)<scale: continue
+        if sl.dim1(o)<2*scale or sl.dim0(o)<scale: continue
         mask = (segmentation[o]==i+1)
         if amax(mask)==0: continue
         result = record()
@@ -220,8 +105,8 @@ def reading_order(lines,highlight=None,debug=0):
                     if left_of(u,v): order[i,j] = 1
             if j==highlight and order[i,j]:
                 print (i,j),
-                y0,x0 = M(lines[i])
-                y1,x1 = M(lines[j])
+                y0,x0 = sl.center(lines[i])
+                y1,x1 = sl.center(lines[j])
                 plot([x0,x1+200],[y0,y1])
     if highlight is not None:
         print
@@ -253,21 +138,23 @@ def show_lines(image,lines,lsort):
     imshow(image)
     for i in range(len(lines)):
         l = lines[lsort[i]]
-        y,x = M(l.bounds)
+        y,x = sl.center(l.bounds)
         xs.append(x)
         ys.append(y)
         o = l.bounds
-        r = matplotlib.patches.Rectangle((o[1].start,o[0].start),edgecolor='r',fill=0,width=W(o),height=H(o))
+        r = matplotlib.patches.Rectangle((o[1].start,o[0].start),edgecolor='r',fill=0,width=sl.dim1(o),height=sl.dim0(o))
         gca().add_patch(r)
     h,w = image.shape
     ylim(h,0); xlim(0,w)
     plot(xs,ys)
 
+@obsolete
 def read_gray(fname):
     image = imread(fname)
     if image.ndim==3: image = mean(image,2)
     return image
 
+@obsolete
 def read_binary(fname):
     image = imread(fname)
     if image.ndim==3: image = mean(image,2)
@@ -277,6 +164,7 @@ def read_binary(fname):
     binary = 1.0*(image<0.5)
     return binary
 
+@obsolete
 def rgbshow(r,g,b=None,gn=1,cn=0,ab=0,**kw):
     """Small function to display 2 or 3 images as RGB channels."""
     if b is None: b = zeros(r.shape)
@@ -315,9 +203,6 @@ def all_neighbors(image):
     all = unique(array([sorted(x) for x in all]))
     return all
 
-def norm_max(v):
-    return v/amax(v)
-
 def compute_separators_morph(binary,scale):
     thick = r_dilation(binary,(max(5,scale/4),max(5,scale)))
     vert = rb_opening(thick,(10*scale,1))
@@ -336,7 +221,7 @@ def compute_columns_morph(binary,scale,debug=0,maxcols=3,minheight=20,maxwidth=5
     cols = 1-rb_closing(boxmap,(20*scale,scale))
     if debug>0:
         clf(); title("columns0"); imshow(0.3*boxmap+0.7*cols); ginput(1,debug)
-    cols = select_regions(cols,lambda x:-W(x),min=-maxwidth*scale)
+    cols = select_regions(cols,lambda x:-sl.dim1(x),min=-maxwidth*scale)
     if debug>0:
         clf(); title("columns1"); imshow(0.3*boxmap+0.7*cols); ginput(1,debug)
     cols = select_regions(cols,H,min=minheight*scale,nbest=maxcols)

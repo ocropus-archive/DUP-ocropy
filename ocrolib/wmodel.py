@@ -5,11 +5,10 @@
 ################################################################
 
 import code,pickle,sys,os,re,traceback
-from optparse import OptionParser
 from pylab import *
 import common as ocrolib
-import docproc,mlp
 from scipy.ndimage import interpolation
+import improc,mlp,lineproc
 
 display_training = 0
 display_cls = 0
@@ -42,7 +41,7 @@ class WhitespaceModel:
         if amax(image)<1e-6: raise BadImage()
         self.image = array(image*(1.0/amax(image)),'f')
         self.cseg = cseg
-        self.line_params = docproc.seg_geometry(cseg,math=0)
+        self.line_params = lineproc.seg_geometry(cseg,math=0)
     def getSubImage(self,x):
         r = self.r
         image = self.image
@@ -50,7 +49,7 @@ class WhitespaceModel:
         dy = int(mh)
         dx = int(r*mh+0.5)
         yc = int(a*x+b)
-        sub = docproc.extract(image,(yc-dy,x-dx,yc+dy,x+dx))
+        sub = improc.extract(image,(yc-dy,x-dx,yc+dy,x+dx))
         sub = interpolation.zoom(sub,(self.s+0.2)*(1.0/sub.shape[0]),order=1)
         sub = sub[:self.s,:self.r*self.s]
         return sub
@@ -71,7 +70,7 @@ class WhitespaceModel:
         self.setLine(image,cseg=cseg)
         self.showLine()
         h,w = image.shape
-        geo = docproc.seg_geometry(cseg)
+        geo = improc.seg_geometry(cseg)
         grouper = ocrolib.StandardGrouper()
         grouper.pset("maxrange",1)
         grouper.setSegmentation(cseg)

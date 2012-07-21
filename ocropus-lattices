@@ -48,8 +48,8 @@ options = parser.parse_args()
 args = options.args
 
 if options.displaygeo:
-    from ocrolib import docproc
-    docproc.seg_geometry_display = 1
+    from ocrolib import improc
+    improc.seg_geometry_display = 1
 segmenter = eval(options.segmenter)
 
 if len(args)==0:

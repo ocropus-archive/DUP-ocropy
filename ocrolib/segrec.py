@@ -3,25 +3,21 @@
 ### in OCRopus right now.
 ################################################################
 import os,os.path,re,numpy,unicodedata,sys,warnings,inspect,glob,traceback
+import cPickle as pickle
+pickle_mode = 2
+
 import numpy
 from numpy import *
 from pylab import randn
 from scipy.misc import imsave
 from scipy.ndimage import interpolation,measurements,morphology
 
-import docproc
-import ligatures
-import common
-import grouper
-import lineseg
+import common,ligatures
+import improc,lineproc,morph
+import grouper,lineseg
+import mlp
+
 from pylab import *
-
-import cPickle as pickle
-
-import mlp
-import mlp
-
-pickle_mode = 2
 
 
 
@@ -212,7 +208,7 @@ class BboxFE(PyComponent):
         self.normalize = None
         common.set_params(self,kw)
     def extract(self,image):
-        v = array(docproc.isotropic_rescale(image,self.r),'f')
+        v = array(improc.isotropic_rescale(image,self.r),'f')
         if not hasattr(self,"normalize") or self.normalize is None:
             pass
         elif self.normalize=="euclidean":
@@ -321,7 +317,7 @@ class CmodelLineRecognizer:
                 raise common.RecognitionError("image may not be white on black text (maybe invert?)",image=image)
 
         # make sure the xheight is reasonable
-        xheight,_ = common.estimate_xheight(1-image)
+        xheight,_ = lineproc.estimate_xheight(1-image)
         self.xheight = xheight
         if xheight<self.min_xheight:
             raise common.RecognitionError("xheight %f too small (maybe rescale?)"%xheight,image=image)
@@ -331,8 +327,8 @@ class CmodelLineRecognizer:
         # clean up connected components around the edges
         if self.latin_cleaner:
             image = 1-image
-            image = common.latin_filter(image,r=self.latin_r)
-            image = common.remove_noise(image,self.noise_threshold)
+            image = lineproc.latin_filter(image,r=self.latin_r)
+            image = lineproc.remove_noise(image,self.noise_threshold)
             image = 1-image
 
         # keep a copy of the cleaned up image
@@ -340,7 +336,7 @@ class CmodelLineRecognizer:
         
         # compute the raw segmentation
         rseg = self.segmenter.charseg(image)
-        rseg = common.renumber_labels(rseg)
+        rseg = morph.renumber_labels(rseg)
         self.rseg = rseg
         if amax(rseg)<self.minsegs: 
             raise common.RecognitionError("not enough segments in raw segmentation",rseg=rseg)
@@ -350,7 +346,7 @@ class CmodelLineRecognizer:
 
         # compute the geometry (might have to use
         # CCS segmenter if this doesn't work well)
-        geo = docproc.seg_geometry(rseg)
+        geo = lineproc.seg_geometry(rseg)
         mheight = geo[0]
         self.mheight = mheight
 
@@ -377,13 +373,13 @@ class CmodelLineRecognizer:
             # compute relative geometry
             aspect = (y1-y0)*1.0/(x1-x0)
             try:
-                rel = docproc.rel_char_geom((y0,y1,x0,x1),geo)
+                rel = lineproc.rel_char_geom((y0,y1,x0,x1),geo)
             except:
                 traceback.print_exc()
                 raise common.RecognitionError("bad line geometry",geo=geo)
             ry,rw,rh = rel
             assert rw>0 and rh>0,"error: rw=%g rh=%g"%(rw,rh)
-            rel = docproc.rel_geo_normalize(rel)
+            rel = lineproc.rel_geo_normalize(rel)
 
             # extract the character image (and optionally display it)
             (raw,mask) = self.grouper.extractWithMask(image,i,1)
@@ -525,7 +521,6 @@ class CmodelLineRecognizer:
     def load(self,file):
         with open(file,"r") as stream:
             obj = pickle.load(self,stream)
-import mlp
 
 class MlpModel(ClassifierModel):
     makeClassifier = mlp.MLP

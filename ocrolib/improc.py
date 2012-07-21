@@ -6,6 +6,18 @@ import sys,os,re,glob,math,glob,signal
 from numpy import *
 from scipy.ndimage import interpolation
 import sl
+from pylab import *
+import scipy
+from scipy import stats
+from scipy.ndimage import measurements
+from pylab import *
+from common import *
+import common
+import morph
+from numpy import array
+
+def norm_max(v):
+    return v/amax(v)
 
 def cut(image,box,margin=0,bg=0,dtype=None):
     """Cuts out subimages with margins and background.  The box
@@ -153,3 +165,43 @@ def symdist(image,item):
     err1,rerr1,transformed1 = dist(item,image)
     if rerr<rerr1: return err,rerr,transformed
     else: return err1,rerr1,transformed1
+
+
+def bbox(image):
+    """Compute the bounding box for the pixels in the image."""
+    assert len(image.shape)==2,"wrong shape: "+str(image.shape)
+    image = array(image!=0,'uint32')
+    cs = morph.find_objects(image)
+    if len(cs)<1: return None
+    c = cs[0]
+    return (c[0].start,c[1].start,c[0].stop,c[1].stop)
+
+def extract(image,bbox):
+    """Extract a subregion of the given image.  The limits do not have to
+    be within the image."""
+    r0,c0,r1,c1 = bbox
+    assert r0<=r1 and c0<=c1,"%s"%(bbox,)
+    result = scipy.ndimage.interpolation.affine_transform(image,diag([1,1]),
+                                                          offset=(r0,c0),
+                                                          output_shape=(r1-r0,c1-c0))
+    assert result.shape == (r1-r0,c1-c0),"docproc.extract failed: %s != %s"%(result.shape,(r1-r0,c1-c0))
+    return result
+
+def isotropic_rescale(image,r=32):
+    """Rescale the image such that the non-zero pixels fall within a box of size
+    r x r.  Rescaling is isotropic."""
+    x0,y0,x1,y1 = bbox(image)
+    sx = r*1.0/(x1-x0)
+    sy = r*1.0/(y1-y0)
+    s = min(sx,sy)
+    s = min(s,1.0)
+    rs = r/s
+    dx = x0-(rs-(x1-x0))/2
+    dy = y0-(rs-(y1-y0))/2
+    result = scipy.ndimage.affine_transform(image,
+                                            diag([1/s,1/s]),
+                                            offset=(dx,dy),
+                                            order=0,
+                                            output_shape=(r,r))
+    return result
+
