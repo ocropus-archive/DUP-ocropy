@@ -16,7 +16,7 @@ EOF
         echo "already downloaded"
         continue
     else
-        wget -nd $(url)/$f
+        wget -nd ${url}/$f
         bunzip2 $f
     fi
 done
