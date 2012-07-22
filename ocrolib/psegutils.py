@@ -66,7 +66,17 @@ def extract(image,y0,x0,y1,x1,mode='nearest',cval=0):
     ch,cw = y1-y0,x1-x0
     y,x = clip(y0,0,h-ch),clip(x0,0,w-cw)
     sub = image[y:y+ch,x:x+cw]
-    return interpolation.shift(sub,(y-y0,x-x0),mode=mode,cval=cval,order=0)
+    # print "extract",image.dtype,image.shape
+    try:
+        return interpolation.shift(sub,(y-y0,x-x0),mode=mode,cval=cval,order=0)
+    except RuntimeError:
+	# workaround for platform differences between 32bit and 64bit
+        # scipy.ndimage
+	dtype = sub.dtype
+        sub = array(sub,dtype='float64')
+        sub = interpolation.shift(sub,(y-y0,x-x0),mode=mode,cval=cval,order=0)
+        sub = array(sub,dtype=dtype)
+        return sub
 
 def extract_masked(image,l,pad=5,expand=0):
     y0,x0,y1,x1 = l.bounds[0].start,l.bounds[1].start,l.bounds[0].stop,l.bounds[1].stop
