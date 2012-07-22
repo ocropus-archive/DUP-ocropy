@@ -41,9 +41,9 @@ args = parser.parse_args()
 args.files = concat([glob.glob(file) for file in args.files])
 
 if not args.nocheck:
-    assert ocrolib.findfile("default.cmodel",error=0) is not None,\
+    assert ocrolib.findfile(ocrolib.default.model,error=0) is not None,\
         "cannot find 'default.cmodel'; run: ocropus-download-models"
-    assert ocrolib.findfile("default.ngraphs",error=0) is not None,\
+    assert ocrolib.findfile(ocrolib.default.ngraphs,error=0) is not None,\
         "cannot find 'default.ngraphs'; run: ocropus-download-models"
     assert ocrolib.findfile(args.model,error=0) is not None,\
         "%s: cannot find"%args.model
