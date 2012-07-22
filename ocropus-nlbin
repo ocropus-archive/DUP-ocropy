@@ -24,7 +24,7 @@ parser.add_argument('--debug',type=float,default=0,help='display intermediate re
 parser.add_argument('--show',action='store_true',help='display final result')
 parser.add_argument('-o','--output',default=None,help="output directory")
 parser.add_argument('files',nargs='+')
-parser.add_argument('-Q','--parallel',type=int,default=multiprocessing.cpu_count())
+parser.add_argument('-Q','--parallel',type=int,default=0)
 args = parser.parse_args()
 files = args.files
 
@@ -142,7 +142,7 @@ def process1(job):
     bin = 1*(flat>args.threshold)
 
     # output the normalized grayscale and the thresholded images
-    print fname,"(%.2f %.2f) %4.1f"%(lo,hi,angle),comment
+    print fname,"lo-hi (%.2f %.2f) angle %4.1f"%(lo,hi,angle),comment
     if args.debug>0 or args.show: clf(); gray();imshow(bin); ginput(1,max(0.1,args.debug))
     gray()
     if args.output:

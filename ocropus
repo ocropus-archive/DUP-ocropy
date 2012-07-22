@@ -3,8 +3,9 @@
 ### Simple command line tool driving the ocropus pipeline.
 
 import sys,os,re,glob,math,glob,signal,traceback
-import argparse,subprocess
+import argparse,subprocess,multiprocessing
 from itertools import *
+import ocrolib
 signal.signal(signal.SIGINT,lambda *args:sys.exit(1))
 
 def concat(l):
@@ -16,16 +17,38 @@ parser = argparse.ArgumentParser(description = """
 %prog [-m charmodel] [-l langmod] image1.png ... > result.hocr
 """)
 parser.add_argument("files",nargs='*',default=None,help="input images")
+
+parser.add_argument("-C","--nocheck",action="store_true",help="don't check for correct installation")
 parser.add_argument("-D","--Display",help="display",action="store_true")
-parser.add_argument("-m","--model",default=None,help="character model")
-parser.add_argument("-l","--lmodel",default=None,help="language model")
+parser.add_argument("-m","--model",default="default.cmodel",help="character model")
+parser.add_argument("-l","--lmodel",default="default.ngraphs",help="language model")
 parser.add_argument("-b","--book",default=None,help="book directory to be used for intermediate computations")
 parser.add_argument("-B","--keep",action="store_true",help="keep the book directory")
 parser.add_argument("-o","--output",default="book.html",help="output file (HTML/hOCR format)")
+
 parser.add_argument("--preproc",default="ocropus-nlbin",help="preprocessing command")
-parser.add_argument("--pseg",default="ocropus-gpageseg",help="page segmentation command")
+parser.add_argument("--pageseg",default="ocropus-gpageseg",help="page segmentation command")
+parser.add_argument("--linerec",default="ocropus-lattices",help="line recognition command")
+parser.add_argument("--langmod",default="ocropus-ngraphs",help="language modeling command")
+
+parser.add_argument("-Q","--parallel",type=int,default=4)
+parser.add_argument("--preproc_chunk",type=int,default=5)
+parser.add_argument("--pageseg_chunk",type=int,default=5)
+parser.add_argument("--linerec_chunk",type=int,default=100)
+parser.add_argument("--langmod_chunk",type=int,default=100)
+
 args = parser.parse_args()
 args.files = concat([glob.glob(file) for file in args.files])
+
+if not args.nocheck:
+    assert ocrolib.findfile("default.cmodel",error=0) is not None,\
+        "cannot find 'default.cmodel'; run: ocropus-download-models"
+    assert ocrolib.findfile("default.ngraphs",error=0) is not None,\
+        "cannot find 'default.ngraphs'; run: ocropus-download-models"
+    assert ocrolib.findfile(args.model,error=0) is not None,\
+        "%s: cannot find"%args.model
+    assert ocrolib.findfile(args.lmodel,error=0) is not None,\
+        "%s: cannot find"%args.lmodel
 
 def run(*args,**kw):
     args = [x if type(x)==list else list(x) for x in args]
@@ -36,24 +59,62 @@ def run(*args,**kw):
         print "exit",status
         sys.exit(1)
 
+def execute(cmd):
+    print cmd
+    subprocess.call(cmd)
+
+def prun(command,args,par=args.parallel,chunk=10):
+    par = max(par,1)
+    jobs = []
+    n = par*chunk
+    for i in range(0,len(args),n):
+        sub = args[i:i+n]
+        for j in range(par):
+            l = sub[j::par]
+            if len(l)<1: continue
+            jobs.append(command+l)
+    if par<2:
+        for job in jobs:
+            execute(job)
+    else:
+        pool = multiprocessing.Pool(par)
+        pool.imap_unordered(execute,jobs,1)
+        pool.close()
+        pool.join()
+
 if args.book is None:
-    args.book = "_book-%06d"%os.getpid()
+    book = "_book-%06d"%os.getpid()
+else:
+    book = args.book
 
-print "book directory",args.book
+print "book directory",book
 
-run([args.preproc,"-o",args.book],args.files)
+os.mkdir(book)
 
-run([args.pseg,args.book])
+for i,fname in enumerate(args.files):
+    out = book+"/%04d.png"%(i+1)
+    print fname,"->",out
+    image = ocrolib.read_image_gray(fname)
+    ocrolib.write_image_gray(out,image)
 
-run(["ocropus-lattices"],
-    ["-m",args.model] if args.model else [],
-    [args.book])
+preproc = [args.preproc]
+pageseg = [args.pageseg]
+linerec = [args.linerec,"-m",args.model]
+langmod = [args.langmod,"-l",args.lmodel]
 
-run(["ocropus-lmodel"],
-    ["-l",args.lmodel] if args.lmodel else [],
-    [args.book])
+print "=== preprocess"
+prun(preproc,glob.glob(book+"/????.png"),chunk=args.preproc_chunk)
+print
+print "=== page segmentation"
+prun(pageseg,glob.glob(book+"/????.png"),chunk=args.pageseg_chunk)
+print
 
-with open(args.output,"w") as stream:
-    run(["ocropus-hocr"],
-        [args.book],
-        stdout=stream)
+print "=== line recognition"
+prun(linerec,glob.glob(book+"/????/??????.png"),chunk=args.linerec_chunk)
+print
+
+print "=== language modeling"
+prun(langmod,glob.glob(book+"/????/??????.lattice"),chunk=args.langmod_chunk)
+print
+
+os.system("ocropus-hocr '%s'"%book)

@@ -18,11 +18,23 @@ import cPickle as pickle
 from pylab import imshow
 import psegutils
 from pylab import imshow
-import psegutils
+import psegutils,morph
 
 pickle_mode = 2
 
 
+
+################################################################
+### Text I/O
+################################################################
+
+def read_text(fname):
+    with open(fname) as stream:
+        return stream.read()
+
+def write_text(fname,text):
+    with open(fname,"w") as stream:
+        stream.write(text)
 
 ################################################################
 ### Image I/O
@@ -208,10 +220,10 @@ class RegionExtractor:
         if lo is not None: labels[labels<lo] = 0
         if hi is not None: labels[labels>hi] = 0
         if mask is not None: labels = bitwise_and(labels,mask)
-        labels,correspondence = renumber_labels_ordered(labels,correspondence=1)
+        labels,correspondence = morph.renumber_labels_ordered(labels,correspondence=1)
         self.labels = labels
         self.correspondence = correspondence
-        self.objects = [None]+find_objects(labels)
+        self.objects = [None]+morph.find_objects(labels)
     def setPageColumns(self,image):
         """Set the image to be iterated over.  This should be an RGB image,
         ndim==3, dtype=='B'.  This iterates over the columns."""
@@ -309,13 +321,27 @@ def chist(l):
     return sorted(hist,reverse=1)
 
 ################################################################
-### Environment functions
+### multiprocessing
 ################################################################
 
 def number_of_processors():
     """Estimates the number of processors."""
     return multiprocessing.cpu_count()
     # return int(os.popen("cat /proc/cpuinfo  | grep 'processor.*:' | wc -l").read())
+
+def parallel_map(fun,jobs,parallel=0,chunksize=1):
+    if parallel<2:
+        for e in jobs:
+            yield fun(e)
+    else:
+        try:
+            pool = multiprocessing.Pool(parallel)
+            for e in pool.imap_unordered(fun,jobs,chunksize):
+                yield e
+        finally:
+            pool.close()
+            pool.join()
+            del pool
 
 ################################################################
 ### exceptions
@@ -373,7 +399,7 @@ def getlocal():
     local = os.getenv("OCROPUS_DATA") or "/usr/local/share/ocropus/"
     return local
 
-def findfile(name):
+def findfile(name,error=1):
     """Find some OCRopus-related resource by looking in a bunch off standard places.
     (FIXME: The implementation is pretty adhoc for now.
     This needs to be integrated better with setup.py and the build system.)"""
@@ -393,7 +419,10 @@ def findfile(name):
     if os.path.exists(path) and os.path.isfile(path): return path
     path = local+tail
     if os.path.exists(path) and os.path.isfile(path): return path
-    raise IOError("file '"+path+"' not found in . or /usr/local/share/ocropus/")
+    if error:
+        raise IOError("file '"+path+"' not found in . or /usr/local/share/ocropus/")
+    else:
+        return None
 
 def finddir(name):
     """Find some OCRopus-related resource by looking in a bunch off standard places.

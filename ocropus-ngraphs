@@ -1,9 +1,14 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
+# TODO:
+# - output cseg
+
 from pylab import *
 from collections import Counter,defaultdict
 import glob,re,heapq,os,cPickle
+import ocrolib
+from ocrolib import ngraphs as ng
 
 def method(cls):
     """Adds the function as a method to the given class."""
@@ -13,103 +18,29 @@ def method(cls):
         return None
     return _wrap
 
-class NGraphs:
-    def __init__(self,N=4):
-        self.N = N
-
-def compute_ngraphs(fnames,n):
-    counter = Counter()
-    lineskip = 0
-    linelimit = 2000
-    for fnum,fname in enumerate(fnames):
-        print fnum,"of",len(fnames),":",fname
-        if fname.startswith("lineskip="):
-            lineskip = int(fname.split("=")[1])
-            print "changing lineskip to",lineskip
-            continue
-        if fname.startswith("linelimit="):
-            linelimit = int(fname.split("=")[1])
-            print "changing linelimit to",linelimit
-            continue
-        with open(fname) as stream:
-            for lineno,line in enumerate(stream.xreadlines()):
-                if lineno<lineskip: continue
-                if lineno>=linelimit+lineskip: break
-                line = line[:-1]
-                if len(line)<3: continue
-                line = re.sub(remove,'',line)
-                line = re.sub(r'\s+',' ',line)
-                line = re.sub(reject,'~',line)
-                line = "_"*(n-1)+line+"_"*(n-1)
-                for i in range(len(line)-n):
-                    sub = line[i:i+n]
-                    counter[sub] += 1
-        if 0 and fnum%10==0:
-            print "finished %d (of %d), last %s"%(fnum,len(fnames),fname)
-    return counter
-
-@method(NGraphs)
-def computePosteriors(self,counter):
-    self.N = len(counter.items()[0][0])
-    ngrams = defaultdict(list)
-    for k,v in counter.items():
-        ngrams[k[:-1]].append((k,v))
-    posteriors = {}
-    for prefix in ngrams.keys():
-        ps = [(k[-1],v) for k,v in ngrams[prefix]] + [("~",1)]
-        total = sum([v for k,v in ps])
-        total = log(total)
-        ps = {k : total-log(v) for k,v in ps}
-        posteriors[prefix] = ps
-    self.posteriors = posteriors
-
-def rsample(dist):
-    v = add.accumulate(dist)
-    assert abs(v[-1]-1)<1e-3
-    val = rand()
-    return searchsorted(v,val)
-
-@method(NGraphs)
-def sample(self,n=80,prefix=None):
-    if prefix is None:
-        prefix = "_"*self.N
-    for i in range(n):
-        posteriors = self.posteriors.get(prefix[-self.N+1:])
-        if posteriors is None:
-            prefix += chr(ord("a")+int(rand()*26))
-        else:
-            items = [(k,p) for k,p in posteriors.items() if k not in ["~","_"]]
-            items += [(" ",10.0)]
-            ks = [k for k,p in items]
-            ps = array([p for k,p in items],'f')
-            ps = exp(-ps)
-            ps /= sum(ps)
-            j = rsample(ps)
-            prefix += ks[j]
-    return prefix[self.N:]
-
 class Edge:
     def __init__(self,**kw):
         self.__dict__.update(kw)
-        self.keys_ = kw.keys()
- 
-
-@method(Edge)
-def __repr__(self):
-    return "<"+",".join(["%s=%s"%(k,getattr(self,k)) for k in self.keys_])+">"
-
-@method(Edge)
-def __repr__(self):
-    return "<%d:%d [%s] %.2f>"%(self.start,self.stop,self.cls,self.cost)
 @method(Edge)
 def __str__(self):
-    return "<E %d:%d [%s] %.2f>"%(self.start,self.stop,self.cls,self.cost)
+    return self.__repr__()
+@method(Edge)
+def __repr__(self):
+    return "<%d:%d [%s] %.2f %d:%d>"%(self.start,self.stop,self.cls,self.cost,self.seg[0],self.seg[1])
 
 class Lattice:
-    def __init__(self):
+    def __init__(self,**kw):
         self.maxws = 20.0
         self.maxcost = 20.0
+        self.mismatch = 30.0
         self.accept = None
+        self.__dict__.update(kw)
+
+@method(Lattice)
+def addEdge(self,start=None,stop=None,cost=None,cls=None,seg=(0,0)):
+    self.states.add(start)
+    self.states.add(stop)
+    self.edges[start].append(Edge(start=start,stop=stop,cost=cost,cls=cls,seg=seg))
 
 @method(Lattice)
 def readLattice(self,fname):
@@ -119,27 +50,28 @@ def readLattice(self,fname):
         for line in stream.readlines():
             f = line.split()
             if f[0]=="segment":
-                start,stop = [int(x) for x in f[2].split(":")]
-                start = 2*start
-                stop = 2*stop
+                first,last = [int(x) for x in f[2].split(":")]
+                # we put the actual OCR segment numbers at 10x the state;
+                # that gives us intermediate states to insert spaces and extra
+                # characters
+                st_start = 2*first
+                st_extra = 2*last+1
+                st_next = 2*last+2
                 ws,nows = [float(x) for x in f[4:6]]
                 ws = minimum(ws,self.maxws)
                 nows = minimum(nows,self.maxws)
+                if self.edges[st_extra]==[]:
+                    # skip or replace
+                    self.addEdge(start=st_start,stop=st_extra,cost=self.mismatch,cls="")
+                    self.addEdge(start=st_start,stop=st_extra,cost=self.mismatch,cls="~")
+                    # insert space / no space
+                    self.addEdge(start=st_extra,stop=st_next,cost=ws,cls=" ")
+                    self.addEdge(start=st_extra,stop=st_next,cost=nows,cls="")
+                    # insert arbitrary (this implies "no space")
+                    self.addEdge(start=st_extra,stop=st_next,cost=self.mismatch,cls="~")
             elif f[0]=="chr":
-                self.states.add(start)
                 cost = minimum(float(f[3])+nows,self.maxcost)
-                if nows<99.9:
-                    e = Edge(start=start,stop=stop+2,cost=cost+nows,cls=f[4])
-                    self.states.add(stop+2)
-                    self.edges[start].append(e)
-                if ws<99.9:
-                    e = Edge(start=start,stop=stop+1,cost=cost,cls=f[4])
-                    self.states.add(stop+1)
-                    self.edges[start].append(e)
-                    if self.edges[stop+1]==[]:
-                        self.states.add(stop+2)
-                        e = Edge(start=stop+1,stop=stop+2,cost=ws,cls=" ")
-                        self.edges[stop+1].append(e)
+                self.addEdge(start=st_start,stop=st_extra,cost=cost+nows,cls=f[4],seg=(first,last))
     return self
 
 @method(Lattice)
@@ -157,7 +89,9 @@ def latticeGraph(self):
     for s in sorted(list(self.states)):
         for edge in self.edges[s]:
             cls = edge.cls
-            if cls in ["'",'"']: cls = "_"
+            if cls in ["'",'"']: cls = "<QUOTE>"
+            elif cls=="": cls = "<EPS>"
+            elif cls==" ": cls = "<SPC>"
             graph.add_edge(pydot.Edge(src=str(edge.start),dst=str(edge.stop),label='"%s/%s"'%(cls,edge.cost)))
     return graph
 
@@ -183,10 +117,11 @@ def classes(self):
     return sorted(list(classes))
 
 class Path:
-    def __init__(self,cost=0.0,state=-1,path=""):
+    def __init__(self,cost=0.0,state=-1,path="",sequence=[]):
         self.cost = cost
         self.state = state
         self.path = path
+        self.sequence = sequence
 
 @method(Path)
 def __repr__(self):
@@ -200,28 +135,37 @@ def __str__(self):
 def __cmp__(self,other):
     return cmp((self.cost,self.state,self.path),(other.cost,other.state,other.path))
 
-def expand(state,ngraphs,cweight=1.0,lweight=1.0,other=10.0,missing=30.0,verbose=0):
+def expand(state,ngraphs,cweight=1.0,lweight=1.0,other=10.0,missing=30.0,verbose=0,rank=-1,thresh=1.0):
     missing = {"~":missing}
     N = ngraphs.N
-    prefix = state.path[-N+1:]
+    prefix = ng.lineproc(state.path)[-N+1:]
     posteriors = ngraphs.posteriors.get(prefix,missing)
     edges = lattice.edges[state.state]
     floor = posteriors["~"]
     result = []
-    done = set()
-    succ = set()
 
     # add all the transitions for which we have edges
     for e in edges:
         if verbose: print e
         assert e.start==state.state
-        ncost = state.cost + cweight*e.cost + lweight*posteriors.get(e.cls,floor)
-        nstate = e.stop
-        succ.add(e.stop)
-        assert nstate>state.state,("oops: %s %s %s %s"%(e.start,e.stop,e.cls,e.cost))
-        done.add(e.cls)
+        # we use a fixed up class to match the fixed up language model
+        cls = ng.lineproc(e.cls)
+        l = 0.0 if e.cost<thresh and e.cls!=" " else lweight
+        if len(cls)==0:
+            ncost = state.cost + cweight*e.cost
+        elif e.cls=="~":
+            ncost = state.cost + cweight*e.cost
+        elif len(cls)==1:
+            ncost = state.cost + cweight*e.cost + l*posteriors.get(cls,floor)
+        else:
+            tpath = state.path + cls
+            lcost = ngraphs.posteriors.get(tpath[-N+1:],missing).get(tpath[-1],floor)
+            ncost = state.cost + cweight*e.cost + l*lcost
+        nsequence = state.sequence + [e]
         npath = state.path + e.cls
-        result.append(Path(cost=ncost,state=nstate,path=npath))
+        nstate = e.stop
+        assert nstate>state.state,("oops: %s %s %s %s"%(e.start,e.stop,cls,e.cost))
+        result.append(Path(cost=ncost,state=nstate,path=npath,sequence=nsequence))
 
     return result        
 
@@ -249,12 +193,12 @@ def search(lattice,ngraphs,accept=None,verbose=0,beam=100,**kw):
         if len(table[i])==0: continue
         table[i] = eliminate_common_suffixes_and_sort(table[i],n=ngraphs.N)
         if verbose>0: print i,table[i][0]
-        for s in table[i][:beam]:
-            expanded = expand(s,ngraphs,**kw)
+        for rank,s in enumerate(table[i][:beam]):
+            expanded = expand(s,ngraphs,rank=rank,**kw)
             for e in expanded:
                 if verbose>1: print "    ",e
                 table[e.state].append(e)
-        table[i] = None
+        # table[i] = None
 
     result = eliminate_common_suffixes_and_sort(table[i],n=ngraphs.N)
     return result
@@ -264,30 +208,26 @@ import argparse
 parser = argparse.ArgumentParser()
 
 parser.add_argument('--show',default=None,help="show the argument lattice")
-
 parser.add_argument('--build',default=None,help="build and write a language model")
 parser.add_argument('--ngraph',type=int,default=4,help="order of the language model")
-parser.add_argument('--remove',default=r'[\0-\x1f]',help="remove this pattern before language modeling")
-parser.add_argument('--remaining',default=r'[^A-Za-z0-9.,?:() ]',help="treat these characters as 'other'")
-
 parser.add_argument('--sample',default=None,type=int,help="sample from the language model")
 parser.add_argument('--slength',default=70,type=int,help="length of the sampled strings")
-
-parser.add_argument('-L','--lmodel',default='default.ngraphs',help="the language model")
-parser.add_argument('-l','--lweight',default=1.0,type=float,help="language model weight")
-parser.add_argument('-c','--cweight',default=1.0,type=float,help="character weight")
-parser.add_argument('-w','--maxws',default=8.0,type=float,help="max whitespace cost")
-parser.add_argument('-b','--beam',default=100,type=int,help="beam width")
+parser.add_argument('-l','--lmodel',default='default.ngraphs',help="the language model")
+parser.add_argument('-L','--lweight',default=0.3,type=float,help="language model weight")
+parser.add_argument('-C','--cweight',default=1.0,type=float,help="character weight")
+parser.add_argument('-B','--beam',default=10,type=int,help="beam width")
+parser.add_argument('-W','--maxws',default=5.0,type=float,help="max whitespace cost")
+parser.add_argument('-M','--maxcost',default=20.0,type=float,help="max cost")
+parser.add_argument('-X','--mismatch',default=30.0,type=float,help="mismatch cost")
+parser.add_argument('-T','--thresh',default=0.5,type=float,help="below this cost, ignore language model")
 
 parser.add_argument('files',nargs='*')
 args = parser.parse_args()
 files = args.files
 
-remove = args.remove
-reject = args.remaining
-
 if args.show is not None:
-    lattice = Lattice().readLattice(args.show)
+    lattice = Lattice(maxws=args.maxws,maxcost=args.maxcost,mismatch=args.mismatch)
+    lattice.readLattice(args.show)
     lattice.showLattice()
     sys.exit(0)
 
@@ -304,10 +244,8 @@ if args.build is not None:
             assert ".png" not in f
         fnames += l
     print "got",len(fnames),"files"
-    counter = compute_ngraphs(fnames,args.ngraph)
-    print "got",sum(counter.values()),"%d-graphs"%(args.ngraph)
-    ngraphs = NGraphs()
-    ngraphs.computePosteriors(counter)
+    ngraphs = ng.NGraphs()
+    ngraphs.buildFromFiles(fnames,args.ngraph)
     with open(args.build,"w") as stream:
         cPickle.dump(ngraphs,stream,2)
     sys.exit(0)
@@ -333,7 +271,10 @@ with open(args.lmodel) as stream:
     ngraphs = cPickle.load(stream)
 
 for fname in fnames:
-    lattice = Lattice().readLattice(fname)
-    result = search(lattice,ngraphs,lweight=args.lweight,cweight=args.cweight,beam=args.beam)
-    print "%8.2f\t%s"%(result[0].cost,result[0].path[ngraphs.N:])
-    
+    lattice = Lattice(maxws=args.maxws,maxcost=args.maxcost,mismatch=args.mismatch)
+    lattice.readLattice(fname)
+    result = search(lattice,ngraphs,lweight=args.lweight,cweight=args.cweight,beam=args.beam,thresh=args.thresh)
+    text = result[0].path[ngraphs.N:]
+    print "%s\t%8.2f\t%s"%(fname,result[0].cost,text)
+    fout = ocrolib.fvariant(fname,"txt")
+    ocrolib.write_text(fout,text)

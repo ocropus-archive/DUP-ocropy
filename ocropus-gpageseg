@@ -49,7 +49,7 @@ parser.add_argument('--cminheight',type=float,default=20,help='minimum column he
 
 parser.add_argument('-p','--pad',type=int,default=3,help='padding for extracted lines')
 parser.add_argument('-e','--expand',type=int,default=1,help='expand mask for grayscale extraction')
-parser.add_argument('-Q','--parallel',type=int,default=multiprocessing.cpu_count())
+parser.add_argument('-Q','--parallel',type=int,default=0)
 parser.add_argument('files',nargs='+')
 args = parser.parse_args()
 files = args.files

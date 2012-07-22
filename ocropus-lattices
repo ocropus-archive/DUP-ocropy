@@ -34,7 +34,7 @@ parser.add_argument("-C","--maxcost",help="maximum cost to be considered",type=f
 parser.add_argument("-s","--segmenter",help="segmenter",default="lineseg.DPSegmentLine()")
 parser.add_argument("-S","--suffix",help="suffix for writing rseg/cseg files",default=None)
 parser.add_argument("-O","--overwrite",help="overwrite rseg/cseg files",action="store_true")
-parser.add_argument("-Q","--parallel",type=int,default=number_of_processors(),help="number of parallel processes to use")
+parser.add_argument("-Q","--parallel",type=int,default=0,help="number of parallel processes to use")
 parser.add_argument("-v","--verbose",help="verbose recognition output",action="store_true")
 parser.add_argument("-V","--verbose2",help="extra verbose recognition output",action="store_true")
 parser.add_argument("-Y","--examine",help="examine recognition for these classes",default=None)

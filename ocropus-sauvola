@@ -55,7 +55,7 @@ parser.add_argument("-O","--Output",help="output image.png to image.bin.png (in 
 parser.add_argument("-d","--display",help="display result",action="store_true")
 parser.add_argument("-D","--Display",help="display continuously",action="store_true")
 parser.add_argument("-q","--silent",action="store_true",help="disable warnings")
-parser.add_argument("-Q","--parallel",type=int,default=multiprocessing.cpu_count(),help="number of parallel processes to use")
+parser.add_argument("-Q","--parallel",type=int,default=0,help="number of parallel processes to use")
 parser.add_argument("-g","--gtextension",help="ground truth extension for copying in ground truth (include all dots)",default=None)
 parser.add_argument("--debug",action="store_true")
 
