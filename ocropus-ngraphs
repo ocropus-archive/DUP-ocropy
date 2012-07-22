@@ -20,20 +20,21 @@ class NGraphs:
 def compute_ngraphs(fnames,n):
     counter = Counter()
     lineskip = 0
+    linelimit = 2000
     for fnum,fname in enumerate(fnames):
         print fnum,"of",len(fnames),":",fname
         if fname.startswith("lineskip="):
-            # the special case file name "lineskip=..."
-            # allows changing the number of lines that
-            # are ignored; this is useful for files with
-            # lengthy headers that would screw up the
-            # language model (e.g., Gutenberg)
             lineskip = int(fname.split("=")[1])
             print "changing lineskip to",lineskip
             continue
+        if fname.startswith("linelimit="):
+            linelimit = int(fname.split("=")[1])
+            print "changing linelimit to",linelimit
+            continue
         with open(fname) as stream:
-            for lineno,line in enumerate(stream.readlines()):
+            for lineno,line in enumerate(stream.xreadlines()):
                 if lineno<lineskip: continue
+                if lineno>=linelimit+lineskip: break
                 line = line[:-1]
                 if len(line)<3: continue
                 line = re.sub(remove,'',line)
@@ -235,7 +236,7 @@ def eliminate_common_suffixes_and_sort(paths,n):
         result[suffix] = p
     return sorted(result.values())
 
-def search(lattice,ngraphs,accept=None,verbose=0,**kw):
+def search(lattice,ngraphs,accept=None,verbose=0,beam=100,**kw):
     global table
     N = ngraphs.N
     initial = Path(0.0,lattice.startState(),"_"*N)
@@ -248,7 +249,7 @@ def search(lattice,ngraphs,accept=None,verbose=0,**kw):
         if len(table[i])==0: continue
         table[i] = eliminate_common_suffixes_and_sort(table[i],n=ngraphs.N)
         if verbose>0: print i,table[i][0]
-        for s in table[i][:100]:
+        for s in table[i][:beam]:
             expanded = expand(s,ngraphs,**kw)
             for e in expanded:
                 if verbose>1: print "    ",e
@@ -276,6 +277,7 @@ parser.add_argument('-L','--lmodel',default='default.ngraphs',help="the language
 parser.add_argument('-l','--lweight',default=1.0,type=float,help="language model weight")
 parser.add_argument('-c','--cweight',default=1.0,type=float,help="character weight")
 parser.add_argument('-w','--maxws',default=8.0,type=float,help="max whitespace cost")
+parser.add_argument('-b','--beam',default=100,type=int,help="beam width")
 
 parser.add_argument('files',nargs='*')
 args = parser.parse_args()
@@ -292,7 +294,7 @@ if args.show is not None:
 if args.build is not None:
     fnames = []
     for pattern in args.files:
-        if pattern.startswith("lineskip="):
+        if "=" in pattern:
             fnames += [pattern]
             continue
         l = glob.glob(pattern)
@@ -332,6 +334,6 @@ with open(args.lmodel) as stream:
 
 for fname in fnames:
     lattice = Lattice().readLattice(fname)
-    result = search(lattice,ngraphs,lweight=args.lweight,cweight=args.cweight)
+    result = search(lattice,ngraphs,lweight=args.lweight,cweight=args.cweight,beam=args.beam)
     print "%8.2f\t%s"%(result[0].cost,result[0].path[ngraphs.N:])
     
