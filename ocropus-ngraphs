@@ -1,0 +1,337 @@
+#!/usr/bin/python
+# -*- coding: utf-8 -*-
+
+from pylab import *
+from collections import Counter,defaultdict
+import glob,re,heapq,os,cPickle
+
+def method(cls):
+    """Adds the function as a method to the given class."""
+    import new
+    def _wrap(f):
+        cls.__dict__[f.func_name] = new.instancemethod(f,None,cls)
+        return None
+    return _wrap
+
+class NGraphs:
+    def __init__(self,N=4):
+        self.N = N
+
+def compute_ngraphs(fnames,n):
+    counter = Counter()
+    lineskip = 0
+    for fnum,fname in enumerate(fnames):
+        print fnum,"of",len(fnames),":",fname
+        if fname.startswith("lineskip="):
+            # the special case file name "lineskip=..."
+            # allows changing the number of lines that
+            # are ignored; this is useful for files with
+            # lengthy headers that would screw up the
+            # language model (e.g., Gutenberg)
+            lineskip = int(fname.split("=")[1])
+            print "changing lineskip to",lineskip
+            continue
+        with open(fname) as stream:
+            for lineno,line in enumerate(stream.readlines()):
+                if lineno<lineskip: continue
+                line = line[:-1]
+                if len(line)<3: continue
+                line = re.sub(remove,'',line)
+                line = re.sub(r'\s+',' ',line)
+                line = re.sub(reject,'~',line)
+                line = "_"*(n-1)+line+"_"*(n-1)
+                for i in range(len(line)-n):
+                    sub = line[i:i+n]
+                    counter[sub] += 1
+        if 0 and fnum%10==0:
+            print "finished %d (of %d), last %s"%(fnum,len(fnames),fname)
+    return counter
+
+@method(NGraphs)
+def computePosteriors(self,counter):
+    self.N = len(counter.items()[0][0])
+    ngrams = defaultdict(list)
+    for k,v in counter.items():
+        ngrams[k[:-1]].append((k,v))
+    posteriors = {}
+    for prefix in ngrams.keys():
+        ps = [(k[-1],v) for k,v in ngrams[prefix]] + [("~",1)]
+        total = sum([v for k,v in ps])
+        total = log(total)
+        ps = {k : total-log(v) for k,v in ps}
+        posteriors[prefix] = ps
+    self.posteriors = posteriors
+
+def rsample(dist):
+    v = add.accumulate(dist)
+    assert abs(v[-1]-1)<1e-3
+    val = rand()
+    return searchsorted(v,val)
+
+@method(NGraphs)
+def sample(self,n=80,prefix=None):
+    if prefix is None:
+        prefix = "_"*self.N
+    for i in range(n):
+        posteriors = self.posteriors.get(prefix[-self.N+1:])
+        if posteriors is None:
+            prefix += chr(ord("a")+int(rand()*26))
+        else:
+            items = [(k,p) for k,p in posteriors.items() if k not in ["~","_"]]
+            items += [(" ",10.0)]
+            ks = [k for k,p in items]
+            ps = array([p for k,p in items],'f')
+            ps = exp(-ps)
+            ps /= sum(ps)
+            j = rsample(ps)
+            prefix += ks[j]
+    return prefix[self.N:]
+
+class Edge:
+    def __init__(self,**kw):
+        self.__dict__.update(kw)
+        self.keys_ = kw.keys()
+ 
+
+@method(Edge)
+def __repr__(self):
+    return "<"+",".join(["%s=%s"%(k,getattr(self,k)) for k in self.keys_])+">"
+
+@method(Edge)
+def __repr__(self):
+    return "<%d:%d [%s] %.2f>"%(self.start,self.stop,self.cls,self.cost)
+@method(Edge)
+def __str__(self):
+    return "<E %d:%d [%s] %.2f>"%(self.start,self.stop,self.cls,self.cost)
+
+class Lattice:
+    def __init__(self):
+        self.maxws = 20.0
+        self.maxcost = 20.0
+        self.accept = None
+
+@method(Lattice)
+def readLattice(self,fname):
+    self.states = set()
+    self.edges = defaultdict(list)
+    with open(fname) as stream:
+        for line in stream.readlines():
+            f = line.split()
+            if f[0]=="segment":
+                start,stop = [int(x) for x in f[2].split(":")]
+                start = 2*start
+                stop = 2*stop
+                ws,nows = [float(x) for x in f[4:6]]
+                ws = minimum(ws,self.maxws)
+                nows = minimum(nows,self.maxws)
+            elif f[0]=="chr":
+                self.states.add(start)
+                cost = minimum(float(f[3])+nows,self.maxcost)
+                if nows<99.9:
+                    e = Edge(start=start,stop=stop+2,cost=cost+nows,cls=f[4])
+                    self.states.add(stop+2)
+                    self.edges[start].append(e)
+                if ws<99.9:
+                    e = Edge(start=start,stop=stop+1,cost=cost,cls=f[4])
+                    self.states.add(stop+1)
+                    self.edges[start].append(e)
+                    if self.edges[stop+1]==[]:
+                        self.states.add(stop+2)
+                        e = Edge(start=stop+1,stop=stop+2,cost=ws,cls=" ")
+                        self.edges[stop+1].append(e)
+    return self
+
+@method(Lattice)
+def isAccept(self,i):
+    if self.accept is None:
+        self.accept = [self.lastState()]
+    return i in self.accept
+
+@method(Lattice)
+def latticeGraph(self):
+    import pydot
+    graph = pydot.Dot("lattice",graph_type="digraph",rankdir="LR")
+    for s in sorted(list(self.states)):
+        graph.add_node(pydot.Node(str(s)))
+    for s in sorted(list(self.states)):
+        for edge in self.edges[s]:
+            cls = edge.cls
+            if cls in ["'",'"']: cls = "_"
+            graph.add_edge(pydot.Edge(src=str(edge.start),dst=str(edge.stop),label='"%s/%s"'%(cls,edge.cost)))
+    return graph
+
+@method(Lattice)
+def showLattice(self):
+    graph = lattice.latticeGraph()
+    with open("temp.png","w") as stream: 
+        stream.write(graph.create_png())
+    os.system("eog temp.png&")
+    
+@method(Lattice)
+def startState(self):
+    return min(self.states)
+
+@method(Lattice)
+def lastState(self):
+    return max(self.states)
+
+@method(Lattice)
+def classes(self):
+    edges = reduce(lambda x,y:x+y,[[e for e in l] for k,l in self.edges.items()])
+    classes = set([e.cls for e in edges])
+    return sorted(list(classes))
+
+class Path:
+    def __init__(self,cost=0.0,state=-1,path=""):
+        self.cost = cost
+        self.state = state
+        self.path = path
+
+@method(Path)
+def __repr__(self):
+    return "<Path %.2f %d '%s'>"%(self.cost,self.state,self.path)
+
+@method(Path)
+def __str__(self):
+    return self.__repr__()
+
+@method(Path)
+def __cmp__(self,other):
+    return cmp((self.cost,self.state,self.path),(other.cost,other.state,other.path))
+
+def expand(state,ngraphs,cweight=1.0,lweight=1.0,other=10.0,missing=30.0,verbose=0):
+    missing = {"~":missing}
+    N = ngraphs.N
+    prefix = state.path[-N+1:]
+    posteriors = ngraphs.posteriors.get(prefix,missing)
+    edges = lattice.edges[state.state]
+    floor = posteriors["~"]
+    result = []
+    done = set()
+    succ = set()
+
+    # add all the transitions for which we have edges
+    for e in edges:
+        if verbose: print e
+        assert e.start==state.state
+        ncost = state.cost + cweight*e.cost + lweight*posteriors.get(e.cls,floor)
+        nstate = e.stop
+        succ.add(e.stop)
+        assert nstate>state.state,("oops: %s %s %s %s"%(e.start,e.stop,e.cls,e.cost))
+        done.add(e.cls)
+        npath = state.path + e.cls
+        result.append(Path(cost=ncost,state=nstate,path=npath))
+
+    return result        
+
+def eliminate_common_suffixes_and_sort(paths,n):
+    # sort by cost
+    paths = sorted(paths)
+    # keep track of the best
+    result = {}
+    for p in paths:
+        suffix = p.path[-n:]
+        if suffix in result: continue
+        result[suffix] = p
+    return sorted(result.values())
+
+def search(lattice,ngraphs,accept=None,verbose=0,**kw):
+    global table
+    N = ngraphs.N
+    initial = Path(0.0,lattice.startState(),"_"*N)
+    nstates = lattice.lastState()+1
+    table = [[] for i in range(nstates)]
+    table[initial.state] = [initial]
+
+    for i in range(nstates):
+        if lattice.isAccept(i): break
+        if len(table[i])==0: continue
+        table[i] = eliminate_common_suffixes_and_sort(table[i],n=ngraphs.N)
+        if verbose>0: print i,table[i][0]
+        for s in table[i][:100]:
+            expanded = expand(s,ngraphs,**kw)
+            for e in expanded:
+                if verbose>1: print "    ",e
+                table[e.state].append(e)
+        table[i] = None
+
+    result = eliminate_common_suffixes_and_sort(table[i],n=ngraphs.N)
+    return result
+
+import argparse
+
+parser = argparse.ArgumentParser()
+
+parser.add_argument('--show',default=None,help="show the argument lattice")
+
+parser.add_argument('--build',default=None,help="build and write a language model")
+parser.add_argument('--ngraph',type=int,default=4,help="order of the language model")
+parser.add_argument('--remove',default=r'[\0-\x1f]',help="remove this pattern before language modeling")
+parser.add_argument('--remaining',default=r'[^A-Za-z0-9.,?:() ]',help="treat these characters as 'other'")
+
+parser.add_argument('--sample',default=None,type=int,help="sample from the language model")
+parser.add_argument('--slength',default=70,type=int,help="length of the sampled strings")
+
+parser.add_argument('-L','--lmodel',default='default.ngraphs',help="the language model")
+parser.add_argument('-l','--lweight',default=1.0,type=float,help="language model weight")
+parser.add_argument('-c','--cweight',default=1.0,type=float,help="character weight")
+parser.add_argument('-w','--maxws',default=8.0,type=float,help="max whitespace cost")
+
+parser.add_argument('files',nargs='*')
+args = parser.parse_args()
+files = args.files
+
+remove = args.remove
+reject = args.remaining
+
+if args.show is not None:
+    lattice = Lattice().readLattice(args.show)
+    lattice.showLattice()
+    sys.exit(0)
+
+if args.build is not None:
+    fnames = []
+    for pattern in args.files:
+        if pattern.startswith("lineskip="):
+            fnames += [pattern]
+            continue
+        l = glob.glob(pattern)
+        assert len(l)>0,"%s: didn't expand to any files"%pattern
+        for f in l:
+            assert ".lattice" not in f
+            assert ".png" not in f
+        fnames += l
+    print "got",len(fnames),"files"
+    counter = compute_ngraphs(fnames,args.ngraph)
+    print "got",sum(counter.values()),"%d-graphs"%(args.ngraph)
+    ngraphs = NGraphs()
+    ngraphs.computePosteriors(counter)
+    with open(args.build,"w") as stream:
+        cPickle.dump(ngraphs,stream,2)
+    sys.exit(0)
+
+if args.sample is not None:
+    with open(args.lmodel) as stream:
+        ngraphs = cPickle.load(stream)
+    for i in range(args.sample):
+        print ngraphs.sample(args.slength)
+    sys.exit(0)
+    
+
+fnames = []
+for pattern in args.files:
+    l = sorted(glob.glob(pattern))
+    for f in l:
+        assert ".lattice" in f,"all files must end with .lattice"
+    fnames += l
+
+assert len(fnames)>0,"must provide some filename arguments"
+
+with open(args.lmodel) as stream:
+    ngraphs = cPickle.load(stream)
+
+for fname in fnames:
+    lattice = Lattice().readLattice(fname)
+    result = search(lattice,ngraphs,lweight=args.lweight,cweight=args.cweight)
+    print "%8.2f\t%s"%(result[0].cost,result[0].path[ngraphs.N:])
+    
