@@ -42,9 +42,9 @@ args.files = concat([glob.glob(file) for file in args.files])
 
 if not args.nocheck:
     assert ocrolib.findfile(ocrolib.default.model,error=0) is not None,\
-        "cannot find 'default.cmodel'; run: ocropus-download-models"
+        "cannot find '%s'; run: ocropus-download-models"%ocrolib.default.model
     assert ocrolib.findfile(ocrolib.default.ngraphs,error=0) is not None,\
-        "cannot find 'default.ngraphs'; run: ocropus-download-models"
+        "cannot find '%s'; run: ocropus-download-models"%ocrolib.default.ngraphs
     assert ocrolib.findfile(args.model,error=0) is not None,\
         "%s: cannot find"%args.model
     assert ocrolib.findfile(args.lmodel,error=0) is not None,\
