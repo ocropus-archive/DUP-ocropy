@@ -212,8 +212,8 @@ parser.add_argument('--build',default=None,help="build and write a language mode
 parser.add_argument('--ngraph',type=int,default=4,help="order of the language model")
 parser.add_argument('--sample',default=None,type=int,help="sample from the language model")
 parser.add_argument('--slength',default=70,type=int,help="length of the sampled strings")
-parser.add_argument('-l','--lmodel',default='default.ngraphs',help="the language model")
-parser.add_argument('-L','--lweight',default=0.3,type=float,help="language model weight")
+parser.add_argument('-l','--lmodel',default=ocrolib.default.ngraphs,help="the language model")
+parser.add_argument('-L','--lweight',default=0.5,type=float,help="language model weight")
 parser.add_argument('-C','--cweight',default=1.0,type=float,help="character weight")
 parser.add_argument('-B','--beam',default=10,type=int,help="beam width")
 parser.add_argument('-W','--maxws',default=5.0,type=float,help="max whitespace cost")
@@ -224,6 +224,10 @@ parser.add_argument('-T','--thresh',default=0.5,type=float,help="below this cost
 parser.add_argument('files',nargs='*')
 args = parser.parse_args()
 files = args.files
+
+args.lmodel = ocrolib.findfile(args.lmodel)
+assert os.path.exists(args.lmodel),\
+       "%s: cannot find language model"%args.lmodel
 
 if args.show is not None:
     lattice = Lattice(maxws=args.maxws,maxcost=args.maxcost,mismatch=args.mismatch)

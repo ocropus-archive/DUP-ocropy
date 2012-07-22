@@ -4,25 +4,20 @@
 setup.py file for SWIG example
 """
 
-import glob,os
+import glob,os,os.path
 from distutils.core import setup, Extension
 from distutils.command.install_data import install_data
 
-class smart_install_data(install_data):
-    # not currently used
-    def run(self):
-        os.system("cd data; for i in *.gz; do gunzip < $i > $(basename $i .gz); done")
-        return install_data.run(self)
-
+assert os.path.exists("models/space.model"),\
+    "you must download models first (cd models; ./ocropus-download)"
 
 setup (name = 'ocropy',
-       version = '0.1',
+       version = '0.5',
        author      = "Thomas Breuel",
        description = """Python bindings for OCRopus""",
        packages = ["ocrolib"],
        data_files=[('share/ocropus', glob.glob("*.glade")),
-                   ('share/ocropus', glob.glob("models/*model")),
-                   ('share/ocropus', glob.glob("models/*.fst")),
+                   ('share/ocropus', glob.glob("models/*")),
                    ],
        scripts = [i for i in glob.glob("ocropus-*[a-z5]") if not i.endswith('.glade')] +
                  glob.glob("ocroex-*[a-z]") +

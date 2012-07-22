@@ -23,8 +23,8 @@ parser = argparse.ArgumentParser(description = """
 Computes recognition lattices for text lines.  Also displays the bestpath
 result (recognition result without language model).
 """)
-parser.add_argument("-m","--model",help="model file",default="default.cmodel")
-parser.add_argument("-w","--whitespace",help="space model file",default="space.model")
+parser.add_argument("-m","--model",help="model file",default=ocrolib.default.model)
+parser.add_argument("-w","--whitespace",help="space model file",default=ocrolib.default.space)
 parser.add_argument("-c","--cont",help="continue even when unexpected errors occur",action="store_true")
 parser.add_argument("-r","--rejects",help="generate rejects in lattices",action="store_true")
 parser.add_argument("-R","--maxrange",help="max range for grouping",type=int,default=4)

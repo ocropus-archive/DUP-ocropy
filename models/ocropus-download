@@ -1,0 +1,23 @@
+#!/bin/bash
+
+url=${1:-http://iupr1.cs.uni-kl.de/~tmb/ocropus-models/}
+
+(
+cat <<EOF
+space.model.bz2 
+eng-5.ngraphs.bz2 
+uw3unlv-240-4-60-g2.cmodel.bz2
+EOF
+) | while read f; do
+    echo
+    echo === $f
+    echo
+    if test -f $(basename $f .bz2); then 
+        echo "already downloaded"
+        continue
+    else
+        wget -nd $(url)/$f
+        bunzip2 $f
+    fi
+done
+echo
