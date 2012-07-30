@@ -7,7 +7,7 @@ import common,ligatures,sl,morph
 
 import heapq
 
-def shortest_path(transitions,start=0,end=None):
+def shortest_path(transitions,start=0,end=None,noreject=1):
     """Simple implementation of shortest path algorithm, used
     for finding the language model free best result from the
     grouper.  For more complex searches, use the FST library 
@@ -23,6 +23,7 @@ def shortest_path(transitions,start=0,end=None):
     while len(queue)>0:
         (ocost,i) = heapq.heappop(queue)
         for (cost,j,label) in transitions[i]:
+            if noreject and "~" in label: continue
             ncost = ocost+cost
             if ncost<costs[j]:
                 sources[j] = i

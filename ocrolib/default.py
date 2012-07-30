@@ -1,3 +1,3 @@
-model = "uw3unlv-240-4-60-g2.cmodel"
+model = "st1m.cmodel"
+ngraphs = "default-4.ngraphs"
 space = "space.model"
-ngraphs = "eng-5.ngraphs"

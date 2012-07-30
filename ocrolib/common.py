@@ -81,6 +81,9 @@ def isfloatarray(a):
 def isintarray(a):
     return a.dtype in [dtype('B'),dtype('int16'),dtype('int32'),dtype('int64'),dtype('uint16'),dtype('uint32'),dtype('uint64')]
 
+def isintegerarray(a):
+    return a.dtype in [dtype('int32'),dtype('int64'),dtype('uint32'),dtype('uint64')]
+
 def read_image_gray(fname,pageno=0):
     """Read an image and returns it as a floating point array.
     The optional page number allows images from files containing multiple
@@ -137,12 +140,12 @@ def write_image_binary(fname,image):
     im = array2pil(image)
     im.save(fname)
 
-def rgb2int(image):
+def rgb2int(a):
     """Converts a rank 3 array with RGB values stored in the
     last axis into a rank 2 array containing 32 bit RGB values."""
     assert a.ndim==3
     assert a.dtype==dtype('B')
-    return array(65536*a[:,:,0]+256*a[:,:,1]+a[:,:,2],'i')
+    return array((0x10000*a[:,:,0])|(0x100*a[:,:,1])|a[:,:,2],'i')
 
 def int2rgb(image):
     """Converts a rank 3 array with RGB values stored in the
@@ -150,10 +153,22 @@ def int2rgb(image):
     assert image.ndim==2
     assert isintarray(image)
     a = zeros(list(image.shape)+[3],'B')
-    a[:,:,0] = image//65536
-    a[:,:,1] = image//256
+    a[:,:,0] = (image>>16)
+    a[:,:,1] = (image>>8)
     a[:,:,2] = image
     return a
+
+def make_seg_black(image):
+    assert isintegerarray(image),"%s: wrong type for segmentation"%image.dtype
+    image = image.copy()
+    image[image==0xffffff] = 0
+    return image
+
+def make_seg_white(image):
+    assert isintegerarray(image),"%s: wrong type for segmentation"%image.dtype
+    image = image.copy()
+    image[image==0] = 0xffffff
+    return image
 
 def read_line_segmentation(fname):
     """Reads a line segmentation, that is an RGB image whose values
@@ -162,14 +177,15 @@ def read_line_segmentation(fname):
     a = pil2array(pil)
     assert a.dtype==dtype('B')
     assert a.ndim==3
-    return array(65536*a[:,:,0]+256*a[:,:,1]+a[:,:,2],'i')
+    image = rgb2int(a)
+    return make_seg_black(image)
 
 def write_line_segmentation(fname,image):
     """Writes a line segmentation, that is an RGB image whose values
     encode the segmentation of a text line."""
     assert image.ndim==2
     assert image.dtype in [dtype('int32'),dtype('int64')]
-    a = int2rgb(image)
+    a = int2rgb(make_seg_white(image))
     im = array2pil(a)
     im.save(fname)
 
@@ -180,17 +196,14 @@ def read_page_segmentation(fname):
     a = pil2array(pil)
     assert a.dtype==dtype('B')
     assert a.ndim==3
-    return array(65536*a[:,:,0]+256*a[:,:,1]+a[:,:,2],'i')
+    return make_seg_black(array(65536*a[:,:,0]+256*a[:,:,1]+a[:,:,2],'i'))
 
 def write_page_segmentation(fname,image):
     """Writes a page segmentation, that is an RGB image whose values
     encode the segmentation of a text line."""
     assert image.ndim==2
     assert image.dtype in [dtype('int32'),dtype('int64')]
-    a = zeros(list(image.shape)+[3],'B')
-    a[:,:,0] = image//65536
-    a[:,:,1] = image//256
-    a[:,:,2] = image
+    a = int2rgb(make_seg_black(image))
     im = array2pil(a)
     im.save(fname)
 
@@ -521,20 +534,28 @@ def fvariant(fname,kind,gt=None):
     elif gt!="":
         gt = "."+gt
     base,ext = allsplitext(fname)
+    # a text line image
     if kind=="line" or kind=="png":
         return base+gt+".png"
+    # a recognition lattice
     if kind=="lattice":
         return base+gt+".lattice"
-    if kind=="aligned":
-        return base+".aligned"+gt+".txt"
+    # raw segmentation
     if kind=="rseg":
         return base+".rseg"+gt+".png"
+    # character segmentation
     if kind=="cseg":
         return base+".cseg"+gt+".png"
+    # text specifically aligned with cseg (this may be different from gt or txt)
+    if kind=="aligned":
+        return base+".aligned"+gt+".txt"
+    # per character costs
     if kind=="costs":
         return base+gt+".costs"
+    # finite state transducer in OpenFST format
     if kind=="fst":
         return base+gt+".fst"
+    # text output
     if kind=="txt":
         return base+gt+".txt"
     raise Exception("unknown kind: %s"%kind)
@@ -945,3 +966,27 @@ def plotgrid(data,d=10,shape=(30,30)):
         imshow(row)
     ginput(1,timeout=0.1)
 
+def gt_explode(s):
+    l = re.split(r'_(.{1,4})_',s)
+    result = []
+    for i,e in enumerate(l):
+        if i%2==0:
+            result += [c for c in e]
+        else:
+            result += [e]
+    result = [re.sub("\001","_",s) for s in result]
+    result = [re.sub("\002","\\\\",s) for s in result]
+    return result
+
+def gt_implode(l):
+    result = []
+    for c in l:
+        if c=="_":
+            result.append("___")
+        elif len(c)<=1:
+            result.append(c)
+        elif len(c)<=4:
+            result.append("_"+c+"_")
+        else:
+            raise Exception("cannot create ground truth transcription for: %s"%l)
+    return "".join(result)

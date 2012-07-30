@@ -22,7 +22,9 @@ a- b- e- d- g- m- n- o- p- u-
 "B "D "F "H "K "L "P "R "T "W "Z "b "h "l
 'B 'D 'F 'H 'K 'L 'P 'R 'T 'W 'Z 'b 'h 'l
 d" f" l" 
-"""
+""" 
+
+""" " """
 
 common_chars = [ u'„', u'“' ]
 

@@ -5,8 +5,8 @@ url=${1:-http://iupr1.cs.uni-kl.de/~tmb/ocropus-models/}
 (
 cat <<EOF
 space.model.bz2 
-eng-5.ngraphs.bz2 
-uw3unlv-240-4-60-g2.cmodel.bz2
+default-4.ngraphs.bz2
+st1m.cmodel.bz2
 EOF
 ) | while read f; do
     echo

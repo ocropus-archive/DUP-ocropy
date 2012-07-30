@@ -79,7 +79,9 @@ if options.verbose2: verbose = 2
 elif options.verbose: verbose=1
 else: verbose = 0
 
-cmodel = ocrolib.load_component(ocrolib.ocropus_find_file(options.model))
+cmodel = ocrolib.ocropus_find_file(options.model)
+print "loading",cmodel
+cmodel = ocrolib.load_component(cmodel)
 
 assert cmodel is not None
 if hasattr(cmodel,'recognizeLine'):

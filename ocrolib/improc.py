@@ -205,3 +205,41 @@ def isotropic_rescale(image,r=32):
                                             output_shape=(r,r))
     return result
 
+def csnormalize(image,f=0.75):
+    """Center and size-normalize an image."""
+    bimage = 1*(image>mean([amax(image),amin(image)]))
+    w,h = bimage.shape
+    [xs,ys] = mgrid[0:w,0:h]
+    s = sum(bimage)
+    if s<1e-4: return image
+    s = 1.0/s
+    cx = sum(xs*bimage)*s
+    cy = sum(ys*bimage)*s
+    sxx = sum((xs-cx)**2*bimage)*s
+    sxy = sum((xs-cx)*(ys-cy)*bimage)*s
+    syy = sum((ys-cy)**2*bimage)*s
+    w,v = eigh(array([[sxx,sxy],[sxy,syy]]))
+    l = sqrt(amax(w))
+    if l>0.01:
+        scale = f*max(image.shape)/(4.0*l)
+    else:
+        scale = 1.0
+    m = array([[1.0/scale,0],[0.0,1.0/scale]])
+    w,h = image.shape
+    c = array([cx,cy])
+    d = c-dot(m,array([w/2,h/2]))
+    image = interpolation.affine_transform(image,m,offset=d,order=1)
+    return image
+
+def classifier_normalize(image,size=32):
+    """Normalize characters for classification."""
+    assert amax(image)<1.1
+    if amax(image)<1e-3: return zeros((size,size))
+    cimage = array(image*1.0/amax(image),'f')
+    assert amax(cimage)<1.1
+    cimage = isotropic_rescale(cimage,size)
+    assert amax(cimage)<1.1
+    assert amax(cimage)>1e-3
+    cimage = csnormalize(cimage)
+    assert amax(cimage)<1.1
+    return cimage
