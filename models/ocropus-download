@@ -2,13 +2,20 @@
 
 url=${1:-http://iupr1.cs.uni-kl.de/~tmb/ocropus-models/}
 
-(
-cat <<EOF
-space.model.bz2 
-default-4.ngraphs.bz2
-st1m.cmodel.bz2
-EOF
-) | while read f; do
+if test -d ../ocrolib; then true; else
+    echo "must be run from 'models' subdirectory of the ocropy repository"
+    exit 1
+fi
+
+python -c '
+import sys
+sys.path += [".."]
+from ocrolib import default
+print default.model+".bz2"
+print default.space+".bz2"
+print default.ngraphs+".bz2"
+' |
+while read f; do
     echo
     echo === $f
     echo
