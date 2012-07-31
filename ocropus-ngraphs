@@ -142,6 +142,7 @@ import argparse
 parser = argparse.ArgumentParser()
 
 parser.add_argument('--show',default=None,help="show the argument lattice")
+parser.add_argument('--print',dest='prt',default=None,help="print the argument lattice")
 parser.add_argument('--build',default=None,help="build and write a language model")
 parser.add_argument('--ngraph',type=int,default=4,help="order of the language model")
 parser.add_argument('--sample',default=None,type=int,help="sample from the language model")
@@ -162,12 +163,13 @@ parser.add_argument('files',nargs='*')
 args = parser.parse_args()
 files = args.files
 
-args.lmodel = ocrolib.findfile(args.lmodel)
-print "loading",args.lmodel
-assert os.path.exists(args.lmodel),\
-       "%s: cannot find language model"%args.lmodel
-
 if args.lother<0: args.lother = args.lweight
+
+if args.prt is not None:
+    lattice = Lattice(maxws=args.maxws,maxcost=args.maxcost,mismatch=args.mismatch)
+    lattice.readLattice(args.prt)
+    lattice.printLattice()
+    sys.exit(0)
 
 if args.show is not None:
     lattice = Lattice(maxws=args.maxws,maxcost=args.maxcost,mismatch=args.mismatch)
@@ -194,6 +196,12 @@ if args.build is not None:
         cPickle.dump(ngraphs,stream,2)
     sys.exit(0)
 
+
+args.lmodel = ocrolib.findfile(args.lmodel)
+print "loading",args.lmodel
+assert os.path.exists(args.lmodel),\
+       "%s: cannot find language model"%args.lmodel
+
 if args.sample is not None:
     with open(args.lmodel) as stream:
         ngraphs = cPickle.load(stream)
@@ -201,7 +209,6 @@ if args.sample is not None:
         print ngraphs.sample(args.slength)
     sys.exit(0)
     
-
 fnames = []
 for pattern in args.files:
     l = sorted(glob.glob(pattern))

@@ -274,6 +274,7 @@ class CmodelLineRecognizer:
         self.add_rho = 0
         self.verbose = 0
         self.debug_cls = None
+        self.debug_seg = None
         self.allow_any = 0 # allow non-unicode characters
         self.combined_cost = 0.0 # extra cost for combining connected components
         self.split_cost = 0.0 # extra cost for splitting connected components
@@ -395,9 +396,9 @@ class CmodelLineRecognizer:
             # compute the classifier output for this character
             # FIXME parallelize this
             outputs = self.cmodel.coutputs(char,geometry=rel)
+            if outputs==[]: outputs = [("~",1e-6)]
             assert len(set(map(lambda x:x[0],outputs)))==len(outputs),"classifier outputs contains repeated classes"
             outputs = [(x[0],-log(x[1])) for x in outputs]
-            # print "@@@",i,self.grouper.getSegments(i),outputs[:2]
 
             # estimate the space cost
             sc = self.whitespace.classifySpace(x1)
@@ -420,16 +421,21 @@ class CmodelLineRecognizer:
                 if self.split_cost>0.0:
                     segcost += self.split_cost
 
+            # for debugging purposes, you can select specific classes or segments
+            # for display
+            matching = []
             if self.debug_cls is not None:
                 matching = [k for k,v in outputs[:int(self.nbest)] if re.match(self.debug_cls,k)]
-                if len(matching)>0:
-                    print "grouper","%3d"%i,
-                    print "(%3d,%3d)"%char.shape,
-                    print "   (y %5.2f w %5.2f h %5.2f)"%(rel[0],rel[1],rel[2]),
-                    print "   %6.2f+"%segcost,
-                    print "%-15s"%("-".join([str(x) for x in self.grouper.getSegments(i)])),
-                    for c,v in outputs[:5]: print "%s_%.2f"%(c,v),
-                    print
+            if self.debug_seg is not None:
+                matching = [k for k,v in outputs[:int(self.nbest)] if self.debug_seg in self.grouper.getSegments(i)]
+            if len(matching)>0:
+                print "grouper","%3d"%i,
+                print "(%3d,%3d)"%char.shape,
+                print "   (y %5.2f w %5.2f h %5.2f)"%(rel[0],rel[1],rel[2]),
+                print "   %6.2f+"%segcost,
+                print "%-15s"%("-".join([str(x) for x in self.grouper.getSegments(i)])),
+                for c,v in outputs[:5]: print "%s_%.2f"%(c,v),
+                print
 
             # add the top classes to the lattice
             outputs.sort(key=lambda x:x[1])
@@ -448,13 +454,11 @@ class CmodelLineRecognizer:
                 # letters are never small, so we skip small bounding boxes that
                 # are categorized as letters; this is an ugly special case, but
                 # it is quite common
+                # FIXME: move this into the character classifier
                 category = unicodedata.category(unicode(cls[0]))
                 if (y1-y0)<self.min_height*mheight and category[0]=="L":
                     # add an empty transition to allow skipping junk
-                    # (commented out right now because I'm not sure whether
-                    # the grouper can handle it; FIXME)
-                    # self.grouper.setClass(i,"",1.0)
-                    continue
+                    self.grouper.setClass(i,"",0.0)
 
                 if type(cls)==int:
                     assert self.allow_any or (cls>=0 and cls<0x110000),\

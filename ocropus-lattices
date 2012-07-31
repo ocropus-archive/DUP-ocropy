@@ -143,7 +143,6 @@ def extract(t):
 
     if s is None:
         print fname,": no output lattice"
-        return
 
     rseg = linerec.rseg
 
