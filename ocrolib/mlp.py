@@ -43,7 +43,7 @@ def finite(x):
 verbose_examples = 0
 sigmoid_floor = 0.0
 
-nnet_native_c = '''
+nnet_native_c = r'''
 #include <math.h>
 #include <stdio.h>
 #include <assert.h>
@@ -298,7 +298,6 @@ if os.getenv("mlp_maxthreads_train") is not None:
 
 class MLP:
     def __init__(self,**kw):
-        nnet_native_load()
         self.w1 = None
         self.verbose = 0
         self.etas = [(0.1,100000)]*30
@@ -392,6 +391,7 @@ class MLP:
         Cls is a 1D array of integers indicating the desired output class.
         Initializes the network first.  Can train on subsets.  Etas is a list of pairs of
         learning rates and update steps."""
+        nnet_native_load()
         if etas is None: etas = self.etas
         data = data.reshape(len(data),prod(data.shape[1:]))
         if subset is not None:
@@ -439,6 +439,7 @@ class MLP:
         """Given a 2D array of input vectors, with the rows corresponding to each
         input, computs the corresponding output vector; this approximates posterior
         probability for each class in classification problems."""
+        nnet_native_load()
         data = data.reshape(len(data),prod(data.shape[1:]))
         assert data.shape[1]==self.w1.shape[1],\
             "input shape: %s w1: %s"%(data.shape,self.w1.shape)
