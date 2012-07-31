@@ -117,4 +117,5 @@ print "=== language modeling"
 prun(langmod,glob.glob(book+"/????/??????.lattice"),chunk=args.langmod_chunk)
 print
 
-os.system("ocropus-hocr '%s'"%book)
+os.system("ocropus-hocr '%s' > '%s'"%(book,args.output))
+print "output in",args.output
