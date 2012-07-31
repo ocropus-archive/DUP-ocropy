@@ -43,7 +43,7 @@ def finite(x):
 verbose_examples = 0
 sigmoid_floor = 0.0
 
-nnet_native = compile_and_load(r'''
+nnet_native_c = '''
 #include <math.h>
 #include <stdio.h>
 #include <assert.h>
@@ -271,19 +271,24 @@ void backward_b(int n,int m,int l,float w1[m][n],float b1[m],float w2[l][m],floa
         }
     }
 }
-''')
+'''
 
-nnet_native.forward.argtypes = [I,I,I,A2F,A1F,A2F,A1F, I,A2F,A2F]
-nnet_native.classify.argtypes = [I,I,I,A2F,A1F,A2F,A1F, I,A2F,A1I]
-nnet_native.backward.argtypes = [I,I,I,A2F,A1F,A2F,A1F, I,A2F,A1I,F,I,I,A1I]
+nnet_native = None
 
-nnet_native.forward_b.argtypes = [I,I,I,A2F,A1F,A2F,A1F, I,A2B,A2F]
-nnet_native.classify_b.argtypes = [I,I,I,A2F,A1F,A2F,A1F, I,A2B,A1I]
-nnet_native.backward_b.argtypes = [I,I,I,A2F,A1F,A2F,A1F, I,A2B,A1I,F,I,I,A1I]
-
-nverbose = c_int.in_dll(nnet_native,"verbose")
-maxthreads = c_int.in_dll(nnet_native,"maxthreads")
-maxthreads_train = c_int.in_dll(nnet_native,"maxthreads_train")
+def nnet_native_load():
+    global nnet_native
+    if nnet_native is not None: return
+    nnet_native = compile_and_load(nnet_native_c)
+    nnet_native.forward.argtypes = [I,I,I,A2F,A1F,A2F,A1F, I,A2F,A2F]
+    nnet_native.classify.argtypes = [I,I,I,A2F,A1F,A2F,A1F, I,A2F,A1I]
+    nnet_native.backward.argtypes = [I,I,I,A2F,A1F,A2F,A1F, I,A2F,A1I,F,I,I,A1I]
+    nnet_native.forward_b.argtypes = [I,I,I,A2F,A1F,A2F,A1F, I,A2B,A2F]
+    nnet_native.classify_b.argtypes = [I,I,I,A2F,A1F,A2F,A1F, I,A2B,A1I]
+    nnet_native.backward_b.argtypes = [I,I,I,A2F,A1F,A2F,A1F, I,A2B,A1I,F,I,I,A1I]
+    global nverbose,maxthreads,maxthreads_train
+    nverbose = c_int.in_dll(nnet_native,"verbose")
+    maxthreads = c_int.in_dll(nnet_native,"maxthreads")
+    maxthreads_train = c_int.in_dll(nnet_native,"maxthreads_train")
 
 if os.getenv("mlp_maxthreads") is not None:
     maxthreads.value = int(os.getenv("mlp_maxthreads"))
@@ -293,6 +298,7 @@ if os.getenv("mlp_maxthreads_train") is not None:
 
 class MLP:
     def __init__(self,**kw):
+        nnet_native_load()
         self.w1 = None
         self.verbose = 0
         self.etas = [(0.1,100000)]*30
