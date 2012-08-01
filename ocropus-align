@@ -1,0 +1,161 @@
+#!/usr/bin/python
+# -*- coding: utf-8 -*-
+
+# TODO:
+# - output cseg
+
+from pylab import *
+from collections import Counter,defaultdict
+import glob,re,heapq,os,cPickle
+import ocrolib
+from ocrolib import ngraphs as ng
+from ocrolib.lattice import Lattice
+
+class Path:
+    def __init__(self,cost=0.0,state=-1,pos=-1,sequence=[],path=[]):
+        self.cost = cost
+        self.state = state # current state in lattice
+        self.pos = pos # current position in string
+        self.sequence = sequence # sequence of edges
+        self.path = path # sequence of labels
+    def __repr__(self):
+        return "<Path %.2f %d '%s'>"%(self.cost,self.state,self.path)
+    def __str__(self):
+        return self.__repr__()
+    def __cmp__(self,other):
+        return cmp((self.cost,self.state,self.path),(other.cost,other.state,other.path))
+
+def expand(state,gt,mismatch_cost=50,ins_cost=50,verbose=0):
+    result = []
+    edges = lattice.edges[state.state]
+    rest = gt[state.pos:]
+    done = set()
+    for e in edges:
+        # if verbose: print "gt",state.pos,gt[state.pos],"cls",e.cls,e
+        assert e.start==state.state
+        if (e.start,e.stop) not in done and len(e.cls)>0:
+            p = Path(cost = state.cost + len(e.cls)*mismatch_cost,
+                     state = e.stop,
+                     pos = state.pos + len(e.cls),
+                     path = state.path + [rest[:len(e.cls)]],
+                     sequence = state.sequence + [e])
+            result.append(p)
+            done.add((e.start,e.stop))
+        if not rest.startswith(e.cls): continue
+        p = Path(cost = state.cost + e.cost,
+                 state = e.stop,
+                 pos = state.pos + len(e.cls),
+                 path = state.path + [e.cls],
+                 sequence = state.sequence + [e])
+        result.append(p)
+    if 0:
+        p = Path(cost = state.cost + ins_cost,
+                 state = e.stop,
+                 pos = state.pos,
+                 path = state.path + [""],
+                 sequence = state.sequence + [e])
+        result.append(p)
+    return result
+
+def eliminate_duplicates_and_sort(paths):
+    # sort by cost
+    paths = sorted(paths)
+    # keep track of the best
+    result = {}
+    for p in paths:
+        suffix = "".join(p.path)
+        if suffix in result: continue
+        result[suffix] = p
+    return sorted(result.values())
+
+def search(lattice,gt,accept=None,verbose=0,Verbose=0,beam=100,**kw):
+    global table
+    initial = Path(cost=0.0,state=lattice.startState(),pos=0)
+    nstates = lattice.lastState()+1
+    table = [[] for i in range(nstates)]
+    table[initial.state] = [initial]
+    for i in range(nstates):
+        if lattice.isAccept(i): break
+        if len(table[i])==0: continue
+        table[i] = eliminate_duplicates_and_sort(table[i])
+        if verbose>0: print i,table[i][0]
+        for rank,s in enumerate(table[i][:beam]):
+            expanded = expand(s,gt,verbose=0,**kw)
+            for e in expanded:
+                if Verbose: print "    ",e
+                table[e.state].append(e)
+    result = eliminate_duplicates_and_sort(table[i])
+    return result
+
+import argparse
+
+parser = argparse.ArgumentParser()
+
+parser.add_argument('--show',default=None,help="show the argument lattice")
+parser.add_argument('--build',default=None,help="build and write a language model")
+parser.add_argument('--ngraph',type=int,default=4,help="order of the language model")
+parser.add_argument('--sample',default=None,type=int,help="sample from the language model")
+parser.add_argument('--slength',default=70,type=int,help="length of the sampled strings")
+parser.add_argument('-l','--lmodel',default=ocrolib.default.ngraphs,help="the language model")
+parser.add_argument('-L','--lweight',default=0.5,type=float,help="language model weight")
+parser.add_argument('-C','--cweight',default=1.0,type=float,help="character weight")
+parser.add_argument('-B','--beam',default=10,type=int,help="beam width")
+parser.add_argument('-W','--maxws',default=5.0,type=float,help="max whitespace cost")
+parser.add_argument('-M','--maxcost',default=20.0,type=float,help="max cost")
+parser.add_argument('-X','--mismatch',default=30.0,type=float,help="mismatch cost")
+parser.add_argument('-T','--thresh',default=0.5,type=float,help="below this cost, ignore language model")
+parser.add_argument('-v','--verbose',action="store_true")
+parser.add_argument('-V','--Verbose',action="store_true")
+
+parser.add_argument('files',nargs='*')
+args = parser.parse_args()
+files = args.files
+
+fnames = []
+for pattern in args.files:
+    l = sorted(glob.glob(pattern))
+    for f in l:
+        assert ".lattice" in f,"all files must end with .lattice"
+        base,_ = os.path.splitext(f)
+        if not os.path.exists(base+".gt.txt"):
+            print f,": no ground truth, skipping"
+        else:
+            fnames += [f]
+
+assert len(fnames)>0,"must provide some filename arguments"
+
+for fname in fnames:
+    base,_ = os.path.splitext(fname)
+    if not os.path.exists(base+".gt.txt"):
+        print fname,": no ground truth, skipping"
+        continue
+    with open(base+".gt.txt") as stream:
+        gt = stream.read()
+        if gt[-1]=="\n": gt = gt[:-1]
+        gt = re.sub(r'\s+$','',gt)
+    if args.verbose:
+        print "gt=",gt
+    lattice = Lattice(maxws=args.maxws,maxcost=args.maxcost,mismatch=args.mismatch)
+    lattice.readLattice(fname)
+    result = search(lattice,gt,verbose=args.verbose,Verbose=args.Verbose)
+    path = result[0]
+    gt = []
+    mapping = zeros(10000,'i')
+    for i,e in enumerate(path.sequence):
+        c = path.path[i]
+        if c=="": continue
+        gt.append(c)
+        if c==" ":
+            assert e.seg[1]==0
+        else:
+            for s in range(e.seg[0],e.seg[1]+1):
+                mapping[s] = len(gt)
+    if os.path.exists(base+".rseg.png"):
+        seg = ocrolib.read_line_segmentation(base+".rseg.png")
+        seg = mapping[seg]
+        ocrolib.write_line_segmentation(base+".cseg.png",seg)
+    else:
+        print base+".rseg.png",": not found"
+    gt = ocrolib.gt_implode(gt)
+    ocrolib.write_text(base+".txt",gt)
+    print "%s\t%.1f\t%s"%(fname,path.cost,gt)
