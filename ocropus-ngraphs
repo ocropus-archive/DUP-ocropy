@@ -264,5 +264,5 @@ for fname in fnames:
         ocrolib.write_line_segmentation(cname,cseg)
         ocrolib.write_text(ocrolib.fvariant(fname,"aligned"),ocrolib.gt_implode(ctxt))
     else:
-        print base+".rseg.png",": not found"
+        print rname,": not found"
 

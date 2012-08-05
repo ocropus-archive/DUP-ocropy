@@ -8,7 +8,7 @@ import code,pickle,sys,os,re,traceback
 from pylab import *
 import common as ocrolib
 from scipy.ndimage import interpolation
-import improc,mlp,lineproc
+import improc,mlp,lineproc,lineseg,morph
 
 display_training = 0
 display_cls = 0
@@ -25,6 +25,7 @@ class WhitespaceModel:
     def __init__(self):
         self.s = 20
         self.r = 2
+        self.segmenter = lineseg.CCSSegmentLine()
     def showLine(self):
         mh,a,b = self.line_params
         if display_training:
@@ -38,8 +39,14 @@ class WhitespaceModel:
     def setLine(self,image,cseg=None):
         # print "WS",image.shape,cseg.shape
         # ocrolib.write_image_gray("_wmodel.png",image)
+        assert mean(image)<0.5*amax(image)
         if amax(image)<1e-6: raise BadImage()
         self.image = array(image*(1.0/amax(image)),'f')
+        if cseg is None:
+            if "segmenter" not in dir(self):
+                self.segmenter = lineseg.DPSegmentLine()
+            cseg = self.segmenter.charseg(amax(image)-image)
+            morph.showlabels(cseg)
         self.cseg = cseg
         self.line_params = lineproc.seg_geometry(cseg,math=0)
     def getSubImage(self,x):

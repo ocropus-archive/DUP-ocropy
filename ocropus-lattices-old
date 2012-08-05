@@ -1,0 +1,179 @@
+#!/usr/bin/python
+
+# make the clustering class-specific
+
+import sys,os,re,glob,math,glob,signal,traceback,codecs
+import matplotlib
+if "DISPLAY" not in os.environ: matplotlib.use("AGG")
+else: matplotlib.use("GTK")
+from scipy.ndimage import interpolation
+from pylab import *
+from optparse import OptionParser
+from multiprocessing import Pool
+import ocrolib
+from ocrolib import number_of_processors,die
+from ocrolib.ligatures import lig
+from ocrolib import lineseg
+
+signal.signal(signal.SIGINT,lambda *args:sys.exit(1))
+
+# these options control alignment
+import argparse
+parser = argparse.ArgumentParser(description = """
+Computes recognition lattices for text lines.  Also displays the bestpath
+result (recognition result without language model).
+""")
+parser.add_argument("-m","--model",help="model file",default=ocrolib.default.model)
+parser.add_argument("-w","--whitespace",help="space model file",default=ocrolib.default.space)
+parser.add_argument("-c","--cont",help="continue even when unexpected errors occur",action="store_true")
+parser.add_argument("-r","--rejects",help="generate rejects in lattices",action="store_true")
+parser.add_argument("-R","--maxrange",help="max range for grouping",type=int,default=4)
+parser.add_argument("-L","--ligatures",help="output ligatures",action="store_true")
+parser.add_argument("-N","--nbest",help="use the nbest results from classifier",type=int,default=3)
+parser.add_argument("-C","--maxcost",help="maximum cost to be considered",type=float,default=10.0)
+parser.add_argument("-s","--segmenter",help="segmenter",default="lineseg.DPSegmentLine()")
+parser.add_argument("-S","--suffix",help="suffix for writing rseg/cseg files",default=None)
+parser.add_argument("-O","--overwrite",help="overwrite rseg/cseg files",action="store_true")
+parser.add_argument("-Q","--parallel",type=int,default=0,help="number of parallel processes to use")
+parser.add_argument("-v","--verbose",help="verbose recognition output",action="store_true")
+parser.add_argument("-V","--verbose2",help="extra verbose recognition output",action="store_true")
+parser.add_argument("-Y","--examine",help="examine recognition for these classes",default=None)
+parser.add_argument('-p','--parameter',default=[],nargs='*',help="linerec parameter (repeat if desired)")
+parser.add_argument('-P','--cparameter',default=[],nargs='*',help="cmodel parameter (repeat if desired)")
+parser.add_argument("-d","--display",help="display progress",action="store_true")
+parser.add_argument('-D','--Display',action='store_true',help='display recognition results for debuggin')
+parser.add_argument('--displaygeo',action='store_true',help='display line geometry info')
+parser.add_argument("args",default=[],nargs='*',help="input lines")
+options = parser.parse_args()
+args = options.args
+
+if options.displaygeo:
+    from ocrolib import improc
+    improc.seg_geometry_display = 1
+segmenter = eval(options.segmenter)
+
+if len(args)==0:
+    parser.print_help()
+    sys.exit(0)
+
+# expand directories
+temp = []
+count = 0
+for arg in args:
+    if os.path.isdir(arg) or os.path.isdir(arg+"/."):
+        files = sorted(glob.glob(arg+"/????/??????.png"))
+        print "adding",len(files),"files from",arg
+        assert len(files)>0
+        temp += files
+    else:
+        expanded = glob.glob(arg) 
+        temp += expanded
+        count += len(expanded)
+print "added",count,"files directly"
+args = temp
+
+if options.display or options.Display:
+    ion()
+
+if options.verbose2: verbose = 2
+elif options.verbose: verbose=1
+else: verbose = 0
+
+cmodel = ocrolib.ocropus_find_file(options.model)
+print "loading",cmodel
+cmodel = ocrolib.load_component(cmodel)
+
+assert cmodel is not None
+if hasattr(cmodel,'recognizeLine'):
+    linerec = cmodel
+elif hasattr(cmodel,'coutputs'):
+    for s in options.cparameter:
+        k,v = s.split("=",2)
+        assert k in cmodel.__dict__.keys(),"cmodel %s does not have a parameter %s"%(cmodel,k)
+        try: v = int(v)
+        except:
+            try: v = float(v)
+            except: pass
+        setattr(cmodel,k,v)
+    linerec = ocrolib.CmodelLineRecognizer(cmodel=cmodel,whitespace=options.whitespace,
+                                           maxrange=options.maxrange,verbose=verbose,
+                                           debug_cls=options.examine,segmenter=segmenter)
+    linerec.use_ligatures = options.ligatures
+    linerec.maxcost = options.maxcost
+    linerec.nbest = options.nbest
+    linerec.display = options.Display
+    linerec.norejects = not options.rejects
+else:
+    print "%s (%s): don't know what kind of model this is"%(options.model,cmodel)
+    sys.exit(1)
+
+if len(options.parameter)>0: print options.parameter
+for s in options.parameter:
+    k,v = s.split("=",2)
+    assert k in linerec.__dict__.keys(),"linerec %s does not have a parameter %s"%(linerec,k)
+    try: v = int(v)
+    except:
+        try: v = float(v)
+        except: pass
+    setattr(linerec,k,v)
+
+def extract(t):
+    fname = t
+    image = ocrolib.read_image_gray(fname)
+    ocrolib.fcleanup(fname,options.suffix,["cseg","txt","costs","fst","lattice"])
+    assert linerec is not None,"failed to load line recognizer"
+
+    if options.display:
+        clf()
+        gray()
+        imshow(image)
+        ginput(1,timeout=1)
+
+    try:
+        linerec.recognize(image)
+    except ocrolib.RecognitionError,e:
+        print fname,"*** %s ***"%e
+        return
+    except:
+        traceback.print_exc()
+        if not options.cont: die("internal error %s"%(linerec,))
+        return
+
+    s = linerec.bestpath()
+
+    if s is None:
+        print fname,": no output lattice"
+
+    rseg = linerec.rseg
+
+    tlattice_file = ocrolib.fvariant(fname,"lattice",options.suffix)
+    if os.path.exists(tlattice_file) and not options.overwrite:
+        die("%s: %s",tlattice_file,"already exists")
+    with open(tlattice_file,"w") as stream:
+        linerec.saveLattice(stream)
+
+    rseg_file = ocrolib.fvariant(fname,"rseg",options.suffix)
+    if os.path.exists(rseg_file) and not options.overwrite:
+        die("%s: %s",rseg_file,"already exists")
+    ocrolib.write_line_segmentation(rseg_file,rseg)
+
+    print fname,":",repr(s)
+
+    if s is not None:
+        raw_file = ocrolib.fvariant(fname,"txt","raw")
+        if os.path.exists(raw_file) and not options.overwrite:
+            die("%s: %s",raw_file,"already exists")
+        with codecs.open(raw_file,"w",encoding="utf8") as stream:
+            stream.write(s)
+
+if options.display or options.Display:
+    options.parallel = 0
+
+if options.parallel<2:
+    for arg in args: extract(arg)
+else:
+    pool = Pool(processes=options.parallel)
+    result = []
+    for r in pool.imap_unordered(extract,args):
+        result.append(r)
+        if len(result)%100==0: print "==========",len(result),len(args),"=========="

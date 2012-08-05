@@ -22,6 +22,28 @@ import psegutils,morph
 
 pickle_mode = 2
 
+################################################################
+### annotations
+################################################################
+
+def method(cls):
+    """Adds the function as a method to the given class."""
+    import new
+    def _wrap(f):
+        cls.__dict__[f.func_name] = new.instancemethod(f,None,cls)
+        return None
+    return _wrap
+
+def deprecated(f):
+    def _wrap(f):
+        warned = 0
+        def _wrapper(*args,**kw):
+            if not warned:
+                print f,"has been DEPRECATED"
+                warned = 1
+            return f(*args,**kw)
+    return _wrap
+
 
 
 ################################################################
@@ -145,7 +167,7 @@ def rgb2int(a):
     last axis into a rank 2 array containing 32 bit RGB values."""
     assert a.ndim==3
     assert a.dtype==dtype('B')
-    return array((0x10000*a[:,:,0])|(0x100*a[:,:,1])|a[:,:,2],'i')
+    return array(0xffffff&((0x10000*a[:,:,0])|(0x100*a[:,:,1])|a[:,:,2]),'i')
 
 def int2rgb(image):
     """Converts a rank 3 array with RGB values stored in the
@@ -178,7 +200,10 @@ def read_line_segmentation(fname):
     assert a.dtype==dtype('B')
     assert a.ndim==3
     image = rgb2int(a)
-    return make_seg_black(image)
+    result = make_seg_black(image)
+    assert amin(result)==0
+    assert amax(result)<16000
+    return result
 
 def write_line_segmentation(fname,image):
     """Writes a line segmentation, that is an RGB image whose values
@@ -203,7 +228,7 @@ def write_page_segmentation(fname,image):
     encode the segmentation of a text line."""
     assert image.ndim==2
     assert image.dtype in [dtype('int32'),dtype('int64')]
-    a = int2rgb(make_seg_black(image))
+    a = int2rgb(make_seg_white(image))
     im = array2pil(a)
     im.save(fname)
 
@@ -465,6 +490,16 @@ def write_text(file,s):
     with open(file,"w") as stream:
         if type(s)==unicode: s = s.encode("utf-8")
         stream.write(s)
+
+def glob_all(args):
+    """Given a list of command line arguments, expand all of them with glob."""
+    result = []
+    for arg in args:
+        expanded = glob.glob(arg)
+        if len(expanded)<1:
+            raise Exception("%s: expansion did not yield any files"%arg)
+        result += expanded
+    return result
 
 def expand_args(args):
     """Given a list of command line arguments, if the
@@ -930,7 +965,6 @@ def draw_pseg(pseg,axis=None):
         x0,y0,x1,y1 = (regions.x0(i),regions.y0(i),regions.x1(i),regions.y1(i))
         p = patches.Rectangle((x0,h-y1-1),x1-x0,y1-y0,edgecolor="red",fill=0)
         axis.add_patch(p)
-    
 
 def draw_aligned(result,axis=None):
     raise Error("FIXME draw_aligned")
@@ -965,6 +999,21 @@ def plotgrid(data,d=10,shape=(30,30)):
         if shape is not None: row = row.reshape(shape)
         imshow(row)
     ginput(1,timeout=0.1)
+
+def showgrid(l,cols=None,n=400,titles=None,xlabels=None,ylabels=None,**kw):
+    import pylab
+    if "cmap" not in kw: kw["cmap"] = pylab.cm.gray
+    if "interpolation" not in kw: kw["interpolation"] = "nearest"
+    n = minimum(n,len(l))
+    if cols is None: cols = int(sqrt(n))
+    rows = (n+cols-1)//cols
+    for i in range(n):
+        pylab.xticks([]); pylab.yticks([])
+        pylab.subplot(rows,cols,i+1)
+        pylab.imshow(l[i],**kw)
+        if titles is not None: pylab.title(str(titles[i]))
+        if xlabels is not None: pylab.xlabel(str(xlabels[i]))
+        if ylabels is not None: pylab.ylabel(str(ylabels[i]))
 
 def gt_explode(s):
     l = re.split(r'_(.{1,4})_',s)

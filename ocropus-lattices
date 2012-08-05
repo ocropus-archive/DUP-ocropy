@@ -3,7 +3,7 @@
 # make the clustering class-specific
 
 import sys,os,re,glob,math,glob,signal,traceback,codecs
-import matplotlib
+import matplotlib,tables
 if "DISPLAY" not in os.environ: matplotlib.use("AGG")
 else: matplotlib.use("GTK")
 from scipy.ndimage import interpolation
@@ -13,7 +13,8 @@ from multiprocessing import Pool
 import ocrolib
 from ocrolib import number_of_processors,die
 from ocrolib.ligatures import lig
-from ocrolib import lineseg
+from ocrolib import lineseg,morph,linerec,improc
+import cPickle
 
 signal.signal(signal.SIGINT,lambda *args:sys.exit(1))
 
@@ -23,15 +24,21 @@ parser = argparse.ArgumentParser(description = """
 Computes recognition lattices for text lines.  Also displays the bestpath
 result (recognition result without language model).
 """)
+parser.add_argument("-x","--exec",dest="execute",help="execute before anything else (usually used for imports)",default="None")
+parser.add_argument("-s","--segmenter",help="segmenter",default="lineseg.DPSegmentLine()")
 parser.add_argument("-m","--model",help="model file",default=ocrolib.default.model)
 parser.add_argument("-w","--whitespace",help="space model file",default=ocrolib.default.space)
+parser.add_argument("--show",help="show progress",action="store_true")
+parser.add_argument('--delay',type=float,default=0.1,help='time to wait after displaying results')
+parser.add_argument("--extract",default=None,help="extract characters for cmodel training")
+parser.add_argument("--noglob",action="store_true",help="don't perform expansion on the arguments")
+
 parser.add_argument("-c","--cont",help="continue even when unexpected errors occur",action="store_true")
 parser.add_argument("-r","--rejects",help="generate rejects in lattices",action="store_true")
 parser.add_argument("-R","--maxrange",help="max range for grouping",type=int,default=4)
 parser.add_argument("-L","--ligatures",help="output ligatures",action="store_true")
 parser.add_argument("-N","--nbest",help="use the nbest results from classifier",type=int,default=3)
 parser.add_argument("-C","--maxcost",help="maximum cost to be considered",type=float,default=10.0)
-parser.add_argument("-s","--segmenter",help="segmenter",default="lineseg.DPSegmentLine()")
 parser.add_argument("-S","--suffix",help="suffix for writing rseg/cseg files",default=None)
 parser.add_argument("-O","--overwrite",help="overwrite rseg/cseg files",action="store_true")
 parser.add_argument("-Q","--parallel",type=int,default=0,help="number of parallel processes to use")
@@ -40,140 +47,190 @@ parser.add_argument("-V","--verbose2",help="extra verbose recognition output",ac
 parser.add_argument("-Y","--examine",help="examine recognition for these classes",default=None)
 parser.add_argument('-p','--parameter',default=[],nargs='*',help="linerec parameter (repeat if desired)")
 parser.add_argument('-P','--cparameter',default=[],nargs='*',help="cmodel parameter (repeat if desired)")
-parser.add_argument("-d","--display",help="display progress",action="store_true")
-parser.add_argument('-D','--Display',action='store_true',help='display recognition results for debuggin')
-parser.add_argument('--displaygeo',action='store_true',help='display line geometry info')
-parser.add_argument("args",default=[],nargs='*',help="input lines")
-options = parser.parse_args()
-args = options.args
+parser.add_argument("files",default=[],nargs='*',help="input lines")
+args = parser.parse_args()
+if not args.noglob: args.files = ocrolib.glob_all(args.files)
 
-if options.displaygeo:
-    from ocrolib import improc
-    improc.seg_geometry_display = 1
-segmenter = eval(options.segmenter)
+exec args.execute
+cmodel = ocrolib.ocropus_find_file(args.model)
 
-if len(args)==0:
-    parser.print_help()
-    sys.exit(0)
+###
+### This first option doesn't actually recognize anything, it extracts
+### characters for cmodel training.  The reason it is in `ocropus-linerec`
+### is because this is the only program that needs to know about normalization.
+###
 
-# expand directories
-temp = []
-count = 0
-for arg in args:
-    if os.path.isdir(arg) or os.path.isdir(arg+"/."):
-        files = sorted(glob.glob(arg+"/????/??????.png"))
-        print "adding",len(files),"files from",arg
-        assert len(files)>0
-        temp += files
-    else:
-        expanded = glob.glob(arg) 
-        temp += expanded
-        count += len(expanded)
-print "added",count,"files directly"
-args = temp
+class Hdf5Writer:
+    def __init__(self,fname,mode="w",size=(32,32)):
+        from tables import Float32Atom,Int64Atom,StringAtom,Filters
+        self.size = size
+        h5 = tables.openFile(fname,mode)
+        h5.createEArray(h5.root,'patches',Float32Atom(),shape=(0,)+size,filters=Filters(9))
+        h5.createEArray(h5.root,'classes',Int64Atom(),shape=(0,),filters=tables.Filters(9))
+        #h5.createVLArray(h5.root,'files',StringAtom(120),filters=Filters(9))
+        #h5.createEArray(h5.root,'bboxes',Float32Atom(shape=(4,)),shape=(0,),filters=Filters(9))
+        self.h5 = h5
+    def __enter__(self):
+        return self
+    def __exit__(self,*args):
+        self.h5.close()
+        self.h5 = None
+    def insert(self,image,cls,cost=0.0,count=0,fname="",lgeo=None,bbox=(-1,-1,-1,-1)):
+        assert image.shape==self.size,"wrong image shape: %s"%(image.shape,)
+        h5 = self.h5
+        h5.root.patches.append([image])
+        h5.root.classes.append([lig.ord(cls)])
+        #h5.root.files.append(fname)
+        #h5.root.bboxes.append([array(bbox,'f')])
 
-if options.display or options.Display:
-    ion()
+if args.extract is not None:
+    try:
+        with Hdf5Writer(args.extract) as h5:
+            for fname in args.files:
+                gname = ocrolib.fvariant(fname,"aligned")
+                if not os.path.exists(gname): gname = ocrolib.fvariant(fname,"txt","gt")
+                if not os.path.exists(gname): continue
+                cname = ocrolib.fvariant(fname,"cseg")
+                if not os.path.exists(cname): continue
+                rname = ocrolib.fvariant(fname,"rseg")
+                if not os.path.exists(rname): continue
+                gt = ocrolib.gt_explode(ocrolib.read_text(gname))
+                if gt[-1]=="\n": gt = gt[:-1]
+                cseg = ocrolib.read_line_segmentation(cname)
+                rseg = ocrolib.read_line_segmentation(rname)
+                csegs = linerec.extract_csegs(cseg)
+                csegs = [c.replace(out=[(gt[c.first-1],0.0)]) for i,c in enumerate(csegs)]
+                rsegs = linerec.extract_rsegs(rseg)
+                misseg = linerec.extract_non_csegs(rsegs,csegs)
+                misseg = [c.replace(out=[("~",0.0)])]
+                if args.show:
+                    ion(); gray()
+                    figure(1); ocrolib.showgrid([c.img for c in csegs[:100]],xlabels=[c.out[0][0] for c in csegs]) 
+                    figure(2); ocrolib.showgrid([m.img for m in misseg[:100]],xlabels=[m.out[0][0] for m in misseg]) 
+                    ginput(1,args.delay)
+                # TODO optionally double-check against model here
+                print fname,len(gt),amax(cseg),gt
+                for c in csegs+misseg:
+                    image = c.img
+                    image = improc.classifier_normalize(image)
+                    cls = c.out[0][0]
+                    h5.insert(image=image,cls=cls)
+    finally:
+        sys.exit(0)
 
-if options.verbose2: verbose = 2
-elif options.verbose: verbose=1
-else: verbose = 0
+###
+### This is the actual line recognizer
+###
 
-cmodel = ocrolib.ocropus_find_file(options.model)
 print "loading",cmodel
 cmodel = ocrolib.load_component(cmodel)
+wmodel = ocrolib.ocropus_find_file(args.whitespace)
 
-assert cmodel is not None
-if hasattr(cmodel,'recognizeLine'):
-    linerec = cmodel
-elif hasattr(cmodel,'coutputs'):
-    for s in options.cparameter:
-        k,v = s.split("=",2)
-        assert k in cmodel.__dict__.keys(),"cmodel %s does not have a parameter %s"%(cmodel,k)
-        try: v = int(v)
-        except:
-            try: v = float(v)
-            except: pass
-        setattr(cmodel,k,v)
-    linerec = ocrolib.CmodelLineRecognizer(cmodel=cmodel,whitespace=options.whitespace,
-                                           maxrange=options.maxrange,verbose=verbose,
-                                           debug_cls=options.examine,segmenter=segmenter)
-    linerec.use_ligatures = options.ligatures
-    linerec.maxcost = options.maxcost
-    linerec.nbest = options.nbest
-    linerec.display = options.Display
-    linerec.norejects = not options.rejects
-else:
-    print "%s (%s): don't know what kind of model this is"%(options.model,cmodel)
-    sys.exit(1)
+print "loading",wmodel
+wmodel = ocrolib.load_component(wmodel)
 
-if len(options.parameter)>0: print options.parameter
-for s in options.parameter:
-    k,v = s.split("=",2)
-    assert k in linerec.__dict__.keys(),"linerec %s does not have a parameter %s"%(linerec,k)
-    try: v = int(v)
-    except:
-        try: v = float(v)
-        except: pass
-    setattr(linerec,k,v)
+print "segmenter",args.segmenter
+segmenter = eval(args.segmenter)
 
-def extract(t):
-    fname = t
+def invert_image(image):
+    """Invert the input image."""
+    return amax(image)-image
+
+def loutputs(image,floor=1e-6,keep_rejects=0):
+    """Compute the negative log probability (cost) for classifications
+    of the character image."""
+    image = improc.classifier_normalize(image)
+    outputs = cmodel.coutputs(image)
+    outputs = [(cls,-log(max(p,floor))) for cls,p in outputs if "~" not in cls or keep_rejects]
+    if len(outputs)<1: outputs = [("~",30)]
+    return outputs
+
+def make_connected(rsegs,insert=[("~",30.0)]):
+    """Given a list of segmentation hypotheses, inserts
+    reject classes for any segments that are not present.
+    This reconnects the graph in case one of the previous
+    steps has rejected some segment entirely."""
+    transitions = [(r.first,r.last) for r in rsegs]
+    lo = amin([r.first for r in rsegs])
+    hi = amax([r.first for r in rsegs])
+    for i in range(lo,hi+1):
+        if (i,i) not in transitions:
+            rsegs.append(linerec.Segment(first=i,last=i,img=zeros((1,1)),
+                                         bbox=(slice(0,1),slice(0,1)),
+                                         out=insert,sp=array([1.0,0])))
+    return rsegs
+
+if args.show: ion(); gray()
+
+def process1(fname):
+
+    # read the image and display it
+    
     image = ocrolib.read_image_gray(fname)
-    ocrolib.fcleanup(fname,options.suffix,["cseg","txt","costs","fst","lattice"])
-    assert linerec is not None,"failed to load line recognizer"
 
-    if options.display:
-        clf()
-        gray()
+    if args.show:
+        figure(2); clf()
+        figure(1); clf(); subplot(311)
         imshow(image)
-        ginput(1,timeout=1)
+        ginput(1,0.1)
 
-    try:
-        linerec.recognize(image)
-    except ocrolib.RecognitionError,e:
-        print fname,"*** %s ***"%e
-        return
-    except:
-        traceback.print_exc()
-        if not options.cont: die("internal error %s"%(linerec,))
-        return
+    # generate character candidates
 
-    s = linerec.bestpath()
+    rseg = segmenter.charseg(image)
+    rseg = morph.renumber_by_xcenter(rseg)
+    rsegs = linerec.extract_rsegs(rseg)
 
-    if s is None:
-        print fname,": no output lattice"
+    if args.show:
+        figure(1); subplot(312)
+        morph.showlabels(rseg)
+        ginput(1,0.1)
 
-    rseg = linerec.rseg
+    # classify each character
 
-    tlattice_file = ocrolib.fvariant(fname,"lattice",options.suffix)
-    if os.path.exists(tlattice_file) and not options.overwrite:
-        die("%s: %s",tlattice_file,"already exists")
-    with open(tlattice_file,"w") as stream:
-        linerec.saveLattice(stream)
+    recognized = [r.replace(out=loutputs(r.img)) for r in rsegs]
 
-    rseg_file = ocrolib.fvariant(fname,"rseg",options.suffix)
-    if os.path.exists(rseg_file) and not options.overwrite:
-        die("%s: %s",rseg_file,"already exists")
-    ocrolib.write_line_segmentation(rseg_file,rseg)
+    # compute whitespace probabilities
+    
+    wmodel.setLine(invert_image(image))
+    recognized = [r.replace(sp=wmodel.classifySpace(r.bbox[1].stop)) for r in recognized]
 
-    print fname,":",repr(s)
+    if args.show:
+        figure(2)
+        labels = [(r.out[0][0] if r.out and r.out[0][1]<1 else "_") for r in recognized]
+        ocrolib.showgrid([r.img for r in recognized][:60],cols=20,xlabels=labels)
+        
+    # make sure the resulting graph is connected
 
-    if s is not None:
-        raw_file = ocrolib.fvariant(fname,"txt","raw")
-        if os.path.exists(raw_file) and not options.overwrite:
-            die("%s: %s",raw_file,"already exists")
-        with codecs.open(raw_file,"w",encoding="utf8") as stream:
-            stream.write(s)
+    recognized = make_connected(recognized)
 
-if options.display or options.Display:
-    options.parallel = 0
+    # output the best path without a language model for debugging
 
-if options.parallel<2:
-    for arg in args: extract(arg)
+    labels,costs,trans = linerec.bestpath(recognized,noreject=0)
+
+    print "%s\t%s"%(fname,"".join(labels))
+
+    # write the lattice and the raw segmentation
+    
+    with open(ocrolib.fvariant(fname,"lattice"),"w") as stream:
+        linerec.write_lattice(stream,recognized)
+
+    ocrolib.write_line_segmentation(ocrolib.fvariant(fname,"rseg"),rseg)
+    
+    if args.show:
+        ginput(1,args.delay)
+
+###
+### top level: either run sequentially or in parallel under multiprocessing
+###
+
+if args.show:
+    args.parallel = 0
+if args.parallel<2:
+    for fname in args.files:
+        process1(fname)
 else:
-    pool = Pool(processes=options.parallel)
+    pool = Pool(processes=args.parallel)
     result = []
-    for r in pool.imap_unordered(extract,args):
+    for r in pool.imap_unordered(process1,args.files):
         result.append(r)
         if len(result)%100==0: print "==========",len(result),len(args),"=========="

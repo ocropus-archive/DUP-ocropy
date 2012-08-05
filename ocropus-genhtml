@@ -12,8 +12,6 @@ from ocrolib import number_of_processors,die
 from ocrolib.grouper import Grouper
 from scipy.misc import imsave
 
-from multiprocessing import Pool
-
 signal.signal(signal.SIGINT,lambda *args:sys.exit(1))
 
 # these options control alignment

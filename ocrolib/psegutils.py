@@ -14,6 +14,28 @@ def B(a):
 class record:
     def __init__(self,**kw): self.__dict__.update(kw)
 
+def blackout_images(image,ticlass):
+    """Takes a page image and a ticlass text/image classification image and replaces
+    all regions tagged as 'image' with rectangles in the page image.  The page image
+    is modified in place.  All images are iulib arrays."""
+    rgb = ocropy.intarray()
+    ticlass.textImageProbabilities(rgb,image)
+    r = ocropy.bytearray()
+    g = ocropy.bytearray()
+    b = ocropy.bytearray()
+    ocropy.unpack_rgb(r,g,b,rgb)
+    components = ocropy.intarray()
+    components.copy(g)
+    n = ocropy.label_components(components)
+    print "[note] number of image regions",n
+    tirects = ocropy.rectarray()
+    ocropy.bounding_boxes(tirects,components)
+    for i in range(1,tirects.length()):
+        r = tirects.at(i)
+        ocropy.fill_rect(image,r,0)
+        r.pad_by(-5,-5)
+        ocropy.fill_rect(image,r,255)
+        
 def binary_objects(binary):
     labels,n = morph.label(binary)
     objects = morph.find_objects(labels)

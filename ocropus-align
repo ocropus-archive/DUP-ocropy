@@ -12,6 +12,7 @@ from ocrolib import ngraphs as ng
 from ocrolib.lattice import Lattice
 
 class Path:
+    """A typical state in a dynamic programming problem."""
     def __init__(self,cost=0.0,state=-1,pos=-1,sequence=[],path=[]):
         self.cost = cost
         self.state = state # current state in lattice
@@ -26,6 +27,7 @@ class Path:
         return cmp((self.cost,self.state,self.path),(other.cost,other.state,other.path))
 
 def expand(state,gt,mismatch_cost=50,ins_cost=50,verbose=0):
+    """Expand the state by another step."""
     result = []
     edges = lattice.edges[state.state]
     rest = gt[state.pos:]
@@ -69,6 +71,8 @@ def eliminate_duplicates_and_sort(paths):
     return sorted(result.values())
 
 def search(lattice,gt,accept=None,verbose=0,Verbose=0,beam=100,**kw):
+    """Search the lattice for the best path corresponding to the
+    ground truth, using a dynamic programming algorithm."""
     global table
     initial = Path(cost=0.0,state=lattice.startState(),pos=0)
     nstates = lattice.lastState()+1

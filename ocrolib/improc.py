@@ -13,27 +13,33 @@ from scipy.ndimage import measurements
 from pylab import *
 from common import *
 import common
+#from common import method,deprecated
 import morph
 from numpy import array
+
+def deprecated(f):
+    return lambda x: x
+
+################################################################
+### helper functions
+################################################################
+
+def shaped(n):
+    if type(n)==int:
+        return (n,n)
+    elif type(n)==tuple:
+        assert type(n[0])==int and type(n[1])==int and len(n)==2
+        return n
+    else:
+        assert False,"%s: not a pair of integers or an integer"
 
 def norm_max(v):
     return v/amax(v)
 
-def cut(image,box,margin=0,bg=0,dtype=None):
-    """Cuts out subimages with margins and background.  The box
-    is given as (row0,column0,row1,column1).  This uses
-    sl.cut (but with different conventions for the box)."""
-    (r0,c0,r1,c1) = box
-    return sl.cut(image,sl.box(r0,r1,c0,c1),margin=margin,bg=bg,dtype=dtype)
-
-def cut_inefficient(image,box,margin=0,bg=0,dtype=None):
-    """Cut out a region given by a box (row0,col0,row1,col1),
-    with an optional margin."""
-    (r0,c0,r1,c1) = box
-    r0 -= margin; c0 -= margin; r1 += margin; c1 += margin
-    if dtype is None: dtype = image.dtype
-    result = interpolation.shift(image,(-r0,-c0),output=dtype,order=0,cval=bg)
-    return result[:(r1-r0),:(c1-c0)]
+################################################################
+### various functions for cutting out parts of images, padding
+### them, etc.
+################################################################
 
 def pad_to(image,w,h):
     """Symmetrically pad the image to the given width and height."""
@@ -58,6 +64,59 @@ def pad_by(image,r,dtype=None):
     result[r:(w+r),r:(h+r)] = image
     return result
 
+def extract_centered(image,shape,center):
+    """Extracts a patch of size `shape` centered on `center`."""
+    center = array(center)-array(shape)/2.0
+    return interpolation.affine_transform(1.0*image,diag([1,1]),offset=center,
+                                          output_shape=shape,order=1)
+
+def extract_centered_scaled(image,shape,center,scale):
+    """Extracts a patch of size `shape` centered on `center`
+    and scaled by `scale`."""
+    scale = 1.0/scale
+    rshape = scale*array(shape)
+    center = array(center)-rshape/2.0
+    result = interpolation.affine_transform(1.0*image,diag([scale,scale]),offset=center,
+                                            output_shape=shape,order=1)
+    return result
+
+def extract_centered_scaled_barred(image,shape,center,scale,bar=None):
+    """Extracts a patch of size `shape` centered on `center`
+    and scaled by `scale`. Optionally adds a "bar" to the left side
+    of the image, usually used to indicate the baseline and x-line
+    of a text line."""
+    scale = 1.0/scale
+    rshape = scale*array(shape)
+    center = array(center)-rshape/2.0
+    result = interpolation.affine_transform(1.0*image,diag([scale,scale]),offset=center,
+                                            output_shape=shape,order=1)
+    if bar is not None:
+        bar = array(bar,'f')
+        bar -= center[0]
+        bar /= scale
+        result[int(bar[0]):int(bar[1]),0] = amax(result)
+
+    return result
+
+@deprecated
+def cut(image,box,margin=0,bg=0,dtype=None):
+    """Cuts out subimages with margins and background.  The box
+    is given as (row0,column0,row1,column1).  This uses
+    sl.cut (but with different conventions for the box)."""
+    (r0,c0,r1,c1) = box
+    return sl.cut(image,sl.box(r0,r1,c0,c1),margin=margin,bg=bg,dtype=dtype)
+
+@deprecated
+def cut_inefficient(image,box,margin=0,bg=0,dtype=None):
+    """Cut out a region given by a box (row0,col0,row1,col1),
+    with an optional margin."""
+    (r0,c0,r1,c1) = box
+    r0 -= margin; c0 -= margin; r1 += margin; c1 += margin
+    if dtype is None: dtype = image.dtype
+    result = interpolation.shift(image,(-r0,-c0),output=dtype,order=0,cval=bg)
+    return result[:(r1-r0),:(c1-c0)]
+
+@deprecated
 def pad_bin(char,r=10):
     """Pad to the next bin size."""
     w,h = char.shape
@@ -65,6 +124,7 @@ def pad_bin(char,r=10):
     h = r*int((h+r-1)/r)
     return pad_to(char,w,h)
 
+@deprecated
 def square(image):
     """Make a numpy array square."""
     w,h = image.shape
@@ -75,12 +135,14 @@ def square(image):
     output[dx:dx+w,dy:dy+h] = image
     return output
 
+@deprecated
 def stdsize(image,r=30):
     """Make a numpy array a standard square size."""
     image = square(image)
     s,_ = image.shape
     return interpolation.zoom(image,(r+0.5)/float(s))
 
+@deprecated
 def center_maxsize(image,r):
     """Center the image and fit it into an r x r output image.
     If the input is larger in any dimension than r, it is
@@ -102,28 +164,6 @@ def center_maxsize(image,r):
     output[dx:dx+w,dy:dy+h] = image
     return output
 
-def blackout_images(image,ticlass):
-    """Takes a page image and a ticlass text/image classification image and replaces
-    all regions tagged as 'image' with rectangles in the page image.  The page image
-    is modified in place.  All images are iulib arrays."""
-    rgb = ocropy.intarray()
-    ticlass.textImageProbabilities(rgb,image)
-    r = ocropy.bytearray()
-    g = ocropy.bytearray()
-    b = ocropy.bytearray()
-    ocropy.unpack_rgb(r,g,b,rgb)
-    components = ocropy.intarray()
-    components.copy(g)
-    n = ocropy.label_components(components)
-    print "[note] number of image regions",n
-    tirects = ocropy.rectarray()
-    ocropy.bounding_boxes(tirects,components)
-    for i in range(1,tirects.length()):
-        r = tirects.at(i)
-        ocropy.fill_rect(image,r,0)
-        r.pad_by(-5,-5)
-        ocropy.fill_rect(image,r,255)
-        
 ################################################################
 ### simple shape comparisons
 ################################################################
@@ -243,3 +283,8 @@ def classifier_normalize(image,size=32):
     cimage = csnormalize(cimage)
     assert amax(cimage)<1.1
     return cimage
+
+def line_normalize(image,size=32,scale=1.0,bar=None):
+    centroid = measurements.center_of_mass(image)
+    return extract_centered_scaled_barred(image,shaped(size),centroid,scale,bar=bar)
+

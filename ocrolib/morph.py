@@ -94,7 +94,7 @@ def rg_closing(image,size,origin=0):
     return r_erosion(image,size,origin=0)
 
 def showlabels(x,n=7):
-    pylab.imshow(where(x>0,x%7+1,0),cmap=pylab.cm.gist_stern)
+    pylab.imshow(where(x>0,x%n+1,0),cmap=pylab.cm.gist_stern)
 
 def spread_labels(labels,maxdist=9999999):
     """Spread the given labels to the background"""
@@ -217,3 +217,10 @@ def renumber_by_xcenter(seg):
     for i,j in enumerate(order): segmap[j] = i
     return segmap[seg]
 
+def ordered_by_xcenter(seg):
+    objects = [(slice(0,0),slice(0,0))]+find_objects(seg)
+    def xc(o): return mean((o[1].start,o[1].stop))
+    xs = array([xc(o) for o in objects])
+    for i in range(1,len(xs)):
+        if xs[i-1]>xs[i]: return 0
+    return 1
