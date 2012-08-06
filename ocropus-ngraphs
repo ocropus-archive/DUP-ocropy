@@ -240,6 +240,7 @@ def compute_cseg(path,rseg):
     return mapping[rseg],gt
 
 for fname in fnames:
+    print fname,"=NGRAPHS=",
     lattice = Lattice(maxws=args.maxws,maxcost=args.maxcost,mismatch=args.mismatch)
     lattice.readLattice(fname)
 
@@ -251,7 +252,7 @@ for fname in fnames:
     text = result[0].path[ngraphs.N:]
 
     # output the textual result
-    print "%s\t%8.2f\t%s"%(fname,result[0].cost,text)
+    print "%5.2f\t%s"%(result[0].cost,text)
     fout = ocrolib.fvariant(fname,"txt")
     ocrolib.write_text(fout,text)
 
