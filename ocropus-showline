@@ -1,0 +1,78 @@
+#!/usr/bin/python
+
+# make the clustering class-specific
+
+import sys,os,re,glob,math,glob,signal,traceback,codecs
+import matplotlib,tables
+if "DISPLAY" not in os.environ: matplotlib.use("AGG")
+else: matplotlib.use("GTK")
+from scipy.ndimage import interpolation
+from pylab import *
+from optparse import OptionParser
+from multiprocessing import Pool
+import ocrolib
+from ocrolib import number_of_processors,die
+from ocrolib.ligatures import lig
+from ocrolib import lineseg,morph,linerec,improc,sl
+signal.signal(signal.SIGINT,lambda *args:sys.exit(1))
+from ocrolib import fvariant
+from os.path import exists
+
+import argparse
+parser = argparse.ArgumentParser(description = "Displays all the files associated with a text line.")
+parser.add_argument('-n','--nlabels',default=7,type=int,help="number of colors for display")
+parser.add_argument('-P','--cparameter',default=[],nargs='*',help="cmodel parameter (repeat if desired)")
+parser.add_argument("image",default=None,nargs=1,help="input lines")
+args = parser.parse_args()
+arg = args.image[0]
+
+print "file:",arg
+
+
+image,cseg,rseg,gt,aligned = [None]*5
+
+def evariant(*args):
+    return os.path.exists(fvariant(*args)) or None
+
+image = evariant(arg,"png") and ocrolib.read_image_gray(fvariant(arg,"png"))
+cseg = evariant(arg,"cseg") and ocrolib.read_line_segmentation(fvariant(arg,"cseg"))
+rseg = evariant(arg,"rseg") and ocrolib.read_line_segmentation(fvariant(arg,"rseg"))
+gt = evariant(arg,"txt","gt") and ocrolib.read_text(fvariant(arg,"txt","gt"))
+aligned = evariant(arg,"txt") and ocrolib.read_text(fvariant(arg,"aligned"))
+lattice = evariant(arg,"lattice") and linerec.read_lattice(fvariant(arg,"lattice"))
+
+csegs = linerec.extract_csegs(cseg,aligned)
+
+clf()
+gray()
+
+subplot(411) 
+if image is not None: 
+    imshow(image)
+subplot(412)
+if rseg is not None: 
+    morph.showlabels(rseg,args.nlabels)
+subplot(413)
+if cseg is not None: 
+    morph.showlabels(cseg,args.nlabels)
+subplot(414)
+if image is not None:
+    imshow(image)
+    for s in csegs:
+        r = s.bbox
+        if r is None: continue
+        p = matplotlib.patches.Rectangle((r[1].start-1,r[0].start),edgecolor='r',fill=0,width=sl.dim1(r),height=sl.dim0(r))
+        gca().add_patch(p)
+        gca().annotate(s.out[0][0],xy=(r[1].start-1,r[0].start),color='g')
+
+if 0:
+    if lattice is not None:
+        for s in lattice:
+            r = s.bbox
+            if r is None: continue
+            r = matplotlib.patches.Rectangle((r[1].start-1,r[0].start),edgecolor='r',fill=0,width=sl.dim1(r),height=sl.dim0(r))
+
+print "gt:     ",gt
+print "aligned:",aligned
+print lattice[0]
+show()

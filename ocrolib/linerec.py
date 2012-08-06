@@ -178,11 +178,14 @@ def extract_rsegs(segmentation,min_aspect=0.1,max_aspect=1.8,maxrange=3,maxcomp=
     result = [g.replace(img=extract_char(segmentation,g)) for g in ggroups]
     return result
 
-def extract_csegs(segmentation):
+def extract_csegs(segmentation,aligned=None):
     """Given a segmentation, extracts a list of segment objects."""
+    if aligned is None: aligned = []
+    def get(c): return aligned[c] if c<len(aligned) else "#"
     boxes = morph.find_objects(segmentation)
     n = len(boxes)
-    result = [Segment(first=i+1,last=i+1,bbox=box,img=1*(segmentation[:,box[1]]==i+1)) \
+    result = [Segment(first=i+1,last=i+1,bbox=box,out=[(get(i),0.0)],
+                      img=1*(segmentation[:,box[1]]==i+1)) \
                       for i,box in enumerate(boxes) if box is not None]
     return result
 
@@ -271,11 +274,29 @@ def clean_line_image(image,latin=1):
         image = 1-image
     return image
 
+def read_lattice(fname):
+    segments = []
+    with open(fname) as stream:
+        for line in stream.readlines():
+            if line[0]=="#": continue
+            f = line.split()
+            if f[0]=="segment":
+                first,last = [int(x) for x in f[2].split(":")]
+                b = [int(x) for x in f[3].split(":")]
+                bbox = (slice(b[0],b[1]),slice(b[2],b[3]))
+                sp = [float(x) for x in f[4:6]]
+                segments.append(Segment(first=first,last=last,bbox=bbox,sp=sp,out=[]))
+            elif f[0]=="chr":
+                segments[-1].out.append((float(f[2]),f[3]))
+            else:
+                raise Exception("unknown start of line: "+line)
+    return segments
+
 def write_lattice(stream,segments):
     segments = sorted(segments,key=lambda s:(s.first,s.last))
     for i,s in enumerate(segments):
         b = s.bbox
-        b = (b[1].start,b[0].start,b[1].stop,b[0].stop)
+        b = (b[0].start,b[0].stop,b[1].start,b[1].stop)
         stream.write("segment %d\t%d:%d\t%d:%d:%d:%d\t%.2f\t%.2f\n"%((i,s.first,s.last)+b+tuple(s.sp)))
         for j,(cls,cost) in enumerate(s.out):
             stream.write("chr %d\t%d\t%.4f\t%s\n"%(i,j,cost,cls))
@@ -306,7 +327,7 @@ def shortest_path(transitions,start=0,end=None,noreject=1):
                 labels[j] = label
                 heapq.heappush(queue,(costs[j],j))
     if costs[end]==inf:
-        return None
+        return None,None,None
     rcosts = []
     rstates = []
     result = []
@@ -331,6 +352,7 @@ def bestpath(segs,**kw):
             transitions[s.first-1].append((cost,s.last,cls+sp))
     #for k,v in enumerate(transitions): print k,v
     labels,costs,trans = shortest_path(transitions,0,n-1,**kw)
+    if labels is None: return None,None,None
     trans = [(i+1,j) for i,j in trans]
     return labels,costs,trans
 

@@ -9,6 +9,7 @@ from collections import Counter,defaultdict
 import glob,re,heapq,os,cPickle
 import ocrolib
 from ocrolib import ngraphs as ng
+from ocrolib import fvariant
 from ocrolib.lattice import Lattice
 
 class Path:
@@ -129,11 +130,12 @@ for pattern in args.files:
 assert len(fnames)>0,"must provide some filename arguments"
 
 for fname in fnames:
+    print fname,"=ALIGNED=",
     base,_ = os.path.splitext(fname)
-    if not os.path.exists(base+".gt.txt"):
-        print fname,": no ground truth, skipping"
+    if not os.path.exists(fvariant(base,"txt","gt")):
+        print "ERROR","no ground truth, skipping"
         continue
-    with open(base+".gt.txt") as stream:
+    with open(fvariant(base,"txt","gt")) as stream:
         gt = stream.read()
         if gt[-1]=="\n": gt = gt[:-1]
         gt = re.sub(r'\s+$','',gt)
@@ -153,13 +155,14 @@ for fname in fnames:
             assert e.seg[1]==0
         else:
             for s in range(e.seg[0],e.seg[1]+1):
+                if e.seg[0]==0: continue
                 mapping[s] = len(gt)
-    if os.path.exists(base+".rseg.png"):
-        seg = ocrolib.read_line_segmentation(base+".rseg.png")
+    if os.path.exists(fvariant(fname,"rseg")):
+        seg = ocrolib.read_line_segmentation(fvariant(fname,"rseg"))
         seg = mapping[seg]
-        ocrolib.write_line_segmentation(base+".cseg.png",seg)
+        ocrolib.write_line_segmentation(fvariant(fname,"cseg"),seg)
     else:
-        print base+".rseg.png",": not found"
+        print "ERROR",fvariant(base,"rseg"),": not found"
     gt = ocrolib.gt_implode(gt)
-    ocrolib.write_text(base+".txt",gt)
-    print "%s\t%.1f\t%s"%(fname,path.cost,gt)
+    ocrolib.write_text(fvariant(fname,"aligned"),gt)
+    print "%.1f\t%s"%(path.cost,gt)

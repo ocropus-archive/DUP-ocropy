@@ -50,13 +50,20 @@ def deprecated(f):
 ### Text I/O
 ################################################################
 
-def read_text(fname):
-    with open(fname) as stream:
-        return stream.read()
+import codecs
 
-def write_text(fname,text):
-    with open(fname,"w") as stream:
+def read_text(fname,nonl=1):
+    with codecs.open(fname,"r","utf-8") as stream:
+        result = stream.read()
+    if nonl and len(result)>0 and result[-1]=='\n':
+        result = result[:-1]
+    return result
+
+def write_text(fname,text,nonl=0):
+    with codecs.open(fname,"w","utf-8") as stream:
         stream.write(text)
+        if not nonl and text[-1]!='\n':
+            stream.write('\n')
 
 ################################################################
 ### Image I/O
@@ -210,6 +217,8 @@ def write_line_segmentation(fname,image):
     encode the segmentation of a text line."""
     assert image.ndim==2
     assert image.dtype in [dtype('int32'),dtype('int64')]
+    assert amin(image)==0
+    assert amax(image)<16000
     a = int2rgb(make_seg_white(image))
     im = array2pil(a)
     im.save(fname)

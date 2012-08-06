@@ -16,6 +16,9 @@ from ocrolib.ligatures import lig
 from ocrolib import lineseg,morph,linerec,improc
 import cPickle
 
+import warnings,numpy
+warnings.simplefilter('ignore',numpy.RankWarning) # disable rank warnings from polyfit
+
 signal.signal(signal.SIGINT,lambda *args:sys.exit(1))
 
 # these options control alignment
@@ -87,6 +90,7 @@ if args.extract is not None:
     try:
         with Hdf5Writer(args.extract) as h5:
             for fname in args.files:
+                print fname,"=EXTRACTED=",
                 gname = ocrolib.fvariant(fname,"aligned")
                 if not os.path.exists(gname): gname = ocrolib.fvariant(fname,"txt","gt")
                 if not os.path.exists(gname): continue
@@ -95,10 +99,17 @@ if args.extract is not None:
                 rname = ocrolib.fvariant(fname,"rseg")
                 if not os.path.exists(rname): continue
                 gt = ocrolib.gt_explode(ocrolib.read_text(gname))
+                if len(gt)==0: 
+                    print "ERROR","empty aligned text"
+                    continue
                 if gt[-1]=="\n": gt = gt[:-1]
                 cseg = ocrolib.read_line_segmentation(cname)
                 rseg = ocrolib.read_line_segmentation(rname)
                 csegs = linerec.extract_csegs(cseg)
+                maxseg = amax([c.last for c in csegs])
+                if maxseg!=len(gt):
+                    print "ERROR","maxseg and aligned lengths differ",len(gt),maxseg
+                    continue
                 csegs = [c.replace(out=[(gt[c.first-1],0.0)]) for i,c in enumerate(csegs)]
                 rsegs = linerec.extract_rsegs(rseg)
                 misseg = linerec.extract_non_csegs(rsegs,csegs)
@@ -109,7 +120,7 @@ if args.extract is not None:
                     figure(2); ocrolib.showgrid([m.img for m in misseg[:100]],xlabels=[m.out[0][0] for m in misseg]) 
                     ginput(1,args.delay)
                 # TODO optionally double-check against model here
-                print fname,len(gt),amax(cseg),gt
+                print ocrolib.gt_implode(gt)
                 for c in csegs+misseg:
                     image = c.img
                     image = improc.classifier_normalize(image)
@@ -139,7 +150,12 @@ def invert_image(image):
 def loutputs(image,floor=1e-6,keep_rejects=0):
     """Compute the negative log probability (cost) for classifications
     of the character image."""
-    image = improc.classifier_normalize(image)
+    outputs = []
+    try:
+        image = improc.classifier_normalize(image)
+    except:
+        # FIXME do something more intelligent here, or just have it not fail
+        return [("~",30)]
     outputs = cmodel.coutputs(image)
     outputs = [(cls,-log(max(p,floor))) for cls,p in outputs if "~" not in cls or keep_rejects]
     if len(outputs)<1: outputs = [("~",30)]
@@ -150,6 +166,7 @@ def make_connected(rsegs,insert=[("~",30.0)]):
     reject classes for any segments that are not present.
     This reconnects the graph in case one of the previous
     steps has rejected some segment entirely."""
+    if len(rsegs)<1: return
     transitions = [(r.first,r.last) for r in rsegs]
     lo = amin([r.first for r in rsegs])
     hi = amax([r.first for r in rsegs])
@@ -163,61 +180,77 @@ def make_connected(rsegs,insert=[("~",30.0)]):
 if args.show: ion(); gray()
 
 def process1(fname):
+    try:
+        print fname,"=RAW=",
 
-    # read the image and display it
-    
-    image = ocrolib.read_image_gray(fname)
-
-    if args.show:
-        figure(2); clf()
-        figure(1); clf(); subplot(311)
-        imshow(image)
-        ginput(1,0.1)
-
-    # generate character candidates
-
-    rseg = segmenter.charseg(image)
-    rseg = morph.renumber_by_xcenter(rseg)
-    rsegs = linerec.extract_rsegs(rseg)
-
-    if args.show:
-        figure(1); subplot(312)
-        morph.showlabels(rseg)
-        ginput(1,0.1)
-
-    # classify each character
-
-    recognized = [r.replace(out=loutputs(r.img)) for r in rsegs]
-
-    # compute whitespace probabilities
-    
-    wmodel.setLine(invert_image(image))
-    recognized = [r.replace(sp=wmodel.classifySpace(r.bbox[1].stop)) for r in recognized]
-
-    if args.show:
-        figure(2)
-        labels = [(r.out[0][0] if r.out and r.out[0][1]<1 else "_") for r in recognized]
-        ocrolib.showgrid([r.img for r in recognized][:60],cols=20,xlabels=labels)
+        # read the image and display it
         
-    # make sure the resulting graph is connected
+        image = ocrolib.read_image_gray(fname)
 
-    recognized = make_connected(recognized)
+        if args.show:
+            figure(2); clf()
+            figure(1); clf(); subplot(311)
+            imshow(image)
+            ginput(1,0.1)
 
-    # output the best path without a language model for debugging
+        # generate character candidates
 
-    labels,costs,trans = linerec.bestpath(recognized,noreject=0)
+        rseg = segmenter.charseg(image)
+        rseg = morph.renumber_by_xcenter(rseg)
+        rsegs = linerec.extract_rsegs(rseg)
+        if len(rsegs)<1:
+            print "NO RAW SEGMENTS"
+            return
 
-    print "%s\t%s"%(fname,"".join(labels))
+        if args.show:
+            figure(1); subplot(312)
+            morph.showlabels(rseg)
+            ginput(1,0.1)
 
-    # write the lattice and the raw segmentation
-    
-    with open(ocrolib.fvariant(fname,"lattice"),"w") as stream:
-        linerec.write_lattice(stream,recognized)
+        # classify each character
 
-    ocrolib.write_line_segmentation(ocrolib.fvariant(fname,"rseg"),rseg)
-    
-    if args.show:
-        ginput(1,args.delay)
+        recognized = [r.replace(out=loutputs(r.img)) for r in rsegs]
+
+        # compute whitespace probabilities
+        
+        wmodel.setLine(invert_image(image))
+        recognized = [r.replace(sp=wmodel.classifySpace(r.bbox[1].stop)) for r in recognized]
+
+        if args.show:
+            figure(2)
+            labels = [(r.out[0][0] if r.out and r.out[0][1]<1 else "_") for r in recognized]
+            ocrolib.showgrid([r.img for r in recognized][:60],cols=20,xlabels=labels)
+            
+        # make sure the resulting graph is connected
+
+        recognized = make_connected(recognized)
+
+        # output the best path without a language model for debugging
+
+        labels,costs,trans = linerec.bestpath(recognized,noreject=0)
+
+        if labels is None:
+            print "FAILED (no bestpath)"
+            return
+
+        print "".join(labels)
+
+        # write the lattice and the raw segmentation
+        
+        with open(ocrolib.fvariant(fname,"lattice"),"w") as stream:
+            linerec.write_lattice(stream,recognized)
+
+        ocrolib.write_line_segmentation(ocrolib.fvariant(fname,"rseg"),rseg)
+        
+        if args.show:
+            ginput(1,args.delay)
+    except ocrolib.RecognitionError,e:
+        print fname,":",e
+        return
+    except:
+        print "ERROR IN",fname
+        traceback.print_exc()
+        return
 
 ###
 ### top level: either run sequentially or in parallel under multiprocessing

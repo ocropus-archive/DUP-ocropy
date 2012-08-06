@@ -77,6 +77,11 @@ def xoverlaps(u,v):
 def yoverlaps(u,v):
     return u[0].stop>=v[0].start and v[0].stop>=u[0].start
     
+def center1(s):
+    return mean([s[1].stop,s[1].start])
+def center0(s):
+    return mean([s[0].stop,s[0].start])
+
 def xcenter(s):
     return mean([s[1].stop,s[1].start])
 def ycenter(s):
