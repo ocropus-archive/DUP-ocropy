@@ -38,6 +38,7 @@ parser.add_argument("--extract",default=None,help="extract characters for cmodel
 parser.add_argument("--noglob",action="store_true",help="don't perform expansion on the arguments")
 parser.add_argument('-q','--quiet',action="store_true",help="don't output progress info")
 parser.add_argument('-S','--sizemode',default="perline",help="how to resize characters for extraction")
+parser.add_argument('--hdfmode',default="a",help="how the HDF5 file is opened")
 
 # parser.add_argument("-r","--rejects",help="generate rejects in lattices",action="store_true")
 # parser.add_argument("-R","--maxrange",help="max range for grouping",type=int,default=4)
@@ -62,10 +63,11 @@ class Hdf5Writer:
         from tables import Float32Atom,Int64Atom,StringAtom,Filters
         self.size = size
         h5 = tables.openFile(fname,mode)
-        h5.createEArray(h5.root,'patches',Float32Atom(),shape=(0,)+size,filters=Filters(9))
-        h5.createEArray(h5.root,'classes',Int64Atom(),shape=(0,),filters=tables.Filters(9))
-        #h5.createVLArray(h5.root,'files',StringAtom(120),filters=Filters(9))
-        #h5.createEArray(h5.root,'bboxes',Float32Atom(shape=(4,)),shape=(0,),filters=Filters(9))
+        if "patches" not in dir(h5.root):
+            h5.createEArray(h5.root,'patches',Float32Atom(),shape=(0,)+size,filters=Filters(9))
+            h5.createEArray(h5.root,'classes',Int64Atom(),shape=(0,),filters=tables.Filters(9))
+            #h5.createVLArray(h5.root,'files',StringAtom(120),filters=Filters(9))
+            #h5.createEArray(h5.root,'bboxes',Float32Atom(shape=(4,)),shape=(0,),filters=Filters(9))
         self.h5 = h5
     def __enter__(self):
         return self
@@ -84,20 +86,25 @@ if args.extract is not None:
     target_xheight = 16
     if args.quiet: print "extracting..."
     try:
-        with Hdf5Writer(args.extract) as h5:
+        with Hdf5Writer(args.extract,mode=args.hdfmode) as h5:
             for fname in args.files:
-                if not args.quiet: print fname,"=EXTRACTED=",
                 gname = ocrolib.fvariant(fname,"aligned")
-                if not os.path.exists(gname): gname = ocrolib.fvariant(fname,"txt","gt")
-                if not os.path.exists(gname): continue
+                if not os.path.exists(gname): 
+                    gname = ocrolib.fvariant(fname,"txt","gt")
+                if not os.path.exists(gname): 
+                    print fname,"=EXTRACTED=","*** NO ALIGNED TEXT ***",gname
+                    continue
                 cname = ocrolib.fvariant(fname,"cseg")
-                if not os.path.exists(cname): continue
+                if not os.path.exists(cname): 
+                    print fname,"=EXTRACTED=","*** NO CSEG ***",cname
+                    continue
                 rname = ocrolib.fvariant(fname,"rseg")
-                if not os.path.exists(rname): continue
+                if not os.path.exists(rname): 
+                    print fname,"=EXTRACTED=","*** NO RSEG ***",rname
+                    continue
                 gt = ocrolib.gt_explode(ocrolib.read_text(gname))
                 if len(gt)==0: 
-                    if args.quiet: print fname,"=EXTRACTED=",
-                    print "ERROR","empty aligned text"
+                    print fname,"=EXTRACTED=","*** EMPTY GT ***"
                     continue
                 if gt[-1]=="\n": gt = gt[:-1]
                 cseg = ocrolib.read_line_segmentation(cname)
@@ -105,8 +112,7 @@ if args.extract is not None:
                 csegs = linerec.extract_csegs(cseg)
                 maxseg = amax([c.last for c in csegs])
                 if maxseg!=len(gt):
-                    if args.quiet: print fname,"=EXTRACTED=",
-                    print "ERROR","maxseg and aligned lengths differ",len(gt),maxseg
+                    print fname,"=EXTRACTED=","*** maxseg AND aligned lengths DIFFER***",len(gt),maxseg
                     continue
                 csegs = [c.replace(out=[(gt[c.first-1],0.0)]) for i,c in enumerate(csegs)]
                 csegs = [c for c in csegs if c.out[0][0]!="~"]
@@ -119,7 +125,8 @@ if args.extract is not None:
                     figure(2); ocrolib.showgrid([m.img for m in misseg[:100]],xlabels=[m.out[0][0] for m in misseg]) 
                     ginput(1,args.delay)
                 # TODO optionally double-check against model here
-                if not args.quiet: print ocrolib.gt_implode(gt)
+                if not args.quiet: 
+                    print fname,"=EXTRACTED=",ocrolib.gt_implode(gt)
                 if args.sizemode=="perline":
                     limage = ocrolib.read_image_gray(ocrolib.fvariant(fname,"png"))
                     if len(csegs)<10: 
@@ -129,7 +136,7 @@ if args.extract is not None:
                         print "too small (perline)"
                         continue
                     xheight,baseline = lineproc.estimate_xheight(1-limage)
-                    if xheight<8 or xheight>25:
+                    if xheight<8 or xheight>40: # TODO make these arguments
                         print "bad xheight:",xheight
                         continue
                 for c in csegs+misseg:
@@ -142,7 +149,8 @@ if args.extract is not None:
                     cls = c.out[0][0]
                     h5.insert(image=image,cls=cls)
     except list:
-        sys.exit(0)
+        traceback.print_exc()
+        sys.exit(1)
     sys.exit(0)
 
 ###

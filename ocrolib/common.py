@@ -592,7 +592,7 @@ def fvariant(fname,kind,gt=None):
         return base+".cseg"+gt+".png"
     # text specifically aligned with cseg (this may be different from gt or txt)
     if kind=="aligned":
-        return base+".aligned"+gt+".txt"
+        return base+gt+".aligned"
     # per character costs
     if kind=="costs":
         return base+gt+".costs"
