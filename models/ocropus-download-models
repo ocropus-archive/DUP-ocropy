@@ -9,7 +9,7 @@ fi
 
 python -c '
 import sys
-sys.path += [".."]
+sys.path = [".."]+sys.path
 from ocrolib import default
 print default.model+".bz2"
 print default.space+".bz2"
