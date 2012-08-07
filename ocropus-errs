@@ -1,0 +1,79 @@
+#!/usr/bin/python
+# -*- coding: utf-8 -*-
+
+import warnings,numpy,argparse,re,sys,os,os.path
+import ocrolib
+
+# disable rank warnings from polyfit
+warnings.simplefilter('ignore',numpy.RankWarning) 
+
+parser = argparse.ArgumentParser(description = """Computes the edit distances between the .txt and the .gt.txt files.""")
+parser.add_argument("files",default=[],nargs='*',help="input lines")
+parser.add_argument("-k","--kind",default="exact",help="kind of comparison (exact, nospace, letdig, letters, digits, lnc)")
+parser.add_argument("-e","--erroronly",action="store_true",help="only output an error rate")
+args = parser.parse_args()
+args.files = ocrolib.glob_all(args.files)
+
+def levenshtein(a,b):
+    """Calculates the Levenshtein distance between a and b. 
+    (Clever compact Pythonic implementation from hetland.org)"""
+    n, m = len(a), len(b)
+    if n > m: a,b = b,a; n,m = m,n       
+    current = range(n+1)
+    for i in range(1,m+1):
+        previous,current = current,[i]+[0]*n
+        for j in range(1,n+1):
+            add,delete = previous[j]+1,current[j-1]+1
+            change = previous[j-1]
+            if a[j-1]!=b[i-1]: change = change+1
+            current[j] = min(add, delete, change)
+    return current[n]
+
+def normalize(s):
+    s = re.sub('[_~#]',"''",s)
+    s = re.sub('`',"''",s)
+    s = re.sub('"',"'",s)
+    s = re.sub('[“”]',"''",s)
+    s = re.sub(r'\n','',s)
+    s = re.sub(r'^\s+','',s)
+    s = re.sub(r'\s+$','',s)
+    if args.kind=="exact":
+        return s
+    if args.kind=="nospace":
+        return re.sub(r'\s','',s)
+    if args.kind=="letdic":
+        return re.sub(r'[^A-Za-z0-9]','',s)
+    if args.kind=="letters":
+        return re.sub(r'[^A-Za-z]','',s)
+    if args.kind=="digits":
+        return re.sub(r'[^0-9]','',s)
+    if args.kind=="lnc":
+        s = s.upper()
+        return re.sub(r'[^A-Z]','',s)
+    raise Exception("unknown normalization: "+args.kind)
+
+if not ".gt." in args.files[0]:
+    sys.stderr.write("warning: compare on .gt.txt files, not .txt files\n")
+
+
+errs = 0
+lens = 0
+for fname in args.files:
+    fgt = ocrolib.fvariant(fname,"txt","gt")
+    gt = normalize(ocrolib.read_text(fgt))
+    ftxt = ocrolib.fvariant(fname,"txt","")
+    if os.path.exists(ftxt):
+        txt = normalize(ocrolib.read_text(ftxt))
+    else:
+        txt = ""
+    err = levenshtein(txt,gt)
+    if not args.erroronly:
+        print "%6d\t%6d\t%s"%(err,len(gt),fname)
+    errs += err
+    lens += len(gt)
+
+if not args.erroronly:
+    sys.stderr.write("summary\t%s %s\n"%(errs,lens))
+    sys.stderr.write("rate\t%.3f %%\n"%(errs*100.0/lens))
+else:
+    print errs*1.0/lens

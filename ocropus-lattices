@@ -13,7 +13,7 @@ from multiprocessing import Pool
 import ocrolib
 from ocrolib import number_of_processors,die
 from ocrolib.ligatures import lig
-from ocrolib import lineseg,morph,linerec,improc
+from ocrolib import lineseg,morph,linerec,improc,lineproc
 import cPickle
 
 import warnings,numpy
@@ -31,25 +31,19 @@ parser.add_argument("-x","--exec",dest="execute",help="execute before anything e
 parser.add_argument("-s","--segmenter",help="segmenter",default="lineseg.DPSegmentLine()")
 parser.add_argument("-m","--model",help="model file",default=ocrolib.default.model)
 parser.add_argument("-w","--whitespace",help="space model file",default=ocrolib.default.space)
+parser.add_argument("-Q","--parallel",type=int,default=0,help="number of parallel processes to use")
 parser.add_argument("--show",help="show progress",action="store_true")
 parser.add_argument('--delay',type=float,default=0.1,help='time to wait after displaying results')
 parser.add_argument("--extract",default=None,help="extract characters for cmodel training")
 parser.add_argument("--noglob",action="store_true",help="don't perform expansion on the arguments")
+parser.add_argument('-q','--quiet',action="store_true",help="don't output progress info")
+parser.add_argument('-S','--sizemode',default="perline",help="how to resize characters for extraction")
 
-parser.add_argument("-c","--cont",help="continue even when unexpected errors occur",action="store_true")
-parser.add_argument("-r","--rejects",help="generate rejects in lattices",action="store_true")
-parser.add_argument("-R","--maxrange",help="max range for grouping",type=int,default=4)
-parser.add_argument("-L","--ligatures",help="output ligatures",action="store_true")
-parser.add_argument("-N","--nbest",help="use the nbest results from classifier",type=int,default=3)
-parser.add_argument("-C","--maxcost",help="maximum cost to be considered",type=float,default=10.0)
-parser.add_argument("-S","--suffix",help="suffix for writing rseg/cseg files",default=None)
-parser.add_argument("-O","--overwrite",help="overwrite rseg/cseg files",action="store_true")
-parser.add_argument("-Q","--parallel",type=int,default=0,help="number of parallel processes to use")
-parser.add_argument("-v","--verbose",help="verbose recognition output",action="store_true")
-parser.add_argument("-V","--verbose2",help="extra verbose recognition output",action="store_true")
-parser.add_argument("-Y","--examine",help="examine recognition for these classes",default=None)
-parser.add_argument('-p','--parameter',default=[],nargs='*',help="linerec parameter (repeat if desired)")
-parser.add_argument('-P','--cparameter',default=[],nargs='*',help="cmodel parameter (repeat if desired)")
+# parser.add_argument("-r","--rejects",help="generate rejects in lattices",action="store_true")
+# parser.add_argument("-R","--maxrange",help="max range for grouping",type=int,default=4)
+# parser.add_argument("-L","--ligatures",help="output ligatures",action="store_true")
+# parser.add_argument("-O","--overwrite",help="overwrite rseg/cseg files",action="store_true")
+
 parser.add_argument("files",default=[],nargs='*',help="input lines")
 args = parser.parse_args()
 if not args.noglob: args.files = ocrolib.glob_all(args.files)
@@ -87,10 +81,12 @@ class Hdf5Writer:
         #h5.root.bboxes.append([array(bbox,'f')])
 
 if args.extract is not None:
+    target_xheight = 16
+    if args.quiet: print "extracting..."
     try:
         with Hdf5Writer(args.extract) as h5:
             for fname in args.files:
-                print fname,"=EXTRACTED=",
+                if not args.quiet: print fname,"=EXTRACTED=",
                 gname = ocrolib.fvariant(fname,"aligned")
                 if not os.path.exists(gname): gname = ocrolib.fvariant(fname,"txt","gt")
                 if not os.path.exists(gname): continue
@@ -100,6 +96,7 @@ if args.extract is not None:
                 if not os.path.exists(rname): continue
                 gt = ocrolib.gt_explode(ocrolib.read_text(gname))
                 if len(gt)==0: 
+                    if args.quiet: print fname,"=EXTRACTED=",
                     print "ERROR","empty aligned text"
                     continue
                 if gt[-1]=="\n": gt = gt[:-1]
@@ -108,30 +105,50 @@ if args.extract is not None:
                 csegs = linerec.extract_csegs(cseg)
                 maxseg = amax([c.last for c in csegs])
                 if maxseg!=len(gt):
+                    if args.quiet: print fname,"=EXTRACTED=",
                     print "ERROR","maxseg and aligned lengths differ",len(gt),maxseg
                     continue
                 csegs = [c.replace(out=[(gt[c.first-1],0.0)]) for i,c in enumerate(csegs)]
+                csegs = [c for c in csegs if c.out[0][0]!="~"]
                 rsegs = linerec.extract_rsegs(rseg)
                 misseg = linerec.extract_non_csegs(rsegs,csegs)
-                misseg = [c.replace(out=[("~",0.0)])]
+                misseg = [c.replace(out=[("~",0.0)]) for c in misseg]
                 if args.show:
                     ion(); gray()
                     figure(1); ocrolib.showgrid([c.img for c in csegs[:100]],xlabels=[c.out[0][0] for c in csegs]) 
                     figure(2); ocrolib.showgrid([m.img for m in misseg[:100]],xlabels=[m.out[0][0] for m in misseg]) 
                     ginput(1,args.delay)
                 # TODO optionally double-check against model here
-                print ocrolib.gt_implode(gt)
+                if not args.quiet: print ocrolib.gt_implode(gt)
+                if args.sizemode=="perline":
+                    limage = ocrolib.read_image_gray(ocrolib.fvariant(fname,"png"))
+                    if len(csegs)<10: 
+                        print "too few segments (perline)"
+                        continue
+                    if limage.shape[1]<100:
+                        print "too small (perline)"
+                        continue
+                    xheight,baseline = lineproc.estimate_xheight(1-limage)
+                    if xheight<8 or xheight>25:
+                        print "bad xheight:",xheight
+                        continue
                 for c in csegs+misseg:
                     image = c.img
-                    image = improc.classifier_normalize(image)
+                    if args.sizemode=="perline":
+                        options = dict(bar=(baseline-xheight,baseline))
+                        image = improc.line_normalize(image,scale=target_xheight*1.0/xheight,**options)
+                    elif args.sizemode=="perchar":
+                        image = improc.classifier_normalize(image)
                     cls = c.out[0][0]
                     h5.insert(image=image,cls=cls)
-    finally:
+    except list:
         sys.exit(0)
+    sys.exit(0)
 
 ###
 ### This is the actual line recognizer
 ###
+
 
 print "loading",cmodel
 cmodel = ocrolib.load_component(cmodel)
@@ -181,7 +198,7 @@ if args.show: ion(); gray()
 
 def process1(fname):
     try:
-        print fname,"=RAW=",
+        if not args.quiet: print fname,"=RAW=",
 
         # read the image and display it
         
@@ -199,6 +216,7 @@ def process1(fname):
         rseg = morph.renumber_by_xcenter(rseg)
         rsegs = linerec.extract_rsegs(rseg)
         if len(rsegs)<1:
+            if args.quiet: print fname,"=RAW=",
             print "NO RAW SEGMENTS"
             return
 
@@ -230,10 +248,11 @@ def process1(fname):
         labels,costs,trans = linerec.bestpath(recognized,noreject=0)
 
         if labels is None:
+            if args.quiet: print fname,"=RAW=",
             print "FAILED (no bestpath)"
             return
 
-        print "".join(labels)
+        if not args.quiet: print "".join(labels)
 
         # write the lattice and the raw segmentation
         
@@ -256,6 +275,7 @@ def process1(fname):
 ### top level: either run sequentially or in parallel under multiprocessing
 ###
 
+print "recognizing",len(args.files),"files"
 if args.show:
     args.parallel = 0
 if args.parallel<2:

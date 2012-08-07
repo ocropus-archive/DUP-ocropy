@@ -575,7 +575,7 @@ def fvariant(fname,kind,gt=None):
     be produced with gt="gt" (or some other desired suffix)."""
     if gt is None:
         gt = gtext(fname)
-    elif gt!="":
+    if gt!="":
         gt = "."+gt
     base,ext = allsplitext(fname)
     # a text line image

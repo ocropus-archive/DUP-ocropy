@@ -155,6 +155,7 @@ parser.add_argument('-W','--maxws',default=5.0,type=float,help="max whitespace c
 parser.add_argument('-M','--maxcost',default=20.0,type=float,help="max cost")
 parser.add_argument('-X','--mismatch',default=30.0,type=float,help="mismatch cost")
 parser.add_argument('-T','--thresh',default=0.5,type=float,help="below this cost, ignore language model")
+parser.add_argument('-q','--quiet',action="store_true",help="don't output each line")
 parser.add_argument('--other',default=15.0,type=float,help="extra cost for characters outside the lattice")
 parser.add_argument('--nother',default=1,type=int,help="number of candidates from outside the lattice")
 parser.add_argument('--lother',default=-1,type=float,help="language model weight for other characters")
@@ -239,8 +240,9 @@ def compute_cseg(path,rseg):
                 mapping[s] = len(gt)
     return mapping[rseg],gt
 
+print "processing",len(fnames),"files"
 for fname in fnames:
-    print fname,"=NGRAPHS=",
+    if not args.quiet: print fname,"=NGRAPHS=",
     lattice = Lattice(maxws=args.maxws,maxcost=args.maxcost,mismatch=args.mismatch)
     lattice.readLattice(fname)
 
@@ -252,7 +254,7 @@ for fname in fnames:
     text = result[0].path[ngraphs.N:]
 
     # output the textual result
-    print "%5.2f\t%s"%(result[0].cost,text)
+    if not args.quiet: print "%5.2f\t%s"%(result[0].cost,text)
     fout = ocrolib.fvariant(fname,"txt")
     ocrolib.write_text(fout,text)
 

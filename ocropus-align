@@ -111,6 +111,7 @@ parser.add_argument('-X','--mismatch',default=30.0,type=float,help="mismatch cos
 parser.add_argument('-T','--thresh',default=0.5,type=float,help="below this cost, ignore language model")
 parser.add_argument('-v','--verbose',action="store_true")
 parser.add_argument('-V','--Verbose',action="store_true")
+parser.add_argument('-q','--quiet',action="store_true",help="don't output each line")
 
 parser.add_argument('files',nargs='*')
 args = parser.parse_args()
@@ -129,8 +130,9 @@ for pattern in args.files:
 
 assert len(fnames)>0,"must provide some filename arguments"
 
+print "processing",len(fnames),"files"
 for fname in fnames:
-    print fname,"=ALIGNED=",
+    if not args.quiet: print fname,"=ALIGNED=",
     base,_ = os.path.splitext(fname)
     if not os.path.exists(fvariant(base,"txt","gt")):
         print "ERROR","no ground truth, skipping"
@@ -165,4 +167,4 @@ for fname in fnames:
         print "ERROR",fvariant(base,"rseg"),": not found"
     gt = ocrolib.gt_implode(gt)
     ocrolib.write_text(fvariant(fname,"aligned"),gt)
-    print "%.1f\t%s"%(path.cost,gt)
+    if not args.quiet: print "%.1f\t%s"%(path.cost,gt)
