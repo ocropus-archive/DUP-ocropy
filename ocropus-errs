@@ -34,6 +34,7 @@ def normalize(s):
     s = re.sub('`',"''",s)
     s = re.sub('"',"'",s)
     s = re.sub('[“”]',"''",s)
+    s = re.sub(r'\s',' ',s)
     s = re.sub(r'\n','',s)
     s = re.sub(r'^\s+','',s)
     s = re.sub(r'\s+$','',s)
@@ -41,7 +42,9 @@ def normalize(s):
         return s
     if args.kind=="nospace":
         return re.sub(r'\s','',s)
-    if args.kind=="letdic":
+    if args.kind=="spletdig":
+        return re.sub(r'[^A-Za-z0-9 ]','',s)
+    if args.kind=="letdig":
         return re.sub(r'[^A-Za-z0-9]','',s)
     if args.kind=="letters":
         return re.sub(r'[^A-Za-z]','',s)

@@ -141,6 +141,10 @@ import argparse
 
 parser = argparse.ArgumentParser()
 
+# RESULT 0.0338945600778 cweight 1.07777736525 lmodel default-4.ngraphs lweight 0.162668906805 
+# maxcost 15.4435581516 maxws 5.39191969674 mismatch 8.67617819976 thresh 1.287178097956
+
+
 parser.add_argument('--show',default=None,help="show the argument lattice")
 parser.add_argument('--print',dest='prt',default=None,help="print the argument lattice")
 parser.add_argument('--build',default=None,help="build and write a language model")
@@ -148,13 +152,13 @@ parser.add_argument('--ngraph',type=int,default=4,help="order of the language mo
 parser.add_argument('--sample',default=None,type=int,help="sample from the language model")
 parser.add_argument('--slength',default=70,type=int,help="length of the sampled strings")
 parser.add_argument('-l','--lmodel',default=ocrolib.default.ngraphs,help="the language model")
-parser.add_argument('-L','--lweight',default=0.5,type=float,help="language model weight")
-parser.add_argument('-C','--cweight',default=1.0,type=float,help="character weight")
+parser.add_argument('-L','--lweight',default=0.16,type=float,help="language model weight")
+parser.add_argument('-C','--cweight',default=1.1,type=float,help="character weight")
 parser.add_argument('-B','--beam',default=10,type=int,help="beam width")
-parser.add_argument('-W','--maxws',default=5.0,type=float,help="max whitespace cost")
-parser.add_argument('-M','--maxcost',default=20.0,type=float,help="max cost")
-parser.add_argument('-X','--mismatch',default=30.0,type=float,help="mismatch cost")
-parser.add_argument('-T','--thresh',default=0.5,type=float,help="below this cost, ignore language model")
+parser.add_argument('-W','--maxws',default=5.4,type=float,help="max whitespace cost")
+parser.add_argument('-M','--maxcost',default=15.0,type=float,help="max cost")
+parser.add_argument('-X','--mismatch',default=8.5,type=float,help="mismatch cost")
+parser.add_argument('-T','--thresh',default=1.3,type=float,help="below this cost, ignore language model")
 parser.add_argument('-q','--quiet',action="store_true",help="don't output each line")
 parser.add_argument('--other',default=15.0,type=float,help="extra cost for characters outside the lattice")
 parser.add_argument('--nother',default=1,type=int,help="number of candidates from outside the lattice")
