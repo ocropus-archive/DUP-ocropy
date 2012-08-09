@@ -214,22 +214,24 @@ def rgbshow(r,g,b=None,gn=1,cn=0,ab=0,**kw):
     if amin(combo)<0: print "warning: values less than zero"
     imshow(clip(combo,0,1),**kw)
 
+@checks(BINPAGE,NUMBER)
 def compute_separators_morph(binary,scale):
-    thick = morph.r_dilation(binary,(max(5,scale/4),max(5,scale)))
+    thick = morph.r_dilation(binary,(int(max(5,scale/4)),int(max(5,scale))))
     vert = morph.rb_opening(thick,(10*scale,1))
     vert = morph.select_regions(vert,sl.dim1,min=3,nbest=5)
     vert = morph.select_regions(vert,sl.dim0,min=20*scale,nbest=3)
     return vert
 
+@checks(BINPAGE,NUMBER,maxcols=RANGE(1,8),minheight=RANGE(0,300),maxwidth=RANGE(0,100))
 def compute_columns_morph(binary,scale,debug=0,maxcols=3,minheight=20,maxwidth=5):
     boxmap = compute_boxmap(binary,scale,dtype='B')
-    bounds = morph.rb_closing(B(boxmap),(5*scale,5*scale)) 
+    bounds = morph.rb_closing(B(boxmap),(int(5*scale),int(5*scale)))
     if debug>0:
         clf(); title("bounds"); imshow(0.3*boxmap+0.7*bounds); ginput(1,debug)
     bounds = maximum(B(1-bounds),B(boxmap))
     if debug>0:
         clf(); title("input"); imshow(0.3*boxmap+0.7*bounds); ginput(1,debug)
-    cols = 1-morph.rb_closing(boxmap,(20*scale,scale))
+    cols = 1-morph.rb_closing(boxmap,(int(20*scale),int(scale)))
     if debug>0:
         clf(); title("columns0"); imshow(0.3*boxmap+0.7*cols); ginput(1,debug)
     cols = morph.select_regions(cols,lambda x:-sl.dim1(x),min=-maxwidth*scale)
@@ -238,8 +240,8 @@ def compute_columns_morph(binary,scale,debug=0,maxcols=3,minheight=20,maxwidth=5
     cols = morph.select_regions(cols,sl.dim0,min=minheight*scale,nbest=maxcols)
     if debug>0:
         clf(); title("columns2"); imshow(0.3*boxmap+0.7*cols); ginput(1,debug)
-    cols = morph.r_erosion(cols,(scale,0))
-    cols = morph.r_dilation(cols,(scale,0),origin=(int(scale/2)-1,0))
+    cols = morph.r_erosion(cols,(int(0.5+scale),0))
+    cols = morph.r_dilation(cols,(int(0.5+scale),0),origin=(int(scale/2)-1,0))
     if debug>0:
         clf(); title("columns3"); imshow(0.3*boxmap+0.7*cols); ginput(1,debug)
     return cols

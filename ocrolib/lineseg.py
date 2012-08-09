@@ -1,7 +1,9 @@
 from pylab import *
 from scipy.ndimage import filters,morphology,measurements
 import common,morph
+from toplevel import *
 
+@checks(FLOAT2,alpha=RANGE(0.0,20.0),r=RANGE(0,20))
 def dpcuts(image,alpha=0.5,r=2):
     costs = 9999*ones(image.shape)
     costs[0,:] = 0
@@ -33,6 +35,7 @@ def dptrack(l,s):
             x += s[y,x]
     return result
 
+@checks(FLOAT2,imweight=RANGE(-20,20),bweight=RANGE(-20,20),diagweight=RANGE(-20,20))
 def dplineseg1(image,imweight=4,bweight=-1,diagweight=1):
     cimage = imweight*image - bweight*maximum(0,roll(image,-1,1)-image)
     c,s = dpcuts(cimage,alpha=diagweight)
@@ -43,12 +46,14 @@ def dplineseg1(image,imweight=4,bweight=-1,diagweight=1):
     # combo = 3*tracks+cimage
     return tracks
 
+@checks(FLOAT2)
 def centroid(image):
     ys,xs = mgrid[:image.shape[0],:image.shape[1]]
     yc = sum(image*ys)/sum(image)
     xc = sum(image*xs)/sum(image)
     return yc,xc
 
+@checks(FLOAT2,imweight=RANGE(-20,20),bweight=RANGE(-20,20),diagweight=RANGE(-20,20),r=RANGE(0,4),debug=BOOL)
 def dplineseg2(image,imweight=4,bweight=-1,diagweight=1,r=2,debug=0):
     yc,xc = centroid(image)
     half = int(yc)
@@ -75,6 +80,7 @@ def dplineseg2(image,imweight=4,bweight=-1,diagweight=1,r=2,debug=0):
         imshow(tracks+0.5*image,interpolation='nearest')
     return tracks
 
+@checks(LIGHTLINE)
 def ccslineseg(image):
     image = 1.0*(image>0.3*amax(image))
     sigma = 10.0
@@ -109,6 +115,7 @@ class SimpleParams:
 import common as ocrolib
 
 class CCSSegmentLine(SimpleParams):
+    @checks(object,LIGHTLINE)
     def charseg(self,line):
         """Segment a text line into potential character parts."""
         line = (line<0.5*(amax(line)+amin(line)))
@@ -117,6 +124,8 @@ class CCSSegmentLine(SimpleParams):
         return seg
     
 class DPSegmentLine(SimpleParams):
+    @checks(object,ledge=RANGE(-10,10),imweight=RANGE(-10,10),bweight=RANGE(-10,10),
+            diagweight=RANGE(-10,10),r=RANGE(1,100),debug=BOOL)
     def __init__(self,ledge=-0.1,imweight=4,bweight=-1,diagweight=0.3,r=1,debug=0):
         self.r = r
         self.imweight = imweight
@@ -124,6 +133,7 @@ class DPSegmentLine(SimpleParams):
         self.diagweight = diagweight
         self.debug = debug
         self.ledge = ledge
+    @checks(object,LIGHTLINE)
     def charseg(self,line):
         """Segment a text line into potential character parts."""
         assert mean(line)>0.5*amax(line)

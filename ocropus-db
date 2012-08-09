@@ -1,0 +1,87 @@
+#!/usr/bin/python
+
+import numpy,os,os.path,sys,time,fcntl,multiprocessing,argparse
+import random as pyrandom
+from collections import Counter,defaultdict
+from pylab import *
+import tables
+from tables import openFile,Filters,Int32Atom,Float32Atom,Int64Atom
+
+def split_re(s):
+    assert s[0]==s[-1],"specify regex substitutions as /old/new/"
+    r = s[1:-1].split(s[0])
+    assert len(r)==2,"specify regex substitutions as /old/new/ or !old!new! etc."
+    return r
+
+if sys.args[1]=="cat":
+    parser = argparse.ArgumentParser(description = "Concatenate data files.")
+    parser.add_argument('inputs',nargs="+")
+    parser.add_argument('-N','--nsamples',type=int,default=int(1e9),help="copy at most this many samples")
+    parser.add_argument('-s','--select',default=None,help="select only classes matching the regular expression")
+    parser.add_argument('-r','--regex',nargs="*",default=[],help="perform regular expression replacements on classes; /old/new/")
+    parser.add_argument('-o','--output',help="output file")
+    args = parser.parse_args(sys.args[1:])
+    with openFile(args.inputs) as db:
+        eshape = db.root.patches[0].shape
+    print "element shape",eshape
+    replacements = [split_re(r) for r in args.regex]
+    with openFile(args.output,"w") as odb:
+        h5utils.log(odb,str(sys.argv))
+        h5utils.create_earray(odb.root,"patches",eshape,'f')
+        h5utils.create_earray(odb.root,"classes",(),'f')
+        for fname in args.inputs:
+            with openFile(fname) as db:
+                h5utils.log_copy(db,odb)
+                nsamples = len(db.root.classes)
+                for start,end in chunks(nsamples,10000):
+                    print "%9d %9d %s"%(len(odb.root.classes),start,fname)
+                    if len(odb.root.classes)>args.nsamples: break
+                    data = db.root.patches[start:end]
+                    clss = db.root.classes[start:end]
+                    if select is not None:
+                        good = array([(cls>=32 and select.match(lig.chr(cls)) is not None) for cls in clss],bool)
+                        assert len(good)==len(data)
+                        data = data[good]
+                        clss = clss[good]
+                    if replacements!=[]:
+                        for i,c in enumerate(clss):
+                            for old,new in replacements:
+                                clss[i] = lig.ord(re.sub(old,new,lig.chr(clss[i])))
+                    if not args.allowbad: assert (clss>32).all()
+                    n = min(end-start,args.nsamples-len(odb.root.patches))
+                    if n==0: break
+                    odb.root.patches.append(data[:n])
+                    odb.root.classes.append(clss[:n])
+            if len(odb.root.classes)>=args.nsamples: break
+    sys.exit(0)
+
+if sys.args[1]=="shuffle":
+    parser = argparse.ArgumentParser(description = "Concatenate data files.")
+    parser.add_argument('input',help="input database")
+    parser.add_argument('-N','--nsamples',type=int,default=int(1e9),help="copy at most this many samples")
+    parser.add_argument('-o','--output',help="output database")
+    args = parser.parse_args(sys.args[1:])
+    with openFile(args.input) as db:
+        eshape = db.root.patches[0].shape
+    print "element shape",eshape
+    with openFile(args.output,"w") as odb:
+        h5utils.log(odb,str(sys.argv))
+        h5utils.create_earray(odb.root,"patches",eshape,'f')
+        h5utils.create_earray(odb.root,"classes",(),'f')
+        with openFile(args.input) as db:
+            h5utils.log_copy(db,odb)
+            nsamples = min(len(db.root.classes),args.nsamples)
+            samples = pyrandom.sample(xrange(len(db.root.classes)),nsamples)
+            for i in smaples:
+                if i%1000==0: print i
+                odb.root.patches.append([array(db.root.patches[i])])
+                odb.root.classes.append([db.root.classes[i]])
+    sys.exit(0)
+    
+print """usage:
+
+ocropus-db cat ...
+ocropus-db shuffle ...
+
+Try "ocropus cat --help" etc. for more info.
+"""

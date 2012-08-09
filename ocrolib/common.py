@@ -19,20 +19,9 @@ from pylab import imshow
 import psegutils
 from pylab import imshow
 import psegutils,morph
+from toplevel import *
 
 pickle_mode = 2
-
-################################################################
-### annotations
-################################################################
-
-def method(cls):
-    """Adds the function as a method to the given class."""
-    import new
-    def _wrap(f):
-        cls.__dict__[f.func_name] = new.instancemethod(f,None,cls)
-        return None
-    return _wrap
 
 def deprecated(f):
     def _wrap(f):
@@ -113,6 +102,7 @@ def isintarray(a):
 def isintegerarray(a):
     return a.dtype in [dtype('int32'),dtype('int64'),dtype('uint32'),dtype('uint64')]
 
+@checks(str,pageno=int,_=GRAYSCALE)
 def read_image_gray(fname,pageno=0):
     """Read an image and returns it as a floating point array.
     The optional page number allows images from files containing multiple
@@ -137,6 +127,7 @@ def read_image_gray(fname,pageno=0):
     if a.ndim==3: return mean(a,2)
     return a
 
+@checks(str,GRAYSCALE)
 def write_image_gray(fname,image,normalize=0):
     """Write an image to disk.  If the image is of floating point
     type, its values are clipped to the range [0,1],
@@ -149,6 +140,7 @@ def write_image_gray(fname,image,normalize=0):
     im = array2pil(image)
     im.save(fname)
 
+@checks(str,_=BINARY2)
 def read_image_binary(fname,dtype='i',pageno=0):
     """Read an image from disk and return it as a binary image
     of the given dtype."""
@@ -159,6 +151,7 @@ def read_image_binary(fname,dtype='i',pageno=0):
     if a.ndim==3: a = amax(a,axis=2)
     return array(a>0.5*(amin(a)+amax(a)),dtype)
 
+@checks(str,BINARY2)
 def write_image_binary(fname,image):
     """Write a binary image to disk. This verifies first that the given image
     is, in fact, binary.  The image may be of any type, but must consist of only
@@ -169,6 +162,7 @@ def write_image_binary(fname,image):
     im = array2pil(image)
     im.save(fname)
 
+@checks(INT3,_=INT2)
 def rgb2int(a):
     """Converts a rank 3 array with RGB values stored in the
     last axis into a rank 2 array containing 32 bit RGB values."""
@@ -176,6 +170,7 @@ def rgb2int(a):
     assert a.dtype==dtype('B')
     return array(0xffffff&((0x10000*a[:,:,0])|(0x100*a[:,:,1])|a[:,:,2]),'i')
 
+@checks(INT2,_=INT3)
 def int2rgb(image):
     """Converts a rank 3 array with RGB values stored in the
     last axis into a rank 2 array containing 32 bit RGB values."""
@@ -187,18 +182,21 @@ def int2rgb(image):
     a[:,:,2] = image
     return a
 
+@checks(LIGHTSEG,_=DARKSEG)
 def make_seg_black(image):
     assert isintegerarray(image),"%s: wrong type for segmentation"%image.dtype
     image = image.copy()
     image[image==0xffffff] = 0
     return image
 
+@checks(DARKSEG,_=LIGHTSEG)
 def make_seg_white(image):
     assert isintegerarray(image),"%s: wrong type for segmentation"%image.dtype
     image = image.copy()
     image[image==0] = 0xffffff
     return image
 
+@checks(str,_=LINESEG)
 def read_line_segmentation(fname):
     """Reads a line segmentation, that is an RGB image whose values
     encode the segmentation of a text line.  Returns an int array."""
@@ -208,21 +206,17 @@ def read_line_segmentation(fname):
     assert a.ndim==3
     image = rgb2int(a)
     result = make_seg_black(image)
-    assert amin(result)==0
-    assert amax(result)<16000
     return result
 
+@checks(str,LINESEG)
 def write_line_segmentation(fname,image):
     """Writes a line segmentation, that is an RGB image whose values
     encode the segmentation of a text line."""
-    assert image.ndim==2
-    assert image.dtype in [dtype('int32'),dtype('int64')]
-    assert amin(image)==0
-    assert amax(image)<16000
     a = int2rgb(make_seg_white(image))
     im = array2pil(a)
     im.save(fname)
 
+@checks(str,_=PAGESEG)
 def read_page_segmentation(fname):
     """Reads a page segmentation, that is an RGB image whose values
     encode the segmentation of a text line.  Returns an int array."""
@@ -232,6 +226,7 @@ def read_page_segmentation(fname):
     assert a.ndim==3
     return make_seg_black(array(65536*a[:,:,0]+256*a[:,:,1]+a[:,:,2],'i'))
 
+@checks(str,PAGESEG)
 def write_page_segmentation(fname,image):
     """Writes a page segmentation, that is an RGB image whose values
     encode the segmentation of a text line."""
@@ -446,6 +441,7 @@ def getlocal():
     local = os.getenv("OCROPUS_DATA") or "/usr/local/share/ocropus/"
     return local
 
+@checks(str,_=str)
 def findfile(name,error=1):
     """Find some OCRopus-related resource by looking in a bunch off standard places.
     (FIXME: The implementation is pretty adhoc for now.
@@ -471,6 +467,7 @@ def findfile(name,error=1):
     else:
         return None
 
+@checks(str)
 def finddir(name):
     """Find some OCRopus-related resource by looking in a bunch off standard places.
     (This needs to be integrated better with setup.py and the build system.)"""
@@ -486,6 +483,7 @@ def finddir(name):
     if os.path.exists(path) and os.path.isdir(path): return path
     raise IOError("file '"+path+"' not found in . or /usr/local/share/ocropus/")
 
+@checks(str)
 def allsplitext(path):
     """Split all the pathname extensions, so that "a/b.c.d" -> "a/b", ".c.d" """
     match = re.search(r'((.*/)*[^.]*)([^/]*)',path)
@@ -494,12 +492,14 @@ def allsplitext(path):
     else:
         return match.group(1),match.group(3)
 
+@checks(str,{str,unicode})
 def write_text(file,s):
     """Write the given string s to the output file."""
     with open(file,"w") as stream:
         if type(s)==unicode: s = s.encode("utf-8")
         stream.write(s)
 
+@checks([str])
 def glob_all(args):
     """Given a list of command line arguments, expand all of them with glob."""
     result = []
@@ -510,6 +510,7 @@ def glob_all(args):
         result += expanded
     return result
 
+@checks([str])
 def expand_args(args):
     """Given a list of command line arguments, if the
     length is one, assume it's a book directory and expands it.

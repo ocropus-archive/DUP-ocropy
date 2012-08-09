@@ -9,6 +9,7 @@ from scipy import stats
 from scipy.ndimage import measurements,interpolation,morphology,filters
 from pylab import *
 import common,sl,morph
+from toplevel import *
 
 ################################################################
 ### line segmentation geometry estimates based on
@@ -19,6 +20,7 @@ seg_geometry_display = 0
 geowin = None
 geoax = None
 
+@checks(SEGMENTATION,math=BOOL)
 def seg_geometry(segmentation,math=1):
     """Given a line segmentation (either an rseg--preferably connected
     component based--or a cseg, return (mh,a,b), where mh is the
@@ -61,6 +63,7 @@ def seg_geometry(segmentation,math=1):
 def avg(*args):
     return mean(args)
 
+@deprecated
 def rel_char_geom(box,params):
     """Given a character bounding box and a set of line geometry parameters,
     compute relative character position and size."""
@@ -79,6 +82,7 @@ def rel_char_geom(box,params):
     assert rel_height>0 and rel_height<100
     return rel_ypos,rel_width,rel_height
 
+@deprecated
 def rel_geo_normalize(rel):
     """Given a set of geometric parameters, normalize them into the
     range -1...1 so that they can be used as input to a neural network."""
@@ -93,6 +97,7 @@ def rel_geo_normalize(rel):
     geometry = array([ry,rw,rh],'f')
     return geometry
 
+@deprecated
 def seg_boxes(seg,math=0):
     """Given a color segmentation, return a list of bounding boxes.
     Bounding boxes are returned as tuples (y0,y1,x0,x1).  With
@@ -117,6 +122,7 @@ def seg_boxes(seg,math=0):
 ### as dewarping
 ################################################################
 
+@checks(DARKLINE)
 def estimate_baseline(line):
     """Compute the baseline by fitting a polynomial to the gradient.
     TODO: use robust fitting, special case very short line, limit parameter ranges"""
@@ -128,6 +134,7 @@ def estimate_baseline(line):
     baseline = fitext(vgrad)
     return baseline
 
+@checks(DARKLINE)
 def dewarp_line(line,show=0):
     """Dewarp the baseline of a line based in estimate_baseline.
     Returns the dewarped image."""
@@ -144,6 +151,7 @@ def dewarp_line(line,show=0):
 
     line = line*1.0/amax(line)
 
+@checks(DARKLINE)
 def estimate_xheight(line,scale=1.0,debug=0):
     """Estimates the xheight of a line based on image processing and
     filtering."""
@@ -157,6 +165,7 @@ def estimate_xheight(line,scale=1.0,debug=0):
     bottom = argmin(proj)
     return bottom-top,bottom
 
+@checks(DARKLINE)
 def latin_mask(line,scale=1.0,r=1.2,debug=0):
     """Estimate a mask that covers letters and diacritics of a text
     line for Latin alphabets."""
@@ -172,6 +181,7 @@ def latin_mask(line,scale=1.0,r=1.2,debug=0):
         mask[y0:bottoms[i],i] = 1
     return mask
 
+@checks(DARKLINE)
 def latin_filter(line,scale=1.0,r=1.5,debug=0):
     """Filter out noise from a text line in Latin alphabets."""
     bin = (line>0.5*amax(line))
@@ -180,6 +190,7 @@ def latin_filter(line,scale=1.0,r=1.5,debug=0):
     mask = filters.maximum_filter(mask,3)
     return line*mask
 
+@checks(DARKLINE)
 def remove_noise(line,minsize=8):
     """Remove small pixels from an image."""
     bin = (line>0.5*amax(line))

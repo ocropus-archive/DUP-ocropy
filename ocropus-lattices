@@ -15,6 +15,7 @@ from ocrolib import number_of_processors,die
 from ocrolib.ligatures import lig
 from ocrolib import lineseg,morph,linerec,improc,lineproc
 import cPickle
+from ocrolib.toplevel import *
 
 import warnings,numpy
 warnings.simplefilter('ignore',numpy.RankWarning) # disable rank warnings from polyfit
@@ -39,6 +40,7 @@ parser.add_argument("--noglob",action="store_true",help="don't perform expansion
 parser.add_argument('-q','--quiet',action="store_true",help="don't output progress info")
 parser.add_argument('-S','--sizemode',default="perline",help="how to resize characters for extraction")
 parser.add_argument('--hdfmode',default="a",help="how the HDF5 file is opened")
+parser.add_argument('-e','--exitonerr',action="store_true",help='time to wait after displaying results')
 
 # parser.add_argument("-r","--rejects",help="generate rejects in lattices",action="store_true")
 # parser.add_argument("-R","--maxrange",help="max range for grouping",type=int,default=4)
@@ -220,6 +222,7 @@ def process1(fname):
 
         # generate character candidates
 
+        print "@@@",amin(image),amax(image),strc(image)
         rseg = segmenter.charseg(image)
         rseg = morph.renumber_by_xcenter(rseg)
         rsegs = linerec.extract_rsegs(rseg)
@@ -277,6 +280,7 @@ def process1(fname):
     except:
         print "ERROR IN",fname
         traceback.print_exc()
+        if args.exitonerr: sys.exit(1)
         return
 
 ###
