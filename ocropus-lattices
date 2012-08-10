@@ -32,7 +32,7 @@ parser.add_argument("-x","--exec",dest="execute",help="execute before anything e
 parser.add_argument("-s","--segmenter",help="segmenter",default="lineseg.DPSegmentLine()")
 parser.add_argument("-m","--model",help="model file",default=ocrolib.default.model)
 parser.add_argument("-w","--whitespace",help="space model file",default=ocrolib.default.space)
-parser.add_argument("-Q","--parallel",type=int,default=0,help="number of parallel processes to use")
+parser.add_argument("-Q","--parallel",type=int,default=1,help="number of parallel processes to use")
 parser.add_argument("--show",help="show progress",action="store_true")
 parser.add_argument('--delay',type=float,default=0.1,help='time to wait after displaying results')
 parser.add_argument("--extract",default=None,help="extract characters for cmodel training")
@@ -288,8 +288,8 @@ def process1(fname):
 
 print "recognizing",len(args.files),"files"
 if args.show:
-    args.parallel = 0
-if args.parallel<2:
+    args.parallel = 1
+if args.parallel==1:
     for fname in args.files:
         process1(fname)
 else:

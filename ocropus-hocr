@@ -32,8 +32,7 @@ etc.
 """)
 parser.add_option("-b","--nobreaks",action="store_true", help="output line breaks")
 options,args = parser.parse_args()
-if len(args)==1 and os.path.isdir(args[0]):
-    args = sorted(glob.glob(args[0]+"/????.png"))
+args = ocrolib.glob_all(args)
 
 def E(*args):
     sys.stderr.write(" ".join(args))

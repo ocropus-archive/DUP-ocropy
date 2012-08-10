@@ -219,17 +219,19 @@ def write_line_segmentation(fname,image):
 @checks(str,_=PAGESEG)
 def read_page_segmentation(fname):
     """Reads a page segmentation, that is an RGB image whose values
-    encode the segmentation of a text line.  Returns an int array."""
+    encode the segmentation of a page.  Returns an int array."""
     pil = PIL.Image.open(fname)
     a = pil2array(pil)
     assert a.dtype==dtype('B')
     assert a.ndim==3
-    return make_seg_black(array(65536*a[:,:,0]+256*a[:,:,1]+a[:,:,2],'i'))
+    segmentation = rgb2int(a)
+    segmentation = make_seg_black(segmentation)
+    return segmentation
 
 @checks(str,PAGESEG)
 def write_page_segmentation(fname,image):
     """Writes a page segmentation, that is an RGB image whose values
-    encode the segmentation of a text line."""
+    encode the segmentation of a page."""
     assert image.ndim==2
     assert image.dtype in [dtype('int32'),dtype('int64')]
     a = int2rgb(make_seg_white(image))

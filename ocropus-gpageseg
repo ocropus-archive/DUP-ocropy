@@ -22,6 +22,7 @@ import ocrolib
 from ocrolib import psegutils,morph,improc,sl
 import multiprocessing
 from multiprocessing import Pool
+from ocrolib.toplevel import *
 
 parser = argparse.ArgumentParser()
 parser.add_argument('-z','--zoom',type=float,default=0.5,help='zoom for page background estimation, smaller=faster')
@@ -122,6 +123,11 @@ def compute_segmentation(binary,scale):
     if args.debug>0:
         clf(); title("segmentation"); imshow(segmentation,cmap=cm.flag); ginput(1,args.debug)
 
+    # put everything into one column for now (FIXME)
+    assert amin(segmentation)==0
+    segmentation = where(segmentation==0,0,segmentation+0x010000)
+    assert amin(segmentation)==0
+    print "@@@",strc(segmentation)
     return segmentation
 
 def process1(job):
@@ -155,13 +161,12 @@ def process1(job):
     if len(lines)>args.maxlines:
         sys.stderr.write("%s: scale (%d) less than --maxlines; skipping\n"%(fname,len(lines)))
         return
-    pseg = transpose(array([ones(segmentation.shape,'B'),array(segmentation//256,'B'),array(segmentation,'B')]),[1,2,0])
-    imsave("%s.pseg.png"%base,pseg)
+    #pseg = transpose(array([ones(segmentation.shape,'B'),array(segmentation//256,'B'),array(segmentation,'B')]),[1,2,0])
+    #imsave("%s.pseg.png"%base,pseg)
+    ocrolib.write_page_segmentation("%s.pseg.png"%base,segmentation)
     for i,l in enumerate(lines):
-        clf()
-        imsave("%s/01%04x.png"%(base,i+1),psegutils.extract_masked(gray,l,pad=args.pad,expand=args.expand))
-        clf()
-        imsave("%s/01%04x.bin.png"%(base,i+1),psegutils.extract_masked(1-binary,l,pad=args.pad))
+        ocrolib.write_image_gray("%s/01%04x.png"%(base,i+1),psegutils.extract_masked(gray,l,pad=args.pad,expand=args.expand))
+        ocrolib.write_image_binary("%s/01%04x.bin.png"%(base,i+1),psegutils.extract_masked(1-binary,l,pad=args.pad))
     print "%6d"%i,fname,"%4.1f"%scale,len(lines)
 
 if args.debug>0 or args.show>0: args.parallel = 0

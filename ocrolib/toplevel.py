@@ -44,7 +44,6 @@ obsolete = failfunc
 
 ### debugging / tracing
 
-_trace1_depth = 0
 
 def trace1(f):
     """Print arguments/return values for the decorated function before each call."""
@@ -132,66 +131,68 @@ class CheckError(Exception):
         result += ">"
         return result
 
+def checktype(value,type_):
+    """Check value against the type spec.  If everything
+    is OK, this just returns.  If the types don't check out,
+    an exception is thrown."""
+    # True skips any check
+    if type_ is True:
+        return
+    # types are checked using isinstance
+    if type(type_)==type:
+        if not isinstance(value,type_):
+            raise CheckError("isinstance failed",value,type_,var=var)
+        return
+    # for a list, check that all elements of a collection have a type
+    # of some list element, allowing declarations like [str] or [str,unicode]
+    # no recursive checks right now
+    if type(type_)==list:
+        if not numpy.iterable(value):
+            raise CheckError("expected iterable",value,var=var)
+        for x in value:
+            if not reduce(max,[isinstance(x,t) for t in type_]):
+                raise CheckError("element",x,"fails to be of type",type_,var=var)
+        return
+    # for sets, check membership of the type in the set
+    if type(type_)==set:
+        for t in type_:
+            if isinstance(value,t): return
+        raise CheckError("set membership failed",value,type_,var=var)
+    # for tuples, check that all conditions are satisfied
+    if type(type_)==tuple:
+        for t in type_:
+            checktype(value,type_)
+        return
+    # callables are just called and should either use assertions or
+    # explicitly raise CheckError
+    if callable(type_):
+        type_(value)
+        return
+    # otherwise, we don't understand the type spec
+    raise Exception("unknown type spec: %s"%type_)
+
 def checks(*types,**ktypes):
-    def decorator(f):
-        def check(value,type_):
-            """Check value against the type spec.  If everything
-            is OK, this just returns.  If the types don't check out,
-            an exception is thrown."""
-            # True skips any check
-            if type_ is True:
-                return
-            # types are checked using isinstance
-            if type(type_)==type:
-                if not isinstance(value,type_):
-                    raise CheckError("isinstance failed",value,type_,var=var)
-                return
-            # for a list, check that all elements of a collection have a type
-            # of some list element, allowing declarations like [str] or [str,unicode]
-            # no recursive checks right now
-            if type(type_)==list:
-                if not numpy.iterable(value):
-                    raise CheckError("expected iterable",value,var=var)
-                for x in value:
-                    if not reduce(max,[isinstance(x,t) for t in type_]):
-                        raise CheckError("element",x,"fails to be of type",type_,var=var)
-                return
-            # for sets, check membership of the type in the set
-            if type(type_)==set:
-                for t in type_:
-                    if isinstance(value,t): return
-                raise CheckError("set membership failed",value,type_,var=var)
-            # for tuples, check that all conditions are satisfied
-            if type(type_)==tuple:
-                for t in type_:
-                    check(value,type_)
-                return
-            # callables are just called and should either use assertions or
-            # explicitly raise CheckError
-            if callable(type_):
-                type_(value)
-                return
-            # otherwise, we don't understand the type spec
-            raise Exception("unknown type spec: %s"%type_)
+    """Check argument and return types against type specs at runtime."""
+    def argument_check_decorator(f):
         @functools.wraps(f)
-        def wrapper(*args,**kw):
+        def argument_checks(*args,**kw):
             # print "@@@",f,"decl",types,ktypes,"call",[strc(x) for x in args],kw
             name = f.func_name
             argnames = f.func_code.co_varnames[:f.func_code.co_argcount]
             kw3 = [(var,value,ktypes.get(var,True)) for var,value in kw.items()]
             for var,value,type_ in zip(argnames,args,types)+kw3:
                 try:
-                    check(value,type_)
+                    checktype(value,type_)
                 except AssertionError as e:
                     raise CheckError(e.message,*e.args)
                 except CheckError as e:
                     e.var = var
                     raise e
             result = f(*args,**kw)
-            check(result,kw.get("_",True))
+            checktype(result,kw.get("_",True))
             return result
-        return wrapper
-    return decorator
+        return argument_checks
+    return argument_check_decorator
 
 def makeargcheck(message):
     """Converts a predicate into an argcheck."""
@@ -369,13 +370,19 @@ def SEGMENTATION(a):
     return isinstance(a,numpy.ndarray) and a.ndim==2 and a.dtype in ['int32','int64']
 @makeargcheck("expected a segmentation with white background")
 def WHITESEG(a):
-    return numpy.amax(a)==0xffffff and numpy.amin(a)==1
+    return numpy.amax(a)==0xffffff 
 @makeargcheck("expected a segmentation with black background")
 def BLACKSEG(a):
-    return numpy.amax(a)<0xffffff and numpy.amin(a)==0
+    return numpy.amax(a)<0xffffff 
+@makeargcheck("all non-zero pixels in a page segmentation must have a column value >0")
+def PAGEEXTRA(a):
+    u = numpy.unique(a)
+    u = u[u!=0]
+    u = u[(u&0xff0000)==0]
+    return len(u)==0
 LIGHTSEG = ALL(SEGMENTATION,WHITESEG)
 DARKSEG = ALL(SEGMENTATION,BLACKSEG)
-PAGESEG = ALL(SEGMENTATION,BLACKSEG,PAGE)
+PAGESEG = ALL(SEGMENTATION,BLACKSEG,PAGE,PAGEEXTRA)
 LINESEG = ALL(SEGMENTATION,BLACKSEG,LINE)
 LIGHTPAGESEG = ALL(SEGMENTATION,WHITESEG,PAGE)
 LIGHTLINESEG = ALL(SEGMENTATION,WHITESEG,LINE)
