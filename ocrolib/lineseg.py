@@ -3,7 +3,7 @@ from scipy.ndimage import filters,morphology,measurements
 import common,morph
 from toplevel import *
 
-@checks(FLOAT2,alpha=RANGE(0.0,20.0),r=RANGE(0,20))
+@checks(AFLOAT2,alpha=RANGE(0.0,20.0),r=RANGE(0,20))
 def dpcuts(image,alpha=0.5,r=2):
     costs = 9999*ones(image.shape)
     costs[0,:] = 0
@@ -35,7 +35,7 @@ def dptrack(l,s):
             x += s[y,x]
     return result
 
-@checks(FLOAT2,imweight=RANGE(-20,20),bweight=RANGE(-20,20),diagweight=RANGE(-20,20))
+@checks(AFLOAT2,imweight=RANGE(-20,20),bweight=RANGE(-20,20),diagweight=RANGE(-20,20))
 def dplineseg1(image,imweight=4,bweight=-1,diagweight=1):
     cimage = imweight*image - bweight*maximum(0,roll(image,-1,1)-image)
     c,s = dpcuts(cimage,alpha=diagweight)
@@ -46,14 +46,14 @@ def dplineseg1(image,imweight=4,bweight=-1,diagweight=1):
     # combo = 3*tracks+cimage
     return tracks
 
-@checks(FLOAT2)
+@checks(AFLOAT2)
 def centroid(image):
     ys,xs = mgrid[:image.shape[0],:image.shape[1]]
     yc = sum(image*ys)/sum(image)
     xc = sum(image*xs)/sum(image)
     return yc,xc
 
-@checks(FLOAT2,imweight=RANGE(-20,20),bweight=RANGE(-20,20),diagweight=RANGE(-20,20),r=RANGE(0,4),debug=BOOL)
+@checks(AFLOAT2,imweight=RANGE(-20,20),bweight=RANGE(-20,20),diagweight=RANGE(-20,20),r=RANGE(0,4),debug=BOOL)
 def dplineseg2(image,imweight=4,bweight=-1,diagweight=1,r=2,debug=0):
     yc,xc = centroid(image)
     half = int(yc)

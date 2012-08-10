@@ -26,7 +26,13 @@ parser.add_argument('-o','--output',default=None,help="output directory")
 parser.add_argument('files',nargs='+')
 parser.add_argument('-Q','--parallel',type=int,default=0)
 args = parser.parse_args()
-files = args.files
+
+files = []
+for pattern in args.files:
+    expanded = glob.glob(pattern)
+    assert len(expanded)>0
+    files += expanded
+args.files = files
 
 
 

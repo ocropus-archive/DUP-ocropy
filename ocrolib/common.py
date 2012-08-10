@@ -140,7 +140,7 @@ def write_image_gray(fname,image,normalize=0):
     im = array2pil(image)
     im.save(fname)
 
-@checks(str,_=BINARY2)
+@checks(str,_=ABINARY2)
 def read_image_binary(fname,dtype='i',pageno=0):
     """Read an image from disk and return it as a binary image
     of the given dtype."""
@@ -151,7 +151,7 @@ def read_image_binary(fname,dtype='i',pageno=0):
     if a.ndim==3: a = amax(a,axis=2)
     return array(a>0.5*(amin(a)+amax(a)),dtype)
 
-@checks(str,BINARY2)
+@checks(str,ABINARY2)
 def write_image_binary(fname,image):
     """Write a binary image to disk. This verifies first that the given image
     is, in fact, binary.  The image may be of any type, but must consist of only
@@ -162,7 +162,7 @@ def write_image_binary(fname,image):
     im = array2pil(image)
     im.save(fname)
 
-@checks(INT3,_=INT2)
+@checks(AINT3,_=AINT2)
 def rgb2int(a):
     """Converts a rank 3 array with RGB values stored in the
     last axis into a rank 2 array containing 32 bit RGB values."""
@@ -170,7 +170,7 @@ def rgb2int(a):
     assert a.dtype==dtype('B')
     return array(0xffffff&((0x10000*a[:,:,0])|(0x100*a[:,:,1])|a[:,:,2]),'i')
 
-@checks(INT2,_=INT3)
+@checks(AINT2,_=AINT3)
 def int2rgb(image):
     """Converts a rank 3 array with RGB values stored in the
     last axis into a rank 2 array containing 32 bit RGB values."""

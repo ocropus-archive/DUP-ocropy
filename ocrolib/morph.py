@@ -8,7 +8,7 @@ from scipy.ndimage import morphology,measurements
 from scipy.ndimage.morphology import *
 from toplevel import *
 
-@checks(NDARRAY(atype=int))
+@checks(AINT2)
 def label(image,**kw):
     """Redefine the scipy.ndimage.measurements.label function to
     work with a wider range of data types.  The default function
@@ -23,7 +23,7 @@ def label(image,**kw):
     # let it raise the same exception as before
     return measurements.label(image,**kw)
 
-@checks(NDARRAY(atype=int))
+@checks(AINT2)
 def find_objects(image,**kw):
     """Redefine the scipy.ndimage.measurements.find_objects function to
     work with a wider range of data types.  The default function
@@ -44,51 +44,51 @@ def check_binary(image):
     assert amin(image)>=0 and amax(image)<=1,\
         "array should be binary, has values %g to %g"%(amin(image),amax(image))
 
-@checks(BINARY2,uintpair)
+@checks(ABINARY2,uintpair)
 def r_dilation(image,size,origin=0):
     """Dilation with rectangular structuring element using maximum_filter"""
     return filters.maximum_filter(image,size,origin=origin)
 
-@checks(BINARY2,uintpair)
+@checks(ABINARY2,uintpair)
 def r_erosion(image,size,origin=0):
     """Erosion with rectangular structuring element using maximum_filter"""
     return filters.minimum_filter(image,size,origin=origin)
 
-@checks(BINARY2,uintpair)
+@checks(ABINARY2,uintpair)
 def r_opening(image,size,origin=0):
     """Opening with rectangular structuring element using maximum/minimum filter"""
     check_binary(image)
     image = r_erosion(image,size,origin=origin)
     return r_dilation(image,size,origin=origin)
 
-@checks(BINARY2,uintpair)
+@checks(ABINARY2,uintpair)
 def r_closing(image,size,origin=0):
     """Closing with rectangular structuring element using maximum/minimum filter"""
     check_binary(image)
     image = r_dilation(image,size,origin=0)
     return r_erosion(image,size,origin=0)
 
-@checks(BINARY2,uintpair)
+@checks(ABINARY2,uintpair)
 def rb_dilation(image,size,origin=0):
     """Binary dilation using linear filters."""
     output = zeros(image.shape,'f')
     filters.uniform_filter(image,size,output=output,origin=origin,mode='constant',cval=0)
     return array(output>0,'i')
 
-@checks(BINARY2,uintpair)
+@checks(ABINARY2,uintpair)
 def rb_erosion(image,size,origin=0):
     """Binary erosion using linear filters."""
     output = zeros(image.shape,'f')
     filters.uniform_filter(image,size,output=output,origin=origin,mode='constant',cval=1)
     return array(output==1,'i')
 
-@checks(BINARY2,uintpair)
+@checks(ABINARY2,uintpair)
 def rb_opening(image,size,origin=0):
     """Binary opening using linear filters."""
     image = rb_erosion(image,size,origin=origin)
     return rb_dilation(image,size,origin=origin)
 
-@checks(BINARY2,uintpair)
+@checks(ABINARY2,uintpair)
 def rb_closing(image,size,origin=0):
     """Binary closing using linear filters."""
     image = rb_dilation(image,size,origin=origin)
@@ -129,7 +129,7 @@ def spread_labels(labels,maxdist=9999999):
     spread *= (distances<maxdist)
     return spread
 
-@checks(SEGMENTATION,BINARY)
+@checks(SEGMENTATION,ABINARY2)
 def keep_marked(image,markers):
     """Given a marker image, keep only the connected components
     that overlap the markers."""
@@ -138,7 +138,7 @@ def keep_marked(image,markers):
     kept = in1d(labels.ravel(),marked)
     return (image!=0)*kept.reshape(*labels.shape)
 
-@checks(SEGMENTATION,BINARY)
+@checks(SEGMENTATION,ABINARY2)
 def remove_marked(image,markers):
     """Given a marker image, remove all the connected components
     that overlap markers."""
@@ -157,7 +157,7 @@ def correspondences(labels1,labels2):
     result = array([result//q,result%q])
     return result
 
-@checks(BINARY,SEGMENTATION)
+@checks(ABINARY2,SEGMENTATION)
 def propagate_labels_simple(regions,labels):
     """Given an image and a set of labels, apply the labels
     to all the regions in the image that overlap a label."""
@@ -168,7 +168,7 @@ def propagate_labels_simple(regions,labels):
     outputs[0] = 0
     return outputs[rlabels]
 
-@checks(BINARY,SEGMENTATION)
+@checks(ABINARY2,SEGMENTATION)
 def propagate_labels(image,labels,conflict=0):
     """Given an image and a set of labels, apply the labels
     to all the regions in the image that overlap a label.
@@ -184,7 +184,7 @@ def propagate_labels(image,labels,conflict=0):
     outputs[0] = 0
     return outputs[rlabels]
 
-@checks(BINARY,None)
+@checks(ABINARY2,True)
 def select_regions(binary,f,min=0,nbest=100000):
     """Given a scoring function f over slice tuples (as returned by
     find_objects), keeps at most nbest regions whose scores is higher

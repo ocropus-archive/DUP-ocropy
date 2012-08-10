@@ -39,14 +39,14 @@ class Err:
     def value(self):
         return self.total
 
-@checks(NDARRAY())
+@checks(ndarray)
 def make2d(data):
     """Convert any input array into a 2D array by flattening axes 1 and over."""
     if data.ndim==1: return array([data])
     if data.ndim==2: return data
     return data.reshape(data.shape[0],-1)
 
-@checks(FLOAT2,{int,NoneType},{int,NoneType})
+@checks(AFLOAT2,{int,NoneType},{int,NoneType})
 def cshow(im,h=None,w=None):
     if h is None:
         h = w = int(sqrt(im.size))
@@ -56,7 +56,7 @@ def cshow(im,h=None,w=None):
     ion(); gray()
     imshow(im.reshape(h,w),cmap=cm.gray,interpolation='nearest')
 
-@checks([FLOAT2],{int,NoneType},{int,NoneType})
+@checks([AFLOAT2],{int,NoneType},{int,NoneType})
 def showgrid(l,h=None,w=None):
     # figsize(min(12,c),min(12,c)); gray()
     if h is None:
@@ -108,7 +108,7 @@ class Dataset:
 ### probability distributions
 ###
 
-@checks(INT1)
+@checks(AINT1)
 def distribution(classes,n=-1):
     c = Counter(classes)
     if n<0: n = max(classes)+1
@@ -120,7 +120,7 @@ def distribution(classes,n=-1):
 ### vector "sorting" and selecting
 ### 
 
-@checks(NDARRAY(),[NDARRAY()])
+@checks(ndarray,[ndarray])
 def minsert(x,l):
     if len(l)<2:
         return l+[x]
@@ -129,7 +129,7 @@ def minsert(x,l):
     i = argmin(dists)
     return l[:i]+[x]+l[i:]
 
-@checks([NDARRAY()])
+@checks([ndarray])
 def vecsort(l):
     l = list(l)
     result = l[:3]
@@ -155,7 +155,7 @@ def rselect(data,n,s=1000,f=0.99):
 ### PCA
 ###
 
-@checks(DATASET(fixedshape=1,rank=2),int,min_k=RANGE(2,100000),whiten=BOOL)
+@checks(DATASET(fixedshape=1,vrank=1),int,min_k=RANGE(2,100000),whiten=BOOL)
 def pca(data,k,min_k=2,whiten=0):
     """Computes a PCA and a whitening.  The number of
     components can be specified either directly or as a fraction
@@ -188,7 +188,7 @@ def pca(data,k,min_k=2,whiten=0):
 ### k-means clustering
 ###
 
-@checks(DATASET(fixedshape=1,rank=2),RANGE(2,100000),maxiter=RANGE(0,10000000))
+@checks(DATASET(fixedshape=1,vrank=1),RANGE(2,100000),maxiter=RANGE(0,10000000))
 def kmeans(data,k,maxiter=100):
     """Regular k-means algorithm.  Computes k means from data."""
     centers = array(pyrandom.sample(data,k),'f')
@@ -204,7 +204,7 @@ def kmeans(data,k,maxiter=100):
         last = mins
     return centers
 
-@checks(DATASET(fixedshape=1,rank=2),RANGE(2,100000),RANGE(2,10000),maxiter=RANGE(0,10000000),\
+@checks(DATASET(fixedshape=1,vrank=1),RANGE(2,100000),RANGE(2,10000),maxiter=RANGE(0,10000000),\
         npk=RANGE(2,100000),maxsample=RANGE(3,1e9),min_norm=RANGE(0.0,1000.0))
 def pca_kmeans(data,k,d,min_d=3,maxiter=100,npk=1000,verbose=0,maxsample=200000,min_norm=1e-3):
     n = min(len(data),k*npk,maxsample)
@@ -225,7 +225,7 @@ def pca_kmeans(data,k,d,min_d=3,maxiter=100,npk=1000,verbose=0,maxsample=200000,
     del ys; del sample
     return km,evecs,mu
     
-@checks(FLOAT2,FLOAT2,int,chunksize=RANGE(1,1000000000))
+@checks(AFLOAT2,AFLOAT2,int,chunksize=RANGE(1,1000000000))
 def knn(data,protos,k,chunksize=100):
     result = []
     for i in range(0,len(data),chunksize):

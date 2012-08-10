@@ -50,7 +50,7 @@ parser.add_argument('-e','--expand',type=int,default=1,help='expand mask for gra
 parser.add_argument('-Q','--parallel',type=int,default=0)
 parser.add_argument('files',nargs='+')
 args = parser.parse_args()
-files = args.files
+args.files = ocrolib.glob_all(args.files)
 
 if args.debug:
     ion(); gray()
