@@ -1,0 +1,17 @@
+#!/bin/sh -ex
+
+rm -rf temp 
+mkdir temp
+cp tests/testpage.png temp/0001.png
+
+# binarization
+ocropus-nlbin 'temp/????.png'
+
+# page level segmentation
+ocropus-gpageseg 'temp/????.png'
+
+# raw text line recognition
+ocropus-lattices 'temp/????/??????.png'
+
+# language model application
+ocropus-ngraphs 'temp/????/??????.lattice'

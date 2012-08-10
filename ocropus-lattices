@@ -222,7 +222,6 @@ def process1(fname):
 
         # generate character candidates
 
-        print "@@@",amin(image),amax(image),strc(image)
         rseg = segmenter.charseg(image)
         rseg = morph.renumber_by_xcenter(rseg)
         rsegs = linerec.extract_rsegs(rseg)
