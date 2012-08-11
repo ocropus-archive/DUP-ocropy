@@ -30,6 +30,7 @@ parser.add_argument('--show1',default=None,help="display the first level of a sp
 parser.add_argument('-N','--maxtrain',type=int,default=10000000000,help="max # of training samples")
 parser.add_argument('-d','--data',default="chardata.h5",help="data file")
 parser.add_argument('-o','--output',default="splitter.smodel",help="output file")
+parser.add_argument('-q','--quiet',action="store_true",help="output less stuff")
 parser.add_argument('--pca',type=float,default=0.90)
 parser.add_argument('--maxsplit',type=int,default=100)
 parser.add_argument('--maxdepth',type=int,default=3)
@@ -95,8 +96,6 @@ if args.show is not None:
     show()
     sys.exit(0)
                 
-    
-
 
 
 print "loading dataset"
@@ -112,7 +111,9 @@ print "got",len(subset),"samples out of",N
 assert len(subset)<=args.maxtrain
 counter = Counter(cclasses)
 print "# classes",len(counter.keys())
-print "most common",counter.most_common(20)
+print "most common",
+for k,v in counter.most_common(10): print k,v,"/",
+print "..."
 
 
 
@@ -126,3 +127,6 @@ print "writing"
 import cPickle
 with open(args.output,"w") as stream:
     cPickle.dump(sc,stream,2)
+
+h5.close()
+del h5

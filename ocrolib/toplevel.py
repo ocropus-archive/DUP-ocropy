@@ -7,7 +7,7 @@ import os
 import sys
 import traceback
 import warnings
-from types import NoneType
+from types import NoneType,IntType,FloatType,StringTypes
 
 ### printing
 
@@ -44,6 +44,7 @@ obsolete = failfunc
 
 ### debugging / tracing
 
+_trace1_depth = 0
 
 def trace1(f):
     """Print arguments/return values for the decorated function before each call."""
@@ -63,6 +64,7 @@ def trace1(f):
             return result
         except Exception,e:
             print " "*_trace1_depth,"ERROR",name,":",e
+            raise
         finally:
             _trace1_depth -= 1
     return wrapper
@@ -122,52 +124,49 @@ def replacedby(g):
 
 class CheckError(Exception):
     def __init__(self,*args,**kw):
+        self.fun = kw.get("fun","?")
+        self.var = kw.get("var","?")
         self.description = " ".join([strc(x) for x in args])
-        self.kw = kw
     def __str__(self):
-        result = "<CheckError %s"%self.description
-        for k,v in self.kw.items():
-            result += " %s=%s"%(k,strc(v))
-        result += ">"
-        return result
+        return "\nCheckError for argument '%s' in call to function: '%s'\n%s\n"%(self.var,self.fun,self.description)
 
 def checktype(value,type_):
     """Check value against the type spec.  If everything
-    is OK, this just returns.  If the types don't check out,
-    an exception is thrown."""
+    is OK, this just returns the value itself.  
+    If the types don't check out, an exception is thrown."""
     # True skips any check
     if type_ is True:
-        return
+        return value
     # types are checked using isinstance
     if type(type_)==type:
         if not isinstance(value,type_):
-            raise CheckError("isinstance failed",value,type_,var=var)
-        return
+            raise CheckError("isinstance failed",value,"of type",type(value),"is not of type",type_)
+        return value
     # for a list, check that all elements of a collection have a type
     # of some list element, allowing declarations like [str] or [str,unicode]
     # no recursive checks right now
     if type(type_)==list:
         if not numpy.iterable(value):
-            raise CheckError("expected iterable",value,var=var)
+            raise CheckError("expected iterable",value)
         for x in value:
             if not reduce(max,[isinstance(x,t) for t in type_]):
-                raise CheckError("element",x,"fails to be of type",type_,var=var)
-        return
+                raise CheckError("element",x,"of type",type(x),"fails to be of type",type_)
+        return value
     # for sets, check membership of the type in the set
     if type(type_)==set:
         for t in type_:
-            if isinstance(value,t): return
+            if isinstance(value,t): return value
         raise CheckError("set membership failed",value,type_,var=var)
     # for tuples, check that all conditions are satisfied
     if type(type_)==tuple:
         for t in type_:
             checktype(value,type_)
-        return
+        return value
     # callables are just called and should either use assertions or
     # explicitly raise CheckError
     if callable(type_):
         type_(value)
-        return
+        return value
     # otherwise, we don't understand the type spec
     raise Exception("unknown type spec: %s"%type_)
 
@@ -184,8 +183,9 @@ def checks(*types,**ktypes):
                 try:
                     checktype(value,type_)
                 except AssertionError as e:
-                    raise CheckError(e.message,*e.args)
+                    raise CheckError(e.message,*e.args,var=var,fun=f)
                 except CheckError as e:
+                    e.fun = f
                     e.var = var
                     raise e
             result = f(*args,**kw)
@@ -199,7 +199,7 @@ def makeargcheck(message):
     def decorator(f):
         def wrapper(arg):
             if not f(arg):
-                raise CheckError(strc(arg)+": "+str(message))
+                raise CheckError(strc(arg)+" of type "+str(type(arg))+": "+str(message))
         return wrapper
     return decorator
 
@@ -210,6 +210,18 @@ def ALL(*checks):
         for check in checks:
             check(x)
     return CHK_
+
+def ANY(*checks):
+    def CHK_(x):
+        for check in checks:
+            try:
+                check(x)
+                return
+            except:
+                pass
+        raise CheckError(x,": failed all checks:",[strc(x) for x in checks])
+    return CHK_
+                    
 
 @makeargcheck("value should be type book or 0/1")
 def BOOL(x):
@@ -253,6 +265,9 @@ int_dtypes = [numpy.dtype('uint8'),numpy.dtype('int32'),numpy.dtype('int64'),num
 def AINT(a):
     return a.dtype in int_dtypes 
 
+@makeargcheck("expected a byte (uint8) array")
+def ABYTE(a):
+    return a.dtype==numpy.dtype('B')
 
 @makeargcheck("expect tuple of int")
 def inttuple(a):
@@ -298,40 +313,34 @@ AFLOAT1 = ALL(ARANK(1),AFLOAT)
 AFLOAT2 = ALL(ARANK(2),AFLOAT)
 AFLOAT3 = ALL(ARANK(3),AFLOAT)
 
-@makeargcheck("expect a boolean array or an array of 0/1")
+@makeargcheck("expected a boolean array or an array of 0/1")
 def ABINARY(a):
     if a.ndim==2 and a.dtype==numpy.dtype(bool): return 1
     if not a.dtype in int_dtypes: return 0
     import scipy.ndimage.measurements
     zeros,ones = scipy.ndimage.measurements.sum(1,a,[0,1])
-    if not zeros+ones == a.size: return 0
-    return 1
+    if zeros+ones == a.size: return 1
+    if a.dtype==numpy.dtype('B'):
+        zeros,ones = scipy.ndimage.measurements.sum(1,a,[0,255])
+        if zeros+ones == a.size: return 1
+    return 0
 
 ABINARY1 = ALL(ABINARY,ARRAY1)
 ABINARY2 = ALL(ABINARY,ARRAY2)
 ABINARY3 = ALL(ABINARY,ARRAY3)
 
-@makeargcheck("expect a grayscale image (rank 2, numbers)")
-def GRAYSCALE(a):
-    return isinstance(a,numpy.ndarray) and a.ndim==2 and isinstance(a.flat[0],numbers.Number)
-@makeargcheck("expect an RGB image (rank 3, with 3 channels)")
-def RGB(a):
-    return isinstance(a,numpy.ndarray) and a.ndim==3 and a.shape[2]==3 and isinstance(a.flat[0],numbers.Number)
-@makeargcheck("expect an RGBA image (rank 3, with 4 channels)")
-def RGBA(a):
-    return isinstance(a,numpy.ndarray) and a.ndim==3 and a.shape[2]==4 and isinstance(a.flat[0],numbers.Number)
 
-### arrays with range checks
+def CHANNELS(n):
+    @makeargcheck("expected %d channels"%n)
+    def CHANNELS_(a):
+        return a.shape[-1]==n
+    return CHANNELS_
 
-@makeargcheck("expect a grayscale image (rank 2, numbers) with values between 0 and 1")
-def GRAYSCALE1(a):
-    return isinstance(a,numpy.ndarray) and a.ndim==2 and isinstance(a.flat[0],float) and numpy.amin(a)>=0 and numpy.amax(a)<=1
-@makeargcheck("expect an RGB image (rank 3, with 3 channels) with values between 0 and 1")
-def RGB1(a):
-    return isinstance(a,numpy.ndarray) and a.ndim==3 and a.shape[2]==3 and isinstance(a.flat[0],float) and numpy.amin(a)>=0 and numpy.amax(a)<=1
-@makeargcheck("expect an RGBA image (rank 3, with 4 channels) with values between 0 and 1")
-def RGBA1(a):
-    return isinstance(a,numpy.ndarray) and a.ndim==3 and a.shape[2]==4 and isinstance(a.flat[0],float) and numpy.amin(a)>=0 and numpy.amax(a)<=1
+GRAYSCALE = AFLOAT2
+GRAYSCALE1 = ALL(AFLOAT2,ARANGE(0,1))
+BYTEIMAGE = ALL(ARANK(2),ABYTE)
+RGB = ALL(ARANK(3),ABYTE,CHANNELS(3))
+RGBA = ALL(ARANK(3),ABYTE,CHANNELS(4))
 
 ### image arrays with more complicated image properties
 
@@ -389,11 +398,9 @@ LIGHTLINESEG = ALL(SEGMENTATION,WHITESEG,LINE)
 
 ### special types for pattern recognition
 
-@makeargcheck("datasets should support subscripting and length, and yield float narrays")
 def TDATASET(a):
-    n = len(a)
-    v = a[0]
-    return type(v)==numpy.ndarray and v.ndim>=1 and v.size>=1 and isinstance(v[0],float)
+    if type(a[0])!=numpy.ndarray:
+        raise CheckError("dataset fails to yield ndarray on subscripting")
 def DATASET_SIZE(lo=3,hi=int(1e9)):
     @makeargcheck("data set size should be between %d and %d"%(lo,hi))
     def DSSIZE_(a):

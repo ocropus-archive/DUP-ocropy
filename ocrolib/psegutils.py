@@ -83,6 +83,7 @@ def pad_image(image,d,cval=inf):
     result[d:-d,d:-d] = image
     return result
 
+@checks(ARANK(2),int,int,int,int,mode=str,cval=True,_=GRAYSCALE)
 def extract(image,y0,x0,y1,x1,mode='nearest',cval=0):
     h,w = image.shape
     ch,cw = y1-y0,x1-x0
@@ -100,12 +101,16 @@ def extract(image,y0,x0,y1,x1,mode='nearest',cval=0):
         sub = array(sub,dtype=dtype)
         return sub
 
-def extract_masked(image,l,pad=5,expand=0):
-    y0,x0,y1,x1 = l.bounds[0].start,l.bounds[1].start,l.bounds[0].stop,l.bounds[1].stop
+@checks(ARANK(2),True,pad=int,expand=int,_=GRAYSCALE)
+def extract_masked(image,linedesc,pad=5,expand=0):
+    """Extract a subimage from the image using the line descriptor.
+    A line descriptor consists of bounds and a mask."""
+    y0,x0,y1,x1 = [int(x) for x in [linedesc.bounds[0].start,linedesc.bounds[1].start, \
+                  linedesc.bounds[0].stop,linedesc.bounds[1].stop]]
     if pad>0:
-        mask = pad_image(l.mask,pad,cval=0)
+        mask = pad_image(linedesc.mask,pad,cval=0)
     else:
-        mask = l.mask
+        mask = linedesc.mask
     line = extract(image,y0-pad,x0-pad,y1+pad,x1+pad)
     if expand>0:
         mask = filters.maximum_filter(mask,(expand,expand))

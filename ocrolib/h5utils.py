@@ -41,8 +41,8 @@ def log(db,*args):
     import time
     db.setNodeAttr("/","LOG_%d"%int(time.time())," ".join(args))
 
-def create_earray(where,name,element_shape,type='f'):
+def create_earray(db,name,element_shape,type='f'):
     if type=='f' or type=='float32': atom = tables.Float32Atom()
     elif type=='i' or type=='float64': atom = tables.Int64Atom()
-    else raise Exception("unknown array type; choose one of: 'i', 'f'")
-    odb.createEArray(where,name,atom,shape=(0,)+tuple(shape),filters=tables.Filters(9))
+    else: raise Exception("unknown array type; choose one of: 'i', 'f'")
+    return db.createEArray(db.root,name,atom,shape=(0,)+tuple(element_shape),filters=tables.Filters(9))

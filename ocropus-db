@@ -6,6 +6,8 @@ from collections import Counter,defaultdict
 from pylab import *
 import tables
 from tables import openFile,Filters,Int32Atom,Float32Atom,Int64Atom
+import ocrolib
+from ocrolib.ligatures import lig
 
 def split_re(s):
     assert s[0]==s[-1],"specify regex substitutions as /old/new/"
@@ -13,14 +15,14 @@ def split_re(s):
     assert len(r)==2,"specify regex substitutions as /old/new/ or !old!new! etc."
     return r
 
-if sys.args[1]=="cat":
+if sys.argv[1]=="cat":
     parser = argparse.ArgumentParser(description = "Concatenate data files.")
     parser.add_argument('inputs',nargs="+")
     parser.add_argument('-N','--nsamples',type=int,default=int(1e9),help="copy at most this many samples")
     parser.add_argument('-s','--select',default=None,help="select only classes matching the regular expression")
     parser.add_argument('-r','--regex',nargs="*",default=[],help="perform regular expression replacements on classes; /old/new/")
     parser.add_argument('-o','--output',help="output file")
-    args = parser.parse_args(sys.args[1:])
+    args = parser.parse_args(sys.argv[1:])
     with openFile(args.inputs) as db:
         eshape = db.root.patches[0].shape
     print "element shape",eshape
@@ -55,12 +57,12 @@ if sys.args[1]=="cat":
             if len(odb.root.classes)>=args.nsamples: break
     sys.exit(0)
 
-if sys.args[1]=="shuffle":
+if sys.argv[1]=="shuffle":
     parser = argparse.ArgumentParser(description = "Concatenate data files.")
     parser.add_argument('input',help="input database")
     parser.add_argument('-N','--nsamples',type=int,default=int(1e9),help="copy at most this many samples")
     parser.add_argument('-o','--output',help="output database")
-    args = parser.parse_args(sys.args[1:])
+    args = parser.parse_args(sys.argv[2:])
     with openFile(args.input) as db:
         eshape = db.root.patches[0].shape
     print "element shape",eshape
@@ -72,12 +74,37 @@ if sys.args[1]=="shuffle":
             h5utils.log_copy(db,odb)
             nsamples = min(len(db.root.classes),args.nsamples)
             samples = pyrandom.sample(xrange(len(db.root.classes)),nsamples)
-            for i in smaples:
+            for i in samples:
                 if i%1000==0: print i
                 odb.root.patches.append([array(db.root.patches[i])])
                 odb.root.classes.append([db.root.classes[i]])
     sys.exit(0)
     
+if sys.argv[1]=="predict":
+    parser = argparse.ArgumentParser(description = "Concatenate data files.")
+    parser.add_argument('input',help="input database")
+    parser.add_argument('-t','--testset',type=int,default=-1,help="use testset sequence t (-1=use all samples)")
+    parser.add_argument('-m','--model',default=None,help="model to be evaluated")
+    parser.add_argument('-N','--nsamples',type=int,default=int(1e9),help="copy at most this many samples")
+    args = parser.parse_args(sys.argv[2:])
+    cmodel = ocrolib.ocropus_find_file(args.model)
+    #print "loading",cmodel
+    cmodel = ocrolib.load_component(cmodel)
+    confusion = Counter()
+    with openFile(args.input) as db:
+        nsamples = min(len(db.root.classes),args.nsamples)
+        samples = pyrandom.sample(xrange(len(db.root.classes)),nsamples)
+        for i in samples:
+            if args.testset>=0 and not ocrolib.testset(i,sequence=args.testset): continue
+            outputs = cmodel.coutputs(db.root.patches[i])
+            actual = lig.chr(db.root.classes[i])
+            pred = outputs[0][0] if len(outputs)>0 else "~"
+            confusion[(actual,pred)] += 1
+    errs = sum([v for (a,p),v in confusion.items() if a!=p])
+    total = sum(confusion.values())
+    print errs,total,errs*100.0/total
+    sys.exit(0)
+
 print """usage:
 
 ocropus-db cat ...

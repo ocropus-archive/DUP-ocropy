@@ -133,21 +133,35 @@ def compute_segmentation(binary,scale):
 def process1(job):
     fname,i = job
     base,_ = os.path.splitext(fname)
+    gray = binary = None
+
+    # read grayscale and binary images if available, otherwise
+    # assume that image.png is "nearly" binary
     if os.path.exists(base+".bin.png"):
-        if os.path.exists(base+".nrm.png"):
-            gray = ocrolib.read_image_gray(base+".nrm.png")
-        else:
-            gray = ocrolib.read_image_gray(fname)
-        binary = 1-ocrolib.read_image_binary(base+".bin.png")
-    else:
-        binary = 1-ocrolib.read_image_binary(fname)
-        gray = binary
+        binary = ocrolib.read_image_binary(base+".bin.png")
+    if os.path.exists(base+".nrm.png"):
+        gray = ocrolib.read_image_gray(base+".nrm.png")
+    if gray is None:
+        gray = ocrolib.read_image_gray(base+".png")
+    if binary is None:
+        binary = array(gray>ocrolib.midrange(gray),'B')
+    binary = amax(binary)-binary # invert
+
+    checktype(binary,ABINARY2)
+    checktype(gray,GRAYSCALE)
+
     if args.debug:
         clf(); imshow(binary); title("binary"); ginput(1,maximum(args.show,args.debug))
+
     scale = psegutils.estimate_scale(binary)
+
     if scale<args.minscale:
         sys.stderr.write("%s: scale (%g) less than --minscale; skipping\n"%(fname,scale))
         return
+
+    checktype(binary,ABINARY2)
+    checktype(gray,GRAYSCALE)
+
     segmentation = compute_segmentation(binary,scale)
     lines = psegutils.compute_lines(segmentation,scale)
     order = psegutils.reading_order([l.bounds for l in lines],debug=args.debug)
@@ -165,8 +179,10 @@ def process1(job):
     #imsave("%s.pseg.png"%base,pseg)
     ocrolib.write_page_segmentation("%s.pseg.png"%base,segmentation)
     for i,l in enumerate(lines):
-        ocrolib.write_image_gray("%s/01%04x.png"%(base,i+1),psegutils.extract_masked(gray,l,pad=args.pad,expand=args.expand))
-        ocrolib.write_image_binary("%s/01%04x.bin.png"%(base,i+1),psegutils.extract_masked(1-binary,l,pad=args.pad))
+        ocrolib.write_image_gray("%s/01%04x.png"%(base,i+1),
+                psegutils.extract_masked(gray,l,pad=args.pad,expand=args.expand))
+        ocrolib.write_image_binary("%s/01%04x.bin.png"%(base,i+1),
+                psegutils.extract_masked(1-binary,l,pad=args.pad))
     print "%6d"%i,fname,"%4.1f"%scale,len(lines)
 
 if args.debug>0 or args.show>0: args.parallel = 0

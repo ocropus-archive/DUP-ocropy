@@ -155,7 +155,7 @@ def rselect(data,n,s=1000,f=0.99):
 ### PCA
 ###
 
-@checks(DATASET(fixedshape=1,vrank=1),int,min_k=RANGE(2,100000),whiten=BOOL)
+@checks(DATASET(fixedshape=1,vrank=1),True,min_k=RANGE(2,100000),whiten=BOOL)
 def pca(data,k,min_k=2,whiten=0):
     """Computes a PCA and a whitening.  The number of
     components can be specified either directly or as a fraction
@@ -204,7 +204,7 @@ def kmeans(data,k,maxiter=100):
         last = mins
     return centers
 
-@checks(DATASET(fixedshape=1,vrank=1),RANGE(2,100000),RANGE(2,10000),maxiter=RANGE(0,10000000),\
+@checks(DATASET(fixedshape=1,vrank=1),RANGE(0,100000),RANGE(0,10000),maxiter=RANGE(0,10000000),\
         npk=RANGE(2,100000),maxsample=RANGE(3,1e9),min_norm=RANGE(0.0,1000.0))
 def pca_kmeans(data,k,d,min_d=3,maxiter=100,npk=1000,verbose=0,maxsample=200000,min_norm=1e-3):
     n = min(len(data),k*npk,maxsample)
@@ -301,7 +301,7 @@ class HierarchicalSplitter:
         self.maxdepth = 2
         self.d = 0.90
         self.min_d = 3
-        self.verbose = 1
+        self.verbose = 0
         self.depth = 0
         self.splitsize = 10000
         self.targetsize = 1000
@@ -326,7 +326,8 @@ class HierarchicalSplitter:
         self.offsets = []
         for s,subset in enumerate(sets):
             self.offsets.append(offset)
-            print "\t"*self.depth,"bucket",s,"of",k,"len",len(subset),"offset",offset
+            if self.verbose:
+                print "\t"*self.depth,"bucket",s,"of",k,"len",len(subset),"offset",offset
             if self.depth>=self.maxdepth or len(subset)<self.splitsize:
                 offset += 1
             else:
