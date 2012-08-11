@@ -127,7 +127,6 @@ def compute_segmentation(binary,scale):
     assert amin(segmentation)==0
     segmentation = where(segmentation==0,0,segmentation+0x010000)
     assert amin(segmentation)==0
-    print "@@@",strc(segmentation)
     return segmentation
 
 def process1(job):

@@ -135,8 +135,7 @@ def write_image_gray(fname,image,normalize=0):
     the image must be of type unsigned byte."""
     if isfloatarray(image):
         image = array(255*clip(image,0.0,1.0),'B')
-    else:
-        assert image.dtype==dtype('B')
+    assert image.dtype==dtype('B'),"array has wrong dtype: %s"%image.dtype
     im = array2pil(image)
     im.save(fname)
 
@@ -157,8 +156,7 @@ def write_image_binary(fname,image):
     is, in fact, binary.  The image may be of any type, but must consist of only
     two values."""
     assert image.ndim==2
-    assert sum(image==amin(image))+sum(image==amax(image))==prod(image.shape),"image is not binary"
-    image = array(image==amax(image),'B')
+    image = array(255*(image>midrange(image)),'B')
     im = array2pil(image)
     im.save(fname)
 
@@ -1051,3 +1049,13 @@ def gt_implode(l):
         else:
             raise Exception("cannot create ground truth transcription for: %s"%l)
     return "".join(result)
+
+@checks(int,sequence=int,frac=int,_=BOOL)
+def testset(index,sequence=0,frac=10):
+    # this doesn't have to be good, just a fast, somewhat random function
+    return sequence==int(abs(sin(index))*1.23456789e6)%frac
+
+def midrange(image,frac=0.5):
+    """Computes the center of the range of image values
+    (for quick thresholding)."""
+    return frac*(amin(image)+amax(image))
