@@ -220,6 +220,12 @@ def process1(fname):
             imshow(image)
             ginput(1,0.1)
 
+        try:
+            checktype(image,LINE)
+        except:
+            print "DOESN'T SATISFY GEOMETRIC CONSTRAINS ON LINES, SKIPPED"
+            return
+
         # generate character candidates
 
         rseg = segmenter.charseg(image)
@@ -297,4 +303,4 @@ else:
     result = []
     for r in pool.imap_unordered(process1,args.files):
         result.append(r)
-        if len(result)%100==0: print "==========",len(result),len(args),"=========="
+        if len(result)%100==0: print "==========",len(result),"of",len(args.files),"=========="
