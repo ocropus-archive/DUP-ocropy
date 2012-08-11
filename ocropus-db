@@ -8,12 +8,21 @@ import tables
 from tables import openFile,Filters,Int32Atom,Float32Atom,Int64Atom
 import ocrolib
 from ocrolib.ligatures import lig
+from ocrolib import h5utils
 
 def split_re(s):
     assert s[0]==s[-1],"specify regex substitutions as /old/new/"
     r = s[1:-1].split(s[0])
     assert len(r)==2,"specify regex substitutions as /old/new/ or !old!new! etc."
     return r
+
+def chunks(n,c):
+    """Iterate over the range 0...n in chunks of size c."""
+    i = 0
+    while i<n:
+        j = min(n,i+c)
+        yield (i,j)
+        i = j
 
 if sys.argv[1]=="cat":
     parser = argparse.ArgumentParser(description = "Concatenate data files.")
@@ -22,15 +31,18 @@ if sys.argv[1]=="cat":
     parser.add_argument('-s','--select',default=None,help="select only classes matching the regular expression")
     parser.add_argument('-r','--regex',nargs="*",default=[],help="perform regular expression replacements on classes; /old/new/")
     parser.add_argument('-o','--output',help="output file")
-    args = parser.parse_args(sys.argv[1:])
-    with openFile(args.inputs) as db:
+    args = parser.parse_args(sys.argv[2:])
+    select = None
+    if args.select is not None:
+        select = re.compile('^'+args.pattern+'$')
+    with openFile(args.inputs[0]) as db:
         eshape = db.root.patches[0].shape
     print "element shape",eshape
     replacements = [split_re(r) for r in args.regex]
     with openFile(args.output,"w") as odb:
         h5utils.log(odb,str(sys.argv))
-        h5utils.create_earray(odb.root,"patches",eshape,'f')
-        h5utils.create_earray(odb.root,"classes",(),'f')
+        h5utils.create_earray(odb,"patches",eshape,'f')
+        h5utils.create_earray(odb,"classes",(),'f')
         for fname in args.inputs:
             with openFile(fname) as db:
                 h5utils.log_copy(db,odb)
@@ -49,7 +61,6 @@ if sys.argv[1]=="cat":
                         for i,c in enumerate(clss):
                             for old,new in replacements:
                                 clss[i] = lig.ord(re.sub(old,new,lig.chr(clss[i])))
-                    if not args.allowbad: assert (clss>32).all()
                     n = min(end-start,args.nsamples-len(odb.root.patches))
                     if n==0: break
                     odb.root.patches.append(data[:n])
@@ -68,14 +79,14 @@ if sys.argv[1]=="shuffle":
     print "element shape",eshape
     with openFile(args.output,"w") as odb:
         h5utils.log(odb,str(sys.argv))
-        h5utils.create_earray(odb.root,"patches",eshape,'f')
-        h5utils.create_earray(odb.root,"classes",(),'f')
+        h5utils.create_earray(odb,"patches",eshape,'f')
+        h5utils.create_earray(odb,"classes",(),'f')
         with openFile(args.input) as db:
             h5utils.log_copy(db,odb)
             nsamples = min(len(db.root.classes),args.nsamples)
             samples = pyrandom.sample(xrange(len(db.root.classes)),nsamples)
-            for i in samples:
-                if i%1000==0: print i
+            for pos,i in enumerate(samples):
+                if pos%1000==0: print pos
                 odb.root.patches.append([array(db.root.patches[i])])
                 odb.root.classes.append([db.root.classes[i]])
     sys.exit(0)
@@ -107,8 +118,9 @@ if sys.argv[1]=="predict":
 
 print """usage:
 
-ocropus-db cat ...
-ocropus-db shuffle ...
+ocropus-db cat --help
+ocropus-db shuffle --help
+ocrpous-db predict --help
 
 Try "ocropus cat --help" etc. for more info.
 """
