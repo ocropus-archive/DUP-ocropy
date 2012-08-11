@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-import numpy,os,os.path,sys,time,fcntl,multiprocessing,argparse
+import numpy,os,os.path,sys,time,fcntl,multiprocessing,argparse,codecs,traceback
 import random as pyrandom
 from collections import Counter,defaultdict
 from pylab import *
@@ -8,7 +8,7 @@ import tables
 from tables import openFile,Filters,Int32Atom,Float32Atom,Int64Atom
 import ocrolib
 from ocrolib.ligatures import lig
-from ocrolib import h5utils
+from ocrolib import h5utils,improc
 
 def split_re(s):
     assert s[0]==s[-1],"specify regex substitutions as /old/new/"
@@ -114,6 +114,54 @@ if sys.argv[1]=="predict":
     errs = sum([v for (a,p),v in confusion.items() if a!=p])
     total = sum(confusion.values())
     print errs,total,errs*100.0/total
+    sys.exit(0)
+
+def tess_readchars(fname,boxfile=None,d=1,pad=2):
+    """Read characters in Tesseract training format."""
+    os.system("convert '%s' /tmp/image.png"%fname)
+    image = imread("/tmp/image.png")
+    h,w = image.shape
+    if boxfile is None:
+        base,_ = ocrolib.allsplitext(fname)
+        boxfile = base+".box"
+    with codecs.open(boxfile,"r","utf8") as stream:
+        lineno = 0
+        for lineno,line in enumerate(stream.readlines()):
+            try:
+                f = line.split()
+                c = f[0]
+                x0,y0,x1,y1 = [int(x) for x in f[1:5]]
+                cimage = image[h-y1-1-d:h-y0-1+d,x0-d:x1+1].copy()
+                # if "georgiai" in fname and lineno==1682: raise Exception("debug")
+                cimage /= amax(cimage)
+                cimage = improc.pad_by(1-cimage,pad)
+                yield c,cimage
+                lineno += 1
+            except:
+                traceback.print_exc()
+                print fname,lineno,line
+
+if sys.argv[1]=="tess2h5":
+    parser = argparse.ArgumentParser(description = "Convert Tesseract box files to OCRopus databases.")
+    parser.add_argument('inputs',nargs='+',help="input database")
+    parser.add_argument('-d','--size',type=int,default=32)
+    parser.add_argument('-o','--output',help="output database")
+    args = parser.parse_args(sys.argv[2:])
+    print args.inputs
+    d = args.size
+    count = 0
+    with tables.openFile(args.output,"w") as odb:
+        patches = h5utils.create_earray(odb,"patches",(d,d),'f')
+        classes = h5utils.create_earray(odb,"classes",(),'i')
+        for fname in args.inputs:
+            print "===",fname
+            lineno = 0
+            for c,cimage in tess_readchars(fname):
+                cimage = improc.classifier_normalize(cimage,size=d)
+                patches.append([cimage])
+                classes.append([lig.ord(c)])
+                count += 1
+                lineno += 1
     sys.exit(0)
 
 print """usage:
