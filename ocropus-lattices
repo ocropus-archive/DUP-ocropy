@@ -38,7 +38,7 @@ parser.add_argument('--delay',type=float,default=0.1,help='time to wait after di
 parser.add_argument("--extract",default=None,help="extract characters for cmodel training")
 parser.add_argument("--noglob",action="store_true",help="don't perform expansion on the arguments")
 parser.add_argument('-q','--quiet',action="store_true",help="don't output progress info")
-parser.add_argument('-S','--sizemode',default="perline",help="how to resize characters for extraction")
+parser.add_argument('-S','--sizemode',default="perchar",help="how to resize characters for extraction")
 parser.add_argument('--hdfmode',default="a",help="how the HDF5 file is opened")
 parser.add_argument('-e','--exitonerr',action="store_true",help='time to wait after displaying results')
 
@@ -90,67 +90,74 @@ if args.extract is not None:
     try:
         with Hdf5Writer(args.extract,mode=args.hdfmode) as h5:
             for fname in args.files:
-                gname = ocrolib.fvariant(fname,"aligned")
-                if not os.path.exists(gname): 
-                    gname = ocrolib.fvariant(fname,"txt","gt")
-                if not os.path.exists(gname): 
-                    print fname,"=EXTRACTED=","*** NO ALIGNED TEXT ***",gname
-                    continue
-                cname = ocrolib.fvariant(fname,"cseg")
-                if not os.path.exists(cname): 
-                    print fname,"=EXTRACTED=","*** NO CSEG ***",cname
-                    continue
-                rname = ocrolib.fvariant(fname,"rseg")
-                if not os.path.exists(rname): 
-                    print fname,"=EXTRACTED=","*** NO RSEG ***",rname
-                    continue
-                gt = ocrolib.gt_explode(ocrolib.read_text(gname))
-                if len(gt)==0: 
-                    print fname,"=EXTRACTED=","*** EMPTY GT ***"
-                    continue
-                if gt[-1]=="\n": gt = gt[:-1]
-                cseg = ocrolib.read_line_segmentation(cname)
-                rseg = ocrolib.read_line_segmentation(rname)
-                csegs = linerec.extract_csegs(cseg)
-                maxseg = amax([c.last for c in csegs])
-                if maxseg!=len(gt):
-                    print fname,"=EXTRACTED=","*** maxseg AND aligned lengths DIFFER***",len(gt),maxseg
-                    continue
-                csegs = [c.replace(out=[(gt[c.first-1],0.0)]) for i,c in enumerate(csegs)]
-                csegs = [c for c in csegs if c.out[0][0]!="~"]
-                rsegs = linerec.extract_rsegs(rseg)
-                misseg = linerec.extract_non_csegs(rsegs,csegs)
-                misseg = [c.replace(out=[("~",0.0)]) for c in misseg]
-                if args.show:
-                    ion(); gray()
-                    figure(1); ocrolib.showgrid([c.img for c in csegs[:100]],xlabels=[c.out[0][0] for c in csegs]) 
-                    figure(2); ocrolib.showgrid([m.img for m in misseg[:100]],xlabels=[m.out[0][0] for m in misseg]) 
-                    ginput(1,args.delay)
-                # TODO optionally double-check against model here
-                if not args.quiet: 
-                    print fname,"=EXTRACTED=",ocrolib.gt_implode(gt)
-                if args.sizemode=="perline":
-                    limage = ocrolib.read_image_gray(ocrolib.fvariant(fname,"png"))
-                    if len(csegs)<10: 
-                        print "too few segments (perline)"
+                try:
+                    gname = ocrolib.fvariant(fname,"aligned")
+                    if not os.path.exists(gname): 
+                        gname = ocrolib.fvariant(fname,"txt","gt")
+                    if not os.path.exists(gname): 
+                        print fname,"=EXTRACTED=","*** NO ALIGNED TEXT ***",gname
                         continue
-                    if limage.shape[1]<100:
-                        print "too small (perline)"
+                    cname = ocrolib.fvariant(fname,"cseg")
+                    if not os.path.exists(cname): 
+                        print fname,"=EXTRACTED=","*** NO CSEG ***",cname
                         continue
-                    xheight,baseline = lineproc.estimate_xheight(1-limage)
-                    if xheight<8 or xheight>40: # TODO make these arguments
-                        print "bad xheight:",xheight
+                    rname = ocrolib.fvariant(fname,"rseg")
+                    if not os.path.exists(rname): 
+                        print fname,"=EXTRACTED=","*** NO RSEG ***",rname
                         continue
-                for c in csegs+misseg:
-                    image = c.img
+                    gt = ocrolib.gt_explode(ocrolib.read_text(gname))
+                    if len(gt)==0: 
+                        print fname,"=EXTRACTED=","*** EMPTY GT ***"
+                        continue
+                    if gt[-1]=="\n": gt = gt[:-1]
+                    cseg = ocrolib.read_line_segmentation(cname)
+                    rseg = ocrolib.read_line_segmentation(rname)
+                    csegs = linerec.extract_csegs(cseg)
+                    maxseg = amax([c.last for c in csegs])
+                    if maxseg!=len(gt):
+                        print fname,"=EXTRACTED=","*** maxseg AND aligned lengths DIFFER***",len(gt),maxseg
+                        continue
+                    csegs = [c.replace(out=[(gt[c.first-1],0.0)]) for i,c in enumerate(csegs)]
+                    csegs = [c for c in csegs if c.out[0][0]!="~"]
+                    rsegs = linerec.extract_rsegs(rseg)
+                    misseg = linerec.extract_non_csegs(rsegs,csegs)
+                    misseg = [c.replace(out=[("~",0.0)]) for c in misseg]
+                    if args.show:
+                        ion(); gray()
+                        figure(1); ocrolib.showgrid([c.img for c in csegs[:100]],xlabels=[c.out[0][0] for c in csegs]) 
+                        figure(2); ocrolib.showgrid([m.img for m in misseg[:100]],xlabels=[m.out[0][0] for m in misseg]) 
+                        ginput(1,args.delay)
+                    # TODO optionally double-check against model here
+                    if not args.quiet: 
+                        print fname,"=EXTRACTED=",ocrolib.gt_implode(gt)
                     if args.sizemode=="perline":
-                        options = dict(bar=(baseline-xheight,baseline))
-                        image = improc.line_normalize(image,scale=target_xheight*1.0/xheight,**options)
-                    elif args.sizemode=="perchar":
-                        image = improc.classifier_normalize(image)
-                    cls = c.out[0][0]
-                    h5.insert(image=image,cls=cls)
-    except list:
+                        limage = ocrolib.read_image_gray(ocrolib.fvariant(fname,"png"))
+                        if len(csegs)<10: 
+                            print "too few segments (perline)"
+                            continue
+                        if limage.shape[1]<100:
+                            print "too small (perline)"
+                            continue
+                        xheight,baseline = lineproc.estimate_xheight(1-limage)
+                        if xheight<8 or xheight>40: # TODO make these arguments
+                            print "bad xheight:",xheight
+                            continue
+                    for c in csegs+misseg:
+                        image = c.img
+                        if args.sizemode=="perline":
+                            options = dict(bar=(baseline-xheight,baseline))
+                            image = improc.line_normalize(image,scale=target_xheight*1.0/xheight,**options)
+                        elif args.sizemode=="perchar":
+                            try:
+                                image = improc.classifier_normalize(image)
+                            except:
+                                raise ocrolib.RecognitionError("classifier_normalize failed, skipping")
+                        cls = c.out[0][0]
+                        h5.insert(image=image,cls=cls)
+                except ocrolib.RecognitionError as e:
+                    print str(e).replace("\n"," ")[:80]
+                    continue
+    except Exception as e:
         traceback.print_exc()
         sys.exit(1)
     sys.exit(0)
