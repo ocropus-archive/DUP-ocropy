@@ -74,7 +74,7 @@ def compute_geomaps(fnames,shapedict,old_model,use_gt=1,size=32,debug=0,old_orde
     """Given a shape dictionary and an existing line geometry
     estimator, compute updated geometric maps for each entry
     in the shape dictionary."""
-    if debug: gray(); ion()
+    if debug>0: gray(); ion()
     shape = (shapedict.k,size,size)
     bls = zeros(shape)
     xls = zeros(shape)
@@ -88,7 +88,7 @@ def compute_geomaps(fnames,shapedict,old_model,use_gt=1,size=32,debug=0,old_orde
             if len(re.sub(r'[^A-Z]','',gt))>=0.3*len(re.sub(r'[^a-z]','',gt)): continue
             if len(re.sub(r'[^0-9]','',gt))>=0.3*len(re.sub(r'[^a-z]','',gt)): continue
         image = 1-ocrolib.read_image_gray(fname)
-        if debug: subplot(411); imshow(image)
+        if debug>0 and fno%debug==0: clf(); subplot(411); imshow(image)
         try:
             blp,xlp = old_model.lineFit(image,order=old_order)
         except:
@@ -96,15 +96,15 @@ def compute_geomaps(fnames,shapedict,old_model,use_gt=1,size=32,debug=0,old_orde
             continue
         blimage = zeros(image.shape)
         h,w = image.shape
-        for x in range(w): blimage[int(polyval(blp,x)),x] = 1
+        for x in range(w): blimage[clip(int(polyval(blp,x)),0,h),x] = 1
         xlimage = zeros(image.shape)
-        for x in range(w): blimage[int(polyval(xlp,x)),x] = 1
-        if debug: subplot(412); imshow(blimage+2*xlimage+0.5*image)
+        for x in range(w): blimage[clip(int(polyval(xlp,x)),0,h),x] = 1
+        if debug>0 and fno%debug==0: subplot(412); imshow(blimage+2*xlimage+0.5*image)
         try: 
             seg = lineseg.ccslineseg(image)
         except: 
             continue
-        if debug: subplot(413); morph.showlabels(seg)
+        if debug>0 and fno%debug==0: subplot(413); morph.showlabels(seg)
         shape = None
         for sub,transform,itransform_add in extract_chars(seg):
             if shape is None: shape = sub.shape
@@ -113,7 +113,8 @@ def compute_geomaps(fnames,shapedict,old_model,use_gt=1,size=32,debug=0,old_orde
             best = shapedict.predict1(sub)
             bls[best] += transform(blimage)
             xls[best] += transform(xlimage)
-        if debug: ginput(1,100)
+        if debug==1: ginput(1,100)
+        elif debug>1: ginput(1,0.01)
     for i in range(len(bls)): bls[i] *= bls[i].shape[1]*1.0/max(1e-6,sum(bls[i]))
     for i in range(len(xls)): xls[i] *= xls[i].shape[1]*1.0/max(1e-6,sum(xls[i]))
     return bls,xls
@@ -175,6 +176,10 @@ class TrainedLineGeometry:
         xl = mean(polyval(xlp,xs))
         return bl,bl-xl
 
+# older name, useful for unpickling old versions
+
+LineEstimationModel = TrainedLineGeometry
+
 
 
 def expand(fname):
@@ -204,7 +209,7 @@ if __name__=="__main__":
     ptrain.add_argument("-k","--nprotos",type=int,default=1024)
     ptrain.add_argument("-o","--output",default="default.lineest",required=1,
                         help="output file for the pickled line estimator")
-    ptrain.add_argument("--debug",action="store_true")
+    ptrain.add_argument("--debug",type=int,default=0)
     # FIXME There are a lot more training parameters that could be exposed here.
 
     pshowdict = subparsers.add_parser("showdict")
@@ -217,19 +222,23 @@ if __name__=="__main__":
     pshowline.add_argument("-x","--xlimit",type=int,default=2000,
                            help="only display the left part of the line up to this point for better visibility")
     pshowline.add_argument("-p","--order",type=int,default=1)
-    pshowline.add_argument("image",default=None)
+    pshowline.add_argument("images",nargs='+',default=[])
 
     args = parser.parse_args()
     if args.subcommand=="train":
-        estimator = TrivialLineGeometry()
+        # apparently, we need this to make pickling work out correctly
+        import ocrolib.lineest
+        estimator = ocrolib.lineest.TrivialLineGeometry()
         if args.em_estimator is not None:
             with open(args.em_estimator) as stream:
                 estimator = cPickle.load(stream)
         lem = TrainedLineGeometry(k=args.nprotos)
         lem.buildShapeDictionary(expand(args.dictlines))
-        lem.buildGeomaps(expand(args.geolines),debug=args.debug,old_model=estimator,old_order=args.order)
+        lem.buildGeomaps(expand(args.geolines),
+            old_model=estimator,old_order=args.order,
+            debug=args.debug)
         with open(args.output,"w") as stream:
-            cPickle.dump(lem,stream)
+            cPickle.dump(lem,stream,2)
         sys.exit(0)
     elif args.subcommand=="showdict":
         with open(args.show_estimator) as stream:
@@ -246,17 +255,26 @@ if __name__=="__main__":
         with open(args.line_estimator) as stream:
             lem = cPickle.load(stream)
         print "loaded",lem
-        image = 1-ocrolib.read_image_gray(args.image)
-        limit = min(image.shape[1],args.xlimit)
-        blp,xlp = lem.lineFit(image,order=args.order)
-        print lem.lineParameters(image)
-        subplot(211); imshow((lem.blimage-lem.xlimage)[:,:limit])
-        gray()
-        subplot(212); imshow(image[:,:limit])
-        xlim(0,limit); ylim(len(image),0)
-        xs = range(image.shape[1])[:limit]
-        plot(xs,polyval(blp,xs))
-        plot(xs,polyval(xlp,xs))
-        ginput(1,1000)
+        for fname in args.images:
+            try:
+                print "***",fname
+                clf()
+                image = 1-ocrolib.read_image_gray(fname)
+                limit = min(image.shape[1],args.xlimit)
+                blp,xlp = lem.lineFit(image,order=args.order)
+                print lem.lineParameters(image)
+                title("fname")
+                subplot(211); imshow((lem.blimage-lem.xlimage)[:,:limit])
+                gray()
+                subplot(212); imshow(image[:,:limit])
+                xlim(0,limit); ylim(len(image),0)
+                xs = range(image.shape[1])[:limit]
+                plot(xs,polyval(blp,xs))
+                plot(xs,polyval(xlp,xs))
+                ginput(1,1000)
+            except:
+                print "ERROR IN IMAGE",fname
+                traceback.print_exc()
+                continue
         sys.exit(0)
 
