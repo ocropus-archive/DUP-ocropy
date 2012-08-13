@@ -132,7 +132,7 @@ class LineEstimationModel:
     def __init__(self,k):
         self.k = k
     def buildShapeDictionary(self,fnames):
-        self.shapedict = build_shape_dictionary(fnames,k=k)
+        self.shapedict = build_shape_dictionary(fnames,k=self.k)
     def buildGeomaps(self,fnames):
         self.bls,self.xls = compute_geomaps(fnames,self.shapedict)
     def lineFit(self,image,order=1):
