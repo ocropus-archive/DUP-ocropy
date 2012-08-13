@@ -96,9 +96,9 @@ def compute_geomaps(fnames,shapedict,old_model,use_gt=1,size=32,debug=0,old_orde
             continue
         blimage = zeros(image.shape)
         h,w = image.shape
-        for x in range(w): blimage[clip(int(polyval(blp,x)),0,h),x] = 1
+        for x in range(w): blimage[clip(int(polyval(blp,x)),0,h-1),x] = 1
         xlimage = zeros(image.shape)
-        for x in range(w): blimage[clip(int(polyval(xlp,x)),0,h),x] = 1
+        for x in range(w): blimage[clip(int(polyval(xlp,x)),0,h-1),x] = 1
         if debug>0 and fno%debug==0: subplot(412); imshow(blimage+2*xlimage+0.5*image)
         try: 
             seg = lineseg.ccslineseg(image)
