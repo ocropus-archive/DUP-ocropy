@@ -16,16 +16,23 @@ import cPickle
 
 
 def vertical_stddev(image):
+    """Compute the standard deviation in the vertical direction.
+    This is used below to get a rough idea of how large characters
+    and lines are."""
     cy,cx = measurements.center_of_mass(image)
     return (sum(((arange(len(image))-cy)[:,newaxis]*image)**2)/sum(image))**.5,cy,cx
 
-def extract_chars(segmentation,h=32,w=32,f=0.5):
+def extract_chars(segmentation,h=32,w=32,f=0.5,minscale=0.5):
+    """Extract all the characters from the segmentation and yields them
+    as an interator.  Also yields a forward and a backwards transformation."""
     ls,ly,lx = vertical_stddev(segmentation>0)
     boxes = measurements.find_objects(segmentation)
     for i,b in enumerate(boxes):
         sub = (segmentation==i+1)
         cs,cy,cx = vertical_stddev(sub)
-        scale = f*h/(4*max(cs,0.1*ls))
+        # limit the character sigma to be at least minscale times the
+        # line sigma (this causes dots etc. not to blow up ridiculously large)
+        scale = f*h/(4*max(cs,minscale*ls))
         m = diag([1.0/scale,1.0/scale])
         offset = array([cy,cx])-dot(m,array([h/2,w/2]))
         def transform(image,m=m,offset=offset):
@@ -39,7 +46,8 @@ def extract_chars(segmentation,h=32,w=32,f=0.5):
 
 
 
-def build_shape_dictionary(fnames,k=1024,d=0.9):
+def build_shape_dictionary(fnames,k=1024,d=0.9,debug=0):
+    """Given a collection of file names, create a shape dictionary."""
     def allchars():
         count = 0
         for fno,fname in enumerate(fnames):
@@ -62,7 +70,11 @@ def build_shape_dictionary(fnames,k=1024,d=0.9):
 
 
 
-def compute_geomaps(fnames,shapedict,use_gt=1,size=32):
+def compute_geomaps(fnames,shapedict,old_model,use_gt=1,size=32,debug=0,old_order=1):
+    """Given a shape dictionary and an existing line geometry
+    estimator, compute updated geometric maps for each entry
+    in the shape dictionary."""
+    if debug: gray(); ion()
     shape = (shapedict.k,size,size)
     bls = zeros(shape)
     xls = zeros(shape)
@@ -76,17 +88,23 @@ def compute_geomaps(fnames,shapedict,use_gt=1,size=32):
             if len(re.sub(r'[^A-Z]','',gt))>=0.3*len(re.sub(r'[^a-z]','',gt)): continue
             if len(re.sub(r'[^0-9]','',gt))>=0.3*len(re.sub(r'[^a-z]','',gt)): continue
         image = 1-ocrolib.read_image_gray(fname)
+        if debug: subplot(411); imshow(image)
         try:
-            xh,bl = lineproc.estimate_xheight(image)
+            blp,xlp = old_model.lineFit(image,order=old_order)
         except:
             traceback.print_exc()
             continue
         blimage = zeros(image.shape)
-        blimage[bl,:] = 1
+        h,w = image.shape
+        for x in range(w): blimage[int(polyval(blp,x)),x] = 1
         xlimage = zeros(image.shape)
-        xlimage[bl-xh,:] = 1
-        try: seg = lineseg.ccslineseg(image)
-        except: continue
+        for x in range(w): blimage[int(polyval(xlp,x)),x] = 1
+        if debug: subplot(412); imshow(blimage+2*xlimage+0.5*image)
+        try: 
+            seg = lineseg.ccslineseg(image)
+        except: 
+            continue
+        if debug: subplot(413); morph.showlabels(seg)
         shape = None
         for sub,transform,itransform_add in extract_chars(seg):
             if shape is None: shape = sub.shape
@@ -95,6 +113,7 @@ def compute_geomaps(fnames,shapedict,use_gt=1,size=32):
             best = shapedict.predict1(sub)
             bls[best] += transform(blimage)
             xls[best] += transform(xlimage)
+        if debug: ginput(1,100)
     for i in range(len(bls)): bls[i] *= bls[i].shape[1]*1.0/max(1e-6,sum(bls[i]))
     for i in range(len(xls)): xls[i] *= xls[i].shape[1]*1.0/max(1e-6,sum(xls[i]))
     return bls,xls
@@ -128,13 +147,20 @@ def fit_peaks(smoothed,order=1,filter_size=(1.0,20.0)):
 
 
 
-class LineEstimationModel:
+class TrivialLineGeometry:
+    def lineFit(self,image,order=1):
+        xh,bl = lineproc.estimate_xheight(image)
+        return array([bl]),array([bl-xh])
+    def lineParameters(self,image):
+        return bl,bl-xh
+
+class TrainedLineGeometry:
     def __init__(self,k):
         self.k = k
-    def buildShapeDictionary(self,fnames):
-        self.shapedict = build_shape_dictionary(fnames,k=self.k)
-    def buildGeomaps(self,fnames):
-        self.bls,self.xls = compute_geomaps(fnames,self.shapedict)
+    def buildShapeDictionary(self,fnames,debug=0):
+        self.shapedict = build_shape_dictionary(fnames,k=self.k,debug=debug)
+    def buildGeomaps(self,fnames,old_model=TrivialLineGeometry(),debug=0,old_order=1):
+        self.bls,self.xls = compute_geomaps(fnames,self.shapedict,old_model=old_model,old_order=old_order,debug=debug)
     def lineFit(self,image,order=1):
         blimage,xlimage = blxlimages(image,self.shapedict,self.bls,self.xls)
         self.blimage = blimage # for debugging
@@ -153,7 +179,9 @@ class LineEstimationModel:
 
 def expand(fname):
     if fname[0]=="@":
-        return open(fname[1:]).read().split("\n")
+        fnames = open(fname[1:]).read().split("\n")
+        fnames = [f for f in fnames if f!="" and os.path.exists(f)]
+        return fnames
     elif "?" in fname or "*" in fname:
         return sorted(glob.glob(fname))
     else:
@@ -165,8 +193,10 @@ if __name__=="__main__":
     subparsers = parser.add_subparsers(dest="subcommand")
 
     ptrain = subparsers.add_parser("train")
-    parser.add_argument("-e","--estimator",default=None,dest='em_estimator',
+    ptrain.add_argument("-e","--estimator",default=None,dest='em_estimator',
                         help="starting estimator for EM step")
+    ptrain.add_argument("-E","--order",default=1,type=int,
+                        help="order for polynomial fit of line estimator")
     ptrain.add_argument("-L","--dictlines",default="book/????/??????.png",required=1,
                         help="list of text lines to be used for building the shape dictionary")
     ptrain.add_argument("-G","--geolines",default="book/????/??????.png",required=1,
@@ -174,6 +204,7 @@ if __name__=="__main__":
     ptrain.add_argument("-k","--nprotos",type=int,default=1024)
     ptrain.add_argument("-o","--output",default="default.lineest",required=1,
                         help="output file for the pickled line estimator")
+    ptrain.add_argument("--debug",action="store_true")
     # FIXME There are a lot more training parameters that could be exposed here.
 
     pshowdict = subparsers.add_parser("showdict")
@@ -190,9 +221,13 @@ if __name__=="__main__":
 
     args = parser.parse_args()
     if args.subcommand=="train":
-        lem = LineEstimationModel(k=args.nprotos)
+        estimator = TrivialLineGeometry()
+        if args.em_estimator is not None:
+            with open(args.em_estimator) as stream:
+                estimator = cPickle.load(stream)
+        lem = TrainedLineGeometry(k=args.nprotos)
         lem.buildShapeDictionary(expand(args.dictlines))
-        lem.buildGeomaps(expand(args.geolines))
+        lem.buildGeomaps(expand(args.geolines),debug=args.debug,old_model=estimator,old_order=args.order)
         with open(args.output,"w") as stream:
             cPickle.dump(lem,stream)
         sys.exit(0)
