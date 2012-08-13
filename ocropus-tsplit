@@ -41,15 +41,6 @@ parser.add_argument('--targetsize',type=int,default=500,help="target size for ea
 parser.add_argument('--exclude',default=r'[ _\000-\037]',help="classes to exclude from splitting, default: %(default)s")
 args = parser.parse_args()
 
-if args.data is None:
-    parser.print_help()
-    sys.exit(0)
-
-if args.vq is not None:
-    args.maxsplit = args.vq
-    args.targetsize = 1
-    args.maxdepth = 0
-
 
 
 if args.show1 is not None:
@@ -108,6 +99,15 @@ if args.show is not None:
     sys.exit(0)
                 
 
+
+if args.data is None:
+    parser.print_help()
+    sys.exit(0)
+
+if args.vq is not None:
+    args.maxsplit = args.vq
+    args.targetsize = 1
+    args.maxdepth = 0
 
 print "loading dataset"
 h5 = tables.openFile(args.data,"r")

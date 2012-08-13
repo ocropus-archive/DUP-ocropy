@@ -16,6 +16,7 @@ import common
 #from common import method,deprecated
 import morph
 from numpy import array
+from toplevel import *
 
 def deprecated(f):
     return lambda x: x
@@ -245,6 +246,7 @@ def isotropic_rescale(image,r=32):
                                             output_shape=(r,r))
     return result
 
+@checks(PATCH,f=float)
 def csnormalize(image,f=0.75):
     """Center and size-normalize an image."""
     bimage = 1*(image>mean([amax(image),amin(image)]))
@@ -271,20 +273,18 @@ def csnormalize(image,f=0.75):
     image = interpolation.affine_transform(image,m,offset=d,order=1)
     return image
 
+@checks(GRAYSCALE,size=int)
 def classifier_normalize(image,size=32):
     """Normalize characters for classification."""
-    assert amax(image)<1.1
     if amax(image)<1e-3: return zeros((size,size))
     cimage = array(image*1.0/amax(image),'f')
-    assert amax(cimage)<1.1
     cimage = isotropic_rescale(cimage,size)
-    assert amax(cimage)<1.1
-    assert amax(cimage)>1e-3
     cimage = csnormalize(cimage)
-    assert amax(cimage)<1.1
     return cimage
 
+@checks(DARKLINE,size=int,scale=float,bar=object)
 def line_normalize(image,size=32,scale=1.0,bar=None):
+    """Normalize a character based on line geometry."""
     centroid = measurements.center_of_mass(image)
     return extract_centered_scaled_barred(image,shaped(size),centroid,scale,bar=bar)
 

@@ -80,11 +80,11 @@ def dplineseg2(image,imweight=4,bweight=-1,diagweight=1,r=2,debug=0):
         imshow(tracks+0.5*image,interpolation='nearest')
     return tracks
 
-@checks(LIGHTLINE)
+@checks(DARKLINE)
 def ccslineseg(image):
     image = 1.0*(image>0.3*amax(image))
     sigma = 10.0
-    smooth = filters.gaussian_filter(image,(sigma,3.0*sigma))
+    smooth = filters.gaussian_filter(image,(sigma,1.0*sigma))
     center = (smooth==amax(smooth,axis=0)[newaxis,:])
     center = filters.maximum_filter(center,(3,3))
     center = morph.keep_marked(image>0.5,center)

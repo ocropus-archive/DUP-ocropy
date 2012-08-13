@@ -186,9 +186,9 @@ def loutputs(image,floor=1e-6,keep_rejects=0):
     of the character image."""
     outputs = []
     try:
-        image = improc.classifier_normalize(image)
+        image = improc.classifier_normalize(1.0*image)
     except:
-        # FIXME do something more intelligent here, or just have it not fail
+        traceback.print_exc()
         return [("~",30)]
     outputs = cmodel.coutputs(image)
     outputs = [(cls,-log(max(p,floor))) for cls,p in outputs if "~" not in cls or keep_rejects]

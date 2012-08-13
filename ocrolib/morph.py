@@ -8,7 +8,7 @@ from scipy.ndimage import morphology,measurements
 from scipy.ndimage.morphology import *
 from toplevel import *
 
-@checks(AINT2)
+@checks(ABINARY2)
 def label(image,**kw):
     """Redefine the scipy.ndimage.measurements.label function to
     work with a wider range of data types.  The default function
@@ -129,7 +129,7 @@ def spread_labels(labels,maxdist=9999999):
     spread *= (distances<maxdist)
     return spread
 
-@checks(SEGMENTATION,ABINARY2)
+@checks(ABINARY2,ABINARY2)
 def keep_marked(image,markers):
     """Given a marker image, keep only the connected components
     that overlap the markers."""
@@ -138,7 +138,7 @@ def keep_marked(image,markers):
     kept = in1d(labels.ravel(),marked)
     return (image!=0)*kept.reshape(*labels.shape)
 
-@checks(SEGMENTATION,ABINARY2)
+@checks(ABINARY2,ABINARY2)
 def remove_marked(image,markers):
     """Given a marker image, remove all the connected components
     that overlap markers."""

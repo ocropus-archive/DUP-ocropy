@@ -349,7 +349,7 @@ def LIGHT(a):
     return numpy.median(a)>=numpy.mean(a)
 @makeargcheck("excpect a dark image (median<mean)")
 def DARK(a):
-    return numpy.median(a)>=numpy.mean(a)
+    return numpy.median(a)<=numpy.mean(a)
 @makeargcheck("excpect a page image (larger than 600x600)")
 def PAGE(a):
     return a.ndim==2 and a.shape[0]>=600 and a.shape[1]>=600

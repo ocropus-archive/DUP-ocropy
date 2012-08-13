@@ -182,7 +182,31 @@ def pca(data,k,min_k=2,whiten=0):
     ys = dot(evecs,data.T)
     assert ys.shape==(k,n)
     if whiten: ys = dot(diag(sqrt(1.0/evals)),ys)
-    return (ys.T,mean,evals,evecs)
+    return (ys.T,mean.ravel(),evals,evecs)
+
+
+class PCA:
+    """A class wrapper for the pca function that makes it a little easier
+    to use in some contexts."""
+    def __init__(self,k):
+        self.k = k
+    def fit(self,data):
+        data = data.reshape(len(data),-1)
+        _,mu,evals,P = pca(data,self.k)
+        self.mu = mu
+        self.evals = evals
+        self.P = P
+    def transform(self,data):
+        data = data.reshape(len(data),-1)
+        ys = dot(data-self.mu[newaxis,:],self.P.T)
+        return ys
+    def residual(self,data):
+        data = data.reshape(len(data),-1)
+        return sum(data**2,axis=1)-sum(self.transform(data)**2,axis=1)
+    def inverse_transform(self,data):
+        data = data.reshape(len(data),-1)
+        xs = dot(out,self.P)+self.mu[newaxis,:]
+        return xs
 
 ###
 ### k-means clustering
@@ -225,6 +249,14 @@ def pca_kmeans(data,k,d,min_d=3,maxiter=100,npk=1000,verbose=0,maxsample=200000,
     del ys; del sample
     return km,evecs,mu
     
+def pca_kmeans0(data,k,d=0.9,**kw):
+    """Performs kmeans in PCA space, but otherwise looks like regular
+    k-means (i.e., it returns the centers in the original space).
+    This is useful both for speed and because it tends to give better results
+    than regular k-means."""
+    km,evecs,mu = pca_kmeans(data,k,d,**kw)
+    return dot(km,evecs)+mu[newaxis,:]
+
 @checks(AFLOAT2,AFLOAT2,int,chunksize=RANGE(1,1000000000))
 def knn(data,protos,k,chunksize=100):
     result = []
@@ -259,15 +291,22 @@ class PcaKmeans:
             pca_kmeans(data,self.k,self.d,min_d=self.min_d,
                        maxiter=self.maxiter,npk=self.npk,verbose=self.verbose)
         self.Pcenters = array(vecsort(self.Pcenters))
+    @checks(object,_=AFLOAT2)
     def centers(self):
         return dot(self.Pcenters,self.P)+self.mu
+    @checks(object,_=AFLOAT1)
+    def center(self,i):
+        return dot(self.Pcenters[i],self.P)+self.mu
+    @checks(object,AFLOAT,_=float)
     def dist1(self,x):
         y = dot(x.ravel()-self.mu.ravel(),self.P.T)
         return sqrt(norm(x.ravel()-self.mu.ravel())**2-norm(y)**2)
+    @checks(object,AFLOAT,_=int)
     def predict1(self,x):
         y = dot(x.ravel()-self.mu.ravel(),self.P.T)
         c = knn(y.reshape(1,-1),self.Pcenters,1)
-        return c
+        return c[0][0]
+    @checks(object,AFLOAT2,n=int)
     def predict(self,data,n=0):
         if type(data)==ndarray:
             # regular 2D array code
@@ -347,6 +386,14 @@ class HierarchicalSplitter:
         return array([self.predict1(v) for v in data],'i')
     def nclusters(self):
         return self.offsets[-1]
+    def center(self,v):
+        """Returns the cluster number and cluster center associated 
+        with this vector"""
+        s = self.splitter.predict(v.reshape(1,-1))[0]
+        if self.subs[s] is None:
+            return (self.offsets[s],self.splitter.center(s))
+        else:
+            return self.subs[s].center(v)
     
 ###
 ### A couple of trivial classifiers and cost models, used for testing.
@@ -419,6 +466,8 @@ class LocalCmodel:
         self.nclusters = splitter.nclusters()
         self.cshape = None
         self.cmodels = [None]*self.nclusters
+    def split1(self,v):
+        return self.splitter.predict(v.reshape(1,-1))[0]
     def split1(self,v):
         return self.splitter.predict(v.reshape(1,-1))[0]
     def setCmodel(self,i,cmodel):

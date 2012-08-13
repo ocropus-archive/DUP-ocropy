@@ -123,7 +123,7 @@ def seg_boxes(seg,math=0):
 ################################################################
 
 @checks(DARKLINE)
-def estimate_baseline(line):
+def estimate_baseline(line,order=3):
     """Compute the baseline by fitting a polynomial to the gradient.
     TODO: use robust fitting, special case very short line, limit parameter ranges"""
     line = line*1.0/amax(line)
@@ -131,25 +131,27 @@ def estimate_baseline(line):
     vgrad = filters.gaussian_filter(vgrad,(2,60),(1,0))
     if amin(vgrad)>0 or amax(vgrad)<0: raise BadLine()
     h,w = vgrad.shape
-    baseline = fitext(vgrad)
+    ys = argmin(vgrad,axis=0)
+    xs = arange(w)
+    baseline = polyfit(xs,ys,order)
+    print baseline
     return baseline
 
 @checks(DARKLINE)
-def dewarp_line(line,show=0):
+def dewarp_line(line,show=0,order=3):
     """Dewarp the baseline of a line based in estimate_baseline.
     Returns the dewarped image."""
     line = line*1.0/amax(line)
     line = r_[zeros(line.shape),line]
     h,w = line.shape
-    baseline = estimate_baseline(line)
+    baseline = estimate_baseline(line,order=order)
     ys = polyval(baseline,arange(w))
     base = 2*h/3
     temp = zeros(line.shape)
     for x in range(w):
         temp[:,x] = interpolation.shift(line[:,x],(base-ys[x]),order=1)
     return temp
-
-    line = line*1.0/amax(line)
+    #line = line*1.0/amax(line)
 
 @checks(DARKLINE)
 def estimate_xheight(line,scale=1.0,debug=0):
