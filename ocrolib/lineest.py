@@ -156,10 +156,11 @@ class TrivialLineGeometry:
         return bl,bl-xh
 
 class TrainedLineGeometry:
-    def __init__(self,k):
+    def __init__(self,k=256,d=0.9):
         self.k = k
+        self.d = d
     def buildShapeDictionary(self,fnames,debug=0):
-        self.shapedict = build_shape_dictionary(fnames,k=self.k,debug=debug)
+        self.shapedict = build_shape_dictionary(fnames,k=self.k,d=self.d,debug=debug)
     def buildGeomaps(self,fnames,old_model=TrivialLineGeometry(),debug=0,old_order=1):
         self.bls,self.xls = compute_geomaps(fnames,self.shapedict,old_model=old_model,old_order=old_order,debug=debug)
     def lineFit(self,image,order=1):
@@ -207,6 +208,7 @@ if __name__=="__main__":
     ptrain.add_argument("-G","--geolines",default="book/????/??????.png",required=1,
                         help="list of text lines to be used for building the geometric models")
     ptrain.add_argument("-k","--nprotos",type=int,default=1024)
+    ptrain.add_argument("-d","--ndims",type=float,default=0.95)
     ptrain.add_argument("-o","--output",default="default.lineest",required=1,
                         help="output file for the pickled line estimator")
     ptrain.add_argument("--debug",type=int,default=0)
@@ -232,7 +234,7 @@ if __name__=="__main__":
         if args.em_estimator is not None:
             with open(args.em_estimator) as stream:
                 estimator = cPickle.load(stream)
-        lem = TrainedLineGeometry(k=args.nprotos)
+        lem = TrainedLineGeometry(k=args.nprotos,d=args.ndims)
         lem.buildShapeDictionary(expand(args.dictlines))
         lem.buildGeomaps(expand(args.geolines),
             old_model=estimator,old_order=args.order,
