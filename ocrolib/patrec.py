@@ -269,11 +269,12 @@ def knn(data,protos,k,chunksize=100):
     return vstack(result)
 
 def protosets(nb,k):
+    """For a list of nearest neighbors to k prototypes,
+    compute the set belonging to each prototype."""
     if k is None: k = amax(nb)+1
     psets = [set() for _ in range(k)]
     for i,v in enumerate(nb):
-        for p in nb[i]:
-            psets[p].add(i)
+        psets[v].add(i)
     return psets
 
 class PcaKmeans:
@@ -306,7 +307,6 @@ class PcaKmeans:
         y = dot(x.ravel()-self.mu.ravel(),self.P.T)
         c = knn(y.reshape(1,-1),self.Pcenters,1)
         return c[0][0]
-    @checks(object,AFLOAT2,n=int)
     def predict(self,data,n=0):
         if type(data)==ndarray:
             # regular 2D array code

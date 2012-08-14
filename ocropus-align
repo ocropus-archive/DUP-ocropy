@@ -167,4 +167,4 @@ for fname in fnames:
         print "ERROR",fvariant(base,"rseg"),": not found"
     gt = ocrolib.gt_implode(gt)
     ocrolib.write_text(fvariant(fname,"aligned"),gt)
-    if not args.quiet: print "%.1f\t%s"%(path.cost,gt)
+    if not args.quiet: print "%6.1f  %s"%(path.cost,gt)

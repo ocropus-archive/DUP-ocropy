@@ -45,6 +45,8 @@ with open(args.splitter) as stream:
 print "got",splitter
 print "#splits",splitter.nclusters()
 print "excluding",args.exclude
+splitter_sizemode = getattr(splitter,"sizemode","perchar")
+print "sizemode",splitter_sizemode
 
 def testset(i):
     """Quick check for whether the sample is in the test set."""
@@ -59,6 +61,12 @@ with tables.openFile(args.data,"r") as h5:
     print "loading dataset"
     N = min(args.maxtotal,len(h5.root.classes))
     patches = Dataset(h5.root.patches,maxsize=N)
+    if "sizemode" in h5.root._v_attrs:
+        data_sizemode = h5.getNodeAttr("/","sizemode")
+    else:
+        data_sizemode = "perchar"
+    print "sizemode (data)",data_sizemode
+    assert splitter_sizemode==data_sizemode
     print "splitting"
     splits = []
     for i,v in enumerate(patches):
@@ -142,6 +150,7 @@ cmodel.normalizer = patrec.normalizer_normal
 
 for i,c in classifiers:
     cmodel.setCmodel(i,c)
+cmodel.sizemode = data_sizemode
 
 print "writing"
 with open(args.output,"w") as stream:

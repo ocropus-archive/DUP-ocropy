@@ -132,6 +132,7 @@ print "starting training"
 sc = patrec.HierarchicalSplitter(d=args.pca,maxsplit=args.maxsplit,
                                  splitsize=args.splitsize,targetsize=args.targetsize,
                                  maxdepth=args.maxdepth)
+sc.sizemode = (h5.getNodeAttr("/","sizemode") or "perchar")
 sc.fit(patches)
 
 print "writing"

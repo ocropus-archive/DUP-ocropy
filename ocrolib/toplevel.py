@@ -240,6 +240,7 @@ def RANGE(lo,hi):
 def ARANK(n):
     @makeargcheck("array must have rank %d"%n)
     def ARANK_(a):
+        if not hasattr(a,"ndim"): return 0
         return a.ndim==n
     return ARANK_
 
@@ -402,7 +403,7 @@ def TDATASET(a):
     if type(a[0])!=numpy.ndarray:
         raise CheckError("dataset fails to yield ndarray on subscripting")
 def DATASET_SIZE(lo=3,hi=int(1e9)):
-    @makeargcheck("data set size should be between %d and %d"%(lo,hi))
+    @makeargcheck("data set size should be between %s and %s"%(lo,hi))
     def DSSIZE_(a):
         return len(a)>=lo and len(a)<=hi
     return DSSIZE_

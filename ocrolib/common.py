@@ -127,6 +127,8 @@ def read_image_gray(fname,pageno=0):
     if a.ndim==3: return mean(a,2)
     return a
 
+
+
 @checks(str,GRAYSCALE)
 def write_image_gray(fname,image,normalize=0):
     """Write an image to disk.  If the image is of floating point

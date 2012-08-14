@@ -13,7 +13,7 @@ from multiprocessing import Pool
 import ocrolib
 from ocrolib import number_of_processors,die
 from ocrolib.ligatures import lig
-from ocrolib import lineseg,morph,linerec,improc,lineproc
+from ocrolib import lineseg,morph,linerec,improc,lineproc,h5utils
 import cPickle
 from ocrolib.toplevel import *
 
@@ -34,7 +34,7 @@ parser.add_argument("-m","--model",help="model file",default=ocrolib.default.mod
 parser.add_argument("-w","--whitespace",help="space model file",default=ocrolib.default.space)
 parser.add_argument("-Q","--parallel",type=int,default=1,help="number of parallel processes to use")
 parser.add_argument('-q','--quiet',action="store_true",help="don't output progress info")
-parser.add_argument('-S','--sizemode',default="perchar",help="how to resize characters for extraction: char, linerel, lineabs")
+parser.add_argument('-S','--sizemode',default="perchar",help="how to resize characters for extraction: perchar, linerel, lineabs")
 parser.add_argument('-x','--exitonerr',action="store_true",help='time to wait after displaying results')
 parser.add_argument('-e','--lineest',default=ocrolib.default.lineest,help="line geometry model")
 parser.add_argument("--show",help="show progress",action="store_true")
@@ -47,6 +47,10 @@ parser.add_argument("files",default=[],nargs='*',help="input lines")
 args = parser.parse_args()
 if not args.noglob: args.files = ocrolib.glob_all(args.files)
 
+# make these parameters eventually
+charsize = 32
+target_xheight = 16
+
 exec args.execute
 
 ###
@@ -56,7 +60,7 @@ exec args.execute
 ###
 
 class Hdf5Writer:
-    def __init__(self,fname,mode="w",size=(32,32)):
+    def __init__(self,fname,mode="w",size=(charsize,charsize)):
         from tables import Float32Atom,Int64Atom,StringAtom,Filters
         self.size = size
         h5 = tables.openFile(fname,mode)
@@ -79,8 +83,39 @@ class Hdf5Writer:
         #h5.root.files.append(fname)
         #h5.root.bboxes.append([array(bbox,'f')])
 
+class CharResizer:
+    def __init__(self,sizemode,target_xheight):
+        self.sizemode = sizemode
+        self.target_xheight = target_xheight
+    def load(self,fname):
+        lname = ocrolib.fvariant(fname,"png")
+        limage = ocrolib.read_image_gray(lname)
+        return self.set(limage)
+    def set(self,limage):
+        self.limate = limage
+        self.avgbaseline,self.xheight,self.blp,self.xlp = emodel.lineParameters(1-limage)
+        return self
+    def resize(self,image):
+        if self.sizemode=="linerel":
+            x = c.bbox[1].start
+            baseline = polyval(self.blp,x)
+            xline = polyval(self.xlp,x)
+            assert xline<baseline # raster coordinates
+            options = dict(bar=(xline,baseline))
+            image = improc.line_normalize(1.0*image,scale=self.target_xheight*1.0/xheight,**options)
+        elif self.sizemode=="perchar":
+            try:
+                image = improc.classifier_normalize(1.0*image)
+            except:
+                traceback.print_exc()
+                raise ocrolib.RecognitionError("classifier_normalize failed, skipping")
+        elif self.sizemode=="lineabs":
+            raise Exception("not implemented yet")
+        else:
+            raise Exception("unknown sizemode:"+args.sizemode)
+        return image
+
 if args.extract is not None:
-    target_xheight = 16
     if args.quiet: print "extracting..."
     emodel = ocrolib.ocropus_find_file(args.lineest)
     print "loading",emodel
@@ -88,13 +123,15 @@ if args.extract is not None:
     print "got",emodel
     try:
         with Hdf5Writer(args.extract,mode=args.hdfmode) as h5:
+            h5utils.log(h5.h5," ".join(sys.argv))
+            h5.h5.setNodeAttr("/","sizemode",args.sizemode)
             for fname in args.files:
                 try:
                     gname = ocrolib.fvariant(fname,"aligned")
                     if not os.path.exists(gname): 
                         gname = ocrolib.fvariant(fname,"txt","gt")
                     if not os.path.exists(gname): 
-                        print fname,"=EXTRACTED=","*** NO ALIGNED TEXT ***",gname
+                        print fname,"=EXTRACTED=","*** NO ALIGNED TEXT ***",gname 
                         continue
                     cname = ocrolib.fvariant(fname,"cseg")
                     if not os.path.exists(cname): 
@@ -129,30 +166,13 @@ if args.extract is not None:
                     # TODO optionally double-check against model here
                     if not args.quiet: 
                         print fname,"=EXTRACTED=",ocrolib.gt_implode(gt)
-                    lname = ocrolib.fvariant(fname,"png")
-                    limage = ocrolib.read_image_gray(lname)
-                    avgbaseline,xheight,blp,xlp = emodel.lineParameters(1-limage)
-                    if xheight<8 or xheight>100: # TODO make these arguments
+                    resizer = CharResizer(args.sizemode,target_xheight).load(fname)
+                    if resizer.xheight<8 or resizer.xheight>100: # TODO make these arguments
                         print "bad xheight:",xheight
                         continue
                     for c in csegs+misseg:
                         image = c.img
-                        if args.sizemode=="linerel":
-                            x = c.bbox[1].start
-                            baseline = polyval(blp,x)
-                            xline = polyval(xlp,x)
-                            assert xline<baseline # raster coordinates
-                            options = dict(bar=(xline,baseline))
-                            image = improc.line_normalize(1.0*image,scale=target_xheight*1.0/xheight,**options)
-                        elif args.sizemode=="perchar":
-                            try:
-                                image = improc.classifier_normalize(image)
-                            except:
-                                raise ocrolib.RecognitionError("classifier_normalize failed, skipping")
-                        elif args.sizemode=="lineabs":
-                            raise Exception("not implemented yet")
-                        else:
-                            raise Exception("unknown sizemode:"+args.sizemode)
+                        image = resizer.resize(image)
                         cls = c.out[0][0]
                         h5.insert(image=image,cls=cls)
                 except ocrolib.RecognitionError as e:
