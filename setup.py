@@ -17,7 +17,7 @@ from distutils.core import setup, Extension
 from distutils.command.install_data import install_data
 
 from ocrolib import default
-modelfiles = ["models/"+s for s in [default.model,default.space,default.ngraphs]]
+modelfiles = ["models/"+s for s in [default.model,default.space,default.ngraphs,default.lineest]]
 
 for fname in modelfiles:
     if not os.path.exists(fname):

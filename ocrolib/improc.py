@@ -273,7 +273,7 @@ def csnormalize(image,f=0.75):
     image = interpolation.affine_transform(image,m,offset=d,order=1)
     return image
 
-@checks(GRAYSCALE,size=int)
+@checks(PATCH,size=int)
 def classifier_normalize(image,size=32):
     """Normalize characters for classification."""
     if amax(image)<1e-3: return zeros((size,size))
@@ -282,7 +282,7 @@ def classifier_normalize(image,size=32):
     cimage = csnormalize(cimage)
     return cimage
 
-@checks(DARKLINE,size=int,scale=float,bar=object)
+@checks(PATCH,size=int,scale=float,bar=object)
 def line_normalize(image,size=32,scale=1.0,bar=None):
     """Normalize a character based on line geometry."""
     centroid = measurements.center_of_mass(image)

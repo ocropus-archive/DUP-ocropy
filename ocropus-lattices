@@ -28,31 +28,26 @@ parser = argparse.ArgumentParser(description = """
 Computes recognition lattices for text lines.  Also displays the bestpath
 result (recognition result without language model).
 """)
-parser.add_argument("-x","--exec",dest="execute",help="execute before anything else (usually used for imports)",default="None")
+parser.add_argument("-X","--exec",dest="execute",help="execute before anything else (usually used for imports)",default="None")
 parser.add_argument("-s","--segmenter",help="segmenter",default="lineseg.DPSegmentLine()")
 parser.add_argument("-m","--model",help="model file",default=ocrolib.default.model)
 parser.add_argument("-w","--whitespace",help="space model file",default=ocrolib.default.space)
 parser.add_argument("-Q","--parallel",type=int,default=1,help="number of parallel processes to use")
+parser.add_argument('-q','--quiet',action="store_true",help="don't output progress info")
+parser.add_argument('-S','--sizemode',default="perchar",help="how to resize characters for extraction: char, linerel, lineabs")
+parser.add_argument('-x','--exitonerr',action="store_true",help='time to wait after displaying results')
+parser.add_argument('-e','--lineest',default=ocrolib.default.lineest,help="line geometry model")
 parser.add_argument("--show",help="show progress",action="store_true")
 parser.add_argument('--delay',type=float,default=0.1,help='time to wait after displaying results')
 parser.add_argument("--extract",default=None,help="extract characters for cmodel training")
 parser.add_argument("--noglob",action="store_true",help="don't perform expansion on the arguments")
-parser.add_argument('-q','--quiet',action="store_true",help="don't output progress info")
-parser.add_argument('-S','--sizemode',default="perchar",help="how to resize characters for extraction")
 parser.add_argument('--hdfmode',default="a",help="how the HDF5 file is opened")
-parser.add_argument('-e','--exitonerr',action="store_true",help='time to wait after displaying results')
-
-# parser.add_argument("-r","--rejects",help="generate rejects in lattices",action="store_true")
-# parser.add_argument("-R","--maxrange",help="max range for grouping",type=int,default=4)
-# parser.add_argument("-L","--ligatures",help="output ligatures",action="store_true")
-# parser.add_argument("-O","--overwrite",help="overwrite rseg/cseg files",action="store_true")
 
 parser.add_argument("files",default=[],nargs='*',help="input lines")
 args = parser.parse_args()
 if not args.noglob: args.files = ocrolib.glob_all(args.files)
 
 exec args.execute
-cmodel = ocrolib.ocropus_find_file(args.model)
 
 ###
 ### This first option doesn't actually recognize anything, it extracts
@@ -87,6 +82,10 @@ class Hdf5Writer:
 if args.extract is not None:
     target_xheight = 16
     if args.quiet: print "extracting..."
+    emodel = ocrolib.ocropus_find_file(args.lineest)
+    print "loading",emodel
+    emodel = ocrolib.load_component(emodel)
+    print "got",emodel
     try:
         with Hdf5Writer(args.extract,mode=args.hdfmode) as h5:
             for fname in args.files:
@@ -130,28 +129,30 @@ if args.extract is not None:
                     # TODO optionally double-check against model here
                     if not args.quiet: 
                         print fname,"=EXTRACTED=",ocrolib.gt_implode(gt)
-                    if args.sizemode=="perline":
-                        limage = ocrolib.read_image_gray(ocrolib.fvariant(fname,"png"))
-                        if len(csegs)<10: 
-                            print "too few segments (perline)"
-                            continue
-                        if limage.shape[1]<100:
-                            print "too small (perline)"
-                            continue
-                        xheight,baseline = lineproc.estimate_xheight(1-limage)
-                        if xheight<8 or xheight>40: # TODO make these arguments
-                            print "bad xheight:",xheight
-                            continue
+                    lname = ocrolib.fvariant(fname,"png")
+                    limage = ocrolib.read_image_gray(lname)
+                    avgbaseline,xheight,blp,xlp = emodel.lineParameters(1-limage)
+                    if xheight<8 or xheight>100: # TODO make these arguments
+                        print "bad xheight:",xheight
+                        continue
                     for c in csegs+misseg:
                         image = c.img
-                        if args.sizemode=="perline":
-                            options = dict(bar=(baseline-xheight,baseline))
-                            image = improc.line_normalize(image,scale=target_xheight*1.0/xheight,**options)
+                        if args.sizemode=="linerel":
+                            x = c.bbox[1].start
+                            baseline = polyval(blp,x)
+                            xline = polyval(xlp,x)
+                            assert xline<baseline # raster coordinates
+                            options = dict(bar=(xline,baseline))
+                            image = improc.line_normalize(1.0*image,scale=target_xheight*1.0/xheight,**options)
                         elif args.sizemode=="perchar":
                             try:
                                 image = improc.classifier_normalize(image)
                             except:
                                 raise ocrolib.RecognitionError("classifier_normalize failed, skipping")
+                        elif args.sizemode=="lineabs":
+                            raise Exception("not implemented yet")
+                        else:
+                            raise Exception("unknown sizemode:"+args.sizemode)
                         cls = c.out[0][0]
                         h5.insert(image=image,cls=cls)
                 except ocrolib.RecognitionError as e:
@@ -167,15 +168,24 @@ if args.extract is not None:
 ###
 
 
+cmodel = ocrolib.ocropus_find_file(args.model)
 print "loading",cmodel
 cmodel = ocrolib.load_component(cmodel)
-wmodel = ocrolib.ocropus_find_file(args.whitespace)
+print "got",cmodel
 
+wmodel = ocrolib.ocropus_find_file(args.whitespace)
 print "loading",wmodel
 wmodel = ocrolib.load_component(wmodel)
+print "got",wmodel
+
+emodel = ocrolib.ocropus_find_file(args.lineest)
+print "loading",emodel
+emodel = ocrolib.load_component(emodel)
+print "got",emodel
 
 print "segmenter",args.segmenter
 segmenter = eval(args.segmenter)
+print "got",segmenter
 
 def invert_image(image):
     """Invert the input image."""

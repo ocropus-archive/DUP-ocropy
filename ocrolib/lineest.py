@@ -150,20 +150,26 @@ def fit_peaks(smoothed,order=1,filter_size=(1.0,20.0)):
 
 class TrivialLineGeometry:
     def lineFit(self,image,order=1):
+        """Return polynomial fits to the baseline and xline."""
         xh,bl = lineproc.estimate_xheight(image)
         return array([bl]),array([bl-xh])
     def lineParameters(self,image):
-        return bl,bl-xh
+        """Return the average baseline and average xheight,
+        plus the polynomial models for both"""
+        return bl,bl-xh,array([bl]),array([bl-xh])
 
 class TrainedLineGeometry:
     def __init__(self,k=256,d=0.9):
         self.k = k
         self.d = d
     def buildShapeDictionary(self,fnames,debug=0):
+        """Build a shape dictionary from a list of text line files."""
         self.shapedict = build_shape_dictionary(fnames,k=self.k,d=self.d,debug=debug)
     def buildGeomaps(self,fnames,old_model=TrivialLineGeometry(),debug=0,old_order=1):
+        """Build geometric maps from a list of text line files."""
         self.bls,self.xls = compute_geomaps(fnames,self.shapedict,old_model=old_model,old_order=old_order,debug=debug)
     def lineFit(self,image,order=1):
+        """Return polynomial fits to the baseline and xline."""
         blimage,xlimage = blxlimages(image,self.shapedict,self.bls,self.xls)
         self.blimage = blimage # for debugging
         self.xlimage = xlimage
@@ -171,11 +177,13 @@ class TrainedLineGeometry:
         xlp = fit_peaks(xlimage,order=order)
         return blp,xlp
     def lineParameters(self,image):
+        """Return the average baseline and average xheight,
+        plus the polynomial models for both"""
         blp,xlp = self.lineFit(image)
         xs = range(image.shape[1])
         bl = mean(polyval(blp,xs))
         xl = mean(polyval(xlp,xs))
-        return bl,bl-xl
+        return bl,bl-xl,blp,xlp
 
 # older name, useful for unpickling old versions
 
