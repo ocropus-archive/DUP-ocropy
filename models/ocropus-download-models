@@ -14,6 +14,7 @@ from ocrolib import default
 print default.model+".bz2"
 print default.space+".bz2"
 print default.ngraphs+".bz2"
+print default.lineest+".bz2"
 ' |
 while read f; do
     echo
