@@ -13,6 +13,7 @@ from multiprocessing import Pool
 import ocrolib
 from ocrolib import number_of_processors,die
 from ocrolib.ligatures import lig
+from ocrolib.lineest import TrainedLineGeometry
 from ocrolib import lineseg,morph,linerec,improc,lineproc,h5utils
 import cPickle
 from ocrolib.toplevel import *
