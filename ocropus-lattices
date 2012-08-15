@@ -2,7 +2,7 @@
 
 # make the clustering class-specific
 
-import sys,os,re,glob,math,glob,signal,traceback,codecs
+import sys,os,re,glob,math,glob,signal,traceback,codecs,time
 import fcntl
 import matplotlib,tables
 if "DISPLAY" not in os.environ: matplotlib.use("AGG")
@@ -43,7 +43,7 @@ parser.add_argument("--show",help="show progress",action="store_true")
 parser.add_argument('--delay',type=float,default=0.1,help='time to wait after displaying results')
 parser.add_argument("--extract",default=None,help="extract characters for cmodel training")
 parser.add_argument("--noglob",action="store_true",help="don't perform expansion on the arguments")
-parser.add_argument('--hdfappend',action="store_true",help="append to HDF file instead of starting from scratch (for parallel extraction)")
+parser.add_argument('--hdfappend',action="store_true",help="don't use (due to bugs in HDF5 implementation)")
 
 parser.add_argument("files",default=[],nargs='*',help="input lines")
 args = parser.parse_args()
@@ -63,25 +63,30 @@ exec args.execute
 
 class Hdf5Writer:
     def __init__(self,fname,mode="w",size=(charsize,charsize)):
-        from tables import Float32Atom,Int64Atom,StringAtom,Filters
+        self.mode = mode
         self.size = size
-        h5 = tables.openFile(fname,mode)
+        self.fname = fname
+    def __enter__(self):
+        self.fd = os.open(self.fname+".lock",os.O_RDWR|os.O_APPEND|os.O_CREAT)
+        fcntl.lockf(self.fd,fcntl.LOCK_EX)
+        self.h5 = tables.openFile(self.fname,self.mode)
+        self.create()
+        return self
+    def __exit__(self,*args):
+        self.h5.close()
+        del self.h5
+        fcntl.lockf(self.fd,fcntl.LOCK_UN)
+        os.close(self.fd)
+        os.system("sync")
+        os.system("sleep 3")
+    def create(self):
+        from tables import Float32Atom,Int64Atom,StringAtom,Filters
+        h5 = self.h5
         if "patches" not in dir(h5.root):
-            h5.createEArray(h5.root,'patches',Float32Atom(),shape=(0,)+size,filters=Filters(9))
+            h5.createEArray(h5.root,'patches',Float32Atom(),shape=(0,)+self.size,filters=Filters(9))
             h5.createEArray(h5.root,'classes',Int64Atom(),shape=(0,),filters=tables.Filters(9))
             #h5.createVLArray(h5.root,'files',StringAtom(120),filters=Filters(9))
             #h5.createEArray(h5.root,'bboxes',Float32Atom(shape=(4,)),shape=(0,),filters=Filters(9))
-        self.fname = fname
-        self.h5 = h5
-    def __enter__(self):
-        self.fd = os.open(self.fname,os.O_RDWR|os.O_APPEND)
-        fcntl.lockf(self.fd,fcntl.LOCK_EX)
-        return self
-    def __exit__(self,*args):
-        fcntl.lockf(self.fd,fcntl.LOCK_UN)
-        os.close(self.fd)
-        self.h5.close()
-        self.h5 = None
     def insert(self,image,cls,cost=0.0,count=0,fname="",lgeo=None,bbox=(-1,-1,-1,-1)):
         assert image.shape==self.size,"wrong image shape: %s"%(image.shape,)
         h5 = self.h5
@@ -133,67 +138,74 @@ if args.extract is not None:
     print "got",emodel
     sizemode = args.sizemode or "linerel"
     print "sizemode",sizemode
-    try:
-        hdfmode = "a" if args.hdfappend else "w"
-        with Hdf5Writer(args.extract,mode=hdfmode) as h5:
-            h5utils.log(h5.h5," ".join(sys.argv))
-            h5.h5.setNodeAttr("/","sizemode",sizemode)
-            for fname in args.files:
-                try:
-                    gname = ocrolib.fvariant(fname,"aligned")
-                    if not os.path.exists(gname): 
-                        gname = ocrolib.fvariant(fname,"txt","gt")
-                    if not os.path.exists(gname): 
-                        print fname,"=EXTRACTED=","*** NO ALIGNED TEXT ***",gname 
-                        continue
-                    cname = ocrolib.fvariant(fname,"cseg")
-                    if not os.path.exists(cname): 
-                        print fname,"=EXTRACTED=","*** NO CSEG ***",cname
-                        continue
-                    rname = ocrolib.fvariant(fname,"rseg")
-                    if not os.path.exists(rname): 
-                        print fname,"=EXTRACTED=","*** NO RSEG ***",rname
-                        continue
-                    gt = ocrolib.gt_explode(ocrolib.read_text(gname))
-                    if len(gt)==0: 
-                        print fname,"=EXTRACTED=","*** EMPTY GT ***"
-                        continue
-                    if gt[-1]=="\n": gt = gt[:-1]
-                    cseg = ocrolib.read_line_segmentation(cname)
-                    rseg = ocrolib.read_line_segmentation(rname)
-                    csegs = linerec.extract_csegs(cseg)
-                    maxseg = amax([c.last for c in csegs])
-                    if maxseg!=len(gt):
-                        print fname,"=EXTRACTED=","*** maxseg AND aligned lengths DIFFER***",len(gt),maxseg
-                        continue
-                    csegs = [c.replace(out=[(gt[c.first-1],0.0)]) for i,c in enumerate(csegs)]
-                    csegs = [c for c in csegs if c.out[0][0]!="~"]
-                    rsegs = linerec.extract_rsegs(rseg)
-                    misseg = linerec.extract_non_csegs(rsegs,csegs)
-                    misseg = [c.replace(out=[("~",0.0)]) for c in misseg]
-                    if args.show:
-                        ion(); gray()
-                        figure(1); ocrolib.showgrid([c.img for c in csegs[:100]],xlabels=[c.out[0][0] for c in csegs]) 
-                        figure(2); ocrolib.showgrid([m.img for m in misseg[:100]],xlabels=[m.out[0][0] for m in misseg]) 
-                        ginput(1,args.delay)
-                    # TODO optionally double-check against model here
-                    if not args.quiet: 
-                        print fname,"=EXTRACTED=",ocrolib.gt_implode(gt)
-                    resizer = CharResizer(sizemode,target_xheight).load(fname)
-                    if resizer.xheight<8 or resizer.xheight>100: # TODO make these arguments
-                        print "bad xheight:",xheight
-                        continue
-                    for c in csegs+misseg:
-                        image = c.img
-                        image = resizer.resize(image,c.bbox)
-                        cls = c.out[0][0]
-                        h5.insert(image=image,cls=cls)
-                except ocrolib.RecognitionError as e:
-                    print str(e).replace("\n"," ")[:80]
-                    continue
-    except Exception as e:
-        traceback.print_exc()
-        sys.exit(1)
+
+    hdfmode = "a" if args.hdfappend else "w"
+    with Hdf5Writer(args.extract,mode=hdfmode) as h5:
+        h5utils.log(h5.h5," ".join(sys.argv))
+        h5.h5.setNodeAttr("/","sizemode",sizemode)
+        
+    insertions = []
+    for fname in args.files:
+        try:
+            gname = ocrolib.fvariant(fname,"aligned")
+            if not os.path.exists(gname): 
+                gname = ocrolib.fvariant(fname,"txt","gt")
+            if not os.path.exists(gname): 
+                print fname,"=EXTRACTED=","*** NO ALIGNED TEXT ***",gname 
+                continue
+            cname = ocrolib.fvariant(fname,"cseg")
+            if not os.path.exists(cname): 
+                print fname,"=EXTRACTED=","*** NO CSEG ***",cname
+                continue
+            rname = ocrolib.fvariant(fname,"rseg")
+            if not os.path.exists(rname): 
+                print fname,"=EXTRACTED=","*** NO RSEG ***",rname
+                continue
+            gt = ocrolib.gt_explode(ocrolib.read_text(gname))
+            if len(gt)==0: 
+                print fname,"=EXTRACTED=","*** EMPTY GT ***"
+                continue
+            if gt[-1]=="\n": gt = gt[:-1]
+            cseg = ocrolib.read_line_segmentation(cname)
+            rseg = ocrolib.read_line_segmentation(rname)
+            csegs = linerec.extract_csegs(cseg)
+            maxseg = amax([c.last for c in csegs])
+            if maxseg!=len(gt):
+                print fname,"=EXTRACTED=","*** maxseg AND aligned lengths DIFFER***",len(gt),maxseg
+                continue
+            csegs = [c.replace(out=[(gt[c.first-1],0.0)]) for i,c in enumerate(csegs)]
+            csegs = [c for c in csegs if c.out[0][0]!="~"]
+            rsegs = linerec.extract_rsegs(rseg)
+            misseg = linerec.extract_non_csegs(rsegs,csegs)
+            misseg = [c.replace(out=[("~",0.0)]) for c in misseg]
+            if args.show:
+                ion(); gray()
+                figure(1); ocrolib.showgrid([c.img for c in csegs[:100]],xlabels=[c.out[0][0] for c in csegs]) 
+                figure(2); ocrolib.showgrid([m.img for m in misseg[:100]],xlabels=[m.out[0][0] for m in misseg]) 
+                ginput(1,args.delay)
+            # TODO optionally double-check against model here
+            if not args.quiet: 
+                print fname,"=EXTRACTED=",ocrolib.gt_implode(gt)
+            resizer = CharResizer(sizemode,target_xheight).load(fname)
+            if resizer.xheight<8 or resizer.xheight>100: # TODO make these arguments
+                print "bad xheight:",xheight
+                continue
+            for c in csegs+misseg:
+                image = c.img
+                image = resizer.resize(image,c.bbox)
+                cls = c.out[0][0]
+                insertions.append((image,cls))
+        except ocrolib.RecognitionError as e:
+            print str(e).replace("\n"," ")[:80]
+            continue
+        if len(insertions)>10000:
+            with Hdf5Writer(args.extract,mode=hdfmode) as h5:
+                for image,cls in insertions:
+                    h5.insert(image=image,cls=cls)
+            insertions = []
+    with Hdf5Writer(args.extract,mode=hdfmode) as h5:
+        for image,cls in insertions:
+            h5.insert(image=image,cls=cls)
     sys.exit(0)
 
 ###
