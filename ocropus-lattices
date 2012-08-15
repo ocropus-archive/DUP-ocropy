@@ -129,7 +129,7 @@ if args.extract is not None:
     try:
         with Hdf5Writer(args.extract,mode=args.hdfmode) as h5:
             h5utils.log(h5.h5," ".join(sys.argv))
-            h5.h5.setNodeAttr("/","sizemode",args.sizemode)
+            h5.h5.setNodeAttr("/","sizemode",sizemode)
             for fname in args.files:
                 try:
                     gname = ocrolib.fvariant(fname,"aligned")

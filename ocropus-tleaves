@@ -66,7 +66,7 @@ with tables.openFile(args.data,"r") as h5:
     else:
         data_sizemode = "perchar"
     print "sizemode (data)",data_sizemode
-    assert splitter_sizemode==data_sizemode
+    assert splitter_sizemode==data_sizemode,"sizemode for splitter (%s) and data (%s) don't agree"%(splitter_sizemode,data_sizemode)
     print "splitting"
     splits = []
     for i,v in enumerate(patches):
