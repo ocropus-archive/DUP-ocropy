@@ -18,3 +18,5 @@ ocropus-ngraphs 'temp/????/??????.lattice'
 
 # create hOCR output
 ocropus-hocr 'temp/????.png' > temp.html
+head -20 temp.html
+tail -20 temp.html
