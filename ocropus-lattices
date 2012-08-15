@@ -42,7 +42,7 @@ parser.add_argument("--show",help="show progress",action="store_true")
 parser.add_argument('--delay',type=float,default=0.1,help='time to wait after displaying results')
 parser.add_argument("--extract",default=None,help="extract characters for cmodel training")
 parser.add_argument("--noglob",action="store_true",help="don't perform expansion on the arguments")
-parser.add_argument('--hdfmode',default="a",help="how the HDF5 file is opened")
+parser.add_argument('--hdfappend',action="store_true",help="append to HDF file instead of starting from scratch (for parallel extraction)")
 
 parser.add_argument("files",default=[],nargs='*',help="input lines")
 args = parser.parse_args()
@@ -128,7 +128,8 @@ if args.extract is not None:
     sizemode = args.sizemode or "linerel"
     print "sizemode",sizemode
     try:
-        with Hdf5Writer(args.extract,mode=args.hdfmode) as h5:
+        hdfmode = "a" if args.hdfappend else "w"
+        with Hdf5Writer(args.extract,mode=hdfmode) as h5:
             h5utils.log(h5.h5," ".join(sys.argv))
             h5.h5.setNodeAttr("/","sizemode",sizemode)
             for fname in args.files:

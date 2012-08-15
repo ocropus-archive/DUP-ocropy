@@ -148,7 +148,7 @@ def fit_peaks(smoothed,order=1,filter_size=(1.0,20.0)):
 
 
 
-class TrivialLineGeometry:
+class GradientLineGeometry:
     def lineFit(self,image,order=1):
         """Return polynomial fits to the baseline and xline."""
         xh,bl = lineproc.estimate_xheight(image)
@@ -165,7 +165,7 @@ class TrainedLineGeometry:
     def buildShapeDictionary(self,fnames,debug=0):
         """Build a shape dictionary from a list of text line files."""
         self.shapedict = build_shape_dictionary(fnames,k=self.k,d=self.d,debug=debug)
-    def buildGeomaps(self,fnames,old_model=TrivialLineGeometry(),debug=0,old_order=1):
+    def buildGeomaps(self,fnames,old_model=GradientLineGeometry(),debug=0,old_order=1):
         """Build geometric maps from a list of text line files."""
         self.bls,self.xls = compute_geomaps(fnames,self.shapedict,old_model=old_model,old_order=old_order,debug=debug)
     def lineFit(self,image,order=1):
@@ -238,7 +238,7 @@ if __name__=="__main__":
     if args.subcommand=="train":
         # apparently, we need this to make pickling work out correctly
         import ocrolib.lineest
-        estimator = ocrolib.lineest.TrivialLineGeometry()
+        estimator = ocrolib.lineest.GradientLineGeometry()
         if args.em_estimator is not None:
             with open(args.em_estimator) as stream:
                 estimator = cPickle.load(stream)

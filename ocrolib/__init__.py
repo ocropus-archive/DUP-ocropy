@@ -1,7 +1,7 @@
 __all__ = [
     "binnednn","cairoextras","common","components","dbtables",
     "fgen","gmmtree","gtkyield","hocr","improc","lang","native",
-    "mlp","multiclass","default"
+    "mlp","multiclass","default","lineest"
 ]
 
 ################################################################

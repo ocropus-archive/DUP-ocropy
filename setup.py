@@ -37,12 +37,11 @@ setup(
         packages = ["ocrolib"],
         data_files=
             [('share/ocropus', glob.glob("*.glade")),
-             ('share/ocropus', [modeldir+m for m in modelfiles])],
+             ('share/ocropus', [modeldir+m for m in modelfiles]),
+             ('share/ocropus', ["models/gradient.lineest"])],
         scripts = 
             [i for i in glob.glob("ocropus-*[a-z5]") if not i.endswith('.glade')] +
-            glob.glob("ocroex-*[a-z]") +
-            glob.glob("ocrotest-*[a-z]") +
-            ["ocropus"],
+            glob.glob("ocroex-*[a-z]") + glob.glob("ocrotest-*[a-z]") + ["ocropus"],
         cmdclass = {
             "download_models" : DownloadCommand,
             }
