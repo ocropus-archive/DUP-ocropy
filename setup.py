@@ -9,15 +9,6 @@ modeldir = "models/"
 modelfiles = [default.model,default.space,default.ngraphs,default.lineest]
 modelprefix = "http://iupr1.cs.uni-kl.de/~tmb/ocropus-models/"
 
-class InstallPackagesCommand(Command):
-    description = "Install Ubuntu packages necessary for OCRopus."
-    user_options = []
-    def initialize_options(self): pass
-    def finalize_options(self): pass
-    def run(self):
-        status = os.system("apt-get install python-scipy python-matplotlib python-tables python-sklearn")
-        if status!=0: raise Exception("package install failed")
-
 class DownloadCommand(Command):
     description = "Download OCRopus datafiles. (This needs to happen prior to installation.)"
     user_options = []
@@ -53,7 +44,6 @@ setup(
             glob.glob("ocrotest-*[a-z]") +
             ["ocropus"],
         cmdclass = {
-            "download" : DownloadCommand,
-            "install_ubuntu_packages" : InstallPackagesCommand,
+            "download_models" : DownloadCommand,
             }
      )
