@@ -106,9 +106,14 @@ class CharResizer:
         limage = ocrolib.read_image_gray(lname)
         return self.set(limage)
     def set(self,limage):
-        self.limate = limage
+        self.limage = limage
         self.avgbaseline,self.xheight,self.blp,self.xlp = emodel.lineParameters(1-limage)
         return self
+    def show(self):
+        imshow(self.limage)
+        xs = arange(self.image.shape[1])
+        plot(xs,polyval(self.blp,xs))
+        plot(xs,polyval(self.xlp,xs))
     def resize(self,image,bbox):
         if self.sizemode=="linerel":
             x = bbox[1].start
@@ -179,7 +184,7 @@ if args.extract is not None:
             misseg = linerec.extract_non_csegs(rsegs,csegs)
             misseg = [c.replace(out=[("~",0.0)]) for c in misseg]
             if args.show:
-                ion(); gray()
+                ion(); gray(); clf()
                 figure(1); ocrolib.showgrid([c.img for c in csegs[:100]],xlabels=[c.out[0][0] for c in csegs]) 
                 figure(2); ocrolib.showgrid([m.img for m in misseg[:100]],xlabels=[m.out[0][0] for m in misseg]) 
                 ginput(1,args.delay)
@@ -190,6 +195,12 @@ if args.extract is not None:
             if resizer.xheight<8 or resizer.xheight>100: # TODO make these arguments
                 print "bad xheight:",xheight
                 continue
+            if args.show:
+                clf()
+                subplot(311); morph.showlabels(cseg)
+                subplot(312); morph.showlabels(cseg)
+                subplot(313); resizer.show()
+                ginput(1,args.delay)
             for c in csegs+misseg:
                 image = c.img
                 image = resizer.resize(image,c.bbox)
