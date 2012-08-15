@@ -144,6 +144,8 @@ def fit_peaks(smoothed,order=1,filter_size=(1.0,20.0)):
     smoothed = filters.gaussian_filter(smoothed,filter_size)
     ys = argmax(smoothed,axis=0)
     params = polyfit(arange(len(ys)),ys,order)
+    # print "fit_peaks"
+    # clf(); imshow(smoothed); plot(arange(len(ys)),ys); ginput(1,99)
     return params
 
 
@@ -173,6 +175,8 @@ class TrainedLineGeometry:
         blimage,xlimage = blxlimages(image,self.shapedict,self.bls,self.xls)
         self.blimage = blimage # for debugging
         self.xlimage = xlimage
+        #clf(); imshow(blimage); title("blimage"); ginput(1,99)
+        #clf(); imshow(xlimage); title("xlimage"); ginput(1,99)
         blp = fit_peaks(blimage,order=order)
         xlp = fit_peaks(xlimage,order=order)
         return blp,xlp
@@ -272,11 +276,14 @@ if __name__=="__main__":
                 image = 1-ocrolib.read_image_gray(fname)
                 limit = min(image.shape[1],args.xlimit)
                 blp,xlp = lem.lineFit(image,order=args.order)
-                print lem.lineParameters(image)
+                print "baseline",blp
+                print "xline",xlp
                 title("fname")
-                subplot(211); imshow((lem.blimage-lem.xlimage)[:,:limit])
+                subplot(311); imshow((lem.blimage-lem.xlimage)[:,:limit])
+                title("fname")
+                subplot(312); imshow((lem.blimage-lem.xlimage+image)[:,:limit])
                 gray()
-                subplot(212); imshow(image[:,:limit])
+                subplot(313); imshow(image[:,:limit])
                 xlim(0,limit); ylim(len(image),0)
                 xs = range(image.shape[1])[:limit]
                 plot(xs,polyval(blp,xs))
