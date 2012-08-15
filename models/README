@@ -1,7 +1,2 @@
-This directory should contain data files used by OCRopus.
-
-Download these files with
-
-    python setup.py download
-
-in the root of the distribution.
+Use the ./ocropus-download command in this directory to download the necessary
+data files.
