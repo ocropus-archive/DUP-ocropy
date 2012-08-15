@@ -85,7 +85,9 @@ class Hdf5Writer:
 
 class CharResizer:
     def __init__(self,sizemode,target_xheight):
+        assert isinstance(sizemode,str)
         self.sizemode = sizemode
+        assert target_xheight>=8 and target_xheight<=200
         self.target_xheight = target_xheight
     def load(self,fname):
         lname = ocrolib.fvariant(fname,"png")
@@ -169,7 +171,7 @@ if args.extract is not None:
                     # TODO optionally double-check against model here
                     if not args.quiet: 
                         print fname,"=EXTRACTED=",ocrolib.gt_implode(gt)
-                    resizer = CharResizer(args.sizemode,target_xheight).load(fname)
+                    resizer = CharResizer(sizemode,target_xheight).load(fname)
                     if resizer.xheight<8 or resizer.xheight>100: # TODO make these arguments
                         print "bad xheight:",xheight
                         continue

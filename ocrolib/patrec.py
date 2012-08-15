@@ -447,6 +447,13 @@ class LogisticCmodel:
         if not self.linear: pred = mlinear.sigmoid(pred)
         return sorted(zip(self.reverse,pred),key=lambda x:-x[1])
 
+# obsolete, just for backwards compatibility
+
+def normalizer_none(v):
+    return v.ravel()
+def normalizer_normal(v):
+    return improc.classifier_normalize(v)
+
 ###
 ### Overall binning classifier.
 ###
