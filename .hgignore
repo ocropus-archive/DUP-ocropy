@@ -32,3 +32,4 @@ html
 apidocs
 JUNK
 OLD
+models*/*
