@@ -9,13 +9,6 @@ modeldir = "models/"
 modelfiles = [default.model,default.space,default.ngraphs,default.lineest]
 modelprefix = "http://iupr1.cs.uni-kl.de/~tmb/ocropus-models/"
 
-try:
-    import scipy.ndimage,tables
-except:
-    traceback.print_exc()
-    print 'You need to install scipy and tables (e.g., "sudo python ./setup.py install_ubuntu_pakages").'
-    sys.exit(1)
-
 class InstallPackagesCommand(Command):
     description = "Install Ubuntu packages necessary for OCRopus."
     user_options = []
@@ -48,14 +41,17 @@ class DownloadCommand(Command):
 setup(
         name = 'ocropy',
         version = '0.6',
-        author      = "Thomas Breuel",
-        description = """The core of the OCRopus OCR system.""",
+        author = "Thomas Breuel",
+        description = "The core of the OCRopus OCR system.",
         packages = ["ocrolib"],
-        data_files=[('share/ocropus', glob.glob("*.glade")),('share/ocropus', modelfiles),],
-        scripts = [i for i in glob.glob("ocropus-*[a-z5]") if not i.endswith('.glade')] +
-                glob.glob("ocroex-*[a-z]") +
-                glob.glob("ocrotest-*[a-z]") +
-                ["ocropus"],
+        data_files=
+            [('share/ocropus', glob.glob("*.glade")),
+             ('share/ocropus', [modeldir+m for m in modelfiles])],
+        scripts = 
+            [i for i in glob.glob("ocropus-*[a-z5]") if not i.endswith('.glade')] +
+            glob.glob("ocroex-*[a-z]") +
+            glob.glob("ocrotest-*[a-z]") +
+            ["ocropus"],
         cmdclass = {
             "download" : DownloadCommand,
             "install_ubuntu_packages" : InstallPackagesCommand,

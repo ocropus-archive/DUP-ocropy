@@ -10,7 +10,6 @@ from scipy.ndimage import interpolation, measurements, morphology, filters
 
 import improc
 import ligatures
-import segrec
 import sl
 import multiprocessing
 
@@ -938,12 +937,10 @@ def load_component(file):
     with open(file,"rb") as stream:
         return pickle.load(stream)
 
-def load_linerec(file,wrapper=None):
+def load_linerec_OBSOLETE(file,wrapper=None):
     """Loads a line recognizer.  If the argument is
     a character recognizer, wraps the wrapper around
     it (default: CmodelLineRecognizer)."""
-    if wrapper is None:
-        wrapper=segrec.CmodelLineRecognizer
     component = load_component(file)
     if hasattr(component,"recognizeLine"):
         return component
