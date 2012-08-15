@@ -56,7 +56,6 @@ def cshow(im,h=None,w=None):
     ion(); gray()
     imshow(im.reshape(h,w),cmap=cm.gray,interpolation='nearest')
 
-@checks([AFLOAT2],{int,NoneType},{int,NoneType})
 def showgrid(l,h=None,w=None):
     # figsize(min(12,c),min(12,c)); gray()
     if h is None:
@@ -120,7 +119,6 @@ def distribution(classes,n=-1):
 ### vector "sorting" and selecting
 ### 
 
-@checks(ndarray,[ndarray])
 def minsert(x,l):
     if len(l)<2:
         return l+[x]
@@ -129,7 +127,6 @@ def minsert(x,l):
     i = argmin(dists)
     return l[:i]+[x]+l[i:]
 
-@checks([ndarray])
 def vecsort(l):
     l = list(l)
     result = l[:3]
@@ -137,7 +134,6 @@ def vecsort(l):
         result = minsert(v,result)
     return result
 
-@checks(DATASET())
 def rselect(data,n,s=1000,f=0.99):
     N = len(data)
     l = pyrandom.sample(data,1)
@@ -335,7 +331,6 @@ class PcaKmeans:
 
 class HierarchicalSplitter:
     def __init__(self,**kw):
-        self.normalizer = None
         self.maxsplit = 100
         self.maxdepth = 2
         self.d = 0.90
@@ -391,9 +386,11 @@ class HierarchicalSplitter:
         with this vector"""
         s = self.splitter.predict(v.reshape(1,-1))[0]
         if self.subs[s] is None:
-            return (self.offsets[s],self.splitter.center(s))
+            result = (self.offsets[s],self.splitter.center(s))
         else:
-            return self.subs[s].center(v)
+            result = self.subs[s].center(v)
+        print result
+        return result
     
 ###
 ### A couple of trivial classifiers and cost models, used for testing.
@@ -454,15 +451,9 @@ class LogisticCmodel:
 ### Overall binning classifier.
 ###
 
-def normalizer_none(v):
-    return v.ravel()
-def normalizer_normal(v):
-    return improc.classifier_normalize(v)
-
 class LocalCmodel:
     def __init__(self,splitter):
         self.splitter = splitter
-        self.normalizer = None
         self.nclusters = splitter.nclusters()
         self.cshape = None
         self.cmodels = [None]*self.nclusters
@@ -477,8 +468,6 @@ class LocalCmodel:
         is that we have a good cmodel for each bucket."""
         self.cmodels[i] = cmodel
     def coutputs(self,v,geometry=None,prenormalized=0):
-        if self.normalizer is not None:
-            v = self.normalizer(v)
         v = v.ravel()
         # after normalization, character sizes need to be consistent
         if self.cshape is None: self.cshape=v.shape

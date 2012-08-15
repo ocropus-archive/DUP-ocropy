@@ -276,6 +276,7 @@ def csnormalize(image,f=0.75):
 @checks(PATCH,size=int)
 def classifier_normalize(image,size=32):
     """Normalize characters for classification."""
+    raise Exception("disabled")
     if amax(image)<1e-3: return zeros((size,size))
     cimage = array(image*1.0/amax(image),'f')
     cimage = isotropic_rescale(cimage,size)

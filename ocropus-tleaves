@@ -146,7 +146,6 @@ else:
 # nsplitter.update(splitter)
 
 cmodel = patrec.LocalCmodel(splitter=splitter)
-cmodel.normalizer = patrec.normalizer_normal
 
 for i,c in classifiers:
     cmodel.setCmodel(i,c)

@@ -34,7 +34,7 @@ parser.add_argument("-m","--model",help="model file",default=ocrolib.default.mod
 parser.add_argument("-w","--whitespace",help="space model file",default=ocrolib.default.space)
 parser.add_argument("-Q","--parallel",type=int,default=1,help="number of parallel processes to use")
 parser.add_argument('-q','--quiet',action="store_true",help="don't output progress info")
-parser.add_argument('-S','--sizemode',default="perchar",help="how to resize characters for extraction: perchar, linerel, lineabs")
+parser.add_argument('-S','--sizemode',default=None,help="how to resize characters for extraction: perchar, linerel, lineabs")
 parser.add_argument('-x','--exitonerr',action="store_true",help='time to wait after displaying results')
 parser.add_argument('-e','--lineest',default=ocrolib.default.lineest,help="line geometry model")
 parser.add_argument("--show",help="show progress",action="store_true")
@@ -95,14 +95,15 @@ class CharResizer:
         self.limate = limage
         self.avgbaseline,self.xheight,self.blp,self.xlp = emodel.lineParameters(1-limage)
         return self
-    def resize(self,image):
+    def resize(self,image,bbox):
         if self.sizemode=="linerel":
-            x = c.bbox[1].start
+            x = bbox[1].start
             baseline = polyval(self.blp,x)
             xline = polyval(self.xlp,x)
             assert xline<baseline # raster coordinates
             options = dict(bar=(xline,baseline))
-            image = improc.line_normalize(1.0*image,scale=self.target_xheight*1.0/xheight,**options)
+            scale = self.target_xheight*1.0/self.xheight
+            image = improc.line_normalize(1.0*image,scale=scale,**options)
         elif self.sizemode=="perchar":
             try:
                 image = improc.classifier_normalize(1.0*image)
@@ -112,7 +113,7 @@ class CharResizer:
         elif self.sizemode=="lineabs":
             raise Exception("not implemented yet")
         else:
-            raise Exception("unknown sizemode:"+args.sizemode)
+            raise Exception("unknown sizemode:"+self.sizemode)
         return image
 
 if args.extract is not None:
@@ -121,6 +122,8 @@ if args.extract is not None:
     print "loading",emodel
     emodel = ocrolib.load_component(emodel)
     print "got",emodel
+    sizemode = args.sizemode or "linerel"
+    print "sizemode",sizemode
     try:
         with Hdf5Writer(args.extract,mode=args.hdfmode) as h5:
             h5utils.log(h5.h5," ".join(sys.argv))
@@ -172,7 +175,7 @@ if args.extract is not None:
                         continue
                     for c in csegs+misseg:
                         image = c.img
-                        image = resizer.resize(image)
+                        image = resizer.resize(image,c.bbox)
                         cls = c.out[0][0]
                         h5.insert(image=image,cls=cls)
                 except ocrolib.RecognitionError as e:
@@ -192,6 +195,9 @@ cmodel = ocrolib.ocropus_find_file(args.model)
 print "loading",cmodel
 cmodel = ocrolib.load_component(cmodel)
 print "got",cmodel
+
+sizemode = getattr(cmodel,"sizemode","perchar")
+print "sizemode",sizemode
 
 wmodel = ocrolib.ocropus_find_file(args.whitespace)
 print "loading",wmodel
@@ -215,11 +221,6 @@ def loutputs(image,floor=1e-6,keep_rejects=0):
     """Compute the negative log probability (cost) for classifications
     of the character image."""
     outputs = []
-    try:
-        image = improc.classifier_normalize(1.0*image)
-    except:
-        traceback.print_exc()
-        return [("~",30)]
     outputs = cmodel.coutputs(image)
     outputs = [(cls,-log(max(p,floor))) for cls,p in outputs if "~" not in cls or keep_rejects]
     if len(outputs)<1: outputs = [("~",30)]
@@ -273,6 +274,11 @@ def process1(fname):
             print "NO RAW SEGMENTS"
             return
 
+        # apply the resizer
+
+        resizer = CharResizer(sizemode,target_xheight).set(image)
+        rsegs = [r.replace(img=resizer.resize(r.img,r.bbox)) for r in rsegs]
+
         if args.show:
             figure(1); subplot(312)
             morph.showlabels(rseg)
@@ -291,6 +297,7 @@ def process1(fname):
             figure(2)
             labels = [(r.out[0][0] if r.out and r.out[0][1]<1 else "_") for r in recognized]
             ocrolib.showgrid([r.img for r in recognized][:60],cols=20,xlabels=labels)
+            ginput(1,0.1)
             
         # make sure the resulting graph is connected
 

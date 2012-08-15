@@ -188,6 +188,9 @@ def checks(*types,**ktypes):
                     e.fun = f
                     e.var = var
                     raise e
+                except:
+                    print "unknown exception while checking function:",name
+                    raise
             result = f(*args,**kw)
             checktype(result,kw.get("_",True))
             return result

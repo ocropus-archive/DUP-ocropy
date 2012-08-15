@@ -97,6 +97,7 @@ if sys.argv[1]=="predict":
     parser.add_argument('-t','--testset',type=int,default=-1,help="use testset sequence t (-1=use all samples)")
     parser.add_argument('-m','--model',default=None,help="model to be evaluated")
     parser.add_argument('-N','--nsamples',type=int,default=int(1e9),help="copy at most this many samples")
+    parser.add_argument('--show',action="store_true")
     args = parser.parse_args(sys.argv[2:])
     cmodel = ocrolib.ocropus_find_file(args.model)
     #print "loading",cmodel
@@ -107,9 +108,17 @@ if sys.argv[1]=="predict":
         samples = pyrandom.sample(xrange(len(db.root.classes)),nsamples)
         for i in samples:
             if args.testset>=0 and not ocrolib.testset(i,sequence=args.testset): continue
-            outputs = cmodel.coutputs(db.root.patches[i])
+            patch = db.root.patches[i]
+            outputs = cmodel.coutputs(patch)
             actual = lig.chr(db.root.classes[i])
             pred = outputs[0][0] if len(outputs)>0 else "~"
+            if args.show:
+                clf(); gray(); ion()
+                subplot(211); imshow(patch)
+                xlabel("%s"%actual)
+                subplot(212); imshow(cmodel.splitter.center(patch)[1].reshape(32,32))
+                xlabel("%s"%outputs[:2])
+                ginput(1,99)
             confusion[(actual,pred)] += 1
     errs = sum([v for (a,p),v in confusion.items() if a!=p])
     total = sum(confusion.values())
@@ -151,6 +160,7 @@ if sys.argv[1]=="tess2h5":
     d = args.size
     count = 0
     with tables.openFile(args.output,"w") as odb:
+        odb.setNodeAttr("/","sizemode","perchar")
         patches = h5utils.create_earray(odb,"patches",(d,d),'f')
         classes = h5utils.create_earray(odb,"classes",(),'i')
         for fname in args.inputs:
