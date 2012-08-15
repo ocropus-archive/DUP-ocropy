@@ -3,6 +3,7 @@
 # make the clustering class-specific
 
 import sys,os,re,glob,math,glob,signal,traceback,codecs
+import fcntl
 import matplotlib,tables
 if "DISPLAY" not in os.environ: matplotlib.use("AGG")
 else: matplotlib.use("GTK")
@@ -70,10 +71,15 @@ class Hdf5Writer:
             h5.createEArray(h5.root,'classes',Int64Atom(),shape=(0,),filters=tables.Filters(9))
             #h5.createVLArray(h5.root,'files',StringAtom(120),filters=Filters(9))
             #h5.createEArray(h5.root,'bboxes',Float32Atom(shape=(4,)),shape=(0,),filters=Filters(9))
+        self.fname = fname
         self.h5 = h5
     def __enter__(self):
+        self.fd = os.open(self.fname,os.O_RDWR|os.O_APPEND)
+        fcntl.lockf(self.fd,fcntl.LOCK_EX)
         return self
     def __exit__(self,*args):
+        fcntl.lockf(self.fd,fcntl.LOCK_UN)
+        os.close(self.fd)
         self.h5.close()
         self.h5 = None
     def insert(self,image,cls,cost=0.0,count=0,fname="",lgeo=None,bbox=(-1,-1,-1,-1)):
