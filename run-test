@@ -1,25 +1,48 @@
-#!/bin/sh -ex
+#!/bin/bash -e
+
+set -x
 
 rm -rf temp 
 mkdir temp
 cp tests/testpage.png temp/0001.png
 
-# binarization
+true
+true binarization
+true
+
 ocropus-nlbin 'temp/????.png'
 
-# page level segmentation
+true
+true page level segmentation
+true
+
 ocropus-gpageseg 'temp/????.png'
 
-# raw text line recognition
+true
+true raw text line recognition
+true
+
 ocropus-lattices --parallel=3 'temp/????/??????.png'
 
-# language model application
+true
+true language model application
+true
+
 ocropus-ngraphs 'temp/????/??????.lattice'
 
-# create hOCR output
-ocropus-hocr 'temp/????.png' > temp.html
-firefox temp.html &
+true
+true create hOCR output
+true
 
-# create HTML for debugging (use "firefox temp/index.html" to view)
+ocropus-hocr 'temp/????.png' > temp.html
+
+true
+true 'create HTML for debugging (use "firefox temp/index.html" to view)'
+true
+
 ocropus-genhtml temp
-firefox temp/index.html &
+
+true
+true "to see recognition results, type: firefox temp.html"
+true "to see details on the recognition process, type: firefox temp/index.html"
+true

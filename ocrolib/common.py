@@ -505,7 +505,7 @@ def glob_all(args):
     """Given a list of command line arguments, expand all of them with glob."""
     result = []
     for arg in args:
-        expanded = glob.glob(arg)
+        expanded = sorted(glob.glob(arg))
         if len(expanded)<1:
             raise Exception("%s: expansion did not yield any files"%arg)
         result += expanded

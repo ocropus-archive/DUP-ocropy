@@ -210,11 +210,11 @@ if args.extract is not None:
             print str(e).replace("\n"," ")[:80]
             continue
         if len(insertions)>10000:
-            with Hdf5Writer(args.extract,mode=hdfmode) as h5:
+            with Hdf5Writer(args.extract,mode="a") as h5:
                 for image,cls in insertions:
                     h5.insert(image=image,cls=cls)
             insertions = []
-    with Hdf5Writer(args.extract,mode=hdfmode) as h5:
+    with Hdf5Writer(args.extract,mode="a") as h5:
         for image,cls in insertions:
             h5.insert(image=image,cls=cls)
     sys.exit(0)

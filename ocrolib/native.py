@@ -11,6 +11,25 @@ import ctypes
 import timeit
 from pylab import prod
 
+import os,time,errno,contextlib
+
+@contextlib.contextmanager
+def lockfile(fname,delay=0.5):
+    while 1:
+        try: 
+            fd = os.open(fname,os.O_RDWR|os.O_CREAT|os.O_EXCL)
+        except OSError as e: 
+            if e.errno!=errno.EEXIST: raise
+            time.sleep(delay)
+            continue
+        else:
+            break
+    try:
+        yield fd
+    finally:
+        os.close(fd)
+        os.unlink(fname)
+
 I = c_int
 F = c_float
 D = c_double
@@ -30,17 +49,16 @@ def compile_and_find(c_string,prefix=".pynative",opt="-g -O4",libs="-lm",
     m = hashlib.md5()
     m.update(c_string)
     base = m.hexdigest()
-    so = os.path.join(prefix,base+".so")
-    if os.path.exists(so):
+    with lockfile(os.path.join(prefix,base+".lock")):
+        so = os.path.join(prefix,base+".so")
+        if os.path.exists(so): return so
+        source = os.path.join(prefix,base+".c")
+        with open(source,"w") as stream:
+            stream.write(c_string)
+        cmd = "gcc "+opt+" "+libs+" "+options+" "+source+" -o "+so
+        # print "#",cmd
+        if os.system(cmd)!=0: raise CompileError()
         return so
-    source = os.path.join(prefix,base+".c")
-    with open(source,"w") as stream:
-        stream.write(c_string)
-    cmd = "gcc "+opt+" "+libs+" "+options+" "+source+" -o "+so
-    print "#",cmd
-    if os.system(cmd)!=0:
-        raise CompileError()
-    return so
 
 def compile_and_load(c_string,**keys):
     path = compile_and_find(c_string,**keys)
