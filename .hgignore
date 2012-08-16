@@ -33,3 +33,7 @@ apidocs
 JUNK
 OLD
 models*/*
+*.orig
+temp/
+temp.*
+*.temp
