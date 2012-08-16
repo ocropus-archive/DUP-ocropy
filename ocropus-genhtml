@@ -73,7 +73,7 @@ with open("index.html","w") as stream:
         else:
             image = zeros((300,300,3))
         out = ".__"+d+".png"
-        image = interpolation.zoom(image,(0.125,0.125,1))
+        image = interpolation.zoom(image,(0.125,0.125,1),order=1)
         imsave(out,image)
         stream.write("<table border=1><tr>\n")
         stream.write("<td>")
