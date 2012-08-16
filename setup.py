@@ -6,7 +6,7 @@ from distutils.command.install_data import install_data
 
 from ocrolib import default
 modeldir = "models/"
-modelfiles = [default.model,default.space,default.ngraphs,default.lineest]
+modelfiles = default.installable
 modelprefix = "http://iupr1.cs.uni-kl.de/~tmb/ocropus-models/"
 
 class DownloadCommand(Command):

@@ -99,12 +99,14 @@ def compute_geomaps(fnames,shapedict,old_model,use_gt=1,size=32,debug=0,old_orde
         for x in range(w): blimage[clip(int(polyval(blp,x)),0,h-1),x] = 1
         xlimage = zeros(image.shape)
         for x in range(w): xlimage[clip(int(polyval(xlp,x)),0,h-1),x] = 1
-        if debug>0 and fno%debug==0: subplot(412); imshow(blimage+2*xlimage+0.5*image)
+        if debug>0 and fno%debug==0: 
+            subplot(413); imshow(xlimage+0.3*image)
+            subplot(414); imshow(blimage+0.3*image)
         try: 
             seg = lineseg.ccslineseg(image)
         except: 
             continue
-        if debug>0 and fno%debug==0: subplot(413); morph.showlabels(seg)
+        if debug>0 and fno%debug==0: subplot(412); morph.showlabels(seg)
         shape = None
         for sub,transform,itransform_add in extract_chars(seg):
             if shape is None: shape = sub.shape
