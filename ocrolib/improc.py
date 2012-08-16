@@ -288,3 +288,12 @@ def line_normalize(image,size=32,scale=1.0,bar=None):
     centroid = measurements.center_of_mass(image)
     return extract_centered_scaled_barred(image,shaped(size),centroid,scale,bar=bar)
 
+def remove_noise(line,minsize=8):
+    """Remove small pixels from an image."""
+    if minsize==0: return line
+    bin = (line>0.5*amax(line))
+    labels,n = morph.label(bin)
+    sums = measurements.sum(bin,labels,range(n+1))
+    sums = sums[labels]
+    good = minimum(bin,1-(sums>0)*(sums<minsize))
+    return good

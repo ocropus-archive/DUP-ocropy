@@ -192,13 +192,3 @@ def latin_filter(line,scale=1.0,r=1.5,debug=0):
     mask = filters.maximum_filter(mask,3)
     return line*mask
 
-@checks(DARKLINE)
-def remove_noise(line,minsize=8):
-    """Remove small pixels from an image."""
-    bin = (line>0.5*amax(line))
-    labels,n = morph.label(bin)
-    sums = measurements.sum(bin,labels,range(n+1))
-    sums = sums[labels]
-    good = minimum(bin,1-(sums>0)*(sums<minsize))
-    return good
-    

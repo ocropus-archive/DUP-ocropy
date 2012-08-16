@@ -53,7 +53,7 @@ def extract_candidate_groups(segmentation,min_aspect=0.1,max_aspect=1.8,maxgap=2
                 continue
             box = box_union(boxes[i:i+r])
             a = sl.aspect(box)
-            if 1.0/a>max_aspect: continue
+            if r>1 and 1.0/a>max_aspect: continue
             if 1.0/a<min_aspect: continue
             assert sum(segmentation[box])>0
             j = i+r-1

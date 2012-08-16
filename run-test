@@ -16,6 +16,9 @@ ocropus-lattices --parallel=3 'temp/????/??????.png'
 # language model application
 ocropus-ngraphs 'temp/????/??????.lattice'
 
+# create HTML for debugging (use "firefox temp/index.html" to view)
+ocropus-genhtml temp
+
 # create hOCR output
 ocropus-hocr 'temp/????.png' > temp.html
 head -20 temp.html

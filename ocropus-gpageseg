@@ -19,7 +19,7 @@ from scipy import stats
 from scipy.misc import imsave
 from scipy.ndimage.filters import gaussian_filter,uniform_filter,maximum_filter,minimum_filter
 import ocrolib
-from ocrolib import psegutils,morph,improc,sl
+from ocrolib import psegutils,morph,improc,sl,lineproc
 import multiprocessing
 from multiprocessing import Pool
 from ocrolib.toplevel import *
@@ -45,6 +45,7 @@ parser.add_argument('--cdebug',type=float,default=0,help='show debug output for 
 parser.add_argument('--maxcols',type=int,default=2,help='maximum # columns')
 parser.add_argument('--cmaxwidth',type=float,default=10,help='maximum column width (units=scale)')
 parser.add_argument('--cminheight',type=float,default=20,help='minimum column height (units=scale)')
+parser.add_argument('--noise',type=int,default=8,help="noise threshold for removing small components from lines")
 
 parser.add_argument('-p','--pad',type=int,default=3,help='padding for extracted lines')
 parser.add_argument('-e','--expand',type=int,default=1,help='expand mask for grayscale extraction')
@@ -174,14 +175,13 @@ def process1(job):
     if len(lines)>args.maxlines:
         sys.stderr.write("%s: scale (%d) less than --maxlines; skipping\n"%(fname,len(lines)))
         return
-    #pseg = transpose(array([ones(segmentation.shape,'B'),array(segmentation//256,'B'),array(segmentation,'B')]),[1,2,0])
-    #imsave("%s.pseg.png"%base,pseg)
     ocrolib.write_page_segmentation("%s.pseg.png"%base,segmentation)
+    cleaned = improc.remove_noise(binary,args.noise)
     for i,l in enumerate(lines):
-        ocrolib.write_image_gray("%s/01%04x.png"%(base,i+1),
+        ocrolib.write_image_binary("%s/01%04x.png"%(base,i+1),
+                psegutils.extract_masked(1-cleaned,l,pad=args.pad))
+        ocrolib.write_image_gray("%s/01%04x.nrm.png"%(base,i+1),
                 psegutils.extract_masked(gray,l,pad=args.pad,expand=args.expand))
-        ocrolib.write_image_binary("%s/01%04x.bin.png"%(base,i+1),
-                psegutils.extract_masked(1-binary,l,pad=args.pad))
     print "%6d"%i,fname,"%4.1f"%scale,len(lines)
 
 if args.debug>0 or args.show>0: args.parallel = 0
