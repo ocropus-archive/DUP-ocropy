@@ -8,8 +8,7 @@ import pylab
 from pylab import *
 
 import ocrolib
-from ocrolib import number_of_processors,die
-from ocrolib.grouper import Grouper
+from ocrolib import number_of_processors,die,linerec
 from scipy.misc import imsave
 
 signal.signal(signal.SIGINT,lambda *args:sys.exit(1))
@@ -23,15 +22,13 @@ args = parser.parse_args()
 
 def write_cseg(stream,cseg_file):
     cseg = ocrolib.read_line_segmentation(cseg_file)
-    grouper = Grouper()
-    grouper.setCSegmentation(cseg)
+    cseg = ocrolib.read_line_segmentation(cseg_file)
+    csegs = linerec.extract_csegs(cseg)
     stream.write("<table><tr>")
-    for i in range(grouper.length()):
-        img = grouper.getMask(i)
-        if img is None: continue
+    for i,c in enumerate(csegs):
         out = ".__"+cseg_file+"_%03d.png"%i
-        pylab.imsave(out,amax(img)-img,cmap=cm.gray)
-        stream.write("<td><img src=%s height=%d style='border: 1px #ccccff solid;'></td>"%(out,max(2,img.shape[0]/2)))
+        pylab.imsave(out,amax(c.img)-c.img,cmap=cm.gray)
+        stream.write("<td><img src=%s height=%d style='border: 1px #ccccff solid;'></td>"%(out,max(2,c.img.shape[0]/2)))
     stream.write("</tr></table>")
     stream.write("\n")
 
