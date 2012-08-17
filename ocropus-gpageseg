@@ -169,7 +169,6 @@ def process1(job):
     fname,i = job
     base,_ = ocrolib.allsplitext(fname)
     outputdir = base
-    print "@@@",base,outputdir
 
     if args.usefilename:
         binary = ocrolib.read_image_binary(fname)
