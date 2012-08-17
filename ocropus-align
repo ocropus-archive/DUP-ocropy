@@ -122,7 +122,7 @@ for pattern in args.files:
     l = sorted(glob.glob(pattern))
     for f in l:
         assert ".lattice" in f,"all files must end with .lattice"
-        base,_ = os.path.splitext(f)
+        base,_ = ocrolib.allsplitext(f)
         if not os.path.exists(base+".gt.txt"):
             print f,": no ground truth, skipping"
         else:
@@ -133,7 +133,7 @@ assert len(fnames)>0,"must provide some filename arguments"
 print "processing",len(fnames),"files"
 for fname in fnames:
     if not args.quiet: print fname,"=ALIGNED=",
-    base,_ = os.path.splitext(fname)
+    base,_ = ocrolib.allsplitext(fname)
     if not os.path.exists(fvariant(base,"txt","gt")):
         print "ERROR","no ground truth, skipping"
         continue

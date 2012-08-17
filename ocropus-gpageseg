@@ -27,8 +27,10 @@ from ocrolib.toplevel import *
 parser = argparse.ArgumentParser()
 parser.add_argument('-z','--zoom',type=float,default=0.5,help='zoom for page background estimation, smaller=faster')
 
-parser.add_argument('--debug',type=float,default=0,help='show debug output')
+parser.add_argument('--debug',action="store_true",help='show debug output')
 parser.add_argument('--show',type=float,default=0,help='show the final output')
+parser.add_argument('--gray',action='store_true',help='output grayscale lines as well')
+parser.add_argument('--usefilename',action='store_true',help='use the input filename, instead of base + .bin.png')
 
 # limits
 parser.add_argument('--minscale',type=float,default=12.0,help='minimum scale permitted')
@@ -37,7 +39,7 @@ parser.add_argument('--maxlines',type=float,default=300,help='maximum # lines pe
 # scale parameters
 parser.add_argument('--hscale',type=float,default=1.0,help='scaling of horizontal parameters')
 parser.add_argument('--vscale',type=float,default=1.0,help='scaling of vertical parameters')
-parser.add_argument('--threshold',type=float,default=0.03,help='baseline threshold')
+parser.add_argument('--threshold',type=float,default=0.2,help='baseline threshold')
 parser.add_argument('--usegauss',action='store_true',help='use gaussian instead of uniform')
 
 # column parameters
@@ -48,83 +50,116 @@ parser.add_argument('--cminheight',type=float,default=20,help='minimum column he
 parser.add_argument('--noise',type=int,default=8,help="noise threshold for removing small components from lines")
 
 parser.add_argument('-p','--pad',type=int,default=3,help='padding for extracted lines')
-parser.add_argument('-e','--expand',type=int,default=1,help='expand mask for grayscale extraction')
+parser.add_argument('-e','--expand',type=int,default=3,help='expand mask for grayscale extraction')
 parser.add_argument('-Q','--parallel',type=int,default=0)
 parser.add_argument('files',nargs='+')
 args = parser.parse_args()
 args.files = ocrolib.glob_all(args.files)
 
-if args.debug:
+if args.debug or args.show>0:
     ion(); gray()
 
-def compute_segmentation(binary,scale):
-    binary = array(binary,'B')
-    
+
+
+def remove_hlines(binary,scale,maxsize=10):
+    labels,_ = morph.label(binary)
+    objects = morph.find_objects(labels)
+    for i,b in enumerate(objects):
+        if sl.width(b)>maxsize*scale:
+            labels[b][labels[b]==i+1] = 0
+    return array(labels!=0,'B')
+
+def compute_columns(binary,scale):
     # start by computing columns
     cols = psegutils.compute_columns_morph(binary,scale,debug=args.cdebug,
                                            maxcols=args.maxcols,
                                            maxwidth=args.cmaxwidth,
                                            minheight=args.cminheight)
     seps = psegutils.compute_separators_morph(binary,scale)
-    if args.debug:
+    if args.debug and 0:
         clf(); title("cols"); imshow(maximum(seps,0.7*cols+0.3*binary)); ginput(1,args.debug)
     cols = maximum(cols,seps)
     binary = minimum(binary,1-seps)
-    
+    return cols,binary
+
+def compute_gradmaps(binary,scale):
     # use gradient filtering to find baselines
     boxmap = psegutils.compute_boxmap(binary,scale)
     cleaned = boxmap*binary
-    if args.debug:
+    if args.debug and 0:
         clf(); title("cleaned"); imshow(cleaned); ginput(1,args.debug)
     if args.usegauss:
         # this uses Gaussians
-        grad = gaussian_filter(1.0*cleaned,(args.hscale*0.3*scale,
-                                            args.vscale*6*scale),order=(1,0))
+        grad = gaussian_filter(1.0*cleaned,(args.vscale*0.3*scale,
+                                            args.hscale*6*scale),order=(1,0))
     else:
         # this uses non-Gaussian oriented filters
-        grad = gaussian_filter(1.0*cleaned,(max(4,args.hscale*0.3*scale),
-                                            args.vscale*scale),order=(1,0))
-        grad = uniform_filter(grad,(args.hscale,args.vscale*6*scale))
+        grad = gaussian_filter(1.0*cleaned,(max(4,args.vscale*0.3*scale),
+                                            args.hscale*scale),order=(1,0))
+        grad = uniform_filter(grad,(args.vscale,args.hscale*6*scale))
     bottom = improc.norm_max((grad<0)*(-grad))
-    if args.debug:
-        clf(); title("filtered"); imshow(bottom); ginput(1,args.debug)
+    top = improc.norm_max((grad>0)*grad)
+    return bottom,top,boxmap
 
-    # morphological postprocessing and local maxima to create lines
-    bottom = maximum_filter(bottom,(2,2))
-    spread = maximum_filter(bottom,(int(args.vscale*scale),0))
-    loc = (bottom>args.threshold*amax(bottom))*(bottom>=spread)
-    loc = minimum(loc,1-cols)
+def compute_line_seeds(binary,bottom,top,cols,scale):
+    t = args.threshold
+    vrange = int(args.vscale*scale)
+    bmarked = maximum_filter(bottom==maximum_filter(bottom,(vrange,0)),(2,2))
+    bmarked *= (bottom>t*amax(bottom)*t)*(1-cols)
+    tmarked = maximum_filter(top==maximum_filter(top,(vrange,0)),(2,2))
+    tmarked *= (top>t*amax(top)*t/2)*(1-cols)
+    tmarked = maximum_filter(tmarked,(1,20))
+    seeds = zeros(binary.shape,'i')
+    delta = max(3,int(scale/2))
+    for x in range(bmarked.shape[1]):
+        transitions = sorted([(y,1) for y in find(bmarked[:,x])]+[(y,0) for y in find(tmarked[:,x])])[::-1]
+        transitions += [(0,0)]
+        for l in range(len(transitions)-1):
+            y0,s0 = transitions[l]
+            if s0==0: continue
+            seeds[y0-delta:y0,x] = 1
+            y1,s1 = transitions[l+1]
+            if s1==0 and (y0-y1)<5*scale: seeds[y1:y0,x] = 1
+    seeds = maximum_filter(seeds,(1,int(1+scale)))
+    seeds *= (1-cols)
+    IMDEBUG((seeds,0.3*tmarked+0.7*bmarked,binary),"seeds")
+    seeds,_ = morph.label(seeds)
+    return seeds
 
-    # select the longest lines only
-    loc = morph.select_regions(loc,sl.dim1,min=2*scale,nbest=1000)
+
 
-    # thicken it vertically upwards to pick up most bounding boxes
-    # on the baseline
-    locm = maximum_filter(loc,(int(scale),1),origin=(-int(scale/2),0))
+def IMDEBUG(image,message="",kind=None):
+    if not args.debug: return
+    clf()
+    title(message)
+    if type(image)==tuple:
+        ocrolib.showrgb(*image)
+    elif type(image)==list:
+        ocrolib.showgrid(list)
+    elif kind in ["seg","segmentation","labels"] or image.dtype in [dtype('i'),dtype('int32'),dtype('uint32'),dtype('int64')]:
+        morph.showlabels(image)
+    else:
+        imshow(image,cmap=cm.gray)
+    ginput(1,0.1)
+    print "waiting:",message
+    raw_input()
+    print "continuing"
+    clf()
+    ginput(1,0.1)
 
-    # label lines, propagate to bounding boxes
-    if args.debug:
-        clf(); title("boxmap"); imshow(0.7*boxmap+0.3*binary); ginput(1,args.debug)
-    lloc,_ = morph.label(locm)
-    llines = maximum(lloc,morph.propagate_labels(boxmap,lloc,conflict=-1))
-
-    # where there are conflicts, resolve using spread
-    spread = morph.spread_labels(lloc,maxdist=scale)
-    llines = where(llines==-1,spread,llines)
-    if args.debug:
-        clf(); title("spread"); morph.showlabels(llines); ginput(1,args.debug)
-
-    # label all the remaining pixels
-    llines = where(llines!=0,llines,binary*spread)
-    if args.debug:
-        clf(); title("remaining"); morph.showlabels(llines); ginput(1,args.debug)
-
-    # now restrict to the foreground pixels
-    segmentation = llines*binary
-    if args.debug>0:
-        clf(); title("segmentation"); imshow(segmentation,cmap=cm.flag); ginput(1,args.debug)
-
-    # put everything into one column for now (FIXME)
+def compute_segmentation(binary,scale):
+    binary = array(binary,'B')
+    binary = remove_hlines(binary,scale)
+    cols,binary = compute_columns(binary,scale)
+    bottom,top,boxmap = compute_gradmaps(binary,scale)
+    IMDEBUG((bottom,top,boxmap),"bottom and top")
+    seeds = compute_line_seeds(binary,bottom,top,cols,scale)
+    IMDEBUG(seeds,"seeds")
+    llabels = morph.propagate_labels(boxmap,seeds,conflict=0)
+    spread = morph.spread_labels(seeds,maxdist=scale)
+    llabels = where(llabels>0,llabels,spread*binary)
+    segmentation = llabels*binary
+    IMDEBUG(segmentation,"segmentation")
     assert amin(segmentation)==0
     segmentation = where(segmentation==0,0,segmentation+0x010000)
     assert amin(segmentation)==0
@@ -132,56 +167,51 @@ def compute_segmentation(binary,scale):
 
 def process1(job):
     fname,i = job
-    base,_ = os.path.splitext(fname)
-    gray = binary = None
+    base,_ = ocrolib.allsplitext(fname)
+    outputdir = base
+    print "@@@",base,outputdir
 
-    # read grayscale and binary images if available, otherwise
-    # assume that image.png is "nearly" binary
-    if os.path.exists(base+".bin.png"):
+    if args.usefilename:
+        binary = ocrolib.read_image_binary(fname)
+    else:
         binary = ocrolib.read_image_binary(base+".bin.png")
-    if os.path.exists(base+".nrm.png"):
-        gray = ocrolib.read_image_gray(base+".nrm.png")
-    if gray is None:
-        gray = ocrolib.read_image_gray(base+".png")
-    if binary is None:
-        binary = array(gray>ocrolib.midrange(gray),'B')
-    binary = amax(binary)-binary # invert
 
     checktype(binary,ABINARY2)
-    checktype(gray,GRAYSCALE)
+ 
+    if args.gray:
+        if os.path.exists(base+".nrm.png"):
+            gray = ocrolib.read_image_gray(base+".nrm.png")
+        checktype(gray,GRAYSCALE)
 
-    if args.debug:
-        clf(); imshow(binary); title("binary"); ginput(1,maximum(args.show,args.debug))
+    binary = 1-binary # invert
 
+    # IMDEBUG(binary,"binary")
     scale = psegutils.estimate_scale(binary)
-
     if scale<args.minscale:
         sys.stderr.write("%s: scale (%g) less than --minscale; skipping\n"%(fname,scale))
         return
-
-    checktype(binary,ABINARY2)
-    checktype(gray,GRAYSCALE)
 
     segmentation = compute_segmentation(binary,scale)
     lines = psegutils.compute_lines(segmentation,scale)
     order = psegutils.reading_order([l.bounds for l in lines],debug=args.debug)
     lsort = psegutils.topsort(order)
     if args.show or args.debug:
-        clf(); title("output"); psegutils.show_lines(gray,lines,lsort); ginput(1,maximum(args.show,args.debug))
-    base,_ = os.path.splitext(fname)
-    if not os.path.exists(base):
-        os.mkdir(base)
+        clf(); title("output"); psegutils.show_lines(binary,lines,lsort); ginput(1,maximum(args.show,args.debug))
+
+    if not os.path.exists(outputdir):
+        os.mkdir(outputdir)
     lines = [lines[i] for i in lsort]
     if len(lines)>args.maxlines:
         sys.stderr.write("%s: scale (%d) less than --maxlines; skipping\n"%(fname,len(lines)))
         return
-    ocrolib.write_page_segmentation("%s.pseg.png"%base,segmentation)
+    ocrolib.write_page_segmentation("%s.pseg.png"%outputdir,segmentation)
     cleaned = improc.remove_noise(binary,args.noise)
     for i,l in enumerate(lines):
-        ocrolib.write_image_binary("%s/01%04x.png"%(base,i+1),
-                psegutils.extract_masked(1-cleaned,l,pad=args.pad))
-        ocrolib.write_image_gray("%s/01%04x.nrm.png"%(base,i+1),
-                psegutils.extract_masked(gray,l,pad=args.pad,expand=args.expand))
+        binline = psegutils.extract_masked(1-cleaned,l,pad=args.pad,expand=args.expand)
+        ocrolib.write_image_binary("%s/01%04x.bin.png"%(outputdir,i+1),binline)
+        if args.gray:
+            grayline = psegutils.extract_masked(gray,l,pad=args.pad,expand=args.expand)
+            ocrolib.write_image_gray("%s/01%04x.nrm.png"%(outputdir,i+1),grayline)
     print "%6d"%i,fname,"%4.1f"%scale,len(lines)
 
 if args.debug>0 or args.show>0: args.parallel = 0

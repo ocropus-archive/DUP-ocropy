@@ -80,8 +80,7 @@ def dshow(image,info):
 def process1(job):
     fname,i = job
     comment = ""
-    image = imread(fname)
-    if image.ndim==3: image = mean(image,2)
+    image = ocrolib.read_image_gray(fname)
     dshow(image,"input")
     # perform image normalization
     image -= amin(image)
@@ -154,10 +153,10 @@ def process1(job):
     if args.output:
         if not os.path.exists(args.output):
             os.mkdir(args.output)
-        imsave(args.output+"/%04d.png"%i,flat)
-        imsave(args.output+"/%04d.bin.png"%i,bin)
+        imsave(args.output+"/%04d.nrm.png"%i,bin)
+        imsave(args.output+"/%04d.bin.png"%i,flat)
     else:
-        base,_ = os.path.splitext(fname)
+        base,_ = ocrolib.allsplitext(fname)
         imsave(base+".nrm.png",flat)
         imsave(base+".bin.png",bin)
 

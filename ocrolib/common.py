@@ -123,7 +123,8 @@ def read_image_gray(fname,pageno=0):
         pass
     else:
         raise Exception("unknown image type: "+a.dtype)
-    if a.ndim==3: return mean(a,2)
+    if a.ndim==3: 
+        a = mean(a,2)
     return a
 
 
@@ -493,6 +494,10 @@ def allsplitext(path):
     else:
         return match.group(1),match.group(3)
 
+@checks(str)
+def base(path):
+    return allsplitext(path)[0]
+
 @checks(str,{str,unicode})
 def write_text(file,s):
     """Write the given string s to the output file."""
@@ -554,20 +559,7 @@ def fexists(fname):
     if os.path.exists(fname): return fname
     return None
 
-def gtext(fname):
-    """Given a file name, determines the ground truth suffix."""
-    g = re.search(r'\.(rseg|cseg)\.([^./]+)\.png$',fname)
-    if g:
-        return g.group(2)
-    g = re.search(r'\.([^./]+)\.(rseg|cseg)\.png$',fname)
-    if g:
-        return g.group(1)
-    g = re.search(r'\.([^./]+)\.(png|costs|fst|txt)$',fname)
-    if g:
-        return g.group(1)
-    return ""
-
-def fvariant(fname,kind,gt=None):
+def fvariant(fname,kind,gt=""):
     """Find the file variant corresponding to the given file name.
     Possible fil variants are line (or png), rseg, cseg, fst, costs, and txt.
     Ground truth files have an extra suffix (usually something like "gt",
@@ -575,35 +567,30 @@ def fvariant(fname,kind,gt=None):
     with the same ground truth suffix is produced.  The non-ground-truth
     version can be produced with gt="", the ground truth version can
     be produced with gt="gt" (or some other desired suffix)."""
-    if gt is None:
-        gt = gtext(fname)
-    if gt!="":
-        gt = "."+gt
+    if gt!="": gt = "."+gt
     base,ext = allsplitext(fname)
+    # text output
+    if kind=="txt":
+        return base+gt+".txt"
+    assert gt=="","gt suffix may only be supplied for .txt files (%s,%s,%s)"%(fname,kind,gt)
     # a text line image
     if kind=="line" or kind=="png":
-        return base+gt+".png"
+        return base+".png"
     # a recognition lattice
     if kind=="lattice":
         return base+gt+".lattice"
     # raw segmentation
     if kind=="rseg":
-        return base+".rseg"+gt+".png"
+        return base+".rseg.png"
     # character segmentation
     if kind=="cseg":
-        return base+".cseg"+gt+".png"
+        return base+".cseg.png"
     # text specifically aligned with cseg (this may be different from gt or txt)
     if kind=="aligned":
-        return base+gt+".aligned"
+        return base+".aligned"
     # per character costs
     if kind=="costs":
-        return base+gt+".costs"
-    # finite state transducer in OpenFST format
-    if kind=="fst":
-        return base+gt+".fst"
-    # text output
-    if kind=="txt":
-        return base+gt+".txt"
+        return base+".costs"
     raise Exception("unknown kind: %s"%kind)
 
 def fcleanup(fname,gt,kinds):
@@ -997,6 +984,16 @@ def draw_aligned(result,axis=None):
             axis.text(x0,h-y0-1,s[i-1],color="red",weight="bold",fontsize=14)
     draw()
 
+from matplotlib import patches
+import pylab
+
+def draw_rect(p0,p1,w0,w1,**kw):
+    p = patches.Rectangle((p0,p1),w0,w1,**kw)  # edgecolor="red",fill=0
+    pylab.gca().add_patch(p)
+
+def draw_slrect(b,**kw):
+    draw_rect(b[1].start,b[0].start,b[1].stop-b[1].start,b[0].stop-b[0].start,**kw)
+
 def plotgrid(data,d=10,shape=(30,30)):
     """Plot a list of images on a grid."""
     ion()
@@ -1008,6 +1005,11 @@ def plotgrid(data,d=10,shape=(30,30)):
         if shape is not None: row = row.reshape(shape)
         imshow(row)
     ginput(1,timeout=0.1)
+
+def showrgb(r,g=None,b=None):
+    if g is None: g = r
+    if b is None: b = r
+    imshow(array([r,g,b]).transpose([1,2,0]))
 
 def showgrid(l,cols=None,n=400,titles=None,xlabels=None,ylabels=None,**kw):
     import pylab

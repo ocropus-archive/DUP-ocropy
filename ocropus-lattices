@@ -349,10 +349,11 @@ def process1(fname):
 
         # write the lattice and the raw segmentation
         
-        with open(ocrolib.fvariant(fname,"lattice"),"w") as stream:
+        base,_ = ocrolib.allsplitext(fname)
+        with open(base+".lattice","w") as stream:
             linerec.write_lattice(stream,recognized)
 
-        ocrolib.write_line_segmentation(ocrolib.fvariant(fname,"rseg"),rseg)
+        ocrolib.write_line_segmentation(base+".rseg.png",rseg)
         
         if args.show:
             ginput(1,args.delay)

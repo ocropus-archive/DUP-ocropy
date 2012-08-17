@@ -2,27 +2,24 @@
 
 set -x
 
-rm -rf temp 
-mkdir temp
-cp tests/testpage.png temp/0001.png
-
 true
 true binarization
 true
 
-ocropus-nlbin 'temp/????.png'
+rm -rf temp 
+ocropus-nlbin tests/testpage.png -o temp
 
 true
 true page level segmentation
 true
 
-ocropus-gpageseg 'temp/????.png'
+ocropus-gpageseg 'temp/????.bin.png'
 
 true
 true raw text line recognition
 true
 
-ocropus-lattices --parallel=3 'temp/????/??????.png'
+ocropus-lattices 'temp/????/??????.bin.png'
 
 true
 true language model application
@@ -34,7 +31,7 @@ true
 true create hOCR output
 true
 
-ocropus-hocr 'temp/????.png' > temp.html
+ocropus-hocr 'temp/????.bin.png' > temp.html
 
 true
 true 'create HTML for debugging (use "firefox temp/index.html" to view)'

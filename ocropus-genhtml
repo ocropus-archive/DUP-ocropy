@@ -39,9 +39,9 @@ def genpage(d):
         os.chdir(d)
         with open("index.html","w") as stream:
             stream.write("<h1>%s</h1>\n"%d)
-            images = sorted(glob.glob("??????.png"))
+            images = sorted(glob.glob("??????.bin.png"))
             for img in images:
-                image = imread(img)
+                image = ocrolib.read_image_gray(img)
                 stream.write("<img width='%d' src='%s'><br>\n"%(max(10,image.shape[1]/2),img))
                 stream.write("<font size=-2>")
                 stream.write("<a href=%s>%s</a> / "%(args.book,args.book))
@@ -68,12 +68,12 @@ os.chdir(args.book)
 with open("index.html","w") as stream:
     for d in sorted(glob.glob("????"))[:args.npages]:
         genpage(d)
-        if os.path.exists(d+".png"):
-            image = imread(d+".png")
+        if os.path.exists(d+".bin.png"):
+            image = ocrolib.read_image_gray(d+".bin.png")
         else:
-            image = zeros((300,300,3))
+            image = zeros((300,300))
         out = ".__"+d+".png"
-        image = interpolation.zoom(image,(0.125,0.125,1),order=1)
+        image = interpolation.zoom(image,(0.125,0.125),order=1)
         imsave(out,image)
         stream.write("<table border=1><tr>\n")
         stream.write("<td>")

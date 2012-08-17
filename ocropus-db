@@ -128,7 +128,7 @@ if sys.argv[1]=="predict":
 def tess_readchars(fname,boxfile=None,d=1,pad=2):
     """Read characters in Tesseract training format."""
     os.system("convert '%s' /tmp/image.png"%fname)
-    image = imread("/tmp/image.png")
+    image = ocrolib.read_image_gray("/tmp/image.png")
     h,w = image.shape
     if boxfile is None:
         base,_ = ocrolib.allsplitext(fname)

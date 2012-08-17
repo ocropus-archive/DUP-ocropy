@@ -94,15 +94,6 @@ from pylab import *
 from scipy.ndimage import measurements,interpolation,filters,morphology
 import math
 
-def dread(fname):
-    """Read an image, similar to imread.  However, imread flips JPEG images;
-    this fixes that."""
-    _,ext = os.path.splitext(fname)
-    image = imread(fname)
-    if ext.lower() in [".jpg",".jpeg"]:
-        image = image[::-1,:,...]
-    return image
-
 ################################################################
 ### Binarization
 ################################################################

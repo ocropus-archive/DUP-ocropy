@@ -72,6 +72,14 @@ def intersect(u,v):
     if v is None: return u
     return tuple([slice(max(u[i].start,v[i].start),min(u[i].stop,v[i].stop)) for i in range(len(u))])
 
+def xoverlap(u,v):
+    return max(0,min(u[1].stop,v[1].stop)-max(u[1].start,v[1].start))
+def yoverlap(u,v):
+    return max(0,min(u[0].stop,v[0].stop)-max(u[0].start,v[0].start))
+def xoverlap_rel(u,v):
+    return xoverlap(u,v)*1.0/max(1,width(u),width(v))
+def yoverlap_rel(u,v):
+    return yoverlap(u,v)*1.0/max(1,height(u),height(v))
 def xoverlaps(u,v):
     return u[1].stop>=v[1].start and v[1].stop>=u[1].start
 def yoverlaps(u,v):
