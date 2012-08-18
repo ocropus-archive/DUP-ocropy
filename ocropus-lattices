@@ -357,6 +357,7 @@ def process1(fname):
             linerec.write_lattice(stream,recognized)
 
         ocrolib.write_line_segmentation(base+".rseg.png",rseg)
+        ocrolib.write_text(base+".xheight","%.1f"%resizer.xheight)
         
         if args.show:
             ginput(1,args.delay)

@@ -72,6 +72,7 @@ def compute_lines(segmentation,scale):
         mask = (segmentation[o]==i+1)
         if amax(mask)==0: continue
         result = record()
+        result.label = i+1
         result.bounds = o
         result.mask = mask
         lines.append(result)

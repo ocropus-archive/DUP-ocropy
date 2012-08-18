@@ -159,10 +159,6 @@ def compute_segmentation(binary,scale):
     spread = morph.spread_labels(seeds,maxdist=scale)
     llabels = where(llabels>0,llabels,spread*binary)
     segmentation = llabels*binary
-    IMDEBUG(segmentation,"segmentation")
-    assert amin(segmentation)==0
-    segmentation = where(segmentation==0,0,segmentation+0x010000)
-    assert amin(segmentation)==0
     return segmentation
 
 def process1(job):
@@ -194,6 +190,12 @@ def process1(job):
     lines = psegutils.compute_lines(segmentation,scale)
     order = psegutils.reading_order([l.bounds for l in lines],debug=args.debug)
     lsort = psegutils.topsort(order)
+
+    nlabels = amax(segmentation)+1
+    renumber = zeros(nlabels,'i')
+    for i,v in enumerate(lsort): renumber[lines[v].label] = 0x010000+(i+1)
+    segmentation = renumber[segmentation]
+
     if args.show or args.debug:
         clf(); title("output"); psegutils.show_lines(binary,lines,lsort); ginput(1,maximum(args.show,args.debug))
 

@@ -219,6 +219,8 @@ def all_neighbors(image):
 ### Iterate through the regions of a color image.
 ################################################################
 
+from pylab import *
+
 @checks(SEGMENTATION)
 def renumber_labels_ordered(a,correspondence=0):
     """Renumber the labels of the input array in numerical order so

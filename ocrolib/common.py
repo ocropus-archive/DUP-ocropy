@@ -297,6 +297,7 @@ class RegionExtractor:
         """Return the bounding box in raster coordinates
         (row0,col0,row1,col1)."""
         r = self.objects[i]
+        #print "@@@bbox",i,r
         return (r[0].start,r[1].start,r[0].stop,r[1].stop)
     def bboxMath(self,i):
         """Return the bounding box in math coordinates
@@ -310,6 +311,7 @@ class RegionExtractor:
     def mask(self,index,margin=0):
         """Return the mask for component index."""
         b = self.objects[index]
+        #print "@@@mask",index,b
         m = self.labels[b]
         m[m!=index] = 0
         if margin>0: m = improc.pad_by(m,margin)
