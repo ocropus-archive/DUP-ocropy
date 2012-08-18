@@ -60,21 +60,19 @@ def write_text(fname,text,nonl=0):
 import PIL
 
 def pil2array(im,alpha=0):
-    assert im.mode in ("L","F","RGB","RGBA"),"unknown image mode: %s"%im.mode
     if im.mode=="L":
         a = numpy.fromstring(im.tostring(),'B')
         a.shape = im.size[1],im.size[0]
-    elif im.mode=="F":
-        a = numpy.fromstring(im.tostring(),'float32')
-        a.shape = im.size[1],im.size[0]
-    elif im.mode=="RGB":
+        return a
+    if im.mode=="RGB":
         a = numpy.fromstring(im.tostring(),'B')
         a.shape = im.size[1],im.size[0],3   
-    elif im.mode=="RGBA":
+    if im.mode=="RGBA":
         a = numpy.fromstring(im.tostring(),'B')
         a.shape = im.size[1],im.size[0],4
         if not alpha: a = a[:,:,:3]
-    return a
+        return a
+    return pil2array(im.convert("L"))
 
 def array2pil(a):
     if a.dtype==dtype("B"):
