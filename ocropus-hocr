@@ -1,5 +1,7 @@
 #!/usr/bin/python
 
+# FIXME use argparse
+
 import sys,os,re,optparse,shutil,glob
 import matplotlib
 if "DISPLAY" not in os.environ: matplotlib.use("AGG")
@@ -17,13 +19,14 @@ import ocrolib
 from ocrolib import hocr
 
 parser = optparse.OptionParser(usage="""
-%prog [options] book/????.png
+%prog [options] book/????.bin.png
 
-Puts together the result of OCR steps into an XHTML output file.
-Uses...
+Puts together the result of OCR steps into an XHTML output file
+for the given set of input files.  This relies on the standard
+OCRopus naming conventions for page and line images as produced
+by the other command line tools.
 
-book/0001.png                # page image
-book/0001.bin.png            # binarized page image
+book/0001.bin.png            # page image
 book/0001.pseg.png           # page segmentation
 book/0001/010001.txt         # recognizer output for lines
 book/0001/010001.cseg.png    # character segmentation for lines
@@ -60,7 +63,7 @@ for arg in args:
             x0,y0,x1,y1 = regions.bboxMath(i)
             lbase = "%s/%06x"%(base,id)
             if not os.path.exists(lbase+".txt"):
-                E("%s: no such file"%(lbase+".txt"))
+                E("note: line %s produced no output (it may not have contained text)"%(lbase+".bin.png"))
                 continue
             with open(lbase+".txt") as stream:
                 text = stream.read()

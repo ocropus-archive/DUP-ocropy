@@ -7,7 +7,7 @@ import ocrolib
 # disable rank warnings from polyfit
 warnings.simplefilter('ignore',numpy.RankWarning) 
 
-parser = argparse.ArgumentParser(description = """Computes the edit distances between the .txt and the .gt.txt files.""")
+parser = argparse.ArgumentParser(description = """Compute the edit distances between the .txt and the .gt.txt files.""")
 parser.add_argument("files",default=[],nargs='*',help="input lines")
 parser.add_argument("-k","--kind",default="exact",help="kind of comparison (exact, nospace, letdig, letters, digits, lnc)")
 parser.add_argument("-e","--erroronly",action="store_true",help="only output an error rate")

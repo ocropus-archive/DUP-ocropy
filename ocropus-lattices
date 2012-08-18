@@ -29,6 +29,9 @@ import argparse
 parser = argparse.ArgumentParser(description = """
 Computes recognition lattices for text lines.  Also displays the bestpath
 result (recognition result without language model).
+
+Inputs: textline.png
+Outputs: textline.lattice, textline.rseg.png
 """)
 parser.add_argument("-X","--exec",dest="execute",help="execute before anything else (usually used for imports)",default="None")
 parser.add_argument("-s","--segmenter",help="segmenter",default="lineseg.DPSegmentLine()")

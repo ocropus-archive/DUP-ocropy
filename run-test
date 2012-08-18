@@ -37,7 +37,7 @@ true
 true 'create HTML for debugging (use "firefox temp/index.html" to view)'
 true
 
-ocropus-genhtml temp
+ocropus-visualize-results temp
 
 true
 true "to see recognition results, type: firefox temp.html"

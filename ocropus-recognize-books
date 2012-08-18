@@ -7,7 +7,15 @@ import ocrolib
 signal.signal(signal.SIGINT,lambda *args:sys.exit(1))
 
 parser = argparse.ArgumentParser(description = """
-%prog [-m charmodel] [-l langmod] image1.png ... > result.hocr
+%(prog)s [-m charmodel] [-l langmod] image1.png ... -o output.html
+
+Recognize collections of scanned pages, as in books.  Input should 
+be scanned 300-600 dpi images of books.  For other kinds of inputs,
+invoke the individual commands.
+
+For better performance on large collections of pages, you may want 
+to use multiple CPUs.  %(prog)s doesn't currently support that directly,
+you need to use xargs explicitly (see the documentation).
 """)
 
 parser.add_argument("files",nargs='*',default=None,help="input images")
@@ -24,12 +32,6 @@ parser.add_argument("--preproc",default="ocropus-nlbin",help="preprocessing comm
 parser.add_argument("--pageseg",default="ocropus-gpageseg",help="page segmentation command")
 parser.add_argument("--linerec",default="ocropus-lattices",help="line recognition command")
 parser.add_argument("--langmod",default="ocropus-ngraphs",help="language modeling command")
-
-parser.add_argument("-Q","--parallel",type=int,default=4)
-parser.add_argument("--preproc_chunk",type=int,default=5)
-parser.add_argument("--pageseg_chunk",type=int,default=5)
-parser.add_argument("--linerec_chunk",type=int,default=100)
-parser.add_argument("--langmod_chunk",type=int,default=100)
 
 args = parser.parse_args()
 args.files = ocrolib.glob_all(args.files)
@@ -71,15 +73,15 @@ print "\n=== preprocess\n"
 run(args.preproc,book+"/????.png")
 
 print "\n=== page segmentation\n"
-run(args.pageseg,book+"/????.png")
+run(args.pageseg,book+"/????.bin.png")
 
 print "\n=== line recognition\n"
 run(args.linerec,book+"/????/??????.bin.png",m=args.model)
 
 print "\n=== language modeling\n"
 run(args.langmod,book+"/????/??????.lattice",l=args.lmodel)
-
 os.system("ocropus-hocr '%s' > '%s'"%(book,args.output))
+
 print "\noutput in",args.output,"\n"
 
 if not args.keep: ("rm -rf './%s'"%book)

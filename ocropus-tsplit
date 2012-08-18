@@ -24,12 +24,13 @@ from ocrolib.ligatures import lig
 
 
 import argparse
-parser = argparse.ArgumentParser(description="Compute hierarchical tree vector quantizers.",
-                                 epilog="You must supply a data file (-d data.h5)")
+parser = argparse.ArgumentParser(
+    description="Compute hierarchical tree vector quantizers.",
+    epilog="You must supply a data file (-d data.h5)")
 parser.add_argument('--show',default=None,help="display the first two levels of a splitter")
 parser.add_argument('--show1',default=None,help="display the first level of a splitter")
 parser.add_argument('-N','--maxtrain',type=int,default=10000000000,help="max # of training samples")
-parser.add_argument('-d','--data',default=None,help="data file")
+parser.add_argument('-d','--data',default=None,help="data file",required=1)
 parser.add_argument('-o','--output',default="splitter.smodel",help="output file, default: %(default)s")
 parser.add_argument('-q','--quiet',action="store_true",help="output less stuff")
 parser.add_argument('--vq',type=int,default=None,help="set up parameters suitable for simple vector quantization")

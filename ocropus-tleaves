@@ -18,7 +18,9 @@ from ocrolib.patrec import Dataset,cshow,showgrid
 from ocrolib.ligatures import lig
 
 import argparse
-parser = argparse.ArgumentParser()
+parser = argparse.ArgumentParser("""
+Perform training for the leaves of a vector quantizer.
+""")
 parser.add_argument('-N','--maxtotal',type=int,default=10000000000,help="max # of samples used")
 parser.add_argument('-t','--testset',type=int,default=-1,help="use testset sequence t (-1=use all samples)")
 parser.add_argument('-T','--maxtrain',type=int,default=100000,help="max # of training samples per classifier")

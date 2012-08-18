@@ -8,7 +8,13 @@ import multiprocessing
 
 
 
-parser = argparse.ArgumentParser()
+parser = argparse.ArgumentParser("""
+Image binarization using non-linear processing.
+
+This is a compute-intensive binarization method that works on degraded
+and historical book pages.
+""")
+
 parser.add_argument('-t','--threshold',type=float,default=0.5,help='threshold, determines lightness')
 parser.add_argument('-z','--zoom',type=float,default=0.5,help='zoom for page background estimation, smaller=faster')
 parser.add_argument('-e','--escale',type=float,default=1.0,help='scale for estimating a mask over the text region')
@@ -79,6 +85,7 @@ def dshow(image,info):
 
 def process1(job):
     fname,i = job
+    if args.parallel<2: print "===",fname,i
     comment = ""
     image = ocrolib.read_image_gray(fname)
     dshow(image,"input")
@@ -96,6 +103,7 @@ def process1(job):
         flat = image
     else:
         # if not, we need to flatten it by estimating the local whitelevel
+        if args.parallel<2: print "flattening"
         m = interpolation.zoom(image,args.zoom)
         m = filters.percentile_filter(m,args.perc,size=(args.range,2))
         m = filters.percentile_filter(m,args.perc,size=(2,args.range))
@@ -107,6 +115,7 @@ def process1(job):
 
     # estimate skew angle and rotate
     if args.maxskew>0:
+        if args.parallel<2: print "estimating skew angle"
         d0,d1 = flat.shape
         o0,o1 = int(args.bignore*d0),int(args.bignore*d1)
         flat = amax(flat)-flat
@@ -121,6 +130,7 @@ def process1(job):
         angle = 0
 
     # estimate low and high thresholds
+    if args.parallel<2: print "estimating thresholds"
     d0,d1 = flat.shape
     o0,o1 = int(args.bignore*d0),int(args.bignore*d1)
     est = flat[o0:d0-o0,o1:d1-o1]
@@ -140,6 +150,7 @@ def process1(job):
     hi = stats.scoreatpercentile(est.ravel(),args.hi)
 
     # rescale the image to get the gray scale image
+    if args.parallel<2: print "rescaling"
     flat -= lo
     flat /= (hi-lo)
     flat = clip(flat,0,1)
@@ -148,17 +159,16 @@ def process1(job):
 
     # output the normalized grayscale and the thresholded images
     print fname,"lo-hi (%.2f %.2f) angle %4.1f"%(lo,hi,angle),comment
+    if args.parallel<2: print "writing"
     if args.debug>0 or args.show: clf(); gray();imshow(bin); ginput(1,max(0.1,args.debug))
     gray()
     if args.output:
-        if not os.path.exists(args.output):
-            os.mkdir(args.output)
-        imsave(args.output+"/%04d.nrm.png"%i,bin)
-        imsave(args.output+"/%04d.bin.png"%i,flat)
+        ocrolib.write_image_binary(args.output+"/%04d.bin.png"%i,bin)
+        ocrolib.write_image_gray(args.output+"/%04d.nrm.png"%i,flat)
     else:
         base,_ = ocrolib.allsplitext(fname)
-        imsave(base+".nrm.png",flat)
-        imsave(base+".bin.png",bin)
+        ocrolib.write_image_binary(base+".bin.png",bin)
+        ocrolib.write_image_gray(base+".nrm.png",flat)
 
 import ocrolib
 

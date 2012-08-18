@@ -21,29 +21,17 @@ parser = OptionParser(usage="""
 
 Edit character- and cluster-databases.
 
-OCRopus isolated character training data is stored in sqlite3 databases
-with a simple structure.  Isolated characters are (usually) stored in
-a table called "chars", while clusters are stored in a table called
-"clusters".  This application lets you browse and label these characters
-and clusters.
-
-You need to specify the correct table name for your database using the "-t"
-flag.
-
-Updates to the database are transacted and happen immediately; you don't need
-to save.  Even concurrent editing and viewing is possible.  There is no
-undo, but it's usually easy to manually undo changes.
+OCRopus isolated character training data is stored in HDF5 databases
+with a simple structure.  This program lets you visualize and correct such
+databases.
 
 There is a variety of sorting, training, and classification options available.
 Particularly useful is the ability to sort by size and aspect ratio to quickly 
 identify characters that have implausible sizes or aspect ratios.  Once you have
 a character model, you can also sort by classifier confidence and focus correction
 efforts on the characters with the least confidence.
-
-Eventually, you will be able to cluster and train right from this interface, but
-for now, use the external ocropus-ctrain and ocropus-cluster-db programs.
-
 """)
+
 parser.add_option("-m","--model",help="model used for classification",default="default.cmodel")
 parser.add_option("-v","--verbose",help="verbose",action="store_true")
 parser.add_option("-t","--table",help="which table to edit",default=None)

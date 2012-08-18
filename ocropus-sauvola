@@ -14,6 +14,7 @@ import matplotlib
 if "DISPLAY" not in os.environ: matplotlib.use("AGG")
 else: matplotlib.use("GTK")
 from matplotlib import patches
+import pylab
 
 # all the image processing code comes from scipy and pylab
 from pylab import *
@@ -21,16 +22,11 @@ from scipy.stats.stats import trim1
 from multiprocessing import Pool
 from scipy.ndimage import measurements,interpolation
 from scipy.misc import imsave
-from pylab import gray as gray_
 
 # ocrolib is only used for image I/O and pathname manipulation
 import ocrolib
-# ocrorast is used for estimating the skew angle
-import ocrorast
 
 parser = argparse.ArgumentParser(description = """
-%prog -o dir [options] image1 image2 ...
-
 Perform document image preprocessing:
 
 - Sauvola binarization
@@ -46,18 +42,19 @@ creating
 This assumes 300dpi images (i.e., all the internal thresholds and constants
 are set up for that).  If your image is a different resolution, use the -z (zoom)
 argument.
+
+This will work reasonbly well for many kinds of inputs, but
+ocropus-nlbin is the preferred binarizer now.
 """)
 
-parser.add_argument("args",default=[],nargs='*',help="input lines")
+parser.add_argument("files",default=[],nargs='*',help="input lines")
 
 parser.add_argument("-o","--output",help="output directory",default="book")
-parser.add_argument("-O","--Output",help="output image.png to image.bin.png (in place)",action="store_true")
-parser.add_argument("-d","--display",help="display result",action="store_true")
-parser.add_argument("-D","--Display",help="display continuously",action="store_true")
 parser.add_argument("-q","--silent",action="store_true",help="disable warnings")
 parser.add_argument("-Q","--parallel",type=int,default=0,help="number of parallel processes to use")
 parser.add_argument("-g","--gtextension",help="ground truth extension for copying in ground truth (include all dots)",default=None)
-parser.add_argument("--debug",action="store_true")
+parser.add_argument("--debug",help="display intermediate results for debugging",action="store_true")
+parser.add_argument("--show",help="show binarized output",action="store_true")
 
 # parser.add_argument("--dpi",default=300,type=float,help="resolution (DPI) (300)")
 parser.add_argument("-z","--zoom",type=float,default=1.0,help="rescale the image prior to processing")
@@ -79,11 +76,11 @@ parser.add_argument("-k","--k",type=float,default=0.3,help="k value for Sauvola 
 
 args = parser.parse_args()
 
-if len(args.args)<1:
+if len(args.files)<1:
     parser.print_help()
     sys.exit(0)
 
-if args.debug or args.display or args.Display: args.parallel = 1
+if args.debug or args.show: args.parallel = 1
 
 ################################################################
 # preprocessing
@@ -180,26 +177,18 @@ def select_plausible_char_bboxes(bboxes,dpi=300.0):
         result.append(b)
     return result
 
-def estimate_skew_angle(image):
-    """Estimate the skew angle of a document image, by first finding
-    character bounding boxes, then invoking the RAST text line finder
-    (without constraints) in order to find the longest line."""
-    assert is_binary(image)
-    finder = ocrorast.make_TextLineRAST2()
-    finder.setMaxLines(1)
-    nobjects = 0
-    bboxes = bounding_boxes_math(image)
-    bboxes = select_plausible_char_bboxes(bboxes)
-    assert bboxes!=[]
-    for c in bboxes:
-        finder.addChar(*c)
-        nobjects += 1
-    finder.compute()
-    if finder.nlines()<1: return 0.0
-    m = finder.getLine_m(0)
-    del finder
-    return math.atan(m)
-
+def estimate_skew_angle(image,angles=linspace(-2.0,2.0,11)):
+    estimates = []
+    for a in angles:
+        v = mean(interpolation.rotate(image,a,order=0,mode='constant'),axis=1)
+        v = var(v)
+        estimates.append((v,a))
+    if args.debug>0:
+        plot([y for x,y in estimates],[x for x,y in estimates])
+        ginput(1,args.debug)
+    _,a = max(estimates)
+    return a
+    
 def deskew(image):
     """Actually deskew an image by first estimating the skew angle, then
     performing the rotation."""
@@ -282,6 +271,11 @@ def remove_halftones(image,dpi=300.0,threshold=0.05,r=5,sigma=15.0):
 ### All preprocessing steps put together.
 ################################################################
 
+def IMDEBUG(image,label):
+    if args.debug: 
+        cla(); xlabel("half tone removal")
+        imshow(cleaned); ginput(1,9999)
+
 def preprocess(raw,title=None):
     if args.debug:
         subplot(121); imshow(raw); ginput(1,0.001)
@@ -292,12 +286,11 @@ def preprocess(raw,title=None):
 
     if args.zoom!=1.0:
         raw = interpolation.zoom(raw,args.zoom,mode='nearest',order=1)
-        if args.debug: 
-            cla(); xlabel("zoomed")
-            imshow(raw); ginput(1,9999)
+        IMDEBUG(raw,"zoomed")
 
     # binarize if the image isn't already binary
 
+    if args.parallel<2: print "binarizing"
     if args.binarize or not is_binary(raw):
         bin = gsauvola(raw)
     else:
@@ -310,137 +303,99 @@ def preprocess(raw,title=None):
         raw = inverse(raw)
         bin = inverse(bin)
 
-    if args.debug: 
-        cla(); xlabel("binarized and inverted")
-        imshow(bin); ginput(1,9999)
+    IMDEBUG(bin,"binarized and inverted")
 
     # now clean up for skew estimation
 
+    if args.parallel<2: print "cleaning"
     cleaned = bin
 
     if args.htrem or (not args.nohtrem and check_contains_halftones(bin)):
         cleaned = remove_halftones(cleaned)
-        if args.debug: 
-            cla(); xlabel("half tone removal")
-            imshow(cleaned); ginput(1,9999)
+        IMDEBUG(cleaned,"half tone removal")
 
     if args.minsize>0:
         cleaned = remove_small_components(cleaned,args.minsize)
-        if args.debug: 
-            cla(); xlabel("minsize filtering")
-            imshow(cleaned); ginput(1,9999)
+        IMDEBUG(cleaned,"minsize filtering")
 
     if args.maxsize<10000:
         cleaned = remove_big_components(cleaned,args.maxsize)
-        if args.debug: 
-            cla(); xlabel("maxsize filtering")
-            imshow(cleaned); ginput(1,9999)
+        IMDEBUG(cleaned,"maxsize filtering")
 
     # perform skew estimation
 
-    if not args.noskew:
+    if args.noskew: 
+        return cleaned,raw
+    else:
+        if args.parallel<2: print "estimating skew angle"
         a = estimate_skew_angle(cleaned)
+        print "got",a
         if args.uncleaned: bin = orig
-        gray = interpolation.rotate(raw,-a*180/pi,mode='nearest',order=0)
+        if args.parallel<2: print "rotating"
+        flat = interpolation.rotate(raw,-a*180/pi,mode='nearest',order=0)
         bin = interpolation.rotate(bin,-a*180/pi,mode='nearest',order=0)
         bin = array(255*(bin>0.5*(amin(bin)+amax(bin))),'B')
-        if args.debug: 
-            cla(); xlabel("skew correction by %f"%a)
-            imshow(bin); ginput(1,9999)
-        return bin,gray
-    else:
-        return cleaned,raw
+        IMDEBUG(bin,"skew correction by %f"%a)
+        if args.parallel<2: print "writing"
+        return bin,flat
 
 ################################################################
 ### main loop
 ################################################################
 
-if args.Display: args.display = 1
-if args.display: ion(); show()
-if args.Output:
-    args.output = None
-if not args.Output and os.path.exists(args.output):
-    print "%s: already exists; please remove"%args.output
-    sys.exit(0)
+if args.debug or args.show: ion(); show()
 
 files = None
-if not args.Output:
-    os.mkdir(args.output)
-    files = open(args.output+"/FILES","w")
 
-def process_image(image,arg,count):
+def process1(job):
+    fname,count = job
+
+    if args.parallel<2: print "===",fname,count
+
+    image = ocrolib.read_image_gray(fname)
     if amax(image)<=amin(image)+1e-4:
-        print arg,"is empty"
+        print fname,"is empty"
         return
 
-    if args.display: 
-        clf()
-        imshow(image,cmap=cm.gray)
-        draw()
-        ginput(1,timeout=1)
+    IMDEBUG(image,"image")
 
     title = None
     if args.debug:
-        ion(); clf(); gray_()
-        title = "%s %s"%(arg,count)
+        ion(); clf(); pylab.gray()
+        title = "%s %s"%(job,count)
     try:
-        bin,gray = preprocess(image,title=title)
-        print bin.shape,gray.shape
+        bin,flat = preprocess(image,title=title)
     except:
-        print arg,count,"failed"
         traceback.print_exc()
+        print fname,"failed"
         return
-    if args.display: 
+
+    if args.show:
         clf()
         imshow(bin,cmap=cm.gray)
         draw()
-        if not args.Display: 
-            raw_input("hit ENTER to continue")
-        else:
-            ginput(1,timeout=1)
-    if args.Output:
-        dest,_ = ocrolib.allsplitext(arg)
-        print "# writing",dest
-        imsave(dest+".png",gray,cmap=cm.gray)
-        imsave(dest+".bin.png",bin,cmap=cm.gray)
-    else:
-        dest = "%s/%04d" % (args.output,count)
-        print "# writing",dest,gray.shape,bin.shape
-        imsave(dest+".png",gray,cmap=cm.gray)
-        imsave(dest+".bin.png",bin,cmap=cm.gray)
-        if args.gtextension is not None:
-            base,_ = ocrolib.allsplitext(arg)
-            shutil.copyfile(base+args.gtextension,dest+".gt.txt")
-        if files is not None:
-            fcntl.flock(files,fcntl.LOCK_EX)
-            files.write("%04d\t%s\n"%(count,arg))
-            files.flush()
-            fcntl.flock(files,fcntl.LOCK_UN)
 
-def process1(t):
-    arg,count = t
-    n = 0
-    for image,arg in ocrolib.page_iterator([arg]):
-        assert n<2,"no multipage files with parallel processing; use -P 0"
-        print "===",arg,count,image.shape
-        try:
-            process_image(image,arg,count)
-        except:
-            traceback.print_exc()
-            raise
-        n += 1
+    pylab.gray()
+    if args.output:
+        ocrolib.write_image_gray(args.output+"/%04d.nrm.png"%count,flat)
+        ocrolib.write_image_binary(args.output+"/%04d.bin.png"%count,bin)
+    else:
+        base,_ = ocrolib.allsplitext(fname)
+        ocrolib.write_image_gray(base+".nrm.png",flat)
+        ocrolib.write_image_binary(base+".bin.png",bin)
+
+
+if args.debug>0: args.parallel = 0
+
+if args.output:
+    if not os.path.exists(args.output):
+        os.mkdir(args.output)
 
 if args.parallel<2:
-    count = 0
-    for image,arg in ocrolib.page_iterator(args.args):
-        print "===",arg,count,image.shape
-        count += 1
-        process_image(image,arg,count)
+    for i,f in enumerate(args.files): 
+        process1((f,i+1))
 else:
-    pool = Pool(processes=args.parallel)
+    pool = multiprocessing.Pool(processes=args.parallel)
     jobs = []
-    for i in range(len(args.args)): jobs += [(args.args[i],i+1)]
+    for i,f in enumerate(args.files): jobs += [(f,i+1)]
     result = pool.map(process1,jobs)
-
-if files is not None:
-    files.close()

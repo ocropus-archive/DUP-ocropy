@@ -40,8 +40,7 @@ setup(
              ('share/ocropus', [modeldir+m for m in modelfiles]),
              ('share/ocropus', ["models/gradient.lineest"])],
         scripts = 
-            [i for i in glob.glob("ocropus-*[a-z5]") if not i.endswith('.glade')] +
-            glob.glob("ocroex-*[a-z]") + glob.glob("ocrotest-*[a-z]") + ["ocropus"],
+            [c for c in glob.glob("ocropus-*") if "." not in c and "~" not in c],
         cmdclass = {
             "download_models" : DownloadCommand,
             }

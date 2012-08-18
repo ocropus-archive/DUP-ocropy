@@ -127,8 +127,6 @@ def read_image_gray(fname,pageno=0):
     return a
 
 
-
-@checks(str,GRAYSCALE)
 def write_image_gray(fname,image,normalize=0):
     """Write an image to disk.  If the image is of floating point
     type, its values are clipped to the range [0,1],

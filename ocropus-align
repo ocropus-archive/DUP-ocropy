@@ -1,9 +1,6 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
-# TODO:
-# - output cseg
-
 from pylab import *
 from collections import Counter,defaultdict
 import glob,re,heapq,os,cPickle
@@ -94,7 +91,13 @@ def search(lattice,gt,accept=None,verbose=0,Verbose=0,beam=100,**kw):
 
 import argparse
 
-parser = argparse.ArgumentParser()
+parser = argparse.ArgumentParser("""
+Aligns recognizer output with ground truth in order to obtain character
+training data.
+
+Inputs: line.lattice, line.gt.txt 
+Outputs: line.cseg.png, line.aligned
+""")
 
 parser.add_argument('--show',default=None,help="show the argument lattice")
 parser.add_argument('--build',default=None,help="build and write a language model")
@@ -128,7 +131,9 @@ for pattern in args.files:
         else:
             fnames += [f]
 
-assert len(fnames)>0,"must provide some filename arguments"
+if len(fnames)==0:
+    parser.print_help()
+    sys.exit(0)
 
 print "processing",len(fnames),"files"
 for fname in fnames:

@@ -14,7 +14,7 @@ def concat(l):
     return result
 
 parser = argparse.ArgumentParser(description = """
-%prog [-m charmodel] [-l langmod] image1.png ... > result.hocr
+Parallel processing for the OCRopus pipeline.
 """)
 parser.add_argument("files",nargs='*',default=None,help="input images")
 

@@ -15,7 +15,12 @@ signal.signal(signal.SIGINT,lambda *args:sys.exit(1))
 
 # these options control alignment
 import argparse
-parser = argparse.ArgumentParser(description = """Generate HTML for debugging a book directory.""")
+parser = argparse.ArgumentParser(description = """
+Generate HTML for debugging a book directory.
+
+Input: a directory in standard OCRopus book format
+Output: index.html files and thumbnails showing recognition results
+""")
 parser.add_argument("book",default="book")
 parser.add_argument("-N","--npages",type=int,default=100000,help="max number of pages")
 args = parser.parse_args()

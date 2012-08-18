@@ -1,5 +1,7 @@
 #!/usr/bin/python
 
+# FIXME use subparsers in argparse
+
 import numpy,os,os.path,sys,time,fcntl,multiprocessing,argparse,codecs,traceback
 import random as pyrandom
 from collections import Counter,defaultdict

@@ -1,8 +1,8 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
-# TODO:
-# - handle end-of-line (maybe)
+# FIXME different end-of-line handling
+# FIXME use argparse for subparsers
 
 from pylab import *
 from collections import Counter,defaultdict
@@ -139,7 +139,28 @@ def search(lattice,ngraphs,accept=None,verbose=0,beam=100,**kw):
 
 import argparse
 
-parser = argparse.ArgumentParser()
+
+extra = """
+Subcommands:
+
+%(prog)s [options] line1.lattice line2.lattice ...
+
+    Compute text output for each lattice file using the given language model.
+
+%(prog)s --sample 20 -l langmod.ngraphs 
+
+    Generate 20 samples from the given language model.
+
+%(prog)s --build output.ngraphs --ngraph 3 textfile1.txt textfile2.txt ...
+
+    Build a language model of order 3 from the given text files.
+
+%(prog)s --print line.lattice
+
+    Visualize the recognition lattice.
+"""%dict(prog=sys.argv[0])
+
+parser = argparse.ArgumentParser("""Build, apply, and visualize n-graph language models.""")
 
 # RESULT 0.0338945600778 cweight 1.07777736525 lmodel default-4.ngraphs lweight 0.162668906805 
 # maxcost 15.4435581516 maxws 5.39191969674 mismatch 8.67617819976 thresh 1.287178097956
@@ -163,8 +184,8 @@ parser.add_argument('-q','--quiet',action="store_true",help="don't output each l
 parser.add_argument('--other',default=15.0,type=float,help="extra cost for characters outside the lattice")
 parser.add_argument('--nother',default=1,type=int,help="number of candidates from outside the lattice")
 parser.add_argument('--lother',default=-1,type=float,help="language model weight for other characters")
+parser.add_argument("files",default=[],nargs="*")
 
-parser.add_argument('files',nargs='*')
 args = parser.parse_args()
 files = args.files
 
@@ -221,7 +242,11 @@ for pattern in args.files:
         assert ".lattice" in f,"all files must end with .lattice"
     fnames += l
 
-assert len(fnames)>0,"must provide some filename arguments"
+parser.add_argument('files',nargs='*')
+if len(fnames)==0:
+    parser.print_help()
+    print extra
+    sys.exit(0)
 
 with open(args.lmodel) as stream:
     ngraphs = cPickle.load(stream)
