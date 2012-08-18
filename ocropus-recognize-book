@@ -80,7 +80,7 @@ run(args.linerec,book+"/????/??????.bin.png",m=args.model)
 
 print "\n=== language modeling\n"
 run(args.langmod,book+"/????/??????.lattice",l=args.lmodel)
-os.system("ocropus-hocr '%s' > '%s'"%(book,args.output))
+os.system("ocropus-hocr '%s' -o '%s'"%(book,args.output))
 
 print "\noutput in",args.output,"\n"
 

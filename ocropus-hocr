@@ -3,7 +3,7 @@
 # FIXME use argparse
 
 import __builtin__ as python
-import sys,os,re,optparse,shutil,glob
+import sys,os,re,optparse,shutil,glob,argparse
 import matplotlib
 if "DISPLAY" not in os.environ: matplotlib.use("AGG")
 else: matplotlib.use("GTK")
@@ -19,38 +19,42 @@ from PIL import Image
 import ocrolib
 from ocrolib import hocr
 
+parser = argparse.ArgumentParser("""
+Construct an HTML output file in hOCR format by putting together
+the recognition results for each page in sequence.
+You should usually invoke this program as 
+
+    ocropus-hocr 'book/????.bin.png'
+
+For each page like 'book/0001.bin.png', it uses the following files:
+
+    book/0001.bin.png            # page image
+    book/0001.pseg.png           # page segmentation
+    book/0001/010001.txt         # recognizer output for lines
+    book/0001/010001.cseg.png    # character segmentation for lines
+""")
+parser.add_argument("-b","--breaks",action="store_true",help="output line breaks")
+parser.add_argument("-p","--nopars",action="store_true",help="don't output paragraphs")
+parser.add_argument("-s","--fscale",type=float,default=1.0,help="scale factor for translating xheights into font size (use 0 to disable)")
+parser.add_argument("-o","--output",default="book.html",help="output file")
+parser.add_argument('files',nargs='+')
+args = parser.parse_args()
+args.files = ocrolib.glob_all(args.files)
+
+ostream = open(args.output,"w")
+
 def E(*args):
     args = [str(x) for x in args]
     sys.stderr.write(" ".join(args))
     sys.stderr.write("\n")
 def P(*args):
-    print "".join(args)
+    ostream.write("".join(args)+"\n")
 def PN(*args):
-    print "".join(args),
+    ostream.write("".join(args))
 
-parser = optparse.OptionParser(usage="""
-%prog [options] book/????.bin.png
-
-Puts together the result of OCR steps into an XHTML output file
-for the given set of input files.  This relies on the standard
-OCRopus naming conventions for page and line images as produced
-by the other command line tools.
-
-book/0001.bin.png            # page image
-book/0001.pseg.png           # page segmentation
-book/0001/010001.txt         # recognizer output for lines
-book/0001/010001.cseg.png    # character segmentation for lines
-
-etc.
-""")
-parser.add_option("-b","--breaks",action="store_true",help="output line breaks")
-parser.add_option("-p","--nopars",action="store_true",help="don't output paragraphs")
-parser.add_option("-s","--fscale",type=float,default=1.0,help="scale factor for translating xheights into font size (use 0 to disable)")
-options,args = parser.parse_args()
-args = ocrolib.glob_all(args)
-
+E("writing to",args.output)
 median_xheight = None
-dirs = [ocrolib.allsplitext(name)[0] for name in args]
+dirs = [ocrolib.allsplitext(name)[0] for name in args.files]
 xhfiles = python.sum([glob.glob(d+"/??????.xheight") for d in dirs],[])
 if len(xhfiles)>5:
     xheights = [float(ocrolib.read_text(f)) for f in xhfiles]
@@ -61,20 +65,34 @@ P(hocr.header())
 
 last_coords = None
 
-for arg in args:
+for arg in args.files:
     base,_ = ocrolib.allsplitext(arg)
     try:
+        E("===",arg)
         P("<div class='ocr_page' title='file %s'>"%arg)
+
+        # to proceed, we need a pseg file and a
+        # subdirectory containing text lines
+
         if not os.path.exists(base+".pseg.png"):
             E("%s: no such file"%(base+".pseg.png",))
             continue
+
         if not os.path.isdir(base):
             E("%s: no such directory"%base)
             continue
+
+        # iterate through the text lines in reading order, based
+        # on the page segmentation file
+
         pseg = ocrolib.read_page_segmentation(base+".pseg.png")
         regions = ocrolib.RegionExtractor()
         regions.setPageLines(pseg)
         for i in range(1,regions.length()):
+
+            # keep track of the bounding box information for each line
+            # and insert paragraph breaks as needed
+
             id = regions.id(i)
             y0,x0,y1,x1 = regions.bboxMath(i)
             if last_coords is not None:
@@ -88,23 +106,27 @@ for arg in args:
                         if abs(dy)>5*median_xheight: par = 1 # whitespace separator
                         if dx>2*median_xheight: par = 1 # indented paragraph
                         if abs(dx)>10*median_xheight: par = 1 # something else
-                if par and not options.nopars: P("<p />")
+                if par and not args.nopars: P("<p />")
             last_coords = (x0,y0)
+
+            # get the text for the line itself
+
             lbase = "%s/%06x"%(base,id)
-            style = ""
-            info = ""
 
             if not os.path.exists(lbase+".txt"):
                 E("note: line %s produced no output (it may not have contained text)"%(lbase+".bin.png"))
                 continue
-
-            # get the text for the line itself
 
             with open(lbase+".txt") as stream:
                 text = stream.read()
 
             text = re.sub(r'\&','\&amp;',text)
             text = re.sub(r'\<','\&lt;',text)
+
+            # accumulate information for each line here
+
+            style = ""
+            info = ""
 
             # estimate the font size for this line
 
@@ -126,9 +148,12 @@ for arg in args:
             PN("<span")
             if style!="": PN(" style='"+style+"'")
             PN(" class='ocr_line' title='%s'>"%info,text,"</span>")
-            if options.breaks: P("<br />")
+            if args.breaks: P("<br />")
             else: P()
+
     finally:
         P("</div>")
 
 P(hocr.footer())
+
+ostream.close()
