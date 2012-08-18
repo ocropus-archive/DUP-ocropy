@@ -52,7 +52,6 @@ args = ocrolib.glob_all(args)
 median_xheight = None
 dirs = [ocrolib.allsplitext(name)[0] for name in args]
 xhfiles = python.sum([glob.glob(d+"/??????.xheight") for d in dirs],[])
-E(xhfiles)
 if len(xhfiles)>5:
     xheights = [float(ocrolib.read_text(f)) for f in xhfiles]
     median_xheight = median(xheights)
