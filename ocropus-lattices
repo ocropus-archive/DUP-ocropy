@@ -46,7 +46,8 @@ parser.add_argument("--show",help="show progress",action="store_true")
 parser.add_argument('--delay',type=float,default=0.1,help='time to wait after displaying results')
 parser.add_argument("--extract",default=None,help="extract characters for cmodel training")
 parser.add_argument("--noglob",action="store_true",help="don't perform expansion on the arguments")
-parser.add_argument('--hdfappend',action="store_true",help="don't use (due to bugs in HDF5 implementation)")
+parser.add_argument('--hdfappend',action="store_true",help="append to any exiting HDF5 file (this is multi-processing safe)")
+parser.add_argument('--baselinedegree',type=int,default=1,help="polynomial degree used for modeling baseline")
 
 parser.add_argument("files",default=[],nargs='*',help="input lines")
 args = parser.parse_args()
@@ -110,7 +111,8 @@ class CharResizer:
         return self.set(limage)
     def set(self,limage):
         self.limage = limage
-        self.avgbaseline,self.xheight,self.blp,self.xlp = emodel.lineParameters(1-limage)
+        params = emodel.lineParameters(1-limage,order=args.baselinedegree)
+        self.avgbaseline,self.xheight,self.blp,self.xlp = params
         return self
     def show(self):
         imshow(self.limage)

@@ -157,7 +157,7 @@ class GradientLineGeometry:
         """Return polynomial fits to the baseline and xline."""
         xh,bl = lineproc.estimate_xheight(image)
         return array([bl]),array([bl-xh])
-    def lineParameters(self,image):
+    def lineParameters(self,image,order=1):
         """Return the average baseline and average xheight,
         plus the polynomial models for both"""
         return bl,bl-xh,array([bl]),array([bl-xh])
@@ -182,10 +182,10 @@ class TrainedLineGeometry:
         blp = fit_peaks(blimage,order=order)
         xlp = fit_peaks(xlimage,order=order)
         return blp,xlp
-    def lineParameters(self,image):
+    def lineParameters(self,image,order=1):
         """Return the average baseline and average xheight,
         plus the polynomial models for both"""
-        blp,xlp = self.lineFit(image)
+        blp,xlp = self.lineFit(image,order=order)
         xs = range(image.shape[1])
         bl = mean(polyval(blp,xs))
         xl = mean(polyval(xlp,xs))

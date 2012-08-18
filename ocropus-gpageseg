@@ -31,6 +31,7 @@ parser.add_argument('--debug',action="store_true",help='show debug output')
 parser.add_argument('--show',type=float,default=0,help='show the final output')
 parser.add_argument('--gray',action='store_true',help='output grayscale lines as well')
 parser.add_argument('--usefilename',action='store_true',help='use the input filename, instead of base + .bin.png')
+parser.add_argument('-q','--quiet',action='store_true',help='be less verbose')
 
 # limits
 parser.add_argument('--minscale',type=float,default=12.0,help='minimum scale permitted')
@@ -57,7 +58,11 @@ args = parser.parse_args()
 args.files = ocrolib.glob_all(args.files)
 
 if args.debug or args.show>0:
+    args.parallel = 1
     ion(); gray()
+
+if args.parallel>1:
+    args.quiet = 1
 
 
 
@@ -150,7 +155,9 @@ def IMDEBUG(image,message="",kind=None):
 def compute_segmentation(binary,scale):
     binary = array(binary,'B')
     binary = remove_hlines(binary,scale)
+    if not args.quiet: print "computing column"
     cols,binary = compute_columns(binary,scale)
+    if not args.quiet: print "computing lines"
     bottom,top,boxmap = compute_gradmaps(binary,scale)
     IMDEBUG((bottom,top,boxmap),"bottom and top")
     seeds = compute_line_seeds(binary,bottom,top,cols,scale)
@@ -186,6 +193,7 @@ def process1(job):
         sys.stderr.write("%s: scale (%g) less than --minscale; skipping\n"%(fname,scale))
         return
 
+    if not args.quiet: print "finding reading order"
     segmentation = compute_segmentation(binary,scale)
     lines = psegutils.compute_lines(segmentation,scale)
     order = psegutils.reading_order([l.bounds for l in lines],debug=args.debug)
@@ -199,6 +207,7 @@ def process1(job):
     if args.show or args.debug:
         clf(); title("output"); psegutils.show_lines(binary,lines,lsort); ginput(1,maximum(args.show,args.debug))
 
+    if not args.quiet: print "writing lines"
     if not os.path.exists(outputdir):
         os.mkdir(outputdir)
     lines = [lines[i] for i in lsort]
@@ -214,8 +223,6 @@ def process1(job):
             grayline = psegutils.extract_masked(gray,l,pad=args.pad,expand=args.expand)
             ocrolib.write_image_gray("%s/01%04x.nrm.png"%(outputdir,i+1),grayline)
     print "%6d"%i,fname,"%4.1f"%scale,len(lines)
-
-if args.debug>0 or args.show>0: args.parallel = 0
 
 if len(args.files)==1 and os.path.isdir(args.files[0]):
     files = glob.glob(args.files[0]+"/????.png")

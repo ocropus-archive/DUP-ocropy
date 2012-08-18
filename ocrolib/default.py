@@ -1,6 +1,23 @@
-model = "uw3.cmodel"
-ngraphs = "default-4.ngraphs"
-space = "space.model"
-lineest = "default.lineest"
+# the defaults used by the recognizer
 
-installable = [model,ngraphs,space,lineest,"round1.lineest","st10m.cmodel"]
+model = "en-uw3-linerel.cmodel"
+ngraphs = "en-mixed-4.ngraphs"
+space = "en-space.model"
+lineest = "en-mixed.lineest"
+
+# install the default models
+
+installable = [model,ngraphs,space,lineest]
+
+# an isolated character recognition model
+
+installable += ["en-uw3unlv-perchar.cmodel"]
+
+# gradient based line estimator (script independent)
+
+installable += ["gradient.lineest"]
+
+# another line estimator
+
+installable += ["en-mixed-round1.lineest"]
+
