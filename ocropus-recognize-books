@@ -54,7 +54,7 @@ def run(*args,**kw):
     print "#"," ".join(args)
     assert subprocess.call(args)==0
 
-if args.book is None: args.book = "_book-%06d"%os.getpid()
+if args.book is None: args.book = "./_book-%06d"%os.getpid()
 book = args.book
 
 print "book directory",book
@@ -74,10 +74,12 @@ print "\n=== page segmentation\n"
 run(args.pageseg,book+"/????.png")
 
 print "\n=== line recognition\n"
-run(args.linerec,book+"/????/??????.png",m=args.model)
+run(args.linerec,book+"/????/??????.bin.png",m=args.model)
 
 print "\n=== language modeling\n"
 run(args.langmod,book+"/????/??????.lattice",l=args.lmodel)
 
 os.system("ocropus-hocr '%s' > '%s'"%(book,args.output))
 print "\noutput in",args.output,"\n"
+
+if not args.keep: ("rm -rf './%s'"%book)
