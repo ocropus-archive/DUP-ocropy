@@ -117,6 +117,11 @@ class CharResizer:
         xs = arange(self.image.shape[1])
         plot(xs,polyval(self.blp,xs))
         plot(xs,polyval(self.xlp,xs))
+    def baselineAsText(self):
+        h = len(self.limage)
+        params = array(self.blp)
+        params[-1] = h-params[-1]
+        return " ".join("%.4f"%x for x in params)
     def resize(self,image,bbox):
         if self.sizemode=="linerel":
             x = bbox[1].start
@@ -358,6 +363,7 @@ def process1(fname):
 
         ocrolib.write_line_segmentation(base+".rseg.png",rseg)
         ocrolib.write_text(base+".xheight","%.1f"%resizer.xheight)
+        ocrolib.write_text(base+".baseline",resizer.baselineAsText())
         
         if args.show:
             ginput(1,args.delay)

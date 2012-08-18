@@ -93,29 +93,40 @@ for arg in args:
             last_coords = (x0,y0)
             lbase = "%s/%06x"%(base,id)
             style = ""
+            info = ""
+
             if not os.path.exists(lbase+".txt"):
                 E("note: line %s produced no output (it may not have contained text)"%(lbase+".bin.png"))
                 continue
+
+            # get the text for the line itself
+
+            with open(lbase+".txt") as stream:
+                text = stream.read()
+
+            text = re.sub(r'\&','\&amp;',text)
+            text = re.sub(r'\<','\&lt;',text)
+
+            # estimate the font size for this line
+
             if median_xheight is not None and os.path.exists(lbase+".xheight"):
                 xheight = float(ocrolib.read_text(lbase+".xheight"))
                 perc = int(clip(xheight*100.0/median_xheight,30,300))
                 perc = 10*((perc+5)//10)
                 if perc!=100:
                     style += "font-size:%d%%;"%perc
-            with open(lbase+".txt") as stream:
-                text = stream.read()
-            if 0:
-                ion(); gray()
-                subplot(211); imshow(regions.mask(i))
-                r0,c0,r1,c1 = regions.bbox(i)
-                print r0,c0
-                subplot(212); imshow(pseg[r0:r1,c0:c1])
-                ginput(1,1000)
-            text = re.sub(r'\&','\&amp;',text)
-            text = re.sub(r'\<','\&lt;',text)
+
+            # output geometric information 
+
+            info += "bbox %d %d %d %d"%(x0,y0,x1,y1)
+            if os.path.exists(lbase+".baseline"):
+                info += "; baseline "+ocrolib.read_text(lbase+".baseline")
+
+            # put it all together into a SPAN
+
             PN("<span")
             if style!="": PN(" style='"+style+"'")
-            PN(" class='ocr_line' title='bbox %d %d %d %d'>"%(x0,y0,x1,y1),text,"</span>")
+            PN(" class='ocr_line' title='%s'>"%info,text,"</span>")
             if options.breaks: P("<br />")
             else: P()
     finally:
