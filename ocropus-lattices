@@ -121,8 +121,8 @@ class CharResizer:
         plot(xs,polyval(self.xlp,xs))
     def baselineAsText(self):
         h = len(self.limage)
-        params = array(self.blp)
-        params[-1] = h-params[-1]
+        params = -array(self.blp)
+        params[-1] += h
         return " ".join("%.4f"%x for x in params)
     def resize(self,image,bbox):
         if self.sizemode=="linerel":
