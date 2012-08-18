@@ -155,14 +155,16 @@ def IMDEBUG(image,message="",kind=None):
 def compute_segmentation(binary,scale):
     binary = array(binary,'B')
     binary = remove_hlines(binary,scale)
-    if not args.quiet: print "computing column"
+    if not args.quiet: print "computing columns"
     cols,binary = compute_columns(binary,scale)
     if not args.quiet: print "computing lines"
     bottom,top,boxmap = compute_gradmaps(binary,scale)
     IMDEBUG((bottom,top,boxmap),"bottom and top")
     seeds = compute_line_seeds(binary,bottom,top,cols,scale)
     IMDEBUG(seeds,"seeds")
+    if not args.quiet: print "propagating labels"
     llabels = morph.propagate_labels(boxmap,seeds,conflict=0)
+    if not args.quiet: print "spreading labels"
     spread = morph.spread_labels(seeds,maxdist=scale)
     llabels = where(llabels>0,llabels,spread*binary)
     segmentation = llabels*binary
@@ -193,8 +195,14 @@ def process1(job):
         sys.stderr.write("%s: scale (%g) less than --minscale; skipping\n"%(fname,scale))
         return
 
-    if not args.quiet: print "finding reading order"
+    if not args.quiet: print "computing segmentation"
     segmentation = compute_segmentation(binary,scale)
+    if amax(segmentation)>args.maxlines: 
+        print fname,": too many lines",amax(segmentation)
+        return 
+    if not args.quiet: print "number of lines",amax(segmentation)
+
+    if not args.quiet: print "finding reading order"
     lines = psegutils.compute_lines(segmentation,scale)
     order = psegutils.reading_order([l.bounds for l in lines],debug=args.debug)
     lsort = psegutils.topsort(order)
@@ -211,9 +219,6 @@ def process1(job):
     if not os.path.exists(outputdir):
         os.mkdir(outputdir)
     lines = [lines[i] for i in lsort]
-    if len(lines)>args.maxlines:
-        sys.stderr.write("%s: scale (%d) less than --maxlines; skipping\n"%(fname,len(lines)))
-        return
     ocrolib.write_page_segmentation("%s.pseg.png"%outputdir,segmentation)
     cleaned = improc.remove_noise(binary,args.noise)
     for i,l in enumerate(lines):
