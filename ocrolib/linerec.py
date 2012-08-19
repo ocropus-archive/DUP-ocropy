@@ -22,7 +22,8 @@ class Segment:
         result.__dict__.update(**kw)
         return result
     def __str__(self):
-        return "<Segment %d:%d>"%(self.first,self.last)
+        cls = self.out[0][0] if self.out is not None else ""
+        return "<Segment %d:%d %s>"%(self.first,self.last,cls)
     def __repr__(self):
         return self.__str__()
 
@@ -181,7 +182,7 @@ def extract_rsegs(segmentation,min_aspect=0.1,max_aspect=1.8,maxrange=3,maxcomp=
 def extract_csegs(segmentation,aligned=None):
     """Given a segmentation, extracts a list of segment objects."""
     if aligned is None: aligned = []
-    def get(c): return aligned[c] if c<len(aligned) else "#"
+    def get(c): return aligned[c] if c<len(aligned) else ""
     boxes = morph.find_objects(segmentation)
     n = len(boxes)
     result = [Segment(first=i+1,last=i+1,bbox=box,out=[(get(i),0.0)],

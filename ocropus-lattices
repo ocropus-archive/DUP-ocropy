@@ -116,7 +116,7 @@ class CharResizer:
         return self
     def show(self):
         imshow(self.limage)
-        xs = arange(self.image.shape[1])
+        xs = arange(self.limage.shape[1])
         plot(xs,polyval(self.blp,xs))
         plot(xs,polyval(self.xlp,xs))
     def baselineAsText(self):
@@ -194,6 +194,7 @@ if args.extract is not None:
             misseg = linerec.extract_non_csegs(rsegs,csegs)
             misseg = [c.replace(out=[("~",0.0)]) for c in misseg]
             if args.show:
+                print csegs
                 ion(); gray(); clf()
                 figure(1); ocrolib.showgrid([c.img for c in csegs[:100]],xlabels=[c.out[0][0] for c in csegs]) 
                 figure(2); ocrolib.showgrid([m.img for m in misseg[:100]],xlabels=[m.out[0][0] for m in misseg]) 
@@ -304,7 +305,7 @@ def process1(fname):
         try:
             checktype(image,LINE)
         except:
-            print "DOESN'T SATISFY GEOMETRIC CONSTRAINS ON LINES, SKIPPED"
+            print "*** DOESN'T SATISFY GEOMETRIC CONSTRAINS ON LINES, SKIPPED ***"
             return
 
         # generate character candidates
@@ -314,7 +315,7 @@ def process1(fname):
         rsegs = linerec.extract_rsegs(rseg)
         if len(rsegs)<1:
             if args.quiet: print fname,"=RAW=",
-            print "NO RAW SEGMENTS"
+            print "*** NO RAW SEGMENTS ***"
             return
 
         # apply the resizer

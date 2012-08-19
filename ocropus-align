@@ -50,13 +50,14 @@ def expand(state,gt,mismatch_cost=50,ins_cost=50,verbose=0):
         # for the defined set of ligatures, add low-cost ligature
         # transitions if the edge represents one segment
         ligmatches = [l for l in ligatures if rest.startswith(l)]
-        if e.seg[0]==e.seg[1] and ligmatches!=[]:
+        if e.seg[1]-e.seg[0]<args.maxligskip and e.seg[0]!=0 and ligmatches!=[]:
             for lig in ligmatches:
                 p = Path(cost = state.cost + lig_insertion_cost,
                          state = e.stop,
                          pos = state.pos + len(lig),
                          path = state.path + [rest[:len(lig)]],
                          sequence = state.sequence + [e])
+                result.append(p)
 
         # add a regular transition if the class matches the rest
         # of the ground truth
@@ -99,6 +100,7 @@ def search(lattice,gt,accept=None,verbose=0,Verbose=0,beam=100,**kw):
         if lattice.isAccept(i): break
         if len(table[i])==0: continue
         table[i] = eliminate_duplicates_and_sort(table[i])
+        if args.debugsearch: print table[i][0]
         if verbose>0: print i,table[i][0]
         for rank,s in enumerate(table[i][:beam]):
             expanded = expand(s,gt,verbose=0,**kw)
@@ -106,6 +108,8 @@ def search(lattice,gt,accept=None,verbose=0,Verbose=0,beam=100,**kw):
                 if Verbose: print "    ",e
                 table[e.state].append(e)
     result = eliminate_duplicates_and_sort(table[i])
+    print "final"
+    print result[0]
     return result
 
 import argparse
@@ -136,6 +140,9 @@ parser.add_argument('-V','--Verbose',action="store_true")
 parser.add_argument('-q','--quiet',action="store_true",help="don't output each line")
 parser.add_argument('--ligatures',default="fi ff ffi fl Th ri ry rt rn rm as th",help="optional ligatures")
 parser.add_argument('--ligcost',type=float,default=5.0,help="cost of inserting a ligature instead of recognizing individual characters")
+parser.add_argument('--maxligskip',type=int,default=5,help="max number of segments allowed to participate in inferred ligatures")
+parser.add_argument('--debugpath',action="store_true",help="print the final aligned path")
+parser.add_argument('--debugsearch',action="store_true",help="print the states explored during the search")
 
 parser.add_argument('files',nargs='*')
 args = parser.parse_args()
@@ -180,6 +187,7 @@ for fname in fnames:
     mapping = zeros(10000,'i')
     for i,e in enumerate(path.sequence):
         c = path.path[i]
+        if args.debugpath: print i,"aligned",c,"edge",e
         if c=="": continue
         gt.append(c)
         if c==" ":
@@ -187,6 +195,7 @@ for fname in fnames:
         else:
             for s in range(e.seg[0],e.seg[1]+1):
                 if e.seg[0]==0: continue
+                print "   mapping",s,"->",len(gt)
                 mapping[s] = len(gt)
     if os.path.exists(fvariant(fname,"rseg")):
         seg = ocrolib.read_line_segmentation(fvariant(fname,"rseg"))
