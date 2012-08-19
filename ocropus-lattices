@@ -48,10 +48,15 @@ parser.add_argument("--extract",default=None,help="extract characters for cmodel
 parser.add_argument("--noglob",action="store_true",help="don't perform expansion on the arguments")
 parser.add_argument('--hdfappend',action="store_true",help="append to any exiting HDF5 file (this is multi-processing safe)")
 parser.add_argument('--baselinedegree',type=int,default=1,help="polynomial degree used for modeling baseline")
+parser.add_argument('--writebestpath',action="store_true",help="write the best path as a recognition result, without a language model (this is only for debugging)")
 
 parser.add_argument("files",default=[],nargs='*',help="input lines")
 args = parser.parse_args()
-if not args.noglob: args.files = ocrolib.glob_all(args.files)
+if not args.noglob: 
+    args.files = ocrolib.glob_all(args.files)
+if len(args.files)==0:
+    parser.print_help()
+    sys.exit(0)
 
 # make these parameters eventually
 charsize = 32
@@ -356,7 +361,10 @@ def process1(fname):
             print "FAILED (no bestpath)"
             return
 
-        if not args.quiet: print "".join(labels)
+        if not args.quiet: 
+            print "".join(labels)
+        if args.writebestpath:
+            ocrolib.write_text(base+".txt","".join(labels))
 
         # write the lattice and the raw segmentation
         
