@@ -7,10 +7,19 @@ import ocrolib
 # disable rank warnings from polyfit
 warnings.simplefilter('ignore',numpy.RankWarning) 
 
-parser = argparse.ArgumentParser(description = """Compute the edit distances between the .txt and the .gt.txt files.""")
+parser = argparse.ArgumentParser(description = """
+Compute the edit distances between ground truth and recognizer output.
+Run with the ground truth files as arguments, and it will find the
+corresponnding recognizer output files using the given extension (-x).
+Missing output files are handled as empty strings, unless the -s
+option is given.
+""")
 parser.add_argument("files",default=[],nargs='*',help="input lines")
-parser.add_argument("-k","--kind",default="exact",help="kind of comparison (exact, nospace, letdig, letters, digits, lnc)")
+parser.add_argument("-x","--extension",default=".txt",help="extension for recognizer output, default: %(default)s")
+# parser.add_argument("-g","--gtextension",default=".gt.txt",help="extension for ground truth, default: %(default)s")
+parser.add_argument("-k","--kind",default="exact",help="kind of comparison (exact, nospace, letdig, letters, digits, lnc), default: %(default)s")
 parser.add_argument("-e","--erroronly",action="store_true",help="only output an error rate")
+parser.add_argument("-s","--skipmissing",action="store_true",help="don't use missing or empty output files in the calculation")
 args = parser.parse_args()
 args.files = ocrolib.glob_all(args.files)
 
@@ -60,23 +69,28 @@ if not ".gt." in args.files[0]:
 
 
 errs = 0
-lens = 0
+total = 0
+missing = 0
 for fname in args.files:
-    fgt = ocrolib.fvariant(fname,"txt","gt")
-    gt = normalize(ocrolib.read_text(fgt))
-    ftxt = ocrolib.fvariant(fname,"txt","")
+    # fgt = ocrolib.allsplitext(fname)[0]+args.gtextension
+    gt = normalize(ocrolib.read_text(fname))
+    ftxt = ocrolib.allsplitext(fname)[0]+args.extension
     if os.path.exists(ftxt):
         txt = normalize(ocrolib.read_text(ftxt))
     else:
+        missing += len(gt)
         txt = ""
     err = levenshtein(txt,gt)
     if not args.erroronly:
         print "%6d\t%6d\t%s"%(err,len(gt),fname)
     errs += err
-    lens += len(gt)
+    total += len(gt)
 
-if not args.erroronly:
-    sys.stderr.write("summary\t%s %s\n"%(errs,lens))
-    sys.stderr.write("rate\t%.3f %%\n"%(errs*100.0/lens))
-else:
-    print errs*1.0/lens
+sys.stderr.write("errors    %8d\n"%errs)
+sys.stderr.write("missing   %8d\n"%missing)
+sys.stderr.write("total     %8d\n"%total)
+sys.stderr.write("err       %8.3f %%\n"%(errs*100.0/total))
+sys.stderr.write("errnomiss %8.3f %%\n"%((errs-missing)*100.0/total))
+
+if args.erroronly:
+    print errs*1.0/total

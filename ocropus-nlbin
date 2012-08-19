@@ -5,6 +5,7 @@ import argparse,glob,os,os.path
 from scipy.ndimage import filters,interpolation,morphology
 from scipy import stats
 import multiprocessing
+import ocrolib
 
 
 
@@ -28,17 +29,13 @@ parser.add_argument('--hi',type=float,default=90,help='percentile for white esti
 parser.add_argument('--skewsteps',type=int,default=8,help='steps for skew angle estimation (per degree)')
 parser.add_argument('--debug',type=float,default=0,help='display intermediate results')
 parser.add_argument('--show',action='store_true',help='display final result')
+parser.add_argument('--rawcopy',action='store_true',help='also copy the raw image')
 parser.add_argument('-o','--output',default=None,help="output directory")
 parser.add_argument('files',nargs='+')
 parser.add_argument('-Q','--parallel',type=int,default=0)
 args = parser.parse_args()
 
-files = []
-for pattern in args.files:
-    expanded = glob.glob(pattern)
-    assert len(expanded)>0
-    files += expanded
-args.files = files
+args.files = ocrolib.glob_all(args.files)
 
 
 
@@ -87,10 +84,10 @@ def process1(job):
     fname,i = job
     if args.parallel<2: print "===",fname,i
     comment = ""
-    image = ocrolib.read_image_gray(fname)
-    dshow(image,"input")
+    raw = ocrolib.read_image_gray(fname)
+    dshow(raw,"input")
     # perform image normalization
-    image -= amin(image)
+    image = raw-amin(raw)
     image /= amax(image)
 
     # check whether the image is already effectively binarized
@@ -163,6 +160,7 @@ def process1(job):
     if args.debug>0 or args.show: clf(); gray();imshow(bin); ginput(1,max(0.1,args.debug))
     gray()
     if args.output:
+        if args.rawcopy: ocrolib.write_image_gray(args.output+"/%04d.raw.png"%i,raw)
         ocrolib.write_image_binary(args.output+"/%04d.bin.png"%i,bin)
         ocrolib.write_image_gray(args.output+"/%04d.nrm.png"%i,flat)
     else:
