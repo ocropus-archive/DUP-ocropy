@@ -9,6 +9,8 @@ from ocrolib import ngraphs as ng
 from ocrolib import fvariant
 from ocrolib.lattice import Lattice
 
+
+
 class Path:
     """A typical state in a dynamic programming problem."""
     def __init__(self,cost=0.0,state=-1,pos=-1,sequence=[],path=[]):
@@ -24,6 +26,7 @@ class Path:
     def __cmp__(self,other):
         return cmp((self.cost,self.state,self.path),(other.cost,other.state,other.path))
 
+
 def expand(state,gt,mismatch_cost=50,ins_cost=50,verbose=0):
     """Expand the state by another step."""
     result = []
@@ -33,6 +36,8 @@ def expand(state,gt,mismatch_cost=50,ins_cost=50,verbose=0):
     for e in edges:
         # if verbose: print "gt",state.pos,gt[state.pos],"cls",e.cls,e
         assert e.start==state.state
+
+        # add a mismatch transition with the mismatch cost
         if (e.start,e.stop) not in done and len(e.cls)>0:
             p = Path(cost = state.cost + len(e.cls)*mismatch_cost,
                      state = e.stop,
@@ -41,12 +46,26 @@ def expand(state,gt,mismatch_cost=50,ins_cost=50,verbose=0):
                      sequence = state.sequence + [e])
             result.append(p)
             done.add((e.start,e.stop))
-        if not rest.startswith(e.cls): continue
-        p = Path(cost = state.cost + e.cost,
-                 state = e.stop,
-                 pos = state.pos + len(e.cls),
-                 path = state.path + [e.cls],
-                 sequence = state.sequence + [e])
+
+        # for the defined set of ligatures, add low-cost ligature
+        # transitions if the edge represents one segment
+        ligmatches = [l for l in ligatures if rest.startswith(l)]
+        if e.seg[0]==e.seg[1] and ligmatches!=[]:
+            for lig in ligmatches:
+                p = Path(cost = state.cost + lig_insertion_cost,
+                         state = e.stop,
+                         pos = state.pos + len(lig),
+                         path = state.path + [rest[:len(lig)]],
+                         sequence = state.sequence + [e])
+
+        # add a regular transition if the class matches the rest
+        # of the ground truth
+        if rest.startswith(e.cls):
+            p = Path(cost = state.cost + e.cost,
+                     state = e.stop,
+                     pos = state.pos + len(e.cls),
+                     path = state.path + [e.cls],
+                     sequence = state.sequence + [e])
         result.append(p)
     if 0:
         p = Path(cost = state.cost + ins_cost,
@@ -115,10 +134,15 @@ parser.add_argument('-T','--thresh',default=0.5,type=float,help="below this cost
 parser.add_argument('-v','--verbose',action="store_true")
 parser.add_argument('-V','--Verbose',action="store_true")
 parser.add_argument('-q','--quiet',action="store_true",help="don't output each line")
+parser.add_argument('--ligatures',default="fi ff ffi fl Th ri ry rt rn rm as th",help="optional ligatures")
+parser.add_argument('--ligcost',type=float,default=5.0,help="cost of inserting a ligature instead of recognizing individual characters")
 
 parser.add_argument('files',nargs='*')
 args = parser.parse_args()
 files = args.files
+
+ligatures = args.ligatures.split()
+lig_insertion_cost = args.ligcost
 
 fnames = []
 for pattern in args.files:
