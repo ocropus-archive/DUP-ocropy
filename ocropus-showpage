@@ -1,0 +1,82 @@
+#!/usr/bin/python
+
+import argparse
+parser = argparse.ArgumentParser(description = "Displays all the files associated with a text line.")
+parser.add_argument('--dpi',default=300,type=int,help="dpi")
+parser.add_argument('-o','--output',default=None,help="save a figure instead of displaying it")
+parser.add_argument("image",default=None,nargs=1,help="input lines")
+args = parser.parse_args()
+
+import matplotlib,tables
+if args.output is None:
+    matplotlib.use("GTK")
+else: 
+    matplotlib.use("AGG")
+from pylab import *
+
+figure(figsize=(9,12),dpi=args.dpi)
+
+
+import sys,os,re,glob,math,glob,signal,traceback,codecs
+import ocrolib
+from ocrolib import number_of_processors,die
+from ocrolib.ligatures import lig
+from ocrolib import lineseg,morph,linerec,improc,sl
+signal.signal(signal.SIGINT,lambda *args:sys.exit(1))
+from ocrolib import fvariant
+from os.path import exists
+
+arg = args.image[0]
+base,_ = ocrolib.allsplitext(arg)
+
+page = ocrolib.read_image_gray(base+".bin.png")
+gray()
+imshow(0.3*page+0.7,vmin=0,vmax=1)
+
+pseg = ocrolib.read_page_segmentation(base+".pseg.png")
+regions = ocrolib.RegionExtractor()
+regions.setPageLines(pseg)
+
+from matplotlib.patches import Rectangle
+for i in range(1,regions.length()):
+    lname = "%06x"%regions.id(i)
+    lbase = base+"/"+lname
+
+    y0,x0,y1,x1 = regions.bbox(i)
+    p = Rectangle((x0,y0),x1-x0,y1-y0,edgecolor="red",fill=0,alpha=0.5)
+    gca().add_patch(p)
+
+    if os.path.exists(lbase+".aligned"):
+        text = ocrolib.gt_explode(ocrolib.read_text(lbase+".aligned"))
+    else:
+        text = None
+
+    if os.path.exists(lbase+".cseg.png"):
+        cseg = ocrolib.read_line_segmentation(lbase+".cseg.png")
+    else:
+        print lbase+".cseg.png","missing"
+        continue
+        cseg = None
+
+    csegs = linerec.extract_csegs(cseg,aligned=text)
+    for j,c in enumerate(csegs):
+        b = c.bbox
+        cls = c.out[0][0]
+        x,y = x0+b[1].start,y0+b[0].start
+        w,h = b[1].stop-b[1].start,b[0].stop-b[0].start
+        q = Rectangle((x,y),w,h,edgecolor="green",alpha=0.3,fill=0)
+        gca().add_patch(q)
+        gca().text(x+w//2,y+h//2,cls,
+            horizontalalignment='center',
+            verticalalignment='center',
+            color='blue',
+            fontsize=7,
+            # alpha=0.5
+            # weight='bold'
+            )
+
+if args.output is None:
+    ginput(1,0.1)
+    raw_input()
+else:
+    savefig(args.output,dpi=args.dpi)

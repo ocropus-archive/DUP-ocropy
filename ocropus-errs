@@ -1,7 +1,7 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
-import warnings,numpy,argparse,re,sys,os,os.path
+import warnings,numpy,argparse,re,sys,os,os.path,unicodedata
 import ocrolib
 
 # disable rank warnings from polyfit
@@ -38,6 +38,19 @@ def levenshtein(a,b):
             current[j] = min(add, delete, change)
     return current[n]
 
+# this is the same list of replacements we use for
+# alignment; it mainly cleans up the quote mess
+
+replacements = [
+    (u'"',u"''"),     # typewriter double quote
+    (u"`",u"'"),      # grave accent
+    (u"\u00b4",u"'"),   # acute accent
+    (u"\u2018",u"'"), # left single quotation mark
+    (u"\u2019",u"'"), # right single quotation mark
+    (u"\u201c",u"''"), # left double quotation mark
+    (u"\u201d",u"''"), # right double quotation mark
+]
+
 def normalize(s):
     s = re.sub('[_~#]',"''",s)
     s = re.sub('`',"''",s)
@@ -47,6 +60,9 @@ def normalize(s):
     s = re.sub(r'\n','',s)
     s = re.sub(r'^\s+','',s)
     s = re.sub(r'\s+$','',s)
+    for m,r in replacements:
+        s = re.sub(m,r,s)
+    s = unicodedata.normalize('NFKD',s)
     if args.kind=="exact":
         return s
     if args.kind=="nospace":
