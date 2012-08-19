@@ -9,7 +9,31 @@ from ocrolib import ngraphs as ng
 from ocrolib import fvariant
 from ocrolib.lattice import Lattice
 
+# These are replacements that happen in the ground truth
+# prior to any alignment.  FIXME make this configurable.
 
+# The defaults replace all quotation marks with their
+# typewriter single quotation marks, mostly because the
+# markup is so inconsistent.
+
+# The double quotation marks will later be treated just
+# like a ligature, with '"' as the automatically
+# inserted ligature character.
+
+replacements = [
+    (u'"',u"''"),     # typewriter double quote
+    (u"`",u"'"),      # grave accent
+    (u"\u00b4",u"'"),   # acute accent
+    (u"\u2018",u"'"), # left single quotation mark
+    (u"\u2019",u"'"), # right single quotation mark
+    (u"\u201c",u"''"), # left double quotation mark
+    (u"\u201d",u"''"), # right double quotation mark
+]
+
+def normalize(s):
+    for m,r in replacements:
+        s = re.sub(m,r,s)
+    return s
 
 class Path:
     """A typical state in a dynamic programming problem."""
@@ -49,13 +73,14 @@ def expand(state,gt,mismatch_cost=50,ins_cost=50,verbose=0):
 
         # for the defined set of ligatures, add low-cost ligature
         # transitions if the edge represents one segment
-        ligmatches = [l for l in ligatures if rest.startswith(l)]
-        if e.seg[1]-e.seg[0]<args.maxligskip and e.seg[0]!=0 and ligmatches!=[]:
-            for lig in ligmatches:
-                p = Path(cost = state.cost + lig_insertion_cost,
+        matches = [l for l in ligatures+lenients if rest.startswith(l)]
+        if e.seg[1]-e.seg[0]<args.maxligskip and e.seg[0]!=0 and matches!=[]:
+            for l in matches:
+                cost = args.ligcost if l in ligatures else arg.lenientcost
+                p = Path(cost = state.cost + cost,
                          state = e.stop,
-                         pos = state.pos + len(lig),
-                         path = state.path + [rest[:len(lig)]],
+                         pos = state.pos + len(l),
+                         path = state.path + [rest[:len(l)]],
                          sequence = state.sequence + [e])
                 result.append(p)
 
@@ -108,8 +133,7 @@ def search(lattice,gt,accept=None,verbose=0,Verbose=0,beam=100,**kw):
                 if Verbose: print "    ",e
                 table[e.state].append(e)
     result = eliminate_duplicates_and_sort(table[i])
-    print "final"
-    print result[0]
+    if args.debugsearch: print "final"; print result[0]
     return result
 
 import argparse
@@ -138,9 +162,21 @@ parser.add_argument('-T','--thresh',default=0.5,type=float,help="below this cost
 parser.add_argument('-v','--verbose',action="store_true")
 parser.add_argument('-V','--Verbose',action="store_true")
 parser.add_argument('-q','--quiet',action="store_true",help="don't output each line")
-parser.add_argument('--ligatures',default="fi ff ffi fl Th ri ry rt rn rm as th",help="optional ligatures")
-parser.add_argument('--ligcost',type=float,default=5.0,help="cost of inserting a ligature instead of recognizing individual characters")
+
+# These help align specific kinds of characters that may not be in the training set.
+# use it, for example, if you want to train a Latin alphabet with a few extra characters
+# or to add new ligatures.
+
+default_ligatures = """fi ff ffi fl ck
+Th ri ry rt rn rm as th oo 00 000 ''
+"""
+
+parser.add_argument('--ligatures',default=default_ligatures,help="optional ligatures")
+parser.add_argument('--ligcost',type=float,default=3.0,help="cost of inserting a ligature instead of recognizing individual characters")
+parser.add_argument('--lenients',default="_ ~",help="character sequences matched 'leniently'")
+parser.add_argument('--lenientcost',type=float,default=1.0,help="cost of inserting a leniently matched character")
 parser.add_argument('--maxligskip',type=int,default=5,help="max number of segments allowed to participate in inferred ligatures")
+
 parser.add_argument('--debugpath',action="store_true",help="print the final aligned path")
 parser.add_argument('--debugsearch',action="store_true",help="print the states explored during the search")
 
@@ -149,7 +185,7 @@ args = parser.parse_args()
 files = args.files
 
 ligatures = args.ligatures.split()
-lig_insertion_cost = args.ligcost
+lenients = args.lenients.split()
 
 fnames = []
 for pattern in args.files:
@@ -177,6 +213,7 @@ for fname in fnames:
         gt = stream.read()
         if gt[-1]=="\n": gt = gt[:-1]
         gt = re.sub(r'\s+$','',gt)
+    gt = normalize(gt)
     if args.verbose:
         print "gt=",gt
     lattice = Lattice(maxws=args.maxws,maxcost=args.maxcost,mismatch=args.mismatch)
@@ -195,7 +232,7 @@ for fname in fnames:
         else:
             for s in range(e.seg[0],e.seg[1]+1):
                 if e.seg[0]==0: continue
-                print "   mapping",s,"->",len(gt)
+                if args.debugpath: print "   mapping",s,"->",len(gt)
                 mapping[s] = len(gt)
     if os.path.exists(fvariant(fname,"rseg")):
         seg = ocrolib.read_line_segmentation(fvariant(fname,"rseg"))
