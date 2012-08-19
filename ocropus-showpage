@@ -49,14 +49,14 @@ for i in range(1,regions.length()):
     if os.path.exists(lbase+".aligned"):
         text = ocrolib.gt_explode(ocrolib.read_text(lbase+".aligned"))
     else:
-        text = None
+        print lbase+".txt","missing"
+        continue
 
     if os.path.exists(lbase+".cseg.png"):
         cseg = ocrolib.read_line_segmentation(lbase+".cseg.png")
     else:
         print lbase+".cseg.png","missing"
         continue
-        cseg = None
 
     csegs = linerec.extract_csegs(cseg,aligned=text)
     for j,c in enumerate(csegs):
