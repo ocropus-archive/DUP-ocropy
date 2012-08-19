@@ -20,6 +20,10 @@ from ocrolib.lattice import Lattice
 # like a ligature, with '"' as the automatically
 # inserted ligature character.
 
+# Note that we also add "''" as a potential ligature
+# back in again to the recognizer, so that double quotes
+# that can't be segmented can still be recognized.
+
 replacements = [
     (u'"',u"''"),     # typewriter double quote
     (u"`",u"'"),      # grave accent
