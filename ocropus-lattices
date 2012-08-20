@@ -111,7 +111,8 @@ class CharResizer:
         assert target_xheight>=8 and target_xheight<=200
         self.target_xheight = target_xheight
     def load(self,fname):
-        lname = ocrolib.fvariant(fname,"png")
+        base = ocrolib.allsplitext(fname)[0]
+        lname = base+".bin.png"
         limage = ocrolib.read_image_gray(lname)
         return self.set(limage)
     def set(self,limage):
@@ -167,17 +168,18 @@ if args.extract is not None:
     insertions = []
     for fname in args.files:
         try:
-            gname = ocrolib.fvariant(fname,"aligned")
+            base = ocrolib.allsplitext(fname)[0]
+            gname = base+".aligned"
             if not os.path.exists(gname): 
-                gname = ocrolib.fvariant(fname,"txt","gt")
+                gname = base+".gt.txt"
             if not os.path.exists(gname): 
                 print fname,"=EXTRACTED=","*** NO ALIGNED TEXT ***",gname 
                 continue
-            cname = ocrolib.fvariant(fname,"cseg")
+            cname = base+".cseg.png"
             if not os.path.exists(cname): 
                 print fname,"=EXTRACTED=","*** NO CSEG ***",cname
                 continue
-            rname = ocrolib.fvariant(fname,"rseg")
+            rname = base+".rseg.png"
             if not os.path.exists(rname): 
                 print fname,"=EXTRACTED=","*** NO RSEG ***",rname
                 continue
