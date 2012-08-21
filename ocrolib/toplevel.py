@@ -257,7 +257,11 @@ def ARANGE(lo,hi):
 def ANONNEG(a):
     return numpy.amin(a)>=0
 
-float_dtypes = [numpy.dtype('float32'),numpy.dtype('float64'),numpy.dtype('float128')]
+float_dtypes = [numpy.dtype('float32'),numpy.dtype('float64')]
+try: float_dtypes += [numpy.dtype('float96')]
+except: pass
+try: float_dtypes += [numpy.dtype('float128')]
+except: pass
 
 @makeargcheck("array must contain floating point values")
 def AFLOAT(a):
