@@ -53,18 +53,21 @@ def genpage(d):
                 if os.path.exists(txt):
                     with open(txt) as tf: text = tf.read()
                     stream.write("<font color='#000066'><b>%s</b></font><br>\n"%text)
+                rtxt = ocrolib.fvariant(img,"txt","raw")
+                if os.path.exists(rtxt):
+                    with open(rtxt) as tf: rtext = tf.read()
+                    stream.write("<font color='gray'><b>%s</b></font><br>\n"%rtext)
+                stream.write("<p />\n")
                 image = ocrolib.read_image_gray(img)
-                stream.write("<img width='%d' src='%s'><br>\n"%(max(10,image.shape[1]/2),img))
+                stream.write("<img width='%d' src='%s'>\n"%(max(10,image.shape[1]/2),img))
+                stream.write("<br />\n")
                 stream.write("<font size=-2>")
                 stream.write("<a href=%s>%s</a> / "%(args.book,args.book))
                 stream.write("<a href=%s>%s</a> / "%(args.book+"/"+d,d))
                 stream.write("<a href=%s>%s</a>"%(args.book+"/"+d+"/"+img,img))
-                stream.write("</font><p>")
+                stream.write("</font>")
+                stream.write("<p />\n")
                 # if os.path.exists(cseg): stream.write("<img src='%s'><br>\n"%cseg)
-                rtxt = ocrolib.fvariant(img,"txt","raw")
-                if os.path.exists(rtxt):
-                    with open(rtxt) as tf: rtext = tf.read()
-                    stream.write("<font color='gray'>%s</font><br>\n"%rtext)
                 cseg = ocrolib.fvariant(img,"cseg")
                 if os.path.exists(cseg):
                     write_cseg(stream,cseg)

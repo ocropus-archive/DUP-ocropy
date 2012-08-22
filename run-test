@@ -19,7 +19,7 @@ true
 true raw text line recognition
 true
 
-ocropus-lattices 'temp/????/??????.bin.png'
+ocropus-lattices --writebestpath 'temp/????/??????.bin.png'
 
 true
 true language model application

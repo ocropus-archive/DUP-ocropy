@@ -245,24 +245,24 @@ if args.extract is not None:
 cmodel = ocrolib.ocropus_find_file(args.model)
 print "loading",cmodel
 cmodel = ocrolib.load_component(cmodel)
-print "got",cmodel
+if not args.quiet: print "got",cmodel
 
 sizemode = getattr(cmodel,"sizemode","perchar")
-print "sizemode",sizemode
+if not args.quiet: print "sizemode",sizemode
 
 wmodel = ocrolib.ocropus_find_file(args.whitespace)
-print "loading",wmodel
+if not args.quiet: print "loading",wmodel
 wmodel = ocrolib.load_component(wmodel)
-print "got",wmodel
+if not args.quiet: print "got",wmodel
 
 emodel = ocrolib.ocropus_find_file(args.lineest)
-print "loading",emodel
+if not args.quiet: print "loading",emodel
 emodel = ocrolib.load_component(emodel)
-print "got",emodel
+if not args.quiet: print "got",emodel
 
-print "segmenter",args.segmenter
+if not args.quiet: print "segmenter",args.segmenter
 segmenter = eval(args.segmenter)
-print "got",segmenter
+if not args.quiet: print "got",segmenter
 
 def invert_image(image):
     """Invert the input image."""
@@ -360,21 +360,34 @@ def process1(fname):
 
         if labels is None:
             if args.quiet: print fname,"=RAW=",
-            print "FAILED (no bestpath)"
+            print "*** FAILED (no bestpath) ***"
             return
 
         if not args.quiet: 
             print "".join(labels)
+
+        base,_ = ocrolib.allsplitext(fname)
+
+        # optionally, write best path without a language model
+        # (this is intended mostly for debugging)
+
         if args.writebestpath:
+            # we write both so that debugging tools still have the
+            # raw text output after language modeling
+            ocrolib.write_text(base+".raw.txt","".join(labels))
             ocrolib.write_text(base+".txt","".join(labels))
 
         # write the lattice and the raw segmentation
         
-        base,_ = ocrolib.allsplitext(fname)
         with open(base+".lattice","w") as stream:
             linerec.write_lattice(stream,recognized)
 
+        # write the raw segmentation
+
         ocrolib.write_line_segmentation(base+".rseg.png",rseg)
+
+        # write line geometry information
+
         ocrolib.write_text(base+".xheight","%.1f"%resizer.xheight)
         ocrolib.write_text(base+".baseline",resizer.baselineAsText())
         
@@ -384,7 +397,7 @@ def process1(fname):
         print fname,":",e
         return
     except:
-        print "ERROR IN",fname
+        print "*** ERROR IN",fname,"***"
         traceback.print_exc()
         if args.exitonerr: sys.exit(1)
         return
