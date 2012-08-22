@@ -73,7 +73,7 @@ def extract_seg(segmentation,g):
 def all_gaps(c):
     """Computes a list of all the pairwise gaps between
     connected components of an image."""
-    # c,n = measurements.label(c>0)
+    # c,n = morph.label(c>0)
     n = len(unique(c))-1
     if n<2: return []
     #imshow(where(c>0,c%3+1,0),cmap=cm.jet)
@@ -108,7 +108,7 @@ def non_noise_components(seg,threshold=0.1):
     all components of size less then `threshold` times the size of the largest
     component to be noise."""
     seg = 1*(seg>0)
-    labels,n = measurements.label(seg)
+    labels,n = morph.label(seg)
     totals = measurements.sum(seg,labels,range(1,n+1))
     return sum(totals>amax(totals)*threshold)
 
@@ -136,7 +136,7 @@ def number_of_vertical_strokes(seg,debug=0):
 
 def number_of_holes(seg):
     holes = morphology.binary_fill_holes(seg)-seg
-    _,n = measurements.label(holes)
+    _,n = morph.label(holes)
     return n
 
 def good_complexity(segmentation,group,maxpeaks=3,maxholes=3):

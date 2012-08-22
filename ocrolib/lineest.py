@@ -26,7 +26,7 @@ def extract_chars(segmentation,h=32,w=32,f=0.5,minscale=0.5):
     """Extract all the characters from the segmentation and yields them
     as an interator.  Also yields a forward and a backwards transformation."""
     ls,ly,lx = vertical_stddev(segmentation>0)
-    boxes = measurements.find_objects(segmentation)
+    boxes = morph.find_objects(segmentation)
     for i,b in enumerate(boxes):
         sub = (segmentation==i+1)
         cs,cy,cx = vertical_stddev(sub)
