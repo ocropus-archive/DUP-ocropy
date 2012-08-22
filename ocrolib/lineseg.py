@@ -5,6 +5,11 @@ from toplevel import *
 
 @checks(AFLOAT2,alpha=RANGE(0.0,20.0),r=RANGE(0,20))
 def dpcuts(image,alpha=0.5,r=2):
+    """Compute dynamic programming cuts through an image.
+    The image contains the costs themselves, `alpha` is the
+    cost of taking a diagonal step, and `r` is the range
+    of diagonal steps to be considered (determining the
+    maximum slope of a cut."""
     costs = 9999*ones(image.shape)
     costs[0,:] = 0
     sources = zeros(image.shape,'i')
@@ -16,11 +21,17 @@ def dpcuts(image,alpha=0.5,r=2):
     return costs,sources
 
 def between(u,v):
+    """Iterate over the values between `u` and `v`, inclusive."""
     u,v = min(u,v),max(u,v)
     for i in range(u,v+1):
         yield i
 
 def dptrack(l,s):
+    """Given a list `l` of starting locations and an
+    image `s` of steps produced by `dpcuts`, trace the cuts
+    and output an image containing the cuts. The output
+    image is guaranteed to be partitioned into separate
+    regions by the cuts (so that it can be labeled)."""
     result = zeros(s.shape)
     for i in l:
         x0 = i
@@ -37,6 +48,9 @@ def dptrack(l,s):
 
 @checks(AFLOAT2,imweight=RANGE(-20,20),bweight=RANGE(-20,20),diagweight=RANGE(-20,20))
 def dplineseg1(image,imweight=4,bweight=-1,diagweight=1):
+    """A dynamic programming line segmenter.  This computes cuts going from bottom
+    to top.  It is only used for testing and is not recommended for actual use because
+    these kinds of cuts do not work very well."""
     cimage = imweight*image - bweight*maximum(0,roll(image,-1,1)-image)
     c,s = dpcuts(cimage,alpha=diagweight)
     costs = c[-1]
@@ -48,13 +62,25 @@ def dplineseg1(image,imweight=4,bweight=-1,diagweight=1):
 
 @checks(AFLOAT2)
 def centroid(image):
+    """Compute the centroid of an image."""
+    # FIXME just use the library function
     ys,xs = mgrid[:image.shape[0],:image.shape[1]]
     yc = sum(image*ys)/sum(image)
     xc = sum(image*xs)/sum(image)
     return yc,xc
 
 @checks(AFLOAT2,imweight=RANGE(-20,20),bweight=RANGE(-20,20),diagweight=RANGE(-20,20),r=RANGE(0,4),debug=BOOL)
-def dplineseg2(image,imweight=4,bweight=-1,diagweight=1,r=2,debug=0,width=8):
+def dplineseg2(image,imweight=4,bweight=-1,diagweight=1,r=2,debug=0,width=-1,wfactor=1.0):
+    """Perform a dynamic programming line segmentation, as described in Breuel (1994).
+    This computes best cuts going out from the center in both directions, then finds
+    the loally minimum costs.  Paths that move diagonally are penalized, and paths
+    that move along the left edge of a line are rewarded.  Paths can only occur
+    separated by a minimum distance of `width`.  If `width` is `-1`, the width is
+    estimated as `wfactor` times the square root of the second moment in the 
+    `y` direction of the text line."""
+    if width<0:
+        import lineest
+        width = wfactor*lineest.vertical_stddev(image)[0]
     yc,xc = centroid(image)
     half = int(yc)
     deriv = maximum(0,filters.gaussian_filter(image,(2,2),order=(0,1)))
@@ -74,7 +100,9 @@ def dplineseg2(image,imweight=4,bweight=-1,diagweight=1,r=2,debug=0,width=8):
     costs = tc[-1]+bc[-1]
     costs = filters.gaussian_filter(costs,1)
     costs += 0.01*filters.gaussian_filter(costs,3.0)
+    costs -= amin(costs)
     mins = (filters.minimum_filter(costs,width)==costs) # *(costs>0.3*amax(costs))
+    mins *= costs<0.5*amax(costs)
     if debug:
         figure("debug-dpseg-mins")
         plot(costs)
@@ -134,6 +162,10 @@ class CCSSegmentLine(SimpleParams):
         return seg
     
 class DPSegmentLine(SimpleParams):
+    """Perform a dynamic programming line segmentation, as described in Breuel (1994).
+    This computes best cuts going out from the center in both directions, then finds
+    the loally minimum costs.  Paths that move diagonally are penalized, and paths
+    that move along the left edge of a line are rewarded."""
     @checks(object,imweight=RANGE(0,10),bweight=RANGE(-10,0),diagweight=RANGE(0,10),r=RANGE(1,5),debug=BOOL)
     def __init__(self,imweight=4,bweight=-1,diagweight=1,r=1,debug=0):
         self.r = r
@@ -162,6 +194,8 @@ class DPSegmentLine(SimpleParams):
             raw_input()
         return morph.renumber_by_xcenter(rsegs)
 
+### A top-level driver for quick and simple testing.
+
 if __name__=="__main__":
     import argparse
     parser= argparse.ArgumentParser("Testing line segmentation models.")
@@ -172,7 +206,7 @@ if __name__=="__main__":
     test.add_argument("--diagweight",type=float,default=1,help="additional diagonal weight (%(default)f)")
     test.add_argument("--r",type=int,default=1,help="range for diagonal steps (%(default)d)")
     test.add_argument("files",nargs="+",default=[])
-    test2 = subparsers.add_parser("test2")
+    # test2 = subparsers.add_parser("test2")
     args = parser.parse_args()
     if args.subcommand=="test":
         segmenter = DPSegmentLine(imweight=args.imweight,
