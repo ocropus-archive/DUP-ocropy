@@ -5,6 +5,7 @@
 # FIXME handle cost accounting for multi-character classes correctly
 # FIXME different end-of-line handling
 # FIXME use argparse for subparsers
+# FIXME right now, it can't really "look back" to add rejected characters; they usually fall out of the beam too early
 
 from pylab import *
 from collections import Counter,defaultdict

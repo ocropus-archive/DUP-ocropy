@@ -130,6 +130,16 @@ class CheckError(Exception):
     def __str__(self):
         return "\nCheckError for argument '%s' in call to function: '%s'\n%s\n"%(self.var,self.fun,self.description)
 
+class CheckWarning(CheckError):
+    def __init__(self,*args,**kw):
+        self.fun = kw.get("fun","?")
+        self.var = kw.get("var","?")
+        self.description = " ".join([strc(x) for x in args])
+    def __str__(self):
+        message = "\nThe input '%s' was outside those processed by function:\n%s\n"%(self.var,self.fun,self.description)
+        message += "(This can happen occasionally during normal operations and isn't a bug or problem.)\n"
+        return message
+
 def checktype(value,type_):
     """Check value against the type spec.  If everything
     is OK, this just returns the value itself.  
@@ -197,12 +207,15 @@ def checks(*types,**ktypes):
         return argument_checks
     return argument_check_decorator
 
-def makeargcheck(message):
+def makeargcheck(message,warning=0):
     """Converts a predicate into an argcheck."""
     def decorator(f):
         def wrapper(arg):
             if not f(arg):
-                raise CheckError(strc(arg)+" of type "+str(type(arg))+": "+str(message))
+                if warning:
+                    raise CheckWarning(strc(arg)+" of type "+str(type(arg))+": "+str(message))
+                else:
+                    raise CheckError(strc(arg)+" of type "+str(type(arg))+": "+str(message))
         return wrapper
     return decorator
 
@@ -352,16 +365,16 @@ RGBA = ALL(ARANK(3),ABYTE,CHANNELS(4))
 
 ### image arrays with more complicated image properties
 
-@makeargcheck("excpect a light image (median>mean)")
+@makeargcheck("excpect a light image (median>mean)",warning=1)
 def LIGHT(a):
     return numpy.median(a)>=numpy.mean(a)
-@makeargcheck("excpect a dark image (median<mean)")
+@makeargcheck("excpect a dark image (median<mean)",warning=1)
 def DARK(a):
     return numpy.median(a)<=numpy.mean(a)
-@makeargcheck("excpect a page image (larger than 600x600)")
+@makeargcheck("excpect a page image (larger than 600x600)",warning=1)
 def PAGE(a):
     return a.ndim==2 and a.shape[0]>=600 and a.shape[1]>=600
-@makeargcheck("expected a line image (taller than 8 pixels and wider than tall)")
+@makeargcheck("expected a line image (taller than 8 pixels and wider than tall)",warning=1)
 def LINE(a,var=None):
     return a.ndim==2 and a.shape[0]>8 and a.shape[1]>a.shape[0]
 
