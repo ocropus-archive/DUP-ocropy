@@ -1,6 +1,8 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
+# FIXME stop using the Lattice class, handle " " by multicharacter classes
+# FIXME handle cost accounting for multi-character classes correctly
 # FIXME different end-of-line handling
 # FIXME use argparse for subparsers
 
@@ -59,7 +61,6 @@ def expand(path,ngraphs,
 
     # add all the transitions for which we have edges
     for e in edges:
-        if verbose: print e
         if noreject and "~" in e.cls: continue
         assert e.start==path.state
 
@@ -75,12 +76,19 @@ def expand(path,ngraphs,
         l = 0.0 if e.cost<thresh and e.cls!=" " else lweight
         if len(cls)==0:
             ncost = path.cost + cweight*e.cost
+            # FIXME we really need to add a penalty for not having whitespace here
+            if verbose: print "EMPTY","ncost",ncost
         elif len(cls)==1:
-            ncost = path.cost + cweight*e.cost + l*lposteriors.get(cls,floor)
+            lcost = lposteriors.get(cls,floor)
+            ncost = path.cost + cweight*e.cost + l*lcost
+            if verbose: print "prefix",repr(prefix),"cls",repr(cls),"lcost",lcost,"ncost",ncost
         else:
+            # FIXME this isn't quite correct since it fails to add up the intermediate
+            # costs, but it will do for now
             tpath = path.path + cls
             lcost = ngraphs.lposteriors.get(tpath[-N+1:],missing).get(tpath[-1],floor)
             ncost = path.cost + cweight*e.cost + l*lcost
+            if verbose: print "MULTI","prefix",repr(prefix),"cls",repr(cls),"lcost",lcost,"ncost",ncost
         nsequence = path.sequence + [e]
         npath = path.path + e.cls
         nstate = e.stop
@@ -126,11 +134,11 @@ def search(lattice,ngraphs,accept=None,verbose=0,beam=100,**kw):
         if lattice.isAccept(i): break
         if len(table[i])==0: continue
         table[i] = eliminate_common_suffixes_and_sort(table[i],n=ngraphs.N)
-        if verbose>0: print i,table[i][0]
+        if args.debugpaths: print i,table[i][0]
         for rank,s in enumerate(table[i][:beam]):
-            expanded = expand(s,ngraphs,rank=rank,**kw)
+            if i==args.debugstate: print "... rank",rank
+            expanded = expand(s,ngraphs,rank=rank,verbose=(i==args.debugstate),**kw)
             for e in expanded:
-                if verbose>1: print "    ",e
                 table[e.state].append(e)
         # table[i] = None
 
@@ -184,6 +192,8 @@ parser.add_argument('-q','--quiet',action="store_true",help="don't output each l
 parser.add_argument('--other',default=15.0,type=float,help="extra cost for characters outside the lattice")
 parser.add_argument('--nother',default=1,type=int,help="number of candidates from outside the lattice")
 parser.add_argument('--lother',default=-1,type=float,help="language model weight for other characters")
+parser.add_argument('--debugpaths',action="store_true")
+parser.add_argument('--debugstate',type=int,default=-1)
 parser.add_argument("files",default=[],nargs="*")
 
 args = parser.parse_args()
