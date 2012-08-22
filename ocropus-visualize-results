@@ -1,5 +1,8 @@
 #!/usr/bin/python
 
+import matplotlib
+matplotlib.use("AGG")
+
 import sys,os,re,glob,math,glob,signal,traceback
 from optparse import OptionParser
 
@@ -8,7 +11,7 @@ import pylab
 from pylab import *
 
 import ocrolib
-from ocrolib import number_of_processors,die,linerec
+from ocrolib import number_of_processors,die,linerec,morph
 from scipy.misc import imsave
 
 signal.signal(signal.SIGINT,lambda *args:sys.exit(1))
@@ -46,6 +49,10 @@ def genpage(d):
             stream.write("<h1>%s</h1>\n"%d)
             images = sorted(glob.glob("??????.bin.png"))
             for img in images:
+                txt = ocrolib.fvariant(img,"txt","")
+                if os.path.exists(txt):
+                    with open(txt) as tf: text = tf.read()
+                    stream.write("<font color='#000066'><b>%s</b></font><br>\n"%text)
                 image = ocrolib.read_image_gray(img)
                 stream.write("<img width='%d' src='%s'><br>\n"%(max(10,image.shape[1]/2),img))
                 stream.write("<font size=-2>")
@@ -58,13 +65,17 @@ def genpage(d):
                 if os.path.exists(rtxt):
                     with open(rtxt) as tf: rtext = tf.read()
                     stream.write("<font color='gray'>%s</font><br>\n"%rtext)
-                txt = ocrolib.fvariant(img,"txt","")
-                if os.path.exists(txt):
-                    with open(txt) as tf: text = tf.read()
-                    stream.write("<font color='blue'>%s</font><br>\n"%text)
                 cseg = ocrolib.fvariant(img,"cseg")
                 if os.path.exists(cseg):
                     write_cseg(stream,cseg)
+                rseg_file = ocrolib.fvariant(img,"rseg")
+                if os.path.exists(rseg_file):
+                    rseg = ocrolib.read_line_segmentation(rseg_file)
+                    figure(figsize=(20,1),dpi=150)
+                    morph.showlabels(rseg)
+                    figfile = ".__"+rseg_file+"_.png"
+                    savefig(figfile)
+                    stream.write("<img height='50' src='%s'><br>\n"%figfile)
                 stream.write("<hr>\n")
     finally:
         os.chdir(here)

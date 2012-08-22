@@ -54,30 +54,40 @@ def centroid(image):
     return yc,xc
 
 @checks(AFLOAT2,imweight=RANGE(-20,20),bweight=RANGE(-20,20),diagweight=RANGE(-20,20),r=RANGE(0,4),debug=BOOL)
-def dplineseg2(image,imweight=4,bweight=-1,diagweight=1,r=2,debug=0):
+def dplineseg2(image,imweight=4,bweight=-1,diagweight=1,r=2,debug=0,width=8):
     yc,xc = centroid(image)
     half = int(yc)
-    cimage = imweight*image-bweight*maximum(0,roll(image,-1,1)-image)
+    deriv = maximum(0,filters.gaussian_filter(image,(2,2),order=(0,1)))
+    deriv /= amax(deriv)
+    cimage = where(image,imweight*image,bweight*deriv)
+    if debug:
+        figure("debug-dpseg-costs")
+        clf()
+        subplot(411); imshow(cimage)
     tc,ts = dpcuts(cimage[:half],alpha=diagweight,r=r)
     bc,bs = dpcuts(cimage[half:][::-1],alpha=diagweight,r=r)
     costs = bc[-1]+tc[-1]
     if debug:
-        clf()
-        subplot(311); imshow(tc)
-        subplot(312); imshow(bc)
+        figure("debug-dpseg-costs")
+        subplot(412); imshow(tc)
+        subplot(413); imshow(bc)
     costs = tc[-1]+bc[-1]
-    costs = -costs
-    costs -= amin(costs)
     costs = filters.gaussian_filter(costs,1)
     costs += 0.01*filters.gaussian_filter(costs,3.0)
-    mins = (filters.maximum_filter(costs,8)==costs)*(costs>0.3*amax(costs))
+    mins = (filters.minimum_filter(costs,width)==costs) # *(costs>0.3*amax(costs))
+    if debug:
+        figure("debug-dpseg-mins")
+        plot(costs)
+        plot(mins)
     l = find(mins)
     tt = dptrack(l,ts)
     bt = dptrack(l,bs)
     tracks = r_[tt,bt[::-1]]
     if debug:
-        subplot(313)
+        figure("debug-dpseg-costs")
+        subplot(414)
         imshow(tracks+0.5*image,interpolation='nearest')
+        ginput(1,0.1)
     return tracks
 
 @checks(DARKLINE)
@@ -124,26 +134,62 @@ class CCSSegmentLine(SimpleParams):
         return seg
     
 class DPSegmentLine(SimpleParams):
-    @checks(object,ledge=RANGE(-10,10),imweight=RANGE(-10,10),bweight=RANGE(-10,10),
-            diagweight=RANGE(-10,10),r=RANGE(1,100),debug=BOOL)
-    def __init__(self,ledge=-0.1,imweight=4,bweight=-1,diagweight=0.3,r=1,debug=0):
+    @checks(object,imweight=RANGE(0,10),bweight=RANGE(-10,0),diagweight=RANGE(0,10),r=RANGE(1,5),debug=BOOL)
+    def __init__(self,imweight=4,bweight=-1,diagweight=1,r=1,debug=0):
         self.r = r
         self.imweight = imweight
         self.bweight = bweight
         self.diagweight = diagweight
         self.debug = debug
-        self.ledge = ledge
     @checks(object,LIGHTLINE)
     def charseg(self,line):
         """Segment a text line into potential character parts."""
         assert mean(line)>0.5*amax(line)
         line = amax(line)-line
-        line = line+self.ledge*maximum(0,roll(line,-1,1)-line)
+        # line = line+self.ledge*maximum(0,roll(line,-1,1)-line)
         tracks = dplineseg2(line,imweight=self.imweight,bweight=self.bweight,
                             diagweight=self.diagweight,debug=self.debug,r=self.r)
         tracks = array(tracks<0.5*amax(tracks),'i')
         tracks,_ = morph.label(tracks)
         self.tracks = tracks
-        rsegs = morph.spread_labels(tracks)
-        rsegs = rsegs*(line>0.5*amax(line))
+        stracks = morph.spread_labels(tracks)
+        rsegs = stracks*(line>0.5*amax(line))
+        if 0:
+            figure("temp")
+            subplot(311); morph.showlabels(tracks)
+            subplot(312); morph.showlabels(stracks)
+            subplot(313); morph.showlabels(rsegs)
+            raw_input()
         return morph.renumber_by_xcenter(rsegs)
+
+if __name__=="__main__":
+    import argparse
+    parser= argparse.ArgumentParser("Testing line segmentation models.")
+    subparsers = parser.add_subparsers(dest="subcommand")
+    test = subparsers.add_parser("test")
+    test.add_argument("--imweight",type=float,default=4,help="image weight (%(default)f")
+    test.add_argument("--bweight",type=float,default=-1,help="left border weight (%(default)f)")
+    test.add_argument("--diagweight",type=float,default=1,help="additional diagonal weight (%(default)f)")
+    test.add_argument("--r",type=int,default=1,help="range for diagonal steps (%(default)d)")
+    test.add_argument("files",nargs="+",default=[])
+    test2 = subparsers.add_parser("test2")
+    args = parser.parse_args()
+    if args.subcommand=="test":
+        segmenter = DPSegmentLine(imweight=args.imweight,
+                                  bweight=args.bweight,
+                                  diagweight=args.diagweight,
+                                  r=args.r,
+                                  debug=1)
+        ion(); gray()
+        for fname in args.files:
+            print fname
+            image = ocrolib.read_image_gray(fname)
+            segmentation = segmenter.charseg(image)
+            figure("output")
+            subplot(211); imshow(image)
+            subplot(212); morph.showlabels(segmentation)
+            raw_input()
+        else:
+            parser.print_help()
+    sys.exit(0)
+

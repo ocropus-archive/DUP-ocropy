@@ -247,8 +247,19 @@ def pyargsort(seq,cmp=cmp,key=lambda x:x):
 
 @checks(SEGMENTATION)
 def renumber_by_xcenter(seg):
+    """Given a segmentation (as a color image), change the labels
+    assigned to each region such that when the labels are considered
+    in ascending sequence, the x-centers of their bounding boxes
+    are non-decreasing.  This is used for sorting the components
+    of a segmented text line into left-to-right reading order."""
     objects = [(slice(0,0),slice(0,0))]+find_objects(seg)
-    def xc(o): return mean((o[1].start,o[1].stop))
+    def xc(o): 
+        # if some labels of the segmentation are missing, we
+        # return a very large xcenter, which will move them all
+        # the way to the right (they don't show up in the final
+        # segmentation anyway)
+        if o is None: return 999999
+        return mean((o[1].start,o[1].stop))
     xs = array([xc(o) for o in objects])
     order = argsort(xs)
     segmap = zeros(amax(seg)+1,'i')
@@ -257,6 +268,9 @@ def renumber_by_xcenter(seg):
 
 @checks(SEGMENTATION)
 def ordered_by_xcenter(seg):
+    """Verify that the labels of a segmentation are ordered
+    spatially (as determined by the x-center of their bounding
+    boxes) in left-to-right reading order."""
     objects = [(slice(0,0),slice(0,0))]+find_objects(seg)
     def xc(o): return mean((o[1].start,o[1].stop))
     xs = array([xc(o) for o in objects])
