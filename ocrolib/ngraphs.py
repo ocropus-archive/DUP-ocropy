@@ -4,6 +4,7 @@
 from pylab import *
 from collections import Counter,defaultdict
 import glob,re,heapq,os,cPickle
+import codecs
 
 def method(cls):
     """Adds the function as a method to the given class."""
@@ -15,10 +16,26 @@ def method(cls):
 
 replacements = [
     (r'[\0-\x1f]',''), # get rid of weird control characters
-    (r'\s+',' '), # replace multiple spaces
-    (r'``',"''"), # replace fancy double quotes
-    (r'"',"''"), # replace fancy double quotes
-    (r'[~]',""), # replace rejects with nothing
+    (r'\s+',' '),     # replace multiple spaces
+    (r'[~]',""),      # replace rejects with nothing
+
+    # single quotation marks
+    (r"`","'"),       # grave accent
+    (u"\u00b4","'"),  # acute accent
+    (u"\u2018","'"),  # left single quotation mark
+    (u"\u2019","'"),  # right single quotation mark
+    (u"\u017f","s"),  # Fraktur "s" glyph
+    (u"\u021a",","),  # single low quotation mark
+
+    # double quotation marks
+    (r'"',"''"),      # typewriter double quote
+    (r'``',"''"),     # replace fancy double quotes
+    (r"``","''"),     # grave accents used as quotes
+    (r'"',"''"),      # replace fancy double quotes
+    (u"\u201c","''"), # left double quotation mark
+    (u"\u201d","''"), # right double quotation mark
+    (u"\u201e",",,"), # lower double quotation mark
+    (u"\u201f","''"), # reversed double quotation mark
     ]
 
 replacements2 = replacements + [
@@ -45,7 +62,7 @@ class NGraphs:
         and collapse some character classes (e.g., digits) into a single
         representative."""
         for regex,subst in self.replacements:
-            s = re.sub(regex,subst,s)
+            s = re.sub(regex,subst,s,flags=re.U)
         return s
     def computeNGraphs(self,fnames,n):
         """Given a set of text file names, compute a counter
@@ -64,8 +81,9 @@ class NGraphs:
                 linelimit = int(fname.split("=")[1])
                 print "changing linelimit to",linelimit
                 continue
-            with open(fname) as stream:
-                for lineno,line in enumerate(stream.xreadlines()):
+            with codecs.open(fname,"r","utf-8") as stream:
+                for lineno,line in enumerate(stream.readlines()):
+                    assert type(line)==unicode
                     if lineno<lineskip: continue
                     if lineno>=linelimit+lineskip: break
                     line = line[:-1]
