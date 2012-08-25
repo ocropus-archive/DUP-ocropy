@@ -1,6 +1,6 @@
 To install, use:
 
-    $ sudo apt-get install curl python-scipy python-matplotlib python-tables firefox
+    $ sudo apt-get install $(cat PACKAGES)
     $ python setup.py download_models
     $ sudo python setup.py install
 
