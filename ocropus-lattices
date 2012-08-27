@@ -20,7 +20,8 @@ import cPickle
 from ocrolib.toplevel import *
 
 import warnings,numpy
-warnings.simplefilter('ignore',numpy.RankWarning) # disable rank warnings from polyfit
+warnings.simplefilter('ignore',numpy.RankWarning)
+warnings.filterwarnings('error','.*invalid value.*')
 
 signal.signal(signal.SIGINT,lambda *args:sys.exit(1))
 
@@ -135,7 +136,8 @@ class CharResizer:
             x = bbox[1].start
             baseline = polyval(self.blp,x)
             xline = polyval(self.xlp,x)
-            assert xline<baseline # raster coordinates
+            if xline>=baseline: 
+                raise ocrolib.RecognitionError("xline>=baseline %d %d"%(xline,baseline))
             options = dict(bar=(xline,baseline))
             scale = self.target_xheight*1.0/self.xheight
             image = improc.line_normalize(1.0*image,scale=scale,**options)

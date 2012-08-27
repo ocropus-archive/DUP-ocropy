@@ -342,6 +342,7 @@ class HierarchicalSplitter:
         self.offsets = None
         self.splitter = None
         self.subs = None
+        self.quiet = 0
         assert set(kw.keys())<set(dir(self))
         self.__dict__.update(kw)
         if "depth" in kw: del kw["depth"]
@@ -350,10 +351,10 @@ class HierarchicalSplitter:
     def fit(self,data,offset=0):
         k = minimum(len(data)//self.targetsize,self.maxsplit)
         d = self.d
-        print "\t"*self.depth,"pcakmeans",len(data),"k",k,"d",d
+        if not self.quiet: print "\t"*self.depth,"pcakmeans",len(data),"k",k,"d",d
         self.splitter = PcaKmeans(k,d)
         self.splitter.fit(data)
-        print "\t"*self.depth,"predicting",len(data),len(data[0])
+        if not self.quiet: print "\t"*self.depth,"predicting",len(data),len(data[0])
         nb = self.splitter.predict(data,n=1)
         sets = protosets(nb,k)
         self.subs = [None]*k

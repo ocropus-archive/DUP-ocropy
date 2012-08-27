@@ -30,6 +30,7 @@ parser.add_argument('-o','--output',default="trained.cmodel",help="output with p
 parser.add_argument('--exec',dest="execute",default=None,help="additional modules to import (e.g., to load additional classifiers)")
 parser.add_argument('-C','--classifier',default="patrec.LogisticCmodel()",help="factory for leaf classifier")
 parser.add_argument('-D','--debug',action="store_true")
+parser.add_argument('-q','--quiet',action="store_true")
 parser.add_argument('-Q','--parallel',type=int,default=0,help="number of CPUs to use for training")
 parser.add_argument('--exclude',default=r"[ _\000-\037]",help="regular expression matching characters to exclude")
 args = parser.parse_args()
@@ -125,7 +126,7 @@ def process1(job):
 
     # now just train the classifier and return it; the `cfactory` expression
     # should take care of any parameters
-    print note
+    if not args.quiet: print note
     classifier = cfactory()
     classifier.fit(data,cclasses)
     return (cluster,classifier)

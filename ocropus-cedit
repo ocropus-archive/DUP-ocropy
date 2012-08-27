@@ -300,6 +300,7 @@ def cmd_similar(*args):
     selection = set([grid[i][2].id for i in cluster_viewer.get_selected_items()])
     selected = array([grid[i][2].image.ravel() for i in cluster_viewer.get_selected_items()])
     data = array([grid[i][2].image.ravel() for i in range(len(grid))])
+    import pyflann
     flann = pyflann.FLANN()
     flann.build_index(selected)
     neighbors,dists = flann.nn_index(data)
