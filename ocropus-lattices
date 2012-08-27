@@ -43,14 +43,14 @@ parser.add_argument('-q','--quiet',action="store_true",help="don't output progre
 parser.add_argument('-S','--sizemode',default=None,help="how to resize characters for extraction: perchar, linerel, lineabs")
 parser.add_argument('-x','--exitonerr',action="store_true",help='time to wait after displaying results')
 parser.add_argument('-e','--lineest',default=ocrolib.default.lineest,help="line geometry model")
-parser.add_argument("--show",help="show progress",action="store_true")
-parser.add_argument('--delay',type=float,default=0.1,help='time to wait after displaying results')
 parser.add_argument("--extract",default=None,help="extract characters for cmodel training")
 parser.add_argument("--noglob",action="store_true",help="don't perform expansion on the arguments")
 parser.add_argument('--hdfappend',action="store_true",help="append to any exiting HDF5 file (this is multi-processing safe)")
 parser.add_argument('--baselinedegree',type=int,default=1,help="polynomial degree used for modeling baseline")
 parser.add_argument('--writebestpath',action="store_true",help="write the best path as a recognition result, without a language model (this is only for debugging)")
 
+parser.add_argument("--show",help="show progress",action="store_true")
+parser.add_argument('--delay',type=float,default=0.1,help='time to wait after displaying results')
 parser.add_argument("files",default=[],nargs='*',help="input lines")
 args = parser.parse_args()
 if not args.noglob: 
@@ -175,19 +175,19 @@ if args.extract is not None:
             if not os.path.exists(gname): 
                 gname = base+".gt.txt"
             if not os.path.exists(gname): 
-                print fname,"=EXTRACTED=","*** NO ALIGNED TEXT ***",gname 
+                print fname,"=EXTRACTED=","    *** NO ALIGNED TEXT ***",gname 
                 continue
             cname = base+".cseg.png"
             if not os.path.exists(cname): 
-                print fname,"=EXTRACTED=","*** NO CSEG ***",cname
+                print fname,"=EXTRACTED=","    *** NO CSEG ***",cname
                 continue
             rname = base+".rseg.png"
             if not os.path.exists(rname): 
-                print fname,"=EXTRACTED=","*** NO RSEG ***",rname
+                print fname,"=EXTRACTED=","    *** NO RSEG ***",rname
                 continue
             gt = ocrolib.gt_explode(ocrolib.read_text(gname))
             if len(gt)==0: 
-                print fname,"=EXTRACTED=","*** EMPTY GT ***"
+                print fname,"=EXTRACTED=","    *** EMPTY GT ***"
                 continue
             if gt[-1]=="\n": gt = gt[:-1]
             cseg = ocrolib.read_line_segmentation(cname)
@@ -195,7 +195,7 @@ if args.extract is not None:
             csegs = linerec.extract_csegs(cseg)
             maxseg = amax([c.last for c in csegs])
             if maxseg!=len(gt):
-                print fname,"=EXTRACTED=","*** maxseg AND aligned lengths DIFFER***",len(gt),maxseg
+                print fname,"=EXTRACTED=","    *** maxseg AND aligned lengths DIFFER***",len(gt),maxseg
                 continue
             csegs = [c.replace(out=[(gt[c.first-1],0.0)]) for i,c in enumerate(csegs)]
             csegs = [c for c in csegs if c.out[0][0]!="~"]
@@ -314,7 +314,7 @@ def process1(fname):
         try:
             checktype(image,LINE)
         except:
-            print "*** DOESN'T SATISFY GEOMETRIC CONSTRAINS ON LINES, SKIPPED ***"
+            print "    *** DOESN'T SATISFY GEOMETRIC CONSTRAINS ON LINES, SKIPPED ***",image.shape
             return
 
         # generate character candidates
@@ -324,7 +324,7 @@ def process1(fname):
         rsegs = linerec.extract_rsegs(rseg)
         if len(rsegs)<1:
             if args.quiet: print fname,"=RAW=",
-            print "*** NO RAW SEGMENTS ***"
+            print "    *** NO RAW SEGMENTS ***"
             return
 
         # apply the resizer
@@ -362,7 +362,7 @@ def process1(fname):
 
         if labels is None:
             if args.quiet: print fname,"=RAW=",
-            print "*** FAILED (no bestpath) ***"
+            print "    *** FAILED (no bestpath) ***"
             return
 
         if not args.quiet: 
@@ -396,10 +396,10 @@ def process1(fname):
         if args.show:
             ginput(1,args.delay)
     except ocrolib.RecognitionError,e:
-        print fname,":",e
+        print "    ***",fname,":",e,"***"
         return
     except:
-        print "*** ERROR IN",fname,"***"
+        print "    *** ERROR IN",fname,"***"
         traceback.print_exc()
         if args.exitonerr: sys.exit(1)
         return

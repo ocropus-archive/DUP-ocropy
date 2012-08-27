@@ -19,16 +19,20 @@ def vertical_stddev(image):
     """Compute the standard deviation in the vertical direction.
     This is used below to get a rough idea of how large characters
     and lines are."""
-    cy,cx = measurements.center_of_mass(image)
+    assert amax(image)>amin(image)
+    cy,cx = measurements.center_of_mass(1.0*image)
     return (sum(((arange(len(image))-cy)[:,newaxis]*image)**2)/sum(image))**.5,cy,cx
 
 def extract_chars(segmentation,h=32,w=32,f=0.5,minscale=0.5):
     """Extract all the characters from the segmentation and yields them
     as an interator.  Also yields a forward and a backwards transformation."""
-    ls,ly,lx = vertical_stddev(segmentation>0)
+    bin = (segmentation>0)
+    if amax(bin)==0: raise ocrolib.RecognitionError("empty segmentation")
+    ls,ly,lx = vertical_stddev(bin)
     boxes = morph.find_objects(segmentation)
     for i,b in enumerate(boxes):
         sub = (segmentation==i+1)
+        if amax(sub)==amin(sub): continue
         cs,cy,cx = vertical_stddev(sub)
         # limit the character sigma to be at least minscale times the
         # line sigma (this causes dots etc. not to blow up ridiculously large)
@@ -129,7 +133,9 @@ if 0:
 
 def blxlimages(image,shapedict,bls,xls):
     image = (image>ocrolib.midrange(image))
+    if amax(image)==0: raise RecognitionError("empty line")
     seg = lineseg.ccslineseg(image)
+    # ion(); subplot(311); imshow(image); subplot(312); morph.showlabels(seg); ginput(1,0.1); raw_input()
     seg = morph.renumber_by_xcenter(seg)
     blimage = zeros(image.shape)
     xlimage = zeros(image.shape)
