@@ -70,10 +70,10 @@ with tables.openFile(args.data,"r") as h5:
         data_sizemode = "perchar"
     print "sizemode (data)",data_sizemode
     assert splitter_sizemode==data_sizemode,"sizemode for splitter (%s) and data (%s) don't agree"%(splitter_sizemode,data_sizemode)
-    print "splitting"
+    if not args.quiet: print "splitting"
     splits = []
     for i,v in enumerate(patches):
-        if i%10000==0: print i
+        if not args.quiet and i%10000==0: print i
         if testset(i) or re.search(args.exclude,lig.chr(h5.root.classes[i])):
             splits.append(-1)
         else:
@@ -104,7 +104,7 @@ jobs = [(cluster,find(splits==cluster)) for cluster in clusters if cluster>=0]
 def process1(job):
     cluster,indexes = job
     if len(indexes)>args.maxtrain:
-        indexes = pyrandom.sample(indexes,args.trainmax)
+        indexes = pyrandom.sample(indexes,args.maxtrain)
     note = "cluster %4d len %6d"%(cluster,len(indexes))
     with tables.openFile(args.data,"r") as h5:
         # load the classes and training data
