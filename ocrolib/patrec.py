@@ -5,13 +5,16 @@ from scipy.optimize.optimize import fmin_cg, fmin_bfgs, fmin
 from scipy.ndimage import filters
 from collections import Counter
 from collections import defaultdict
-from scipy.spatial import distance
 from scipy.ndimage import measurements
 from collections import Counter
 import random as pyrandom
 import improc
 import mlinear
 from toplevel import *
+if 0:
+    from scipy.spatial.distance import cdist
+else:
+    from ocrolib.distance import cdist
 
 sidenote = "\t\t\t\t\t"
 
@@ -122,7 +125,7 @@ def distribution(classes,n=-1):
 def minsert(x,l):
     if len(l)<2:
         return l+[x]
-    dists = array(distance.cdist([x],l))[0]
+    dists = array(cdist([x],l))[0]
     dists2 = dists+roll(dists,-1)
     i = argmin(dists)
     return l[:i]+[x]+l[i:]
@@ -140,7 +143,7 @@ def rselect(data,n,s=1000,f=0.99):
     while len(l)<n:
         if len(l)%100==0: print len(l)
         vs = pyrandom.sample(data,s)
-        ds = distance.cdist(l,vs)
+        ds = cdist(l,vs)
         ds = amin(ds,axis=0)
         js = argsort(ds)
         j = js[int(f*len(js))]
@@ -214,7 +217,7 @@ def kmeans(data,k,maxiter=100):
     centers = array(pyrandom.sample(data,k),'f')
     last = -1
     for i in range(maxiter):
-        mins = argmin(distance.cdist(data,centers),axis=1)
+        mins = argmin(cdist(data,centers),axis=1)
         if (mins==last).all(): break
         for i in range(k):
             if sum(mins==i)<1: 
@@ -223,6 +226,28 @@ def kmeans(data,k,maxiter=100):
                 centers[i] = average(data[mins==i],axis=0)
         last = mins
     return centers
+
+class Kmeans:
+    """Perform k-means clustering."""
+    def __init__(self,k,maxiter=100,npk=1000,verbose=0):
+        self.k = k
+        self.maxiter = maxiter
+        self.verbose = verbose
+    @checks(object,AFLOAT2)
+    def fit(self,data):
+        self.centers = kmeans(data,self.k,maxiter=self.maxiter)
+    @checks(object,_=AFLOAT2)
+    def centers(self):
+        return self.centers
+    @checks(object,_=AFLOAT1)
+    def center(self,i):
+        return self.centers[i]
+    def predict(self,data,n=0):
+        nb = knn(ys,self.Pcenters,max(1,n))
+        if n==0:
+            return nb[:,0]
+        else:
+            return nb
 
 @checks(DATASET(fixedshape=1,vrank=1),RANGE(0,100000),RANGE(0,10000),maxiter=RANGE(0,10000000),\
         npk=RANGE(2,100000),maxsample=RANGE(3,1e9),min_norm=RANGE(0.0,1000.0))
@@ -254,12 +279,12 @@ def pca_kmeans0(data,k,d=0.9,**kw):
     return dot(km,evecs)+mu[newaxis,:]
 
 @checks(AFLOAT2,AFLOAT2,int,chunksize=RANGE(1,1000000000))
-def knn(data,protos,k,chunksize=100):
+def knn(data,protos,k,chunksize=1000,threads=-1):
     result = []
     for i in range(0,len(data),chunksize):
         block = data[i:min(i+chunksize,len(data))]
         if type(block)!=ndarray: block = array(block)
-        ds = distance.cdist(block,protos)
+        ds = cdist(block,protos,threads=threads)
         js = argsort(ds,axis=1)
         result.append(js[:,:k])
     return vstack(result)
@@ -276,7 +301,7 @@ def protosets(nb,k):
 class PcaKmeans:
     """Perform PCA followed by k-means.
     This code is able to deal with Datasets as input, not just arrays."""
-    def __init__(self,k,d,min_d=3,maxiter=100,npk=1000,verbose=0):
+    def __init__(self,k,d,min_d=3,maxiter=100,npk=1000,verbose=0,threads=1):
         self.k = k
         self.d = d
         self.min_d = min_d
@@ -299,16 +324,20 @@ class PcaKmeans:
         y = dot(x.ravel()-self.mu.ravel(),self.P.T)
         return sqrt(norm(x.ravel()-self.mu.ravel())**2-norm(y)**2)
     @checks(object,AFLOAT,_=int)
-    def predict1(self,x):
+    def predict1(self,x,threads=1):
+        # We always use multiple threads during training, but
+        # only one thread by default for prediction (since
+        # prediction is usually run in parallel for multiple
+        # lines)
         y = dot(x.ravel()-self.mu.ravel(),self.P.T)
-        c = knn(y.reshape(1,-1),self.Pcenters,1)
+        c = knn(y.reshape(1,-1),self.Pcenters,1,threads=threads)
         return c[0][0]
-    def predict(self,data,n=0):
+    def predict(self,data,n=0,threads=1):
         if type(data)==ndarray:
             # regular 2D array code
             data = data.reshape(len(data),-1)
             ys = dot(data-self.mu,self.P.T)
-            nb = knn(ys,self.Pcenters,max(1,n))
+            nb = knn(ys,self.Pcenters,max(1,n),threads=threads)
         else:
             # for datasets (and other iterables), use a slower, per-row routine
             nb = []

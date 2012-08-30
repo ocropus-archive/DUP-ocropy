@@ -128,7 +128,13 @@ class CheckError(Exception):
         self.var = kw.get("var","?")
         self.description = " ".join([strc(x) for x in args])
     def __str__(self):
-        return "\nCheckError for argument '%s' in call to function: '%s'\n%s\n"%(self.var,self.fun,self.description)
+        result = "\nCheckError for argument "
+        result += str(self.var)
+        result += " of function "
+        result += str(self.fun)
+        result += "\n"
+        result += self.description
+        return result
 
 class CheckWarning(CheckError):
     def __init__(self,*args,**kw):
@@ -136,9 +142,14 @@ class CheckWarning(CheckError):
         self.var = kw.get("var","?")
         self.description = " ".join([strc(x) for x in args])
     def __str__(self):
-        message = "\nThe input '%s' was outside those processed by function:\n%s\n"%(self.var,self.fun,self.description)
-        message += "(This can happen occasionally during normal operations and isn't a bug or problem.)\n"
-        return message
+        result = "\nCheckWarning for argument "
+        result += str(self.var)
+        result += " of function "
+        result += str(self.fun)
+        result += "\n"
+        result += self.description
+        result += "(This can happen occasionally during normal operations and isn't necessarily a bug or problem.)\n"
+        return result
 
 def checktype(value,type_):
     """Check value against the type spec.  If everything

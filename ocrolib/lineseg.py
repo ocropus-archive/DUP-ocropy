@@ -119,7 +119,7 @@ def dplineseg2(image,imweight=4,bweight=-1,diagweight=1,r=2,debug=0,width=-1,wfa
     return tracks
 
 @checks(DARKLINE)
-def ccslineseg(image):
+def ccslineseg(image,debug=0):
     image = 1.0*(image>0.3*amax(image))
     sigma = 10.0
     smooth = filters.gaussian_filter(image,(sigma,1.0*sigma),mode='constant')

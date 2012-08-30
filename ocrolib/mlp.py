@@ -289,12 +289,10 @@ def nnet_native_load():
     nverbose = c_int.in_dll(nnet_native,"verbose")
     maxthreads = c_int.in_dll(nnet_native,"maxthreads")
     maxthreads_train = c_int.in_dll(nnet_native,"maxthreads_train")
-
-if os.getenv("mlp_maxthreads") is not None:
-    maxthreads.value = int(os.getenv("mlp_maxthreads"))
-
-if os.getenv("mlp_maxthreads_train") is not None:
-    maxthreads_train.value = int(os.getenv("mlp_maxthreads_train"))
+    if os.getenv("mlp_maxthreads") is not None:
+        maxthreads.value = int(os.getenv("mlp_maxthreads"))
+    if os.getenv("mlp_maxthreads_train") is not None:
+        maxthreads_train.value = int(os.getenv("mlp_maxthreads_train"))
 
 class MLP:
     def __init__(self,**kw):
