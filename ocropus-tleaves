@@ -64,20 +64,14 @@ with tables.openFile(args.data,"r") as h5:
     print "loading dataset"
     N = min(args.maxtotal,len(h5.root.classes))
     patches = Dataset(h5.root.patches,maxsize=N)
-    if "sizemode" in h5.root._v_attrs:
-        data_sizemode = h5.getNodeAttr("/","sizemode")
-    else:
-        data_sizemode = "perchar"
+    data_sizemode = h5.getNodeAttr("/","sizemode")
     print "sizemode (data)",data_sizemode
     assert splitter_sizemode==data_sizemode,"sizemode for splitter (%s) and data (%s) don't agree"%(splitter_sizemode,data_sizemode)
-    if not args.quiet: print "splitting"
-    splits = []
-    for i,v in enumerate(patches):
-        if not args.quiet and i%10000==0: print i
+    print "splitting"
+    splits = patrec.parallel_predict(splitter,patches,parallel=args.parallel,verbose=not args.quiet)
+    for i in range(len(patches)):
         if testset(i) or re.search(args.exclude,lig.chr(h5.root.classes[i])):
-            splits.append(-1)
-        else:
-            splits.append(splitter.predict1(v))
+            splits[i] = -1
 
 # give the user some feedback about cluster distributions
 
@@ -143,6 +137,7 @@ else:
     pool.join()
     del pool
     classifiers = classifiers.get()
+
 
 
 # nsplitter = patrec.HierarchicalSplitter()

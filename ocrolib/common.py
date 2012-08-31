@@ -375,7 +375,8 @@ def number_of_processors():
 def parallel_map(fun,jobs,parallel=0,chunksize=1):
     if parallel<2:
         for e in jobs:
-            yield fun(e)
+            result = fun(e)
+            yield result
     else:
         try:
             pool = multiprocessing.Pool(parallel)
