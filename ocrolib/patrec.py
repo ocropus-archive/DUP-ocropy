@@ -249,6 +249,7 @@ class Kmeans:
 @checks(DATASET(fixedshape=1,vrank=1),RANGE(0,100000),RANGE(0,10000),maxiter=RANGE(0,10000000),\
         npk=RANGE(2,100000),maxsample=RANGE(3,1e9),min_norm=RANGE(0.0,1000.0))
 def pca_kmeans(data,k,d,min_d=3,maxiter=100,npk=1000,verbose=0,maxsample=200000,min_norm=1e-3):
+    assert len(data)>=1
     n = min(len(data),k*npk,maxsample)
     if n<len(data):
         # if verbose: print sidenote+"pca_kmeans sampling",n,"samples"
@@ -257,6 +258,7 @@ def pca_kmeans(data,k,d,min_d=3,maxiter=100,npk=1000,verbose=0,maxsample=200000,
         sample = list(data)
     sample = [v for v in sample if norm(v)>=min_norm]
     sample = array(sample)
+    assert len(sample)>=1
     sample = sample.reshape(len(sample),-1)
     if verbose: print sidenote+"pca",len(sample),"d",d
     ys,mu,evals,evecs = pca(sample,d,min_k=min_d)
