@@ -26,6 +26,17 @@ def chunks(n,c):
         yield (i,j)
         i = j
 
+if len(sys.argv)<2:
+    print """usage:
+
+ocropus-db cat --help
+ocropus-db shuffle --help
+ocrpous-db predict --help
+
+Try "ocropus cat --help" etc. for more info.
+"""
+    sys.exit(0)
+
 if sys.argv[1]=="cat":
     parser = argparse.ArgumentParser(description = "Concatenate data files.")
     parser.add_argument('inputs',nargs="+")
@@ -45,8 +56,11 @@ if sys.argv[1]=="cat":
         h5utils.log(odb,str(sys.argv))
         h5utils.create_earray(odb,"patches",eshape,'f')
         h5utils.create_earray(odb,"classes",(),'f')
+        sizemode = None
         for fname in args.inputs:
             with openFile(fname) as db:
+                sizemode = db.getNodeAttr("/","sizemode")
+                odb.setNodeAttr("/","sizemode",sizemode)
                 h5utils.log_copy(db,odb)
                 nsamples = len(db.root.classes)
                 for start,end in chunks(nsamples,10000):
@@ -78,8 +92,10 @@ if sys.argv[1]=="shuffle":
     args = parser.parse_args(sys.argv[2:])
     with openFile(args.input) as db:
         eshape = db.root.patches[0].shape
+        sizemode = db.getNodeAttr("/","sizemode")
     print "element shape",eshape
     with openFile(args.output,"w") as odb:
+        odb.setNodeAttr("/","sizemode",sizemode)
         h5utils.log(odb,str(sys.argv))
         h5utils.create_earray(odb,"patches",eshape,'f')
         h5utils.create_earray(odb,"classes",(),'f')
@@ -186,12 +202,3 @@ if sys.argv[1]=="tess2h5":
                 count += 1
                 lineno += 1
     sys.exit(0)
-
-print """usage:
-
-ocropus-db cat --help
-ocropus-db shuffle --help
-ocrpous-db predict --help
-
-Try "ocropus cat --help" etc. for more info.
-"""

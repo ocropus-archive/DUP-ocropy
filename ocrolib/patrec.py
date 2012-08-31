@@ -373,10 +373,11 @@ class HierarchicalSplitter:
         self.kw = kw
         self.offsets = None
     def fit(self,data,offset=0):
-        k = minimum(len(data)//self.targetsize,self.maxsplit)
+        assert len(data)>=3
+        k = maximum(2,minimum(len(data)//self.targetsize,self.maxsplit))
         d = self.d
         if not self.quiet: print "\t"*self.depth,"pcakmeans",len(data),"k",k,"d",d
-        self.splitter = PcaKmeans(k,d)
+        self.splitter = PcaKmeans(k,d,verbose=1)
         self.splitter.fit(data)
         if not self.quiet: print "\t"*self.depth,"predicting",len(data),len(data[0])
         nb = self.splitter.predict(data,n=1)
@@ -392,8 +393,11 @@ class HierarchicalSplitter:
             else:
                 sub = HierarchicalSplitter(depth=self.depth+1,**self.kw)
                 subdata = [data[i] for i in sets[s]]
-                offset = sub.fit(subdata,offset=offset)
-                self.subs[s] = sub
+                if len(subdata)>=3:
+                    offset = sub.fit(subdata,offset=offset)
+                    self.subs[s] = sub
+                else:
+                    print "WARNING: empty split"
         self.offsets.append(offset)
         return offset
     def predict1(self,v):
@@ -401,6 +405,7 @@ class HierarchicalSplitter:
         if self.subs[s] is None:
             return self.offsets[s]
         else:
+            if self.subs[s] is None: return -1
             return self.subs[s].predict1(v)
     def predict(self,data):
         return array([self.predict1(v) for v in data],'i')
@@ -506,6 +511,7 @@ class LocalCmodel:
         else: assert self.cshape==v.shape
         # now split and predict
         i = self.splitter.predict1(v)
+        if i<0: return []
         if self.cmodels[i] is None: return []
         return self.cmodels[i].coutputs(v,geometry=geometry)
 
