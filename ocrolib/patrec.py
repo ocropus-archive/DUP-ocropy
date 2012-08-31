@@ -233,13 +233,10 @@ class Kmeans:
         self.k = k
         self.maxiter = maxiter
         self.verbose = verbose
-    @checks(object,AFLOAT2)
     def fit(self,data):
         self.centers = kmeans(data,self.k,maxiter=self.maxiter)
-    @checks(object,_=AFLOAT2)
     def centers(self):
         return self.centers
-    @checks(object,_=AFLOAT1)
     def center(self,i):
         return self.centers[i]
     def predict(self,data,n=0):
@@ -313,17 +310,13 @@ class PcaKmeans:
             pca_kmeans(data,self.k,self.d,min_d=self.min_d,
                        maxiter=self.maxiter,npk=self.npk,verbose=self.verbose)
         self.Pcenters = array(vecsort(self.Pcenters))
-    @checks(object,_=AFLOAT2)
     def centers(self):
         return dot(self.Pcenters,self.P)+self.mu
-    @checks(object,_=AFLOAT1)
     def center(self,i):
         return dot(self.Pcenters[i],self.P)+self.mu
-    @checks(object,AFLOAT,_=float)
     def dist1(self,x):
         y = dot(x.ravel()-self.mu.ravel(),self.P.T)
         return sqrt(norm(x.ravel()-self.mu.ravel())**2-norm(y)**2)
-    @checks(object,AFLOAT,_=int)
     def predict1(self,x,threads=1):
         # We always use multiple threads during training, but
         # only one thread by default for prediction (since
@@ -513,3 +506,43 @@ class LocalCmodel:
         i = self.splitter.predict1(v)
         if self.cmodels[i] is None: return []
         return self.cmodels[i].coutputs(v,geometry=geometry)
+
+################################################################
+### utility functions for parallelizing prediction and character
+### classification (the overhead of this is too large to use
+### it at a per-line level, but it is useful during training)
+################################################################
+
+import multiprocessing
+import common
+
+def datachunks(data,model=None,chunksize=1000):
+    for i in range(0,len(data),chunksize):
+        j = min(i+chunksize,len(data))
+        block = data[i:j]
+        if type(block)!=ndarray: block = array(block,'float32')
+        yield i,j,block,model
+
+def coutputs_chunk(job):
+    i,j,block,model = job
+    outputs = [model.coutputs(v) for v in block]
+    return i,j,outputs
+
+def parallel_coutputs(model,data,parallel=multiprocessing.cpu_count(),verbose=1):
+    results = [None]*len(data)
+    for i,j,outs in common.parallel_map(coutputs_chunk,datachunks(data,model=model),parallel=parallel):
+        if verbose: print "parallel_coutputs",i,j,"(%d)"%parallel
+        for k in range(j-i): results[i+k] = outs[k]
+    return results
+
+def predict_chunk(job):
+    i,j,block,model = job
+    return i,j,model.predict(block)
+
+def parallel_predict(model,data,parallel=multiprocessing.cpu_count(),verbose=1):
+    results = [None]*len(data)
+    for i,j,outs in common.parallel_map(predict_chunk,datachunks(data,model=model),parallel=parallel):
+        if verbose: print "parallel_predict",i,j,"(%d)"%parallel
+        for k in range(j-i): results[i+k] = outs[k]
+    return results
+
