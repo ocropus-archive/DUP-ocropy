@@ -377,7 +377,7 @@ class HierarchicalSplitter:
         k = maximum(2,minimum(len(data)//self.targetsize,self.maxsplit))
         d = self.d
         if not self.quiet: print "\t"*self.depth,"pcakmeans",len(data),"k",k,"d",d
-        self.splitter = PcaKmeans(k,d,verbose=1)
+        self.splitter = PcaKmeans(k,d)
         self.splitter.fit(data)
         if not self.quiet: print "\t"*self.depth,"predicting",len(data),len(data[0])
         nb = self.splitter.predict(data,n=1)

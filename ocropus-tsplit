@@ -40,6 +40,7 @@ parser.add_argument('--maxdepth',type=int,default=3,help="maximum tree depth, de
 parser.add_argument('--splitsize',type=int,default=5000,help="size above which a node is split, default: %(default)s")
 parser.add_argument('--targetsize',type=int,default=500,help="target size for each subtree to determine actual split size, default: %(default)s")
 parser.add_argument('--exclude',default=r'[ _\000-\037]',help="classes to exclude from splitting, default: %(default)s")
+parser.add_argument('-Q','--parallel',type=int,default=0,help="number of CPUs used for training")
 args = parser.parse_args()
 
 
