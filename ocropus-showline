@@ -49,12 +49,18 @@ gray()
 subplot(411) 
 if image is not None: 
     imshow(image)
+else:
+    print "image not found"
 subplot(412)
 if rseg is not None: 
     morph.showlabels(rseg,args.nlabels)
+else:
+    print "rseg not found"
 subplot(413)
 if cseg is not None: 
     morph.showlabels(cseg,args.nlabels)
+else:
+    print "cseg not found"
 subplot(414)
 if image is not None:
     imshow(image)

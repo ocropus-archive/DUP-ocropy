@@ -569,8 +569,10 @@ def fvariant(fname,kind,gt=""):
         return base+gt+".txt"
     assert gt=="","gt suffix may only be supplied for .txt files (%s,%s,%s)"%(fname,kind,gt)
     # a text line image
-    if kind=="line" or kind=="png":
-        return base+".png"
+    if kind=="line" or kind=="png" or kind=="bin":
+        return base+".bin.png"
+    if kind=="nrm":
+        return base+".nrm.png"
     # a recognition lattice
     if kind=="lattice":
         return base+gt+".lattice"

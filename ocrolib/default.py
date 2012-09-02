@@ -1,6 +1,6 @@
 # the defaults used by the recognizer
 
-model = "en-uw3-linerel.cmodel"
+model = "en-uw3-linerel-2.cmodel"
 ngraphs = "en-mixed-4.ngraphs"
 space = "en-space.model"
 lineest = "en-mixed.lineest"

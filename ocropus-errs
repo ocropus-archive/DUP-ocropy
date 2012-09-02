@@ -1,7 +1,7 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
-import warnings,numpy,argparse,re,sys,os,os.path,unicodedata
+import warnings,numpy,argparse,re,sys,os,os.path,unicodedata,multiprocessing
 import ocrolib
 
 # disable rank warnings from polyfit
@@ -20,6 +20,7 @@ parser.add_argument("-x","--extension",default=".txt",help="extension for recogn
 parser.add_argument("-k","--kind",default="exact",help="kind of comparison (exact, nospace, letdig, letters, digits, lnc), default: %(default)s")
 parser.add_argument("-e","--erroronly",action="store_true",help="only output an error rate")
 parser.add_argument("-s","--skipmissing",action="store_true",help="don't use missing or empty output files in the calculation")
+parser.add_argument("-Q","--parallel",type=int,default=multiprocessing.cpu_count())
 args = parser.parse_args()
 args.files = ocrolib.glob_all(args.files)
 
@@ -84,23 +85,30 @@ if not ".gt." in args.files[0]:
     sys.stderr.write("warning: compare on .gt.txt files, not .txt files\n")
 
 
-errs = 0
-total = 0
-missing = 0
-for fname in args.files:
+def process1(fname):
     # fgt = ocrolib.allsplitext(fname)[0]+args.gtextension
     gt = normalize(ocrolib.read_text(fname))
     ftxt = ocrolib.allsplitext(fname)[0]+args.extension
+    missing = 0
     if os.path.exists(ftxt):
         txt = normalize(ocrolib.read_text(ftxt))
     else:
-        missing += len(gt)
+        missing = len(gt)
         txt = ""
     err = levenshtein(txt,gt)
+    return fname,err,len(gt),missing
+
+outputs = ocrolib.parallel_map(process1,args.files,parallel=args.parallel,chunksize=10)
+
+errs = 0
+total = 0
+missing = 0
+for fname,e,t,m in sorted(outputs):
     if not args.erroronly:
-        print "%6d\t%6d\t%s"%(err,len(gt),fname)
-    errs += err
-    total += len(gt)
+        print "%6d\t%6d\t%s"%(e,t,fname)
+    errs += e
+    total += t
+    missing += m
 
 sys.stderr.write("errors    %8d\n"%errs)
 sys.stderr.write("missing   %8d\n"%missing)
