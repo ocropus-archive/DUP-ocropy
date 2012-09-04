@@ -56,6 +56,7 @@ class NGraphs:
     def __init__(self,N=4,replacements=replacements):
         self.N = N
         self.replacements = replacements
+        self.missing = {"~":15.0}
     def lineproc(self,s):
         """Preprocessing for the line (and also lattice output strings).
         This is used to normalize quotes, remove illegal characters,
@@ -136,4 +137,39 @@ class NGraphs:
                 j = rsample(ps)
                 prefix += ks[j]
         return prefix[self.N:]
+    def getLogPosteriors(self,s):
+        """Return a dictionary mapping characters in the given context
+        to negative log posterior probabilities."""
+        prefix = self.lineproc(s)[-self.N+1:]
+        return self.lposteriors.get(prefix,self.missing)
+    def getBestGuesses(self,s,nother=5):
+        """Get guesses for what the next character might be based on the current path."""
+        lposteriors = self.getLogPosteriors(s)
+        best = sorted(lposteriors.items(),key=lambda x:x[1])[:nother]
+        best = [(cls,p) for cls,p in best if cls!="~"]
+        return best
 
+class ComboDict:
+    def __init__(self,dicts):
+        self.dicts = dicts
+    def get(self,key,dflt=None):
+        for d in self.dicts:
+            result = d.get(key)
+            if result is not None: return result
+        return dflt
+
+class NGraphsBackoff:
+    def __init__(self,primary,secondary):
+        self.primary = primary
+        self.secondary = secondary
+        self.N = max(primary.N,secondary.N)
+        self.missing = {"~":15.0}
+    def lineproc(self,s):
+        return self.primary.lineproc(s)
+    def getLogPosteriors(self,s):
+        self.primary.missing = self.missing
+        self.secondary.missing = self.missing
+        return ComboDict([self.primary.getLogPosteriors(s),
+                          self.secondary.getLogPosteriors(s)])
+    def getBestGuesses(self,s,nother=5):
+        return self.primary.getBestGuesses(s,nother=nother)

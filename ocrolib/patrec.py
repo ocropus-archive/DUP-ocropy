@@ -367,6 +367,7 @@ class HierarchicalSplitter:
         self.splitter = None
         self.subs = None
         self.quiet = 0
+        self.extractor = None
         assert set(kw.keys())<set(dir(self))
         self.__dict__.update(kw)
         if "depth" in kw: del kw["depth"]
@@ -374,6 +375,8 @@ class HierarchicalSplitter:
         self.offsets = None
     def fit(self,data,offset=0):
         assert len(data)>=3
+        if "extractor" in dir(self) and self.extractor is not None:
+            data = Dataset(data,f=self.extractor)
         k = maximum(2,minimum(len(data)//self.targetsize,self.maxsplit))
         d = self.d
         if not self.quiet: print "\t"*self.depth,"pcakmeans",len(data),"k",k,"d",d
@@ -401,6 +404,8 @@ class HierarchicalSplitter:
         self.offsets.append(offset)
         return offset
     def predict1(self,v):
+        if "extractor" in dir(self) and self.extractor is not None:
+            v = self.extractor(v)
         s = self.splitter.predict(v.reshape(1,-1))[0]
         if self.subs[s] is None:
             return self.offsets[s]
@@ -514,6 +519,59 @@ class LocalCmodel:
         if i<0: return []
         if self.cmodels[i] is None: return []
         return self.cmodels[i].coutputs(v,geometry=geometry)
+
+
+
+class Extractor0:
+    def __init__(self,alpha=0.5,dsigma=1.0,spread=0):
+        assert alpha>=0.0 and alpha<=1.0
+        assert dsigma>=0.0 and dsigma<=100.0
+        assert spread>=0 and spread<=100 and type(spread)==int
+        self.alpha = alpha
+        self.dsigma = dsigma
+        self.spread = spread
+    def __call__(self,image):
+        if image.ndim==1:
+            image = image.reshape(32,32) # FIXME remove hardcoded dimensions
+        left = 0.0+image[:,0]
+        image[:,0] = 0
+        deriv = filters.gaussian_gradient_magnitude(image,self.dsigma,mode='constant')
+        if self.spread>0: deriv = filters.maximum_filter(image,(self.spread,self.spread))
+        deriv /= 1e-6+amax(deriv)
+        result = self.alpha*deriv + (1.0-self.alpha)*image
+        result[:,0] = left
+        return result
+
+class Extractor1:
+    def __init__(self,alpha=0.5,dsigma=1.0,spread=3,buckets=2):
+        assert alpha>=0.0 and alpha<=1.0
+        assert dsigma>=0.0 and dsigma<=100.0
+        assert spread>=0 and spread<=100 and type(spread)==int
+        self.alpha = alpha
+        self.dsigma = dsigma
+        self.spread = spread
+        self.buckets = buckets
+    def __call__(self,image):
+        if image.ndim==1:
+            image = image.reshape(32,32) # FIXME remove hardcoded dimensions
+        left = 0.0+image[:,0]
+        image[:,0] = 0
+        dy = filters.gaussian_filter(image,self.dsigma,order=(1,0),mode='constant')
+        dx = filters.gaussian_filter(image,self.dsigma,order=(0,1),mode='constant')
+        nb = self.buckets
+        deriv = zeros(image.shape)
+        for b,alpha in enumerate(linspace(0,pi,nb+1)):
+            d = cos(alpha)*dx+sin(alpha)*dy
+            dhi = filters.maximum_filter(d,self.spread)
+            dlo = filters.maximum_filter(-d,self.spread)
+            deriv[::2,b::nb] = maximum(0,dhi[::2,b::nb])
+            deriv[1::2,b::nb] = maximum(0,dlo[1::2,b::nb])
+        deriv /= 1e-6+amax(deriv)
+        result = self.alpha*deriv + (1.0-self.alpha)*image
+        result[:,0] = left
+        return result
+
+
 
 ################################################################
 ### utility functions for parallelizing prediction and character

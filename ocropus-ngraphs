@@ -49,16 +49,12 @@ def expand(path,ngraphs,
     - `lother` the language model weight for non-lattice characters
     - `noreject` eliminate reject classes from matching
     """
-    missing = {"~":missing}
-    N = ngraphs.N
-    prefix = ngraphs.lineproc(path.path)[-N+1:]
-    lposteriors = ngraphs.lposteriors.get(prefix,missing)
+    ngraphs.missing = {"~":missing}
+    floor = missing
+    lposteriors = ngraphs.getLogPosteriors(path.path)
     edges = lattice.edges[path.state]
-    floor = lposteriors["~"]
     result = []
     transitions = set()
-    best = sorted(lposteriors.items(),key=lambda x:x[1])[:nother]
-    best = [(cls,p) for cls,p in best if cls!="~"]
 
     # add all the transitions for which we have edges
     for e in edges:
@@ -78,20 +74,24 @@ def expand(path,ngraphs,
         if len(cls)==0:
             ncost = path.cost + cweight*e.cost
             # FIXME we really need to add a penalty for not having whitespace here
-            if verbose: print "EMPTY","ncost",ncost
+            if verbose:
+                print "EMPTY","ncost",ncost
         elif len(cls)==1:
             lcost = lposteriors.get(cls,floor)
             ncost = path.cost + cweight*e.cost + l*lcost
-            if verbose: print "prefix",repr(prefix),"cls",repr(cls),"ecost",cweight*e.cost,"lcost",lcost,"ncost",ncost
+            if verbose:
+                prefix = ngraphs.lineproc(path.path)[-5:]
+                print "prefix",repr(prefix),"cls",repr(cls),"ecost",cweight*e.cost,"lcost",lcost,"ncost",ncost
         else:
-            # FIXME this isn't quite correct since it fails to add up the intermediate
-            # costs, but it will do for now
-            tpath = path.path + cls
-            tprefix = tpath[-N:-1]
-            tcls = tpath[-1]
-            lcost = ngraphs.lposteriors.get(tprefix,missing).get(tcls,floor)
-            ncost = path.cost + cweight*e.cost + l*lcost
-            if verbose: print "MULTI","prefix",repr(tprefix),"cls",repr(tcls),repr(cls),"ecost",cweight*e.cost,"lcost",lcost,"ncost",ncost
+            ncost = path.cost + cweight*e.cost
+            for c in cls:
+                tpath = path.path + c
+                tcls = tpath[-1]
+                lcost = ngraphs.getLogPosteriors(tpath).get(c,floor)
+                ncost += l*lcost
+            if verbose:
+                print "MULTI","prefix",repr(tpath[-10:]),"cls",repr(tcls),repr(cls),
+                print "ecost",cweight*e.cost,"lcost",lcost,"ncost",ncost
         nsequence = path.sequence + [e]
         npath = path.path + e.cls
         nstate = e.stop
@@ -103,6 +103,7 @@ def expand(path,ngraphs,
     # model but not returned by the classifier; this adds the `other` cost
     # to the cost from the language model itself
     
+    best = ngraphs.getBestGuesses(path.path,nother=nother)
     for start,stop in transitions:
         for (lcls,lcost) in best:
             ncost = path.cost + other + lcost
@@ -110,6 +111,8 @@ def expand(path,ngraphs,
             npath = path.path + lcls
             nstate = stop
             nlabels = path.labels + [lcls]
+            if verbose:
+                print "OTHER","path",npath[-10:],"lcost",lcost
             result.append(Path(cost=ncost,state=nstate,path=npath,sequence=nsequence,labels=nlabels))
 
     return result        
@@ -136,7 +139,7 @@ def search(lattice,ngraphs,accept=None,verbose=0,beam=100,**kw):
     for i in range(nstates):
         if lattice.isAccept(i): break
         if len(table[i])==0: continue
-        table[i] = eliminate_common_suffixes_and_sort(table[i],n=ngraphs.N)
+        table[i] = eliminate_common_suffixes_and_sort(table[i],n=N)
         if args.debugpaths: print i,table[i][0]
         if i in debugstates: print "=== state",i
         for rank,s in enumerate(table[i][:beam]):
@@ -203,6 +206,7 @@ parser.add_argument('--lother',default=-1,type=float,help="language model weight
 parser.add_argument('--debugpaths',action="store_true")
 parser.add_argument('--debugstates',default="")
 parser.add_argument('--debugmaxrank',type=int,default=4)
+parser.add_argument('--detailed',action="store_true")
 parser.add_argument("files",default=[],nargs="*")
 
 args = parser.parse_args()
@@ -231,12 +235,12 @@ if args.build is not None:
     sys.exit(0)
 
 
-args.lmodel = ocrolib.findfile(args.lmodel)
-print "loading",args.lmodel
-assert os.path.exists(args.lmodel),\
-       "%s: cannot find language model"%args.lmodel
 
 if args.sample is not None:
+    args.lmodel = ocrolib.findfile(args.lmodel)
+    print "loading",args.lmodel
+    assert os.path.exists(args.lmodel),\
+           "%s: cannot find language model"%args.lmodel
     with open(args.lmodel) as stream:
         ngraphs = cPickle.load(stream)
     for i in range(args.sample):
@@ -256,8 +260,22 @@ if len(fnames)==0:
     print extra
     sys.exit(0)
 
-with open(args.lmodel) as stream:
-    ngraphs = cPickle.load(stream)
+if ":" in args.lmodel:
+    primary,secondary = args.lmodel.split(":")
+    primary = ocrolib.findfile(primary)
+    with open(primary) as stream:
+        primary = cPickle.load(stream)
+    secondary = ocrolib.findfile(secondary)
+    with open(secondary) as stream:
+        secondary = cPickle.load(stream)
+    ngraphs = ng.NGraphsBackoff(primary,secondary)
+else:
+    args.lmodel = ocrolib.findfile(args.lmodel)
+    print "loading",args.lmodel
+    assert os.path.exists(args.lmodel),\
+           "%s: cannot find language model"%args.lmodel
+    with open(args.lmodel) as stream:
+        ngraphs = cPickle.load(stream)
 
 def compute_cseg(path,rseg):
     nmax = 10000
@@ -285,7 +303,7 @@ def compute_cseg(path,rseg):
 
 print "processing",len(fnames),"files"
 for fname in fnames:
-    if not args.quiet: print fname,"=NGRAPHS=",
+    if not args.quiet and not args.detailed: print fname,"=NGRAPHS=",
     lattice = Lattice2(maxws=args.maxws,maxcost=args.maxcost,mismatch=args.mismatch,wsfactor=args.wsfactor)
     lattice.readLattice(fname)
 
@@ -297,7 +315,15 @@ for fname in fnames:
     text = result[0].path[ngraphs.N:]
 
     # output the textual result
-    if not args.quiet: print "%5.2f\t%s"%(result[0].cost,text)
+    if not args.quiet:
+        if args.detailed:
+            print "%5.2f %s"%(result[0].cost,fname)
+            base,_ = ocrolib.allsplitext(fname)
+            if os.path.exists(base+".raw.txt"):
+                print "  RAW\t",ocrolib.read_text(base+".raw.txt")
+            print "  LMD\t",text
+        else:
+            print "%5.2f\t%s"%(result[0].cost,text)
     fout = ocrolib.fvariant(fname,"txt")
     ocrolib.write_text(fout,text)
 
