@@ -61,6 +61,7 @@ def normalize(s):
     s = re.sub(r'\n','',s)
     s = re.sub(r'^\s+','',s)
     s = re.sub(r'\s+$','',s)
+    s = re.sub(r'( *[.] *){4,}','....',s)
     for m,r in replacements:
         s = re.sub(m,r,s)
     s = unicodedata.normalize('NFKD',s)

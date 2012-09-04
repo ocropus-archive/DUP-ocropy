@@ -48,9 +48,10 @@ parser.add_argument("--noglob",action="store_true",help="don't perform expansion
 parser.add_argument('--hdfappend',action="store_true",help="append to any exiting HDF5 file (this is multi-processing safe)")
 parser.add_argument('--baselinedegree',type=int,default=1,help="polynomial degree used for modeling baseline")
 parser.add_argument('--writebestpath',action="store_true",help="write the best path as a recognition result, without a language model (this is only for debugging)")
+parser.add_argument('--borderclean',default=8,type=int,help="remove components that are contained within a margin that's this large")
 
 parser.add_argument("--show",help="show progress",action="store_true")
-parser.add_argument('--delay',type=float,default=0.1,help='time to wait after displaying results')
+parser.add_argument('--delay',type=float,default=9999,help='time to wait after displaying results')
 parser.add_argument("files",default=[],nargs='*',help="input lines")
 args = parser.parse_args()
 if not args.noglob: 
@@ -305,6 +306,13 @@ def process1(fname):
         
         image = ocrolib.read_image_gray(fname)
 
+        if args.borderclean>0:
+            h,w = image.shape
+            mask = zeros((h,w),'i')
+            d = minimum(args.borderclean,h//2-4)
+            mask[d:-d,d:-d] = 1
+            image = 1.0*invert_image(morph.keep_marked(image<ocrolib.midrange(image),mask))
+
         if args.show:
             figure(2); clf()
             figure(1); clf(); subplot(311)
@@ -333,6 +341,14 @@ def process1(fname):
         rsegs = [r.replace(img=resizer.resize(r.img,r.bbox)) for r in rsegs]
 
         if args.show:
+            subplot(311)
+            imshow(image)
+            xs = arange(image.shape[1])
+            baseline = polyval(resizer.blp,xs)
+            xline = polyval(resizer.xlp,xs)
+            plot(baseline); plot(xline)
+
+        if args.show:
             figure(1); subplot(312)
             morph.showlabels(rseg)
             ginput(1,0.1)
@@ -349,7 +365,7 @@ def process1(fname):
         if args.show:
             figure(2)
             labels = [(r.out[0][0] if r.out and r.out[0][1]<1 else "_") for r in recognized]
-            ocrolib.showgrid([r.img for r in recognized][:60],cols=20,xlabels=labels)
+            ocrolib.showgrid([r.img for r in recognized][:100],cols=20,xlabels=labels)
             ginput(1,0.1)
             
         # make sure the resulting graph is connected
