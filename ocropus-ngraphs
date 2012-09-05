@@ -190,12 +190,12 @@ parser.add_argument('--slength',default=70,type=int,help="length of the sampled 
 
 parser.add_argument('-l','--lmodel',default=ocrolib.default.ngraphs,help="the language model (%(default)s)")
 
-parser.add_argument('-C','--cweight',default=1.0,type=float,help="character weight (%(default)s)")
-parser.add_argument('-L','--lweight',default=0.1,type=float,help="language model weight (%(default)s)")
+parser.add_argument('-C','--cweight',default=1.8,type=float,help="character weight (%(default)s)")
+parser.add_argument('-L','--lweight',default=0.13,type=float,help="language model weight (%(default)s)")
 parser.add_argument('-B','--beam',default=10,type=int,help="beam width (%(default)s)")
-parser.add_argument('-P','--wsfactor',default=1.0,type=float,help="factor that whitespace costs are multiplied with (%(default)s)")
-parser.add_argument('-W','--maxws',default=8,type=float,help="max whitespace cost (%(default)s)")
-parser.add_argument('-M','--maxcost',default=15.0,type=float,help="max cost (%(default)s)")
+parser.add_argument('-P','--wsfactor',default=1.56,type=float,help="factor that whitespace costs are multiplied with (%(default)s)")
+parser.add_argument('-W','--maxws',default=9.5,type=float,help="max whitespace cost (%(default)s)")
+parser.add_argument('-M','--maxcost',default=11,type=float,help="max cost (%(default)s)")
 parser.add_argument('-X','--mismatch',default=8,type=float,help="mismatch cost (%(default)s)")
 parser.add_argument('-T','--thresh',default=0.0,type=float,help="below this cost, ignore language model")
 
