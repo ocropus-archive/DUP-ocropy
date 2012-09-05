@@ -9,10 +9,89 @@
 
 from pylab import *
 from collections import Counter,defaultdict
-import glob,re,heapq,os,cPickle
+import glob,re,heapq,os,cPickle,codecs
 import ocrolib
 from ocrolib import ngraphs as ng
 from ocrolib.lattice import Lattice2
+
+import argparse
+
+
+extra = """
+Subcommands:
+
+%(prog)s [options] line1.lattice line2.lattice ...
+
+    Compute text output for each lattice file using the given language model.
+
+%(prog)s --sample 20 -l langmod.ngraphs 
+
+    Generate 20 samples from the given language model.
+
+%(prog)s --build output.ngraphs --ngraph 3 textfile1.txt textfile2.txt ...
+
+    Build a language model of order 3 from the given text files.
+
+%(prog)s --print line.lattice
+
+    Visualize the recognition lattice.
+"""%dict(prog=sys.argv[0])
+
+parser = argparse.ArgumentParser("""Build, apply, and visualize n-graph language models.""")
+
+# RESULT 0.0338945600778 cweight 1.07777736525 lmodel default-4.ngraphs lweight 0.162668906805 
+# maxcost 15.4435581516 maxws 5.39191969674 mismatch 8.67617819976 thresh 1.287178097956
+
+
+parser.add_argument('--build',default=None,help="build and write a language model")
+parser.add_argument('--ngraph',type=int,default=4,help="order of the language model")
+
+parser.add_argument('--sample',default=None,type=int,help="sample from the language model")
+parser.add_argument('--slength',default=70,type=int,help="length of the sampled strings")
+
+parser.add_argument('-l','--lmodel',default=ocrolib.default.ngraphs,help="the language model (%(default)s)")
+
+parser.add_argument('-C','--cweight',default=1.0,type=float,help="character weight (%(default)s)")
+parser.add_argument('-L','--lweight',default=0.1,type=float,help="language model weight (%(default)s)")
+parser.add_argument('-B','--beam',default=10,type=int,help="beam width (%(default)s)")
+parser.add_argument('-P','--wsfactor',default=1.0,type=float,help="factor that whitespace costs are multiplied with (%(default)s)")
+parser.add_argument('-W','--maxws',default=8,type=float,help="max whitespace cost (%(default)s)")
+parser.add_argument('-M','--maxcost',default=15.0,type=float,help="max cost (%(default)s)")
+parser.add_argument('-X','--mismatch',default=8,type=float,help="mismatch cost (%(default)s)")
+parser.add_argument('-T','--thresh',default=0.0,type=float,help="below this cost, ignore language model")
+
+parser.add_argument('-q','--quiet',action="store_true",help="don't output each line")
+parser.add_argument('--other',default=15.0,type=float,help="extra cost for characters outside the lattice")
+parser.add_argument('--nother',default=1,type=int,help="number of candidates from outside the lattice")
+parser.add_argument('--lother',default=-1,type=float,help="language model weight for other characters")
+parser.add_argument('--debugpaths',action="store_true")
+parser.add_argument('--debugstates',default="")
+parser.add_argument('--debugmaxrank',type=int,default=4)
+parser.add_argument('--detailed',action="store_true")
+parser.add_argument('--rewrites',default=None)
+parser.add_argument("files",default=[],nargs="*")
+
+args = parser.parse_args()
+files = args.files
+debugstates = [int(x) for x in args.debugstates.split(",")] if args.debugstates!="" else []
+
+if args.lother<0: args.lother = args.lweight
+
+rewrites = None
+
+if args.rewrites is not None:
+    rewrites = defaultdict(list)
+    rcost = 1.0
+    nrewrites = 0
+    with codecs.open(ocrolib.findfile(args.rewrites)) as stream:
+        for line in stream.readlines():
+            line = line[:-1]
+            # print "*",line
+            f = line.split("\t")
+            assert f[0]=="add"
+            rewrites[f[1]].append((f[2],rcost+float(f[3])))
+            nrewrites += 1
+    print "got",nrewrites,"rewrites"
 
 class Path:
     def __init__(self,cost=0.0,state=-1,path="",sequence=[],labels=[]):
@@ -27,6 +106,19 @@ class Path:
         return self.__repr__()
     def __cmp__(self,other):
         return cmp((self.cost,self.state,self.path),(other.cost,other.state,other.path))
+
+def rewrite_path(path):
+    result = [path]
+    for i in range(1,min(4,len(path.path))):
+        l = rewrites.get(path.path[-i:],[])
+        for o,c in l:
+            npath = path.path[:-i]+o
+            nlabels = path.labels[:-1]+["_"]
+            ncost = path.cost + c
+            # print path.path,"->",npath,";",path.cost,ncost
+            p = Path(cost=path.cost+c,state=path.state,path=npath,sequence=path.sequence,labels=nlabels)
+            result.append(p)
+    return result
 
 def expand(path,ngraphs,
            cweight=1.0,lweight=1.0,
@@ -140,6 +232,13 @@ def search(lattice,ngraphs,accept=None,verbose=0,beam=100,**kw):
         if lattice.isAccept(i): break
         if len(table[i])==0: continue
         table[i] = eliminate_common_suffixes_and_sort(table[i],n=N)
+
+        # now apply the rewrites
+        if rewrites is not None:
+            npaths = []
+            for p in table[i]: npaths += rewrite_path(p)
+            table[i] = eliminate_common_suffixes_and_sort(npaths,n=N)
+
         if args.debugpaths: print i,table[i][0]
         if i in debugstates: print "=== state",i
         for rank,s in enumerate(table[i][:beam]):
@@ -153,67 +252,6 @@ def search(lattice,ngraphs,accept=None,verbose=0,beam=100,**kw):
     result = eliminate_common_suffixes_and_sort(table[i],n=ngraphs.N)
     return result
 
-import argparse
-
-
-extra = """
-Subcommands:
-
-%(prog)s [options] line1.lattice line2.lattice ...
-
-    Compute text output for each lattice file using the given language model.
-
-%(prog)s --sample 20 -l langmod.ngraphs 
-
-    Generate 20 samples from the given language model.
-
-%(prog)s --build output.ngraphs --ngraph 3 textfile1.txt textfile2.txt ...
-
-    Build a language model of order 3 from the given text files.
-
-%(prog)s --print line.lattice
-
-    Visualize the recognition lattice.
-"""%dict(prog=sys.argv[0])
-
-parser = argparse.ArgumentParser("""Build, apply, and visualize n-graph language models.""")
-
-# RESULT 0.0338945600778 cweight 1.07777736525 lmodel default-4.ngraphs lweight 0.162668906805 
-# maxcost 15.4435581516 maxws 5.39191969674 mismatch 8.67617819976 thresh 1.287178097956
-
-
-parser.add_argument('--build',default=None,help="build and write a language model")
-parser.add_argument('--ngraph',type=int,default=4,help="order of the language model")
-
-parser.add_argument('--sample',default=None,type=int,help="sample from the language model")
-parser.add_argument('--slength',default=70,type=int,help="length of the sampled strings")
-
-parser.add_argument('-l','--lmodel',default=ocrolib.default.ngraphs,help="the language model (%(default)s)")
-
-parser.add_argument('-C','--cweight',default=1.0,type=float,help="character weight (%(default)s)")
-parser.add_argument('-L','--lweight',default=0.1,type=float,help="language model weight (%(default)s)")
-parser.add_argument('-B','--beam',default=10,type=int,help="beam width (%(default)s)")
-parser.add_argument('-P','--wsfactor',default=1.0,type=float,help="factor that whitespace costs are multiplied with (%(default)s)")
-parser.add_argument('-W','--maxws',default=8,type=float,help="max whitespace cost (%(default)s)")
-parser.add_argument('-M','--maxcost',default=15.0,type=float,help="max cost (%(default)s)")
-parser.add_argument('-X','--mismatch',default=8,type=float,help="mismatch cost (%(default)s)")
-parser.add_argument('-T','--thresh',default=0.0,type=float,help="below this cost, ignore language model")
-
-parser.add_argument('-q','--quiet',action="store_true",help="don't output each line")
-parser.add_argument('--other',default=15.0,type=float,help="extra cost for characters outside the lattice")
-parser.add_argument('--nother',default=1,type=int,help="number of candidates from outside the lattice")
-parser.add_argument('--lother',default=-1,type=float,help="language model weight for other characters")
-parser.add_argument('--debugpaths',action="store_true")
-parser.add_argument('--debugstates',default="")
-parser.add_argument('--debugmaxrank',type=int,default=4)
-parser.add_argument('--detailed',action="store_true")
-parser.add_argument("files",default=[],nargs="*")
-
-args = parser.parse_args()
-files = args.files
-debugstates = [int(x) for x in args.debugstates.split(",")] if args.debugstates!="" else []
-
-if args.lother<0: args.lother = args.lweight
 
 if args.build is not None:
     fnames = []

@@ -59,6 +59,7 @@ add	v	y	0.2
 add	vv	w	0.1
 add	xn	m	0.1
 add	yy	y	0.5
+add	x	i	0.5
 add	~	as	0.0
 add	~	ff	0.0
 add	~	ffi	0.0
