@@ -4,7 +4,7 @@
 
 from numpy import *
 import pylab
-from scipy.ndimage import morphology,measurements
+from scipy.ndimage import morphology,measurements,filters
 from scipy.ndimage.morphology import *
 from toplevel import *
 

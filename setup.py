@@ -1,6 +1,10 @@
 #!/usr/bin/env python
 
 import sys,time,urllib,traceback,glob,os,os.path
+
+assert sys.version_info[0]==2 and sys.version_info[1]>=7,\
+    "you must install and use OCRopus with Python version 2.7 or later, but not Python 3.x"
+
 from distutils.core import setup, Extension, Command
 from distutils.command.install_data import install_data
 
