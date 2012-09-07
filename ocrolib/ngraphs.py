@@ -49,11 +49,21 @@ def rsample(dist):
     val = rand()
     return searchsorted(v,val)
 
-class NGraphs:
-    """A class representing n-graph models, that is
-    $P(c_i | c_{i-1} ... c_{i_n})$, where the $c_i$ are
-    characters."""
-    def __init__(self,N=4,replacements=replacements):
+def safe_readlines(stream,nonl=0):
+    once = 0
+    for lineno in xrange(100000000):
+        try:
+            line = stream.readline()
+        except UnicodeDecodeError as e:
+            if not once: print lineno,":",e
+            once = 1
+            return
+        if line is None: return
+        if nonl and line[-1]=="\n": line = line[:-1]
+        yield line
+
+class NGraphsCounts:
+    def __init__(self,N=3,replacements=replacements):
         self.N = N
         self.replacements = replacements
     def lineproc(self,s):
@@ -82,7 +92,7 @@ class NGraphs:
                 print "changing linelimit to",linelimit
                 continue
             with codecs.open(fname,"r","utf-8") as stream:
-                for lineno,line in enumerate(stream.readlines()):
+                for lineno,line in enumerate(safe_readlines(stream)):
                     assert type(line)==unicode
                     if lineno<lineskip: continue
                     if lineno>=linelimit+lineskip: break
@@ -94,6 +104,13 @@ class NGraphs:
                         sub = line[i:i+n]
                         counter[sub] += 1
         return counter
+
+class NGraphs(NGraphsCounts):
+    """A class representing n-graph models, that is
+    $P(c_i | c_{i-1} ... c_{i_n})$, where the $c_i$ are
+    characters."""
+    def __init__(self,*args,**kw):
+        NGraphsCounts.__init__(self,*args,**kw)
     def buildFromFiles(self,fnames,n):
         """Given a set of files, build the log posteriors."""
         print "reading",len(fnames),"files"
