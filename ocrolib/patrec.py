@@ -2,7 +2,7 @@ from pylab import *
 import tables
 import cPickle
 from scipy.optimize.optimize import fmin_cg, fmin_bfgs, fmin
-from scipy.ndimage import filters
+from scipy.ndimage import filters,interpolation
 from collections import Counter
 from collections import defaultdict
 from scipy.ndimage import measurements
@@ -522,17 +522,29 @@ class LocalCmodel:
 
 
 
+class ModelWithExtractor:
+    def __init__(self,model,extractor):
+        self.model = model
+        self.extractor = extractor
+    def fit(self,data,classes):
+        transformed = [self.extractor(v) for v in data]
+        self.model.fit(transformed,classes)
+    def coutputs(self,v,geometry=None,prenormalized=0):
+        transformed = self.extractor(v)
+        return self.coutputs(transformed)
+
 class Extractor0:
-    def __init__(self,alpha=0.5,dsigma=1.0,spread=0):
+    def __init__(self,alpha=0.5,dsigma=1.0,spread=0,tsize=(32,32)):
         assert alpha>=0.0 and alpha<=1.0
         assert dsigma>=0.0 and dsigma<=100.0
         assert spread>=0 and spread<=100 and type(spread)==int
         self.alpha = alpha
         self.dsigma = dsigma
         self.spread = spread
+        self.tsize = tsize
     def __call__(self,image):
         if image.ndim==1:
-            image = image.reshape(32,32) # FIXME remove hardcoded dimensions
+            image = image.reshape(*self.tsize)
         left = 0.0+image[:,0]
         image[:,0] = 0
         deriv = filters.gaussian_gradient_magnitude(image,self.dsigma,mode='constant')
@@ -542,8 +554,12 @@ class Extractor0:
         result[:,0] = left
         return result
 
+class Grad0Model(ModelWithExtractor):
+    def __init__(self,mparams,eparams):
+        ModelWithExtractor.__init__(self,LocalCModel(**mparams),Extractor0(**eparams))
+
 class Extractor1:
-    def __init__(self,alpha=0.5,dsigma=1.0,spread=3,buckets=2):
+    def __init__(self,alpha=0.5,dsigma=1.0,spread=3,buckets=2,tsize=(32,32)):
         assert alpha>=0.0 and alpha<=1.0
         assert dsigma>=0.0 and dsigma<=100.0
         assert spread>=0 and spread<=100 and type(spread)==int
@@ -551,9 +567,10 @@ class Extractor1:
         self.dsigma = dsigma
         self.spread = spread
         self.buckets = buckets
+        self.tsize = tsize
     def __call__(self,image):
         if image.ndim==1:
-            image = image.reshape(32,32) # FIXME remove hardcoded dimensions
+            image = image.reshape(*self.tsize)
         left = 0.0+image[:,0]
         image[:,0] = 0
         dy = filters.gaussian_filter(image,self.dsigma,order=(1,0),mode='constant')
@@ -570,6 +587,51 @@ class Extractor1:
         result = self.alpha*deriv + (1.0-self.alpha)*image
         result[:,0] = left
         return result
+
+class Grad1Model(ModelWithExtractor):
+    def __init__(self,mparams,eparams):
+        ModelWithExtractor.__init__(self,LocalCModel(**mparams),Extractor1(**eparams))
+
+class Extractor2:
+    def __init__(self,alpha=0.0,dsigma=1.0,p=3.0,buckets=4,dzoom=0.5,spread=5,tsize=(32,32)):
+        assert alpha>=0.0 and alpha<=1.0
+        assert dsigma>=0.0 and dsigma<=100.0
+        self.alpha = alpha
+        self.dsigma = dsigma
+        self.spread = spread
+        self.buckets = buckets
+        self.dzoom = dzoom
+        self.tsize = tsize
+        self.p = p
+    def __call__(self,image):
+        if image.ndim==1:
+            image = image.reshape(*self.tsize)
+        left = 0.0+image[:,0:1]
+        image[:,0] = 0
+        dy = filters.gaussian_filter(image,self.dsigma,order=(1,0),mode='constant')
+        dx = filters.gaussian_filter(image,self.dsigma,order=(0,1),mode='constant')
+        nb = self.buckets
+        dzoom = self.dzoom
+        derivs = []
+        derivs.append(interpolation.zoom(left,(dzoom,1)))
+        for b,alpha in enumerate(linspace(0,pi,nb+1)[:-1]):
+            d = cos(alpha)*dx+sin(alpha)*dy
+            dhi = filters.maximum_filter(maximum(d,0),self.spread)**self.p
+            dhi = (1-self.alpha)*dhi+self.alpha*image
+            derivs.append(interpolation.zoom(dhi,dzoom))
+            dlo = filters.maximum_filter(maximum(-d,0),self.spread)**self.p
+            dlo = (1-self.alpha)*dlo+self.alpha*image
+            derivs.append(interpolation.zoom(dlo,dzoom))
+        result = hstack(derivs)
+        result /= amax(result)
+        return result
+
+class Grad2Model(ModelWithExtractor):
+    def __init__(self,mparams,eparams):
+        ModelWithExtractor.__init__(self,LocalCModel(**mparams),Extractor2(**eparams))
+
+# need IPCA without covariance matrix
+# maybe sectioned PCA
 
 
 
