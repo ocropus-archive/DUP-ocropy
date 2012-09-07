@@ -9,146 +9,10 @@
 
 from pylab import *
 from collections import Counter,defaultdict
-import glob,re,heapq,os,cPickle
+import glob,re,heapq,os,cPickle,codecs
 import ocrolib
 from ocrolib import ngraphs as ng
 from ocrolib.lattice import Lattice2
-
-class Path:
-    def __init__(self,cost=0.0,state=-1,path="",sequence=[],labels=[]):
-        self.cost = cost # total cost accumulated along this path
-        self.state = state # state in the lattice
-        self.path = path # current sequence of characters
-        self.sequence = sequence # current sequence of states
-        self.labels = labels # current sequence of labels (list corresponding to sequence)
-    def __repr__(self):
-        return "<Path %.2f %d '%s'>"%(self.cost,self.state,self.path)
-    def __str__(self):
-        return self.__repr__()
-    def __cmp__(self,other):
-        return cmp((self.cost,self.state,self.path),(other.cost,other.state,other.path))
-
-def expand(path,ngraphs,
-           cweight=1.0,lweight=1.0,
-           rank=-1,
-           verbose=0,
-           missing=15.0,
-           thresh=1.0,
-           other=15.0,nother=1,lother=1.0,
-           noreject=1):
-    """Expand a search path.  Arguments are:
-
-    - `path` the path to be expanded
-    - `ngraphs` the ngraph model
-    - `rank` the rank of the current path (for debugging)
-    - `verbose` display extra information for debugging
-    - `missing` the cost of missing characters in the posterior
-    - `thresh` the treshold below which the language model cost is ignored entirely
-    - `other` the cost for inserting non-lattice characters into the search
-    - `nother` the number of non-lattice characters added (top # of characters from posterior)
-    - `lother` the language model weight for non-lattice characters
-    - `noreject` eliminate reject classes from matching
-    """
-    missing = {"~":missing}
-    N = ngraphs.N
-    prefix = ngraphs.lineproc(path.path)[-N+1:]
-    lposteriors = ngraphs.lposteriors.get(prefix,missing)
-    edges = lattice.edges[path.state]
-    floor = lposteriors["~"]
-    result = []
-    transitions = set()
-    best = sorted(lposteriors.items(),key=lambda x:x[1])[:nother]
-    best = [(cls,p) for cls,p in best if cls!="~"]
-
-    # add all the transitions for which we have edges
-    for e in edges:
-        if noreject and "~" in e.cls: continue
-        assert e.start==path.state
-
-        if e.cls!="" and e.cls!=" ":
-            transitions.add((e.start,e.stop))
-
-        # we apply the same string transformation to the predicted classes
-        # as to the language model
-        cls = ngraphs.lineproc(e.cls)
-
-        # add transitions for single and multi-character classes
-        # returned by the classifier
-        l = 0.0 if e.cost<thresh and e.cls!=" " else lweight
-        if len(cls)==0:
-            ncost = path.cost + cweight*e.cost
-            # FIXME we really need to add a penalty for not having whitespace here
-            if verbose: print "EMPTY","ncost",ncost
-        elif len(cls)==1:
-            lcost = lposteriors.get(cls,floor)
-            ncost = path.cost + cweight*e.cost + l*lcost
-            if verbose: print "prefix",repr(prefix),"cls",repr(cls),"ecost",cweight*e.cost,"lcost",lcost,"ncost",ncost
-        else:
-            # FIXME this isn't quite correct since it fails to add up the intermediate
-            # costs, but it will do for now
-            tpath = path.path + cls
-            tprefix = tpath[-N:-1]
-            tcls = tpath[-1]
-            lcost = ngraphs.lposteriors.get(tprefix,missing).get(tcls,floor)
-            ncost = path.cost + cweight*e.cost + l*lcost
-            if verbose: print "MULTI","prefix",repr(tprefix),"cls",repr(tcls),repr(cls),"ecost",cweight*e.cost,"lcost",lcost,"ncost",ncost
-        nsequence = path.sequence + [e]
-        npath = path.path + e.cls
-        nstate = e.stop
-        nlabels = path.labels + [e.cls]
-        assert nstate>path.state,("oops: %s %s %s %s"%(e.start,e.stop,cls,e.cost))
-        result.append(Path(cost=ncost,state=nstate,path=npath,sequence=nsequence,labels=nlabels))
-
-    # now add `nother` extra transitions for characters predicted by the language
-    # model but not returned by the classifier; this adds the `other` cost
-    # to the cost from the language model itself
-    
-    for start,stop in transitions:
-        for (lcls,lcost) in best:
-            ncost = path.cost + other + lcost
-            nsequence = path.sequence + [None]
-            npath = path.path + lcls
-            nstate = stop
-            nlabels = path.labels + [lcls]
-            result.append(Path(cost=ncost,state=nstate,path=npath,sequence=nsequence,labels=nlabels))
-
-    return result        
-
-def eliminate_common_suffixes_and_sort(paths,n):
-    # sort by cost
-    paths = sorted(paths)
-    # keep track of the best
-    result = {}
-    for p in paths:
-        suffix = p.path[-n:]
-        if suffix in result: continue
-        result[suffix] = p
-    return sorted(result.values())
-
-def search(lattice,ngraphs,accept=None,verbose=0,beam=100,**kw):
-    global table
-    N = ngraphs.N
-    initial = Path(cost=0.0,state=lattice.startState(),path="_"*N)
-    nstates = lattice.lastState()+1
-    table = [[] for i in range(nstates)]
-    table[initial.state] = [initial]
-
-    for i in range(nstates):
-        if lattice.isAccept(i): break
-        if len(table[i])==0: continue
-        table[i] = eliminate_common_suffixes_and_sort(table[i],n=ngraphs.N)
-        if args.debugpaths: print i,table[i][0]
-        if i in debugstates: print "=== state",i
-        for rank,s in enumerate(table[i][:beam]):
-            debugexpand = (rank<=args.debugmaxrank and i in debugstates)
-            if debugexpand: print "\n--- EXPANDING",rank,s
-            expanded = expand(s,ngraphs,rank=rank,verbose=debugexpand,**kw)
-            for e in expanded:
-                table[e.state].append(e)
-        # table[i] = None
-
-    result = eliminate_common_suffixes_and_sort(table[i],n=ngraphs.N)
-    return result
 
 import argparse
 
@@ -203,6 +67,8 @@ parser.add_argument('--lother',default=-1,type=float,help="language model weight
 parser.add_argument('--debugpaths',action="store_true")
 parser.add_argument('--debugstates',default="")
 parser.add_argument('--debugmaxrank',type=int,default=4)
+parser.add_argument('--detailed',action="store_true")
+parser.add_argument('--rewrites',default=None)
 parser.add_argument("files",default=[],nargs="*")
 
 args = parser.parse_args()
@@ -210,6 +76,182 @@ files = args.files
 debugstates = [int(x) for x in args.debugstates.split(",")] if args.debugstates!="" else []
 
 if args.lother<0: args.lother = args.lweight
+
+rewrites = None
+
+if args.rewrites is not None:
+    rewrites = defaultdict(list)
+    rcost = 1.0
+    nrewrites = 0
+    with codecs.open(ocrolib.findfile(args.rewrites)) as stream:
+        for line in stream.readlines():
+            line = line[:-1]
+            # print "*",line
+            f = line.split("\t")
+            assert f[0]=="add"
+            rewrites[f[1]].append((f[2],rcost+float(f[3])))
+            nrewrites += 1
+    print "got",nrewrites,"rewrites"
+
+class Path:
+    def __init__(self,cost=0.0,state=-1,path="",sequence=[],labels=[]):
+        self.cost = cost # total cost accumulated along this path
+        self.state = state # state in the lattice
+        self.path = path # current sequence of characters
+        self.sequence = sequence # current sequence of states
+        self.labels = labels # current sequence of labels (list corresponding to sequence)
+    def __repr__(self):
+        return "<Path %.2f %d '%s'>"%(self.cost,self.state,self.path)
+    def __str__(self):
+        return self.__repr__()
+    def __cmp__(self,other):
+        return cmp((self.cost,self.state,self.path),(other.cost,other.state,other.path))
+
+def rewrite_path(path):
+    result = [path]
+    for i in range(1,min(4,len(path.path))):
+        l = rewrites.get(path.path[-i:],[])
+        for o,c in l:
+            npath = path.path[:-i]+o
+            nlabels = path.labels[:-1]+["_"]
+            ncost = path.cost + c
+            # print path.path,"->",npath,";",path.cost,ncost
+            p = Path(cost=path.cost+c,state=path.state,path=npath,sequence=path.sequence,labels=nlabels)
+            result.append(p)
+    return result
+
+def expand(path,ngraphs,
+           cweight=1.0,lweight=1.0,
+           rank=-1,
+           verbose=0,
+           missing=15.0,
+           thresh=1.0,
+           other=15.0,nother=1,lother=1.0,
+           noreject=1):
+    """Expand a search path.  Arguments are:
+
+    - `path` the path to be expanded
+    - `ngraphs` the ngraph model
+    - `rank` the rank of the current path (for debugging)
+    - `verbose` display extra information for debugging
+    - `missing` the cost of missing characters in the posterior
+    - `thresh` the treshold below which the language model cost is ignored entirely
+    - `other` the cost for inserting non-lattice characters into the search
+    - `nother` the number of non-lattice characters added (top # of characters from posterior)
+    - `lother` the language model weight for non-lattice characters
+    - `noreject` eliminate reject classes from matching
+    """
+    ngraphs.missing = {"~":missing}
+    floor = missing
+    lposteriors = ngraphs.getLogPosteriors(path.path)
+    edges = lattice.edges[path.state]
+    result = []
+    transitions = set()
+
+    # add all the transitions for which we have edges
+    for e in edges:
+        if noreject and "~" in e.cls: continue
+        assert e.start==path.state
+
+        if e.cls!="" and e.cls!=" ":
+            transitions.add((e.start,e.stop))
+
+        # we apply the same string transformation to the predicted classes
+        # as to the language model
+        cls = ngraphs.lineproc(e.cls)
+
+        # add transitions for single and multi-character classes
+        # returned by the classifier
+        l = 0.0 if e.cost<thresh and e.cls!=" " else lweight
+        if len(cls)==0:
+            ncost = path.cost + cweight*e.cost
+            # FIXME we really need to add a penalty for not having whitespace here
+            if verbose:
+                print "EMPTY","ncost",ncost
+        elif len(cls)==1:
+            lcost = lposteriors.get(cls,floor)
+            ncost = path.cost + cweight*e.cost + l*lcost
+            if verbose:
+                prefix = ngraphs.lineproc(path.path)[-5:]
+                print "prefix",repr(prefix),"cls",repr(cls),"ecost",cweight*e.cost,"lcost",lcost,"ncost",ncost
+        else:
+            ncost = path.cost + cweight*e.cost
+            for c in cls:
+                tpath = path.path + c
+                tcls = tpath[-1]
+                lcost = ngraphs.getLogPosteriors(tpath).get(c,floor)
+                ncost += l*lcost
+            if verbose:
+                print "MULTI","prefix",repr(tpath[-10:]),"cls",repr(tcls),repr(cls),
+                print "ecost",cweight*e.cost,"lcost",lcost,"ncost",ncost
+        nsequence = path.sequence + [e]
+        npath = path.path + e.cls
+        nstate = e.stop
+        nlabels = path.labels + [e.cls]
+        assert nstate>path.state,("oops: %s %s %s %s"%(e.start,e.stop,cls,e.cost))
+        result.append(Path(cost=ncost,state=nstate,path=npath,sequence=nsequence,labels=nlabels))
+
+    # now add `nother` extra transitions for characters predicted by the language
+    # model but not returned by the classifier; this adds the `other` cost
+    # to the cost from the language model itself
+    
+    best = ngraphs.getBestGuesses(path.path,nother=nother)
+    for start,stop in transitions:
+        for (lcls,lcost) in best:
+            ncost = path.cost + other + lcost
+            nsequence = path.sequence + [None]
+            npath = path.path + lcls
+            nstate = stop
+            nlabels = path.labels + [lcls]
+            if verbose:
+                print "OTHER","path",npath[-10:],"lcost",lcost
+            result.append(Path(cost=ncost,state=nstate,path=npath,sequence=nsequence,labels=nlabels))
+
+    return result        
+
+def eliminate_common_suffixes_and_sort(paths,n):
+    # sort by cost
+    paths = sorted(paths)
+    # keep track of the best
+    result = {}
+    for p in paths:
+        suffix = p.path[-n:]
+        if suffix in result: continue
+        result[suffix] = p
+    return sorted(result.values())
+
+def search(lattice,ngraphs,accept=None,verbose=0,beam=100,**kw):
+    global table
+    N = ngraphs.N
+    initial = Path(cost=0.0,state=lattice.startState(),path="_"*N)
+    nstates = lattice.lastState()+1
+    table = [[] for i in range(nstates)]
+    table[initial.state] = [initial]
+
+    for i in range(nstates):
+        if lattice.isAccept(i): break
+        if len(table[i])==0: continue
+        table[i] = eliminate_common_suffixes_and_sort(table[i],n=N)
+
+        # now apply the rewrites
+        if rewrites is not None:
+            npaths = []
+            for p in table[i]: npaths += rewrite_path(p)
+            table[i] = eliminate_common_suffixes_and_sort(npaths,n=N)
+
+        if args.debugpaths: print i,table[i][0]
+        if i in debugstates: print "=== state",i
+        for rank,s in enumerate(table[i][:beam]):
+            debugexpand = (rank<=args.debugmaxrank and i in debugstates)
+            if debugexpand: print "\n--- EXPANDING",rank,s
+            expanded = expand(s,ngraphs,rank=rank,verbose=debugexpand,**kw)
+            for e in expanded:
+                table[e.state].append(e)
+        # table[i] = None
+
+    result = eliminate_common_suffixes_and_sort(table[i],n=ngraphs.N)
+    return result
+
 
 if args.build is not None:
     fnames = []
@@ -231,12 +273,12 @@ if args.build is not None:
     sys.exit(0)
 
 
-args.lmodel = ocrolib.findfile(args.lmodel)
-print "loading",args.lmodel
-assert os.path.exists(args.lmodel),\
-       "%s: cannot find language model"%args.lmodel
 
 if args.sample is not None:
+    args.lmodel = ocrolib.findfile(args.lmodel)
+    print "loading",args.lmodel
+    assert os.path.exists(args.lmodel),\
+           "%s: cannot find language model"%args.lmodel
     with open(args.lmodel) as stream:
         ngraphs = cPickle.load(stream)
     for i in range(args.sample):
@@ -256,8 +298,22 @@ if len(fnames)==0:
     print extra
     sys.exit(0)
 
-with open(args.lmodel) as stream:
-    ngraphs = cPickle.load(stream)
+if ":" in args.lmodel:
+    primary,secondary = args.lmodel.split(":")
+    primary = ocrolib.findfile(primary)
+    with open(primary) as stream:
+        primary = cPickle.load(stream)
+    secondary = ocrolib.findfile(secondary)
+    with open(secondary) as stream:
+        secondary = cPickle.load(stream)
+    ngraphs = ng.NGraphsBackoff(primary,secondary)
+else:
+    args.lmodel = ocrolib.findfile(args.lmodel)
+    print "loading",args.lmodel
+    assert os.path.exists(args.lmodel),\
+           "%s: cannot find language model"%args.lmodel
+    with open(args.lmodel) as stream:
+        ngraphs = cPickle.load(stream)
 
 def compute_cseg(path,rseg):
     nmax = 10000
@@ -285,7 +341,7 @@ def compute_cseg(path,rseg):
 
 print "processing",len(fnames),"files"
 for fname in fnames:
-    if not args.quiet: print fname,"=NGRAPHS=",
+    if not args.quiet and not args.detailed: print fname,"=NGRAPHS=",
     lattice = Lattice2(maxws=args.maxws,maxcost=args.maxcost,mismatch=args.mismatch,wsfactor=args.wsfactor)
     lattice.readLattice(fname)
 
@@ -297,7 +353,15 @@ for fname in fnames:
     text = result[0].path[ngraphs.N:]
 
     # output the textual result
-    if not args.quiet: print "%5.2f\t%s"%(result[0].cost,text)
+    if not args.quiet:
+        if args.detailed:
+            print "%5.2f %s"%(result[0].cost,fname)
+            base,_ = ocrolib.allsplitext(fname)
+            if os.path.exists(base+".raw.txt"):
+                print "  RAW\t",ocrolib.read_text(base+".raw.txt")
+            print "  LMD\t",text
+        else:
+            print "%5.2f\t%s"%(result[0].cost,text)
     fout = ocrolib.fvariant(fname,"txt")
     ocrolib.write_text(fout,text)
 

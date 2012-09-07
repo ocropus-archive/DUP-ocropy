@@ -75,6 +75,8 @@ class Lattice2:
         self.mismatch = 30.0
         self.accept = None
         self.__dict__.update(kw)
+        assert self.maxws>0
+        assert self.wsfactor>0
     def addEdge(self,start=None,stop=None,cost=None,cls=None,seg=(0,0)):
         self.states.add(start)
         self.states.add(stop)
@@ -89,7 +91,7 @@ class Lattice2:
                     first,last = [int(x) for x in f[2].split(":")]
                     st_start = first
                     st_next = last+1
-                    ws,nows = [float(x) for x in f[4:6]]
+                    nows,ws = [-log(1e-6+float(x)) for x in f[4:6]]
                     ws = minimum(ws*self.wsfactor,self.maxws)
                     nows = minimum(nows*self.wsfactor,self.maxws)
                     self.addEdge(start=st_start,stop=st_next,cost=self.mismatch,cls="")
