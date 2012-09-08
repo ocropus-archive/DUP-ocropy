@@ -194,6 +194,166 @@ class DPSegmentLine(SimpleParams):
             raw_input()
         return morph.renumber_by_xcenter(rsegs)
 
+
+
+import cv
+
+def seq2list(seq,result=None):
+    """Given an OpenCV sequence object representing contours,
+    returns a list of 2D point arrays."""
+    if result is None: result = []
+    while seq:
+        l = list(seq)
+        result.append(array(l,'i'))
+        sub = seq2list(seq.v_next(),result)
+        seq = seq.h_next()
+    result.sort(key=len,reverse=1)
+    return result
+
+def image2contours(image,inside=0):
+    """Given an image, return a list of (n,2) arrays corresponding to the
+    contours of that image. Uses OpenCV's FindContours with no approximation
+    and finding both inside and outside contours.  The result is returned
+    in decreasing length."""
+    image = cv.fromarray(array(image>0,'B'))
+    storage = cv.CreateMemStorage()
+    if inside: mode = cv.CV_RETR_CCOMP
+    else: mode = cv.CV_RETR_EXTERNAL
+    seq = cv.FindContours(image, storage, mode, cv.CV_CHAIN_APPROX_NONE)
+    del storage
+    return seq2list(seq)
+
+from scipy.spatial import distance
+from scipy import linalg
+
+def image_draw_line(image,y0,x0,y1,x1):
+    d = ((y0-y1)**2+(x0-x1)**2)**.5
+    for l in linspace(0.0,1.0,int(2*d+1)):
+        image[int(l*y0+(1-l)*y1),int(l*x0+(1-l)*x1)] = 1
+
+def contourcuts(image,maxdist=15,minrange=10,mincdist=20,sigma=1.0,debug=0,r=8,s=0.5):
+    if debug:
+        figure(1); clf(); imshow(image)
+
+    # start by computing the contours
+    contours = image2contours(image!=0)
+
+    # generate a mask for grayscale morphology
+    mask = s*ones((r,r))
+    mask[2:-2,2:-2] = 0
+
+    cuts = []
+
+    # now handle each (external) contour individually
+    for k,cs in enumerate(contours):
+        # compute a matrix of all the pairwise distances of pixels
+        # around the contour, then smooth it a little
+        ds = distance.cdist(cs,cs)
+        ds = filters.gaussian_filter(ds,(sigma,sigma),mode='wrap')
+        # compute a circulant matrix telling us the pathlength
+        # between any two pixels on the contour
+        n = len(cs)
+        l = abs(arange(n)-n/2.0)
+        l = l[0]-l
+        cds = linalg.circulant(l)
+        
+        # find true local minima (exclude ridges) by using the
+        # structuring element above
+        ge = morphology.grey_erosion(ds,structure=mask,mode='wrap')
+        locs = (ds<=ge)
+
+        # restrict it to pairs of points that are closer than maxdist
+        locs *= (ds<maxdist)
+
+        # restrict it to paris of points that are separated by
+        # at least mincdist on the contour
+        locs *= (cds>=mincdist)
+
+        # label the remaining minima and locate them
+        locs,n = measurements.label(locs)
+        cms = measurements.center_of_mass(locs,locs,range(1,n+1))
+
+        # keep only on of each pair (in canonical ordering)
+        cms = [(int(i+0.5),int(j+0.5)) for i,j in cms if i<j]
+        for i,j in cms:
+            x0,y0 = cs[i]
+            x1,y1 = cs[j]
+            # keep only the near vertical ones
+            if abs(y1-y0)>abs(x1-x0):
+                color = 'r'
+                cuts.append((cs[i],cs[j]))
+            else:
+                color = 'b'
+            if debug:
+                print (x0,y0),(x1,y1)
+                figure(1); plot([x0,x1],[y0,y1],color)
+
+        if debug:
+            figure(2); clf(); ion(); imshow(locs!=0)
+            figure(3); clf(); imshow(minimum(ds,maxdist*1.5),interpolation='nearest')
+            ginput(1,0.1)
+            print "hit ENTER"; raw_input()
+    # now construct a cut image
+    cutimage = zeros(image.shape)
+    for ((x0,y0),(x1,y1)) in cuts:
+        image_draw_line(cutimage,y0,x0,y1,x1)
+    cutimage = filters.maximum_filter(cutimage,(3,3))
+    if debug:
+        figure(4); clf(); imshow(maximum(0,image-0.5*cutimage))
+    return cutimage
+        
+
+
+class ComboSegmentLine(SimpleParams):
+    """Perform a dynamic programming line segmentation, as described in Breuel (1994).
+    This computes best cuts going out from the center in both directions, then finds
+    the loally minimum costs.  Paths that move diagonally are penalized, and paths
+    that move along the left edge of a line are rewarded.
+
+    In addition, this segmenter also computes contour-based cuts; these handle
+    cases like two touching "oo" that are not handled well by the dynamic programming
+    cuts.  To integrate the two segmenters, the contour-based cuts are applied first,
+    and then the dynamic programming algorithm; this ensures that the two strategies
+    give consistent segmentations."""
+    @checks(object,imweight=RANGE(0,10),bweight=RANGE(-10,0),diagweight=RANGE(0,10),r=RANGE(1,5),debug=BOOL,maxdist=RANGE(0,1000),minrange=RANGE(0,1000),mincdist=RANGE(0,1000),sigma=RANGE(0.0,100.0),rr=RANGE(3,300),s=RANGE(0.0,500.0))
+    def __init__(self,imweight=4,bweight=-1,diagweight=1,r=1,debug=0,
+                 maxdist=15,minrange=10,mincdist=20,sigma=1.0,rr=8,s=0.5):
+        self.r = r
+        self.imweight = imweight
+        self.bweight = bweight
+        self.diagweight = diagweight
+        self.debug = debug
+        self.maxdist = maxdist
+        self.minrange = minrange
+        self.mincdist = mincdist
+        self.sigma = sigma
+        self.rr = rr
+        self.s = s
+    @checks(object,LIGHTLINE)
+    def charseg(self,line):
+        """Segment a text line into potential character parts."""
+        assert mean(line)>0.5*amax(line)
+        line0 = amax(line)-line
+        ccuts = contourcuts(line0,maxdist=self.maxdist,minrange=self.minrange,
+                            mincdist=self.mincdist,sigma=self.sigma,r=self.rr,s=self.s)
+        line = maximum(0,line0-ccuts)
+        # line = line+self.ledge*maximum(0,roll(line,-1,1)-line)
+        tracks = dplineseg2(line,imweight=self.imweight,bweight=self.bweight,
+                            diagweight=self.diagweight,debug=self.debug,r=self.r)
+        tracks = array(tracks<0.5*amax(tracks),'i')
+        tracks,_ = morph.label(tracks)
+        self.tracks = tracks
+        stracks = morph.spread_labels(tracks)
+        rsegs = stracks*(line0>0.5*amax(line0))
+        if self.debug:
+            figure("temp")
+            subplot(311); morph.showlabels(tracks)
+            subplot(312); morph.showlabels(stracks)
+            subplot(313); morph.showlabels(rsegs)
+            raw_input()
+        return morph.renumber_by_xcenter(rsegs)
+
+
 ### A top-level driver for quick and simple testing.
 
 if __name__=="__main__":
