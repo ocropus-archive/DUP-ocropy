@@ -38,7 +38,8 @@ image = evariant(arg,"png") and ocrolib.read_image_gray(fvariant(arg,"png"))
 cseg = evariant(arg,"cseg") and ocrolib.read_line_segmentation(fvariant(arg,"cseg"))
 rseg = evariant(arg,"rseg") and ocrolib.read_line_segmentation(fvariant(arg,"rseg"))
 gt = evariant(arg,"txt","gt") and ocrolib.read_text(fvariant(arg,"txt","gt"))
-aligned = evariant(arg,"txt") and ocrolib.read_text(fvariant(arg,"aligned"))
+aligned = evariant(arg,"aligned") and ocrolib.read_text(fvariant(arg,"aligned"))
+txt = evariant(arg,"txt") and ocrolib.read_text(fvariant(arg,"txt"))
 lattice = evariant(arg,"lattice") and linerec.read_lattice(fvariant(arg,"lattice"))
 
 csegs = linerec.extract_csegs(cseg,aligned)
@@ -80,5 +81,6 @@ if 0:
 
 print "gt:     ",gt
 print "aligned:",aligned
+print "txt:    ",txt
 print lattice[0]
 show()

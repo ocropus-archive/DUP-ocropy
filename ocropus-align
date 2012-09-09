@@ -150,7 +150,6 @@ Inputs: line.lattice, line.gt.txt
 Outputs: line.cseg.png, line.aligned
 """)
 
-parser.add_argument('--show',default=None,help="show the argument lattice")
 parser.add_argument('--build',default=None,help="build and write a language model")
 parser.add_argument('--ngraph',type=int,default=4,help="order of the language model")
 parser.add_argument('--sample',default=None,type=int,help="sample from the language model")

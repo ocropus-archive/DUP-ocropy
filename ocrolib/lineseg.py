@@ -69,8 +69,9 @@ def centroid(image):
     xc = sum(image*xs)/sum(image)
     return yc,xc
 
-@checks(AFLOAT2,imweight=RANGE(-20,20),bweight=RANGE(-20,20),diagweight=RANGE(-20,20),r=RANGE(0,4),debug=BOOL)
-def dplineseg2(image,imweight=4,bweight=-1,diagweight=1,r=2,debug=0,width=-1,wfactor=1.0):
+@checks(AFLOAT2,imweight=RANGE(-20,20),bweight=RANGE(-20,0),diagweight=RANGE(-20,20),r=RANGE(0,4),debug=BOOL)
+def dplineseg2(image,imweight=4,bweight=-1,diagweight=1,r=2,debug=0,width=-1,wfactor=1.0,
+               threshold=0.5,sigma=1.0):
     """Perform a dynamic programming line segmentation, as described in Breuel (1994).
     This computes best cuts going out from the center in both directions, then finds
     the loally minimum costs.  Paths that move diagonally are penalized, and paths
@@ -98,14 +99,16 @@ def dplineseg2(image,imweight=4,bweight=-1,diagweight=1,r=2,debug=0,width=-1,wfa
         subplot(412); imshow(tc)
         subplot(413); imshow(bc)
     costs = tc[-1]+bc[-1]
-    costs = filters.gaussian_filter(costs,1)
-    costs += 0.01*filters.gaussian_filter(costs,3.0)
-    costs -= amin(costs)
+    costs = filters.gaussian_filter(costs,sigma)
+    costs += 0.01*filters.gaussian_filter(costs,3.0*sigma)
+    # costs -= amin(costs)
     mins = (filters.minimum_filter(costs,width)==costs) # *(costs>0.3*amax(costs))
-    mins *= costs<0.5*amax(costs)
+    mins *= costs<threshold*median(abs(costs))
     if debug:
         figure("debug-dpseg-mins")
         plot(costs)
+        plot(tc[-1])
+        plot(bc[-1])
         plot(mins)
     l = find(mins)
     tt = dptrack(l,ts)
@@ -167,12 +170,13 @@ class DPSegmentLine(SimpleParams):
     the loally minimum costs.  Paths that move diagonally are penalized, and paths
     that move along the left edge of a line are rewarded."""
     @checks(object,imweight=RANGE(0,10),bweight=RANGE(-10,0),diagweight=RANGE(0,10),r=RANGE(1,5),debug=BOOL)
-    def __init__(self,imweight=4,bweight=-1,diagweight=1,r=1,debug=0):
+    def __init__(self,imweight=4,bweight=-1,diagweight=1,r=1,debug=0,threshold=0.5):
         self.r = r
         self.imweight = imweight
         self.bweight = bweight
         self.diagweight = diagweight
         self.debug = debug
+        self.threshold = threshold
     @checks(object,LIGHTLINE)
     def charseg(self,line):
         """Segment a text line into potential character parts."""
@@ -180,7 +184,8 @@ class DPSegmentLine(SimpleParams):
         line = amax(line)-line
         # line = line+self.ledge*maximum(0,roll(line,-1,1)-line)
         tracks = dplineseg2(line,imweight=self.imweight,bweight=self.bweight,
-                            diagweight=self.diagweight,debug=self.debug,r=self.r)
+                            diagweight=self.diagweight,debug=self.debug,r=self.r,
+                            threshold=self.threshold)
         tracks = array(tracks<0.5*amax(tracks),'i')
         tracks,_ = morph.label(tracks)
         self.tracks = tracks
@@ -365,6 +370,7 @@ if __name__=="__main__":
     test.add_argument("--bweight",type=float,default=-1,help="left border weight (%(default)f)")
     test.add_argument("--diagweight",type=float,default=1,help="additional diagonal weight (%(default)f)")
     test.add_argument("--r",type=int,default=1,help="range for diagonal steps (%(default)d)")
+    test.add_argument("--threshold",type=float,default=0.5)
     test.add_argument("files",nargs="+",default=[])
     # test2 = subparsers.add_parser("test2")
     args = parser.parse_args()
@@ -373,6 +379,7 @@ if __name__=="__main__":
                                   bweight=args.bweight,
                                   diagweight=args.diagweight,
                                   r=args.r,
+                                  threshold=args.threshold,
                                   debug=1)
         ion(); gray()
         for fname in args.files:

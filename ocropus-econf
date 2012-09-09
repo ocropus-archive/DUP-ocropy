@@ -1,7 +1,7 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
-import warnings,numpy,argparse,re,sys,os,os.path,unicodedata,multiprocessing
+import warnings,numpy,argparse,re,sys,os,os.path,unicodedata,multiprocessing,codecs
 from collections import Counter
 import ocrolib
 from pylab import *
@@ -19,13 +19,15 @@ option is given.
 """)
 parser.add_argument("files",default=[],nargs='*',help="input lines")
 parser.add_argument("-x","--extension",default=".txt",help="extension for recognizer output, default: %(default)s")
-# parser.add_argument("-g","--gtextension",default=".gt.txt",help="extension for ground truth, default: %(default)s")
+
 parser.add_argument("-k","--kind",default="exact",help="kind of comparison (exact, nospace, letdig, letters, digits, lnc), default: %(default)s")
-parser.add_argument("-e","--erroronly",action="store_true",help="only output an error rate")
 parser.add_argument("-s","--skipmissing",action="store_true",help="don't use missing or empty output files in the calculation")
-parser.add_argument("-c","--confusion",action="store_true",help="compute confusion matrix")
+
+parser.add_argument("-c","--confusion",default=0,type=int,help="output this many top confusion")
+parser.add_argument("-a","--allconf",default=None,help="output all confusions to this file")
+parser.add_argument("-e","--perfile",default=None,help="output per-file errors to this file")
 parser.add_argument("-C","--context",type=int,default=0,help="context for confusion matrix")
-parser.add_argument("-Q","--parallel",type=int,default=1) # default=multiprocessing.cpu_count())
+parser.add_argument("-Q","--parallel",type=int,default=multiprocessing.cpu_count())
 args = parser.parse_args()
 args.files = ocrolib.glob_all(args.files)
 
@@ -162,7 +164,7 @@ def process1(fname):
     else:
         missing = len(gt)
         txt = ""
-    if args.confusion:
+    if args.confusion>0 or args.allconf is not None:
         err,cs = xlevenshtein(txt,gt,context=args.context)
         for u,v in cs:
             counts[(u,v)] += 1
@@ -173,17 +175,31 @@ def process1(fname):
 
 outputs = ocrolib.parallel_map(process1,args.files,parallel=args.parallel,chunksize=10)
 
+perfile = None
+if args.perfile is not None:
+    perfile = codecs.open(args.perfile,"w","utf-8")
+
+allconf = None
+if args.allconf is not None:
+    allconf = codecs.open(args.allconf,"w","utf-8")
+
 errs = 0
 total = 0
 missing = 0
 counts = Counter()
 for fname,e,t,m,c in sorted(outputs):
-    if not args.confusion and not args.erroronly:
-        print "%6d\t%6d\t%s"%(e,t,fname)
     errs += e
     total += t
     missing += m
     counts += c
+    if perfile is not None:
+        perfile.write("%6d\t%6d\t%s\n"%(e,t,fname))
+    if allconf is not None:
+        for (a,b),v in c.most_common(1000):
+            allconf.write("%s\t%s\t%s\n"%(a,b,fname))
+
+if perfile is not None: perfile.close()
+if allconf is not None: allconf.close()
 
 sys.stderr.write("errors    %8d\n"%errs)
 sys.stderr.write("missing   %8d\n"%missing)
@@ -191,9 +207,8 @@ sys.stderr.write("total     %8d\n"%total)
 sys.stderr.write("err       %8.3f %%\n"%(errs*100.0/total))
 sys.stderr.write("errnomiss %8.3f %%\n"%((errs-missing)*100.0/total))
 
-if args.confusion:
-    for (a,b),v in counts.most_common():
+if args.confusion>0:
+    for (a,b),v in counts.most_common(args.confusion):
         print "%d\t%s\t%s"%(v,a,b)
 
-if args.erroronly:
-    print errs*1.0/total
+print errs*1.0/total
