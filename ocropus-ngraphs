@@ -59,6 +59,7 @@ parser.add_argument('-W','--maxws',default=8,type=float,help="max whitespace cos
 parser.add_argument('-M','--maxcost',default=15.0,type=float,help="max cost (%(default)s)")
 parser.add_argument('-X','--mismatch',default=8,type=float,help="mismatch cost (%(default)s)")
 parser.add_argument('-T','--thresh',default=0.0,type=float,help="below this cost, ignore language model")
+parser.add_argument('-n','--nbest',type=int,default=5,help="the n best labels from each state to use from the lattice")
 
 parser.add_argument('-q','--quiet',action="store_true",help="don't output each line")
 parser.add_argument('--other',default=15.0,type=float,help="extra cost for characters outside the lattice")
@@ -126,6 +127,7 @@ def expand(path,ngraphs,
            verbose=0,
            missing=15.0,
            thresh=1.0,
+           nbest=5,
            other=15.0,nother=1,lother=1.0,
            noreject=1):
     """Expand a search path.  Arguments are:
@@ -145,6 +147,8 @@ def expand(path,ngraphs,
     floor = missing
     lposteriors = ngraphs.getLogPosteriors(path.path)
     edges = lattice.edges[path.state]
+    edges = sorted(edges,key=lambda e:e.cost)
+    edges = edges[:nbest]
     result = []
     transitions = set()
 
@@ -347,7 +351,7 @@ for fname in fnames:
 
     # search through the lattice for the best path under the ngraph model
     result = search(lattice,ngraphs,lweight=args.lweight,cweight=args.cweight,beam=args.beam,thresh=args.thresh,
-                    other=args.other,nother=args.nother,lother=args.lother)
+                    other=args.other,nother=args.nother,lother=args.lother,nbest=args.nbest)
 
     # strip the initial context (we prepend "____" to create the line startup context)
     text = result[0].path[ngraphs.N:]
