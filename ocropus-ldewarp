@@ -1,0 +1,78 @@
+#!/usr/bin/python
+
+# make the clustering class-specific
+
+import sys,os,re,glob,math,glob,signal,traceback,codecs,time
+import fcntl
+import matplotlib,tables
+if "DISPLAY" not in os.environ: matplotlib.use("AGG")
+else: matplotlib.use("GTK")
+from scipy.ndimage import interpolation
+from pylab import *
+from optparse import OptionParser
+from multiprocessing import Pool
+import ocrolib
+from ocrolib import number_of_processors,die
+from ocrolib.ligatures import lig
+from ocrolib.lineest import TrainedLineGeometry
+from ocrolib import lineseg,morph,linerec,improc,lineproc,h5utils
+import cPickle
+from ocrolib.toplevel import *
+
+import warnings,numpy
+warnings.simplefilter('ignore',numpy.RankWarning)
+warnings.filterwarnings('error','.*invalid value.*')
+
+signal.signal(signal.SIGINT,lambda *args:sys.exit(1))
+
+import argparse
+parser = argparse.ArgumentParser(description = """Dewarps textlines and rescales them to a standard x-height.""")
+parser.add_argument("-X","--exec",dest="execute",help="execute before anything else (usually used for imports)",default="None")
+parser.add_argument('-d',"--baselinedegree",type=int,default=1,help="degree of baseline model")
+parser.add_argument('-e','--lineest',default=ocrolib.default.lineest,help="line geometry model (%(default)s)")
+parser.add_argument('files',nargs="*",default=[],help="text line files")
+
+args = parser.parse_args()
+args.files = ocrolib.glob_all(args.files)
+if len(args.files)==0:
+    parser.print_help()
+    sys.exit(0)
+
+target_height = 48
+target_xheight = 24
+target_baseline = 36
+exec args.execute
+
+emodel = ocrolib.ocropus_find_file(args.lineest)
+print "loading",emodel
+emodel = ocrolib.load_component(emodel)
+print "got",emodel
+
+
+
+def process1(fname):
+    print "===",fname
+    limage = ocrolib.read_image_gray(fname)
+    base,_ = ocrolib.allsplitext(fname)
+    h,w = limage.shape
+    avgbaseline,xheight,blp,xlp = emodel.lineParameters(1-limage,order=args.baselinedegree)
+    scale = target_xheight*1.0/xheight
+    missing = target_height/scale-h
+    if missing>0:
+        limage = vstack([limage,ones([missing,w])*amax(limage)])
+        
+    bs = target_baseline/scale
+    for x in range(w):
+        baseline = polyval(blp,x)
+        limage[:,x] = interpolation.shift(limage[:,x],bs-baseline,order=1,mode='constant',cval=amax(limage))
+    limage = interpolation.zoom(limage,scale,order=1)
+    limage = limage[:target_height,:]
+    if 0:
+        clf(); gray(); imshow(1-limage)
+        plot([0,scale*w],[target_baseline,target_baseline])
+    ocrolib.write_image_gray(base+".dew.png",limage)
+
+
+
+for fname in args.files:
+    process1(fname)
