@@ -170,8 +170,8 @@ parser.add_argument('-q','--quiet',action="store_true",help="don't output each l
 # use it, for example, if you want to train a Latin alphabet with a few extra characters
 # or to add new ligatures.
 
-default_ligatures = """fi ff ffi fl ck
-Th ri ry rt rn rm as th oo 00 000 ''
+default_ligatures = """fi ff ffi fl ft ck 
+li th Th re ri ry rt rn rm as th oo 00 000 po pe ''
 """
 
 parser.add_argument('--ligatures',default=default_ligatures,help="optional ligatures")

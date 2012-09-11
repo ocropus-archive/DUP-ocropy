@@ -177,7 +177,7 @@ def expand(path,ngraphs,
             ncost = path.cost + cweight*e.cost + l*lcost
             if verbose:
                 prefix = ngraphs.lineproc(path.path)[-5:]
-                print "prefix",repr(prefix),"cls",repr(cls),"ecost",cweight*e.cost,"lcost",lcost,"ncost",ncost
+                print "prefix",repr(prefix),"cls",repr(cls),"ecost",cweight*e.cost,"lcost",lcost,"ncost",ncost,"seg",e.seg
         else:
             ncost = path.cost + cweight*e.cost
             for c in cls:
