@@ -30,6 +30,9 @@ parser = argparse.ArgumentParser(description = """Dewarps textlines and rescales
 parser.add_argument("-X","--exec",dest="execute",help="execute before anything else (usually used for imports)",default="None")
 parser.add_argument('-d',"--baselinedegree",type=int,default=1,help="degree of baseline model")
 parser.add_argument('-e','--lineest',default=ocrolib.default.lineest,help="line geometry model (%(default)s)")
+parser.add_argument('-l','--height',default=48,type=int,help="target line height")
+parser.add_argument('-x','--xheightfrac',default=0.5,type=float,help="target xheight frac")
+parser.add_argument('-b','--baselinefrac',default=0.8,type=float,help="target baseline frac")
 parser.add_argument('files',nargs="*",default=[],help="text line files")
 
 args = parser.parse_args()
@@ -38,9 +41,10 @@ if len(args.files)==0:
     parser.print_help()
     sys.exit(0)
 
-target_height = 48
-target_xheight = 24
-target_baseline = 36
+target_height = args.height
+target_xheight = int(0.5+args.xheightfrac*target_height)
+target_baseline = int(0.5+args.baselinefrac*target_height)
+print "height",target_height,"xheight",target_xheight,"baseline",target_baseline
 exec args.execute
 
 emodel = ocrolib.ocropus_find_file(args.lineest)
@@ -75,4 +79,7 @@ def process1(fname):
 
 
 for fname in args.files:
-    process1(fname)
+    try:
+        process1(fname)
+    except ocrolib.CheckWarning as warning:
+        print warning
