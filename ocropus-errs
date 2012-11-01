@@ -43,25 +43,23 @@ def levenshtein(a,b):
 # alignment; it mainly cleans up the quote mess
 
 replacements = [
+    ('[_~#]',"''"), # OCR control characters
     (u'"',u"''"),     # typewriter double quote
     (u"`",u"'"),      # grave accent
+    ('[“”]',"''"),    # fancy quotes
     (u"\u00b4",u"'"),   # acute accent
     (u"\u2018",u"'"), # left single quotation mark
     (u"\u2019",u"'"), # right single quotation mark
     (u"\u201c",u"''"), # left double quotation mark
     (u"\u201d",u"''"), # right double quotation mark
+    (r'( *[.] *){4,}','....') # dot rows
 ]
 
 def normalize(s):
-    s = re.sub('[_~#]',"''",s)
-    s = re.sub('`',"''",s)
-    s = re.sub('"',"'",s)
-    s = re.sub('[“”]',"''",s)
     s = re.sub(r'\s',' ',s)
     s = re.sub(r'\n','',s)
     s = re.sub(r'^\s+','',s)
     s = re.sub(r'\s+$','',s)
-    s = re.sub(r'( *[.] *){4,}','....',s)
     for m,r in replacements:
         s = re.sub(m,r,s)
     s = unicodedata.normalize('NFKD',s)

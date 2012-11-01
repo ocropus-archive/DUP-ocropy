@@ -55,26 +55,36 @@ print "got",emodel
 
 
 def process1(fname):
+    base,_ = ocrolib.allsplitext(fname)
     print "===",fname
     limage = ocrolib.read_image_gray(fname)
-    base,_ = ocrolib.allsplitext(fname)
+    if os.path.exists(base+".cseg.png"):
+        cseg = ocrolib.read_line_segmentation(base+".cseg.png")
+    else:
+        cseg = zeros(limage.shape,'i')
     h,w = limage.shape
     avgbaseline,xheight,blp,xlp = emodel.lineParameters(1-limage,order=args.baselinedegree)
     scale = target_xheight*1.0/xheight
     missing = target_height/scale-h
     if missing>0:
         limage = vstack([limage,ones([missing,w])*amax(limage)])
+        cseg = vstack([cseg,zeros([missing,w])])
         
     bs = target_baseline/scale
     for x in range(w):
         baseline = polyval(blp,x)
         limage[:,x] = interpolation.shift(limage[:,x],bs-baseline,order=1,mode='constant',cval=amax(limage))
+        cseg[:,x] = interpolation.shift(cseg[:,x],bs-baseline,order=0,mode='constant',cval=0)
     limage = interpolation.zoom(limage,scale,order=1)
+    cseg = interpolation.zoom(cseg,scale,order=0)
     limage = limage[:target_height,:]
+    cseg = array(cseg[:target_height,:],'i')
     if 0:
         clf(); gray(); imshow(1-limage)
         plot([0,scale*w],[target_baseline,target_baseline])
     ocrolib.write_image_gray(base+".dew.png",limage)
+    if amax(cseg>0):
+        ocrolib.write_line_segmentation(base+".dcs.png",cseg)
 
 
 
@@ -83,3 +93,5 @@ for fname in args.files:
         process1(fname)
     except ocrolib.CheckWarning as warning:
         print warning
+    except:
+        traceback.print_exc()
