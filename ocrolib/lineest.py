@@ -203,6 +203,49 @@ LineEstimationModel = TrainedLineGeometry
 
 
 
+# General purpose functions for line dewarping.
+
+def force_height(image,target_h,cval=0):
+    """Force a line to the given target height by cropping
+    vertically or adding background pixels."""
+    h,w = image.shape
+    result = ones((target_h,w),dtype=image.dtype)*cval
+    h = min(h,target_h)
+    result[:h,:] = image[:h,:]
+    return result
+
+def make_normalizer(emodel,limage,target_height,params=(0.5,0.8,1)):
+    xheightfrac,baselinefrac,degree = params
+    target_xheight = int(0.5+xheightfrac*target_height)
+    target_baseline = int(0.5+baselinefrac*target_height)
+    return make_normalizer_abs(emodel,limage,target_height,target_xheight,target_baseline,degree=degree)
+
+def make_normalizer_abs(emodel,limage,target_height,target_xheight,target_baseline,degree=1):
+    """Given an emodel, a line image, and targets for xheight and baselines,
+    this returns a function that normalizes images of the same size and shape
+    as limage. This can be used to normalize the original line image,
+    as well as cseg or other line-related images."""
+    rimage = 1.0-limage*1.0/amax(limage)
+    avgbaseline,xheight,blp,xlp = emodel.lineParameters(rimage,order=degree)
+    h,w = limage.shape
+    scale = (1+target_xheight)*1.0/xheight
+    missing = target_height/scale-h
+    bs = target_baseline/scale
+    def normalize(img,order=1,dtype=dtype('f'),cval=0):
+        assert img.shape==(h,w)
+        if missing>0:
+            img = vstack([img,ones([missing,w],dtype=dtype)*cval])
+        for x in range(w):
+            baseline = polyval(blp,x)
+            img[:,x] = interpolation.shift(img[:,x],bs-baseline,order=order,mode='constant',cval=cval,output=dtype)
+        img = interpolation.zoom(img,scale,order=1)
+        img = force_height(img,target_height,cval=cval)
+        return img
+    return normalize
+
+
+
+
 def expand(fname):
     if fname[0]=="@":
         fnames = open(fname[1:]).read().split("\n")

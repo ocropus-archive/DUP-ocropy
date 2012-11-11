@@ -14,7 +14,7 @@ from multiprocessing import Pool
 import ocrolib
 from ocrolib import number_of_processors,die
 from ocrolib.ligatures import lig
-from ocrolib.lineest import TrainedLineGeometry
+from ocrolib.lineest import TrainedLineGeometry,make_normalizer
 from ocrolib import lineseg,morph,linerec,improc,lineproc,h5utils
 import cPickle
 from ocrolib.toplevel import *
@@ -42,9 +42,6 @@ if len(args.files)==0:
     sys.exit(0)
 
 target_height = args.height
-target_xheight = int(0.5+args.xheightfrac*target_height)
-target_baseline = int(0.5+args.baselinefrac*target_height)
-print "height",target_height,"xheight",target_xheight,"baseline",target_baseline
 exec args.execute
 
 emodel = ocrolib.ocropus_find_file(args.lineest)
@@ -54,37 +51,50 @@ print "got",emodel
 
 
 
+# target_xheight = int(0.5+args.xheightfrac*target_height)
+# target_baseline = int(0.5+args.baselinefrac*target_height)
+# print "height",target_height,"xheight",target_xheight,"baseline",target_baseline
+# def force_height(image,target_h):
+#     h,w = image.shape
+#     result = zeros((target_h,w),dtype=image.dtype)
+#     h = min(h,target_h)
+#     result[:h,:] = image[:h,:]
+#     return result
+# 
+# def make_normalizer(emodel,limage,target_xheight,target_baseline):
+#     rimage = 1.0-limage*1.0/amax(limage)
+#     avgbaseline,xheight,blp,xlp = emodel.lineParameters(rimage,order=args.baselinedegree)
+#     h,w = limage.shape
+#     scale = (1+target_xheight)*1.0/xheight
+#     missing = target_height/scale-h
+#     bs = target_baseline/scale
+#     def normalize(img,order=1,dtype=dtype('f'),cval=0):
+#         assert img.shape==(h,w)
+#         if missing>0:
+#             img = vstack([img,ones([missing,w],dtype=dtype)*cval])
+#         for x in range(w):
+#             baseline = polyval(blp,x)
+#             img[:,x] = interpolation.shift(img[:,x],bs-baseline,order=order,mode='constant',cval=cval,output=dtype)
+#         img = interpolation.zoom(img,scale,order=1)
+#         img = force_height(img,target_height)
+#         return img
+#     return normalize
+
 def process1(fname):
     base,_ = ocrolib.allsplitext(fname)
     print "===",fname
     limage = ocrolib.read_image_gray(fname)
+    params = (args.xheightfrac,args.baselinefrac,args.baselinedegree)
+    normalize = make_normalizer(emodel,limage,target_height,params)
+    limage = normalize(limage,cval=amax(limage))
+    ocrolib.write_image_gray(base+".dew.png",limage)
     if os.path.exists(base+".cseg.png"):
         cseg = ocrolib.read_line_segmentation(base+".cseg.png")
-    else:
-        cseg = zeros(limage.shape,'i')
-    h,w = limage.shape
-    avgbaseline,xheight,blp,xlp = emodel.lineParameters(1-limage,order=args.baselinedegree)
-    scale = target_xheight*1.0/xheight
-    missing = target_height/scale-h
-    if missing>0:
-        limage = vstack([limage,ones([missing,w])*amax(limage)])
-        cseg = vstack([cseg,zeros([missing,w])])
-        
-    bs = target_baseline/scale
-    for x in range(w):
-        baseline = polyval(blp,x)
-        limage[:,x] = interpolation.shift(limage[:,x],bs-baseline,order=1,mode='constant',cval=amax(limage))
-        cseg[:,x] = interpolation.shift(cseg[:,x],bs-baseline,order=0,mode='constant',cval=0)
-    limage = interpolation.zoom(limage,scale,order=1)
-    cseg = interpolation.zoom(cseg,scale,order=0)
-    limage = limage[:target_height,:]
-    cseg = array(cseg[:target_height,:],'i')
+        cseg = normalize(cseg,order=0,dtype=dtype('i'),cval=0)
+        ocrolib.write_line_segmentation(base+".dcs.png",cseg)
     if 0:
         clf(); gray(); imshow(1-limage)
         plot([0,scale*w],[target_baseline,target_baseline])
-    ocrolib.write_image_gray(base+".dew.png",limage)
-    if amax(cseg>0):
-        ocrolib.write_line_segmentation(base+".dcs.png",cseg)
 
 
 
