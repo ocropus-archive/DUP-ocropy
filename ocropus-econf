@@ -106,46 +106,6 @@ def xlevenshtein(a,b,context=1):
     confusions = [(a,b) for a,b in zip(ags,bgs) if a!="" or b!=""]
     return cost,confusions
 
-# this is the same list of replacements we use for
-# alignment; it mainly cleans up the quote mess
-
-replacements = [
-    ('[_~#]',"''"), # OCR control characters
-    (u'"',u"''"),     # typewriter double quote
-    (u"`",u"'"),      # grave accent
-    ('[“”]',"''"),    # fancy quotes
-    (u"\u00b4",u"'"),   # acute accent
-    (u"\u2018",u"'"), # left single quotation mark
-    (u"\u2019",u"'"), # right single quotation mark
-    (u"\u201c",u"''"), # left double quotation mark
-    (u"\u201d",u"''"), # right double quotation mark
-    (r'( *[.] *){4,}','....') # dot rows
-]
-
-def normalize(s):
-    s = re.sub(r'\s',' ',s)
-    s = re.sub(r'\n','',s)
-    s = re.sub(r'^\s+','',s)
-    s = re.sub(r'\s+$','',s)
-    for m,r in replacements:
-        s = re.sub(m,r,s)
-    s = unicodedata.normalize('NFKD',s)
-    if args.kind=="exact":
-        return s
-    if args.kind=="nospace":
-        return re.sub(r'\s','',s)
-    if args.kind=="spletdig":
-        return re.sub(r'[^A-Za-z0-9 ]','',s)
-    if args.kind=="letdig":
-        return re.sub(r'[^A-Za-z0-9]','',s)
-    if args.kind=="letters":
-        return re.sub(r'[^A-Za-z]','',s)
-    if args.kind=="digits":
-        return re.sub(r'[^0-9]','',s)
-    if args.kind=="lnc":
-        s = s.upper()
-        return re.sub(r'[^A-Z]','',s)
-    raise Exception("unknown normalization: "+args.kind)
 
 if not ".gt." in args.files[0]:
     sys.stderr.write("warning: compare on .gt.txt files, not .txt files\n")
@@ -154,11 +114,11 @@ if not ".gt." in args.files[0]:
 def process1(fname):
     # fgt = ocrolib.allsplitext(fname)[0]+args.gtextension
     counts = Counter()
-    gt = normalize(ocrolib.read_text(fname))
+    gt = ocrolib.project_text(ocrolib.read_text(fname),kind=args.kind)
     ftxt = ocrolib.allsplitext(fname)[0]+args.extension
     missing = 0
     if os.path.exists(ftxt):
-        txt = normalize(ocrolib.read_text(ftxt))
+        txt = ocrolib.project_text(ocrolib.read_text(ftxt),kind=args.kind)
     else:
         missing = len(gt)
         txt = ""

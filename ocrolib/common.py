@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 ################################################################
 ### common functions for data structures, file name manipulation, etc.
 ################################################################
@@ -35,19 +36,84 @@ def deprecated(f):
 
 
 ################################################################
+# text normalization
+################################################################
+
+# this is the same list of replacements we use for
+# alignment; it mainly cleans up the quote mess
+
+replacements = [
+    (u'[_~#]',u"~"), # OCR control characters
+    (u'"',u"''"),     # typewriter double quote
+    (u"`",u"'"),      # grave accent
+    (u'[“”]',u"''"),    # fancy quotes
+    (u"\u00b4",u"'"),   # acute accent
+    (u"\u2018",u"'"), # left single quotation mark
+    (u"\u2019",u"'"), # right single quotation mark
+    (u"\u201c",u"''"), # left double quotation mark
+    (u"\u201d",u"''"), # right double quotation mark
+]
+
+def normalize_text(s):
+    """Apply starndard Unicode normalizations for OCR.
+    This eliminates common ambiguities and weird unicode
+    characters."""
+    s = unicode(s)
+    s = unicodedata.normalize('NFC',s)
+    s = re.sub(ur'\s+(?u)',' ',s)
+    s = re.sub(ur'\n(?u)','',s)
+    s = re.sub(ur'^\s+(?u)','',s)
+    s = re.sub(ur'\s+$(?u)','',s)
+    for m,r in replacements:
+        s = re.sub(unicode(m),unicode(r),s)
+    return s
+
+def project_text(s,kind="exact"):
+    """Project text onto a smaller subset of characters
+    for comparison."""
+    s = normalize_text(s)
+    (r'( *[.] *){4,}','....') # dot rows
+    if kind=="exact":
+        return s
+    if kind=="nospace":
+        return re.sub(ur'\s','',s)
+    if kind=="spletdig":
+        return re.sub(ur'[^A-Za-z0-9 ]','',s)
+    if kind=="letdig":
+        return re.sub(ur'[^A-Za-z0-9]','',s)
+    if kind=="letters":
+        return re.sub(ur'[^A-Za-z]','',s)
+    if kind=="digits":
+        return re.sub(ur'[^0-9]','',s)
+    if kind=="lnc":
+        s = s.upper()
+        return re.sub(ur'[^A-Z]','',s)
+    raise Exception("unknown normalization: "+kind)
+
+################################################################
 ### Text I/O
 ################################################################
 
 import codecs
 
-def read_text(fname,nonl=1):
+def read_text(fname,nonl=1,normalize=1):
+    """Read text. This assumes files are in unicode.
+    By default, it removes newlines and normalizes the
+    text for OCR processing with `normalize_text`"""
     with codecs.open(fname,"r","utf-8") as stream:
         result = stream.read()
     if nonl and len(result)>0 and result[-1]=='\n':
         result = result[:-1]
+    if normalize:
+        result = normalize_text(result)
     return result
 
-def write_text(fname,text,nonl=0):
+def write_text(fname,text,nonl=0,normalize=1):
+    """Write text. This assumes files are in unicode.
+    By default, it removes newlines and normalizes the
+    text for OCR processing with `normalize_text`"""
+    if normalize:
+        text = normalize_text(text)
     with codecs.open(fname,"w","utf-8") as stream:
         stream.write(text)
         if not nonl and text[-1]!='\n':
