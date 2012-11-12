@@ -256,7 +256,7 @@ class LineestNormalizer:
     def setHeight(self,target_height):
         self.target_height = target_height
     def measure(self,limage):
-        self.normalize = make_normalizer(self.emodel,limage,self.target_height,self.params)
+        self.normalize = make_normalizer(self.emodel,amax(limage)-limage,self.target_height,self.params)
     def normalize(self,img):
         return self.normalize(img)
 
