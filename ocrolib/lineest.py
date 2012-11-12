@@ -232,6 +232,7 @@ def make_normalizer_abs(emodel,limage,target_height,target_xheight,target_baseli
     missing = target_height/scale-h
     bs = target_baseline/scale
     def normalize(img,order=1,dtype=dtype('f'),cval=0):
+        img = img.copy()
         assert img.shape==(h,w)
         if missing>0:
             img = vstack([img,ones([missing,w],dtype=dtype)*cval])
@@ -243,6 +244,68 @@ def make_normalizer_abs(emodel,limage,target_height,target_xheight,target_baseli
         return img
     return normalize
 
+
+
+default_params = (0.5,0.8,1)
+
+class LineestNormalizer:
+    def __init__(self,emodel,target_height=32,params=default_params):
+        self.emodel = emodel
+        self.target_height = target_height
+        self.params = params
+    def setHeight(self,target_height):
+        self.target_height = target_height
+    def measure(self,limage):
+        self.normalize = make_normalizer(self.emodel,limage,self.target_height,self.params)
+    def normalize(self,img):
+        return self.normalize(img)
+
+class MvNormalizer:
+    def __init__(self,target_height=32):
+        self.target_height = target_height
+        self.perc = 90
+        self.dest = 0.4
+        self.sigma = (10,30)
+    def setHeight(self,h):
+        self.target_height = h
+    def measure(self,image):
+        global xs,center
+        self.shape = image.shape
+        h,w = image.shape
+        ys = arange(h)
+        xs = arange(w)
+        # smooth the image and compute the vertical mean
+        smoothed = filters.gaussian_filter(image,self.sigma)
+        center = sum(smoothed*ys[:,newaxis],axis=0)/sum(1e-6+smoothed,axis=0)
+        # perform a linear fit
+        p = polyfit(xs,center,1)
+        m,b = p
+        # compute the deviation of the image pixels from the line (m,b)
+        yps = (ys[:,newaxis]-polyval(p,xs)[newaxis,:])
+        yps = abs(yps)[image>0.5]
+        d = stats.scoreatpercentile(yps,self.perc)
+        # we want this distance to be a fraction of dest of the target height;
+        # store the appropriate normalization parameters
+        self.scale = d/((self.target_height/2)*self.dest)
+        self.offset = b-self.scale*self.target_height/2
+        self.m = m
+        print self.scale,self.offset,self.m
+    def normalize(self,img,order=1,dtype=dtype('f'),cval=0):
+        assert img.shape==self.shape
+        h,w = self.shape
+        M = array([[self.scale,self.scale*self.m],[0,self.scale]])
+        offset = (self.offset,0)
+        shape = (self.target_height,int(w/self.scale)) 
+        return interpolation.affine_transform(img,M,offset=offset,output_shape=shape,order=order,cval=cval,output=dtype)
+
+def load_normalizer(fname):
+    fname = ocrolib.findfile(fname)
+    model = ocrolib.load_component(fname)
+    if "lineParameters" in dir(model):
+        return LineestNormalizer(model,params=default_params)
+    if "normalize" in dir(model):
+        return model
+    raise Exception("model seems to be neither a normalizer nor a line estimator")
 
 
 
