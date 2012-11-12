@@ -387,7 +387,7 @@ def PAGE(a):
     return a.ndim==2 and a.shape[0]>=600 and a.shape[1]>=600
 @makeargcheck("expected a line image (taller than 8 pixels and wider than tall)",warning=1)
 def LINE(a,var=None):
-    return a.ndim==2 and a.shape[0]>8 and a.shape[1]>a.shape[0]
+    return a.ndim==2 and a.shape[0]>8 # and a.shape[1]>a.shape[0]
 
 BINPAGE = ALL(PAGE,ABINARY2)
 LIGHTPAGE = ALL(PAGE,LIGHT)

@@ -55,7 +55,7 @@ replacements = [
 ]
 
 def normalize_text(s):
-    """Apply starndard Unicode normalizations for OCR.
+    """Apply standard Unicode normalizations for OCR.
     This eliminates common ambiguities and weird unicode
     characters."""
     s = unicode(s)
