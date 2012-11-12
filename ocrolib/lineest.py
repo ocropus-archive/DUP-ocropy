@@ -160,12 +160,13 @@ def fit_peaks(smoothed,order=1,filter_size=(1.0,20.0)):
 
 class GradientLineGeometry:
     def lineFit(self,image,order=1):
-        """Return polynomial fits to the baseline and xline."""
+        """Assuming the line is horizontal, compute xheight and baseline."""
         xh,bl = lineproc.estimate_xheight(image)
         return array([bl]),array([bl-xh])
     def lineParameters(self,image,order=1):
-        """Return the average baseline and average xheight,
-        plus the polynomial models for both"""
+        """Assuming the line is horizontal, compute xheight and baseline, and all
+        the other parameters."""
+        xh,bl = lineproc.estimate_xheight(image)
         return bl,bl-xh,array([bl]),array([bl-xh])
 
 class TrainedLineGeometry:
@@ -289,7 +290,7 @@ class MvNormalizer:
         self.scale = d/((self.target_height/2)*self.dest)
         self.offset = b-self.scale*self.target_height/2
         self.m = m
-        print self.scale,self.offset,self.m
+        #print self.scale,self.offset,self.m
     def normalize(self,img,order=1,dtype=dtype('f'),cval=0):
         assert img.shape==self.shape
         h,w = self.shape

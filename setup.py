@@ -42,6 +42,7 @@ setup(
         data_files=
             [('share/ocropus', glob.glob("*.glade")),
              ('share/ocropus', [modeldir+m for m in modelfiles]),
+             ('share/ocropus', glob.glob("models/*.lnorm")),
              ('share/ocropus', ["models/gradient.lineest"])],
         scripts = 
             [c for c in glob.glob("ocropus-*") if "." not in c and "~" not in c],
