@@ -39,20 +39,8 @@ def deprecated(f):
 # text normalization
 ################################################################
 
-# this is the same list of replacements we use for
-# alignment; it mainly cleans up the quote mess
-
-replacements = [
-    (u'[_~#]',u"~"), # OCR control characters
-    (u'"',u"''"),     # typewriter double quote
-    (u"`",u"'"),      # grave accent
-    (u'[“”]',u"''"),    # fancy quotes
-    (u"\u00b4",u"'"),   # acute accent
-    (u"\u2018",u"'"), # left single quotation mark
-    (u"\u2019",u"'"), # right single quotation mark
-    (u"\u201c",u"''"), # left double quotation mark
-    (u"\u201d",u"''"), # right double quotation mark
-]
+import chars
+replacements = chars.replacements
 
 def normalize_text(s):
     """Apply standard Unicode normalizations for OCR.
