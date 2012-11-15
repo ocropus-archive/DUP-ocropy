@@ -49,24 +49,30 @@ replacements = [
     (u"[–—]",u"-"), # variant length hyphens
 ]
 
-def requote(s,germanic=0):
+def requote(s):
+    s = unicode(s)
+    s = re.sub(ur"''",u'"',s)
+    return s
+
+def requote_fancy(s,germanic=0):
     s = unicode(s)
     if germanic:
         # germanic quoting style reverses the shapes
         # straight double quotes
-        re.sub(ur"\s+''",u"”",s)
-        re.sub(u"''\s+",u"“",s)
-        re.sub(ur"\s+,,",u"„",s)
+        s = re.sub(ur"\s+''",u"”",s)
+        s = re.sub(u"''\s+",u"“",s)
+        s = re.sub(ur"\s+,,",u"„",s)
         # straight single quotes
-        re.sub(ur"\s+'",u"’",s)
-        re.sub(ur"'\s+",u"‘",s)
-        re.sub(ur"\s+,",u"‚",s)
+        s = re.sub(ur"\s+'",u"’",s)
+        s = re.sub(ur"'\s+",u"‘",s)
+        s = re.sub(ur"\s+,",u"‚",s)
     else:
         # straight double quotes
-        re.sub(ur"\s+''",u"“",s)
-        re.sub(ur"''\s+",u"”",s)
-        re.sub(ur"\s+,,",u"„",s)
+        s = re.sub(ur"\s+''",u"“",s)
+        s = re.sub(ur"''\s+",u"”",s)
+        s = re.sub(ur"\s+,,",u"„",s)
         # straight single quotes
-        re.sub(ur"\s+'",u"‘",s)
-        re.sub(ur"'\s+",u"’",s)
-        re.sub(ur"\s+,",u"‚",s)
+        s = re.sub(ur"\s+'",u"‘",s)
+        s = re.sub(ur"'\s+",u"’",s)
+        s = re.sub(ur"\s+,",u"‚",s)
+    return s
