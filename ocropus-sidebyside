@@ -1,0 +1,42 @@
+#!/usr/bin/python
+
+import os,sys,glob,re,traceback,codecs
+
+import argparse
+parser = argparse.ArgumentParser(description = """
+Create a simple side-by-side display of OCR results.
+""")
+parser.add_argument('file',default="book")
+args = parser.parse_args()
+
+def format(s):
+    s = re.sub(r'[<]','&lt;',s)
+    s = re.sub(r'[\s\n]*\n[\s\n]*','<br />\n',s)
+    return s
+
+os.chdir(args.file)
+
+print "<header>"
+print '<meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>'
+print "<style type='text/css'>td {font-size:9pt;}</style>"
+print "</header>"
+print "<body>"
+print """
+<h1>Image vs Output</h1>
+"""
+
+print "<table>"
+for base in sorted(glob.glob("[0-9][0-9][0-9][0-9]")):
+    print "<tr>"
+    print "<td valign=top style='width:600px'>"
+    print "<img src='%s.raw.png' width=100%% />"%base
+    print "</td>"
+    print "<td valign=top style='width:600px'>"
+    for lname in sorted(glob(base+"/0?????.txt")):
+        try:
+            print format(codecs.open(base+".txt","r","utf-8").read())
+        except:
+            traceback.print_exc()
+    print "</td>"
+    print "</tr>"
+print "</table>"
