@@ -1,0 +1,44 @@
+<html>
+<head>
+<title>OCRopus iPython Notebooks</title>
+<script>
+document.onload = function() {
+    for(var l in document.links) {
+        if(l.href.indexof(".ipynb")!=-1) {
+            l.href = base+l.href;
+        }
+    }
+}
+</script>
+</head>
+<body>
+
+<h1> iPython Notebooks </h1>
+
+<base href="http://nbviewer.ipython.org/url/ocropy.ocropus.googlecode.com/hg/Notebooks/">
+
+<h2>Running OCRopus</h2>
+
+<a href='ocropus-steps.ipynb'>Ocropus Steps</a>
+illustrates the basic steps in running OCRopus, as well
+as the intermediate representations and how to access
+them from Python.
+
+<h2>Making Ground Truth</h2>
+
+<a href='making-groundtruth.ipynb'>Making Groundtruth</a>
+shows how to generate ground truth for training from
+large amounts of unlabeled training data.
+
+<h2>Normalization</h2>
+
+Normalization is an important preprocessing step for HMM
+and RNN recognizers. There is a particular set of classes
+and APIs in OCRopus to perform this normalization.
+They are illustrated in these notebooks:
+<a href='simple-normalization.ipynb'>Simple Normalization</a> and
+<a href='normalization-api.ipynb'>Normalization API</a>
+
+</base>
+</body>
+</html>
