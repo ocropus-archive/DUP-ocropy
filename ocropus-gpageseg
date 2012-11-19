@@ -272,6 +272,9 @@ def process1(job):
     else:
         scale = args.scale
     print "# scale",scale
+    if isnan(scale) or scale>1000.0:
+        sys.stderr.write("%s: bad scale (%g); skipping\n"%(fname,scale))
+        return
     if scale<args.minscale:
         sys.stderr.write("%s: scale (%g) less than --minscale; skipping\n"%(fname,scale))
         return
