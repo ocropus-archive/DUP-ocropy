@@ -10,6 +10,7 @@ parser.add_argument('-s','--fontsize',default=10,type=int)
 parser.add_argument('-R','--readme',default="README")
 parser.add_argument('-o','--output',default="index.html")
 parser.add_argument('-b','--bookdir',default="book")
+parser.add_argument('-N','--maxpages',default=10,type=int)
 args = parser.parse_args()
 
 def format(s):
@@ -49,7 +50,8 @@ else:
 """)
 
 P("<table>")
-for base in sorted(glob.glob("[0-9][0-9][0-9][0-9]")):
+for i,base in enumerate(sorted(glob.glob("[0-9][0-9][0-9][0-9]"))):
+    if i>=args.maxpages: break
     P("<tr>")
     P("<td valign=top style='width:600px'>")
     P("<img src='%s.nrm.png' width=100%% />"%base)

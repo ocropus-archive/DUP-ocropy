@@ -27,7 +27,6 @@ from ocrolib.toplevel import *
 parser = argparse.ArgumentParser()
 parser.add_argument('-z','--zoom',type=float,default=0.5,help='zoom for page background estimation, smaller=faster')
 
-parser.add_argument('--show',type=float,default=0,help='show the final output')
 parser.add_argument('--gray',action='store_true',help='output grayscale lines as well (%(default)s)')
 parser.add_argument('--usefilename',action='store_true',help='use the input filename, instead of base + .bin.png (%(default)s)')
 parser.add_argument('-q','--quiet',action='store_true',help='be less verbose (%(default)s)')
@@ -40,40 +39,31 @@ parser.add_argument('--maxlines',type=float,default=300,help='maximum # lines pe
 parser.add_argument('--scale',type=float,default=0.0,help='the basic scale of the document (roughly, xheight) 0=automatic (%(default)s)')
 parser.add_argument('--hscale',type=float,default=1.0,help='non-standard scaling of horizontal parameters (%(default)s)')
 parser.add_argument('--vscale',type=float,default=1.0,help='non-standard scaling of vertical parameters (%(default)s)')
-parser.add_argument('--debugcleaned',action="store_true")
 
 # line parameters
-parser.add_argument('--debuglines',action="store_true")
-parser.add_argument('--debugreadingorder',action="store_true")
 parser.add_argument('--threshold',type=float,default=0.2,help='baseline threshold (%(default)s)')
 parser.add_argument('--noise',type=int,default=8,help="noise threshold for removing small components from lines (%(default)s)")
 parser.add_argument('--usegauss',action='store_true',help='use gaussian instead of uniform (%(default)s)')
 
 # column parameters
-parser.add_argument('--debugseps',action="store_true",help="debug black column separator computation in detail")
 parser.add_argument('--maxseps',type=int,default=2,help='maximum black column separators (%(default)s)')
 parser.add_argument('--sepwiden',type=int,default=10,help='widen black separators (to account for warping) (%(default)s)')
+parser.add_argument('-b','--blackseps',action="store_true",help="also check for black column separators")
 
 # whitespace column separators
-parser.add_argument('--debugcolseps',action="store_true",help="debug whitespace column separator computation in detail")
-parser.add_argument('--debugcols',action="store_true",help="debug the results of whitespace column separator computation")
 parser.add_argument('--maxcolseps',type=int,default=2,help='maximum # whitespace column separators (%(default)s)')
-parser.add_argument('--csmaxwidth',type=float,default=10,help='maximum column width (units=scale) (%(default)s)')
-parser.add_argument('--csminheight',type=float,default=20,help='minimum column height (units=scale) (%(default)s)')
+parser.add_argument('--csminaspect',type=float,default=1.1,help='minimum aspect ratio for column separators')
+parser.add_argument('--csminheight',type=float,default=10,help='minimum column height (units=scale) (%(default)s)')
 
 # wait for input after everything is done
-parser.add_argument("--debugwait",action="store_true")
 
 parser.add_argument('-p','--pad',type=int,default=3,help='padding for extracted lines (%(default)s)')
 parser.add_argument('-e','--expand',type=int,default=3,help='expand mask for grayscale extraction (%(default)s)')
 parser.add_argument('-Q','--parallel',type=int,default=0)
+parser.add_argument('-d','--debug',action="store_true")
 parser.add_argument('files',nargs='+')
 args = parser.parse_args()
 args.files = ocrolib.glob_all(args.files)
-
-if args.show>0:
-    args.parallel = 1
-    ion(); gray()
 
 if args.parallel>1:
     args.quiet = 1
@@ -82,11 +72,14 @@ def B(a):
     if a.dtype==dtype('B'): return a
     return array(a,'B')
 
-def imfigure(title,image):
-    figure(title)
-    gray()
-    imshow(image)
-    ginput(1,0.1)
+def DSAVE(title,image):
+    if not args.debug: return
+    if type(image)==list:
+        assert len(image)==3
+        image = transpose(array(image),[1,2,0])
+    fname = "_"+title+".png"
+    print "# debug",fname
+    imsave(fname,image)
 
 
 
@@ -110,26 +103,43 @@ def compute_separators_morph(binary,scale):
     vert = morph.select_regions(vert,sl.dim0,min=20*scale,nbest=args.maxseps)
     return vert
 
-def compute_colseps_morph(binary,scale,debug=0,maxseps=3,minheight=20,maxwidth=5):
+def compute_colseps_morph(binary,scale,maxseps=3,minheight=20,maxwidth=5):
     """Finds extended vertical whitespace corresponding to column separators."""
     boxmap = psegutils.compute_boxmap(binary,scale,dtype='B')
     bounds = morph.rb_closing(B(boxmap),(int(5*scale),int(5*scale)))
     bounds = maximum(B(1-bounds),B(boxmap))
     cols = 1-morph.rb_closing(boxmap,(int(20*scale),int(scale)))
-    cols = morph.select_regions(cols,lambda x:-sl.dim1(x),min=-args.csmaxwidth*scale)
+    cols = morph.select_regions(cols,sl.aspect,min=args.csminaspect)
     cols = morph.select_regions(cols,sl.dim0,min=args.csminheight*scale,nbest=args.maxcolseps)
     cols = morph.r_erosion(cols,(int(0.5+scale),0))
     cols = morph.r_dilation(cols,(int(0.5+scale),0),origin=(int(scale/2)-1,0))
     return cols
 
+def compute_colseps_conv(binary,scale=1.0):
+    h,w = binary.shape
+    # smoothed = filters.gaussian_filter(binary,(clip(5*scale,h/20,h/5),0.5*scale))
+    smoothed = gaussian_filter(1.0*binary,(scale,scale*0.5))
+    smoothed = uniform_filter(smoothed,(5.0*scale,1))
+    DSAVE("csc_smoothed",smoothed)
+    thresh = (smoothed<amax(smoothed)*0.1)
+    DSAVE("csc_thresh",thresh)
+    dilated = 1-morphology.binary_dilation(binary,ones((10,2)))
+    seps = minimum(dilated,thresh)
+    DSAVE("csc_seps",seps)
+    seps = morph.select_regions(seps,sl.dim0,min=args.csminheight*scale,nbest=args.maxcolseps)
+    DSAVE("csc_seps2",seps)
+    return seps
+
 def compute_colseps(binary,scale):
     """Computes column separators either from vertical black lines or whitespace."""
-    seps = compute_separators_morph(binary,scale)
-    if args.debugcols: imfigure("column separators",0.7*seps+0.3*binary)
-    colseps = compute_colseps_morph(binary,scale)
-    if args.debugcols: imfigure("column whitespace separators",0.7*colseps+0.3*binary)
-    colseps = maximum(colseps,seps)
-    binary = minimum(binary,1-seps)
+    colseps = compute_colseps_conv(binary,scale)
+    DSAVE("colwsseps",0.7*colseps+0.3*binary)
+    if args.blackseps:
+        seps = compute_separators_morph(binary,scale)
+        DSAVE("colseps",0.7*seps+0.3*binary)
+        #colseps = compute_colseps_morph(binary,scale)
+        colseps = maximum(colseps,seps)
+        binary = minimum(binary,1-seps)
     return colseps,binary
 
 
@@ -146,9 +156,7 @@ def compute_gradmaps(binary,scale):
     # use gradient filtering to find baselines
     boxmap = psegutils.compute_boxmap(binary,scale)
     cleaned = boxmap*binary
-    if args.debugcleaned:
-        figure("debug-cleaned")
-        clf(); title("cleaned"); imshow(cleaned)
+    DSAVE("cleaned",cleaned)
     if args.usegauss:
         # this uses Gaussians
         grad = gaussian_filter(1.0*cleaned,(args.vscale*0.3*scale,
@@ -186,10 +194,7 @@ def compute_line_seeds(binary,bottom,top,colseps,scale):
             if s1==0 and (y0-y1)<5*scale: seeds[y1:y0,x] = 1
     seeds = maximum_filter(seeds,(1,int(1+scale)))
     seeds *= (1-colseps)
-    if args.debuglines:
-        figure("debug-lineseeds")
-        ocrolib.showrgb(seeds,0.3*tmarked+0.7*bmarked,binary)
-        ginput(1,0.1)
+    DSAVE("lineseeds",[seeds,0.3*tmarked+0.7*bmarked,binary])
     seeds,_ = morph.label(seeds)
     return seeds
 
@@ -224,9 +229,7 @@ def compute_segmentation(binary,scale):
     if not args.quiet: print "computing lines"
     bottom,top,boxmap = compute_gradmaps(binary,scale)
     seeds = compute_line_seeds(binary,bottom,top,colseps,scale)
-    if args.debuglines: 
-        figure("seeds")
-        ocrolib.showrgb(bottom,top,boxmap)
+    DSAVE("seeds",[bottom,top,boxmap])
 
     # spread the text line seeds to all the remaining
     # components
@@ -246,6 +249,7 @@ def compute_segmentation(binary,scale):
 
 def process1(job):
     fname,i = job
+    global base
     base,_ = ocrolib.allsplitext(fname)
     outputdir = base
 
@@ -267,6 +271,7 @@ def process1(job):
         scale = psegutils.estimate_scale(binary)
     else:
         scale = args.scale
+    print "# scale",scale
     if scale<args.minscale:
         sys.stderr.write("%s: scale (%g) less than --minscale; skipping\n"%(fname,scale))
         return
@@ -284,7 +289,7 @@ def process1(job):
 
     if not args.quiet: print "finding reading order"
     lines = psegutils.compute_lines(segmentation,scale)
-    order = psegutils.reading_order([l.bounds for l in lines],debug=args.debugreadingorder)
+    order = psegutils.reading_order([l.bounds for l in lines])
     lsort = psegutils.topsort(order)
 
     # renumber the labels so that they conform to the specs
@@ -295,10 +300,6 @@ def process1(job):
     segmentation = renumber[segmentation]
 
     # finally, output everything
-
-    if args.show:
-        figure("output")
-        clf(); title("output"); psegutils.show_lines(binary,lines,lsort)
 
     if not args.quiet: print "writing lines"
     if not os.path.exists(outputdir):
@@ -313,10 +314,6 @@ def process1(job):
             grayline = psegutils.extract_masked(gray,l,pad=args.pad,expand=args.expand)
             ocrolib.write_image_gray("%s/01%04x.nrm.png"%(outputdir,i+1),grayline)
     print "%6d"%i,fname,"%4.1f"%scale,len(lines)
-    if args.debugwait: 
-        ginput(1,0.1)
-        print "hit return for next image"
-        raw_input()
 
 if len(args.files)==1 and os.path.isdir(args.files[0]):
     files = glob.glob(args.files[0]+"/????.png")
