@@ -1,0 +1,39 @@
+#!/usr/bin/python
+
+import argparse,codecs,re,os,sys,os.path,ocrolib
+
+parser = argparse.ArgumentParser()
+parser.add_argument('-d','--debug',action="store_true")
+parser.add_argument('-o','--output',default="correct.html")
+parser.add_argument('-f','--fontsize',default=14,type=int)
+parser.add_argument('-H','--height',default=24,type=int)
+parser.add_argument('files',nargs='+')
+args = parser.parse_args()
+
+stream = codecs.open(args.output,"w","utf-8")
+
+def P(x,*args):
+    stream.write(x%args)
+    stream.write("\n")
+
+P("<header>")
+P('<meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>')
+P("""<style type='text/css'>
+td {
+    font-size:%dpt;
+    border: solid 2px #808080;
+}
+</style>"""%args.fontsize)
+P("</header>")
+P("<body>")
+
+for i,fname in enumerate(args.files):
+    base,_ = ocrolib.allsplitext(fname)
+    text = ocrolib.read_text(base+".txt")
+    P("<table>")
+    P("<tr><td><img src='%s' height=%d /></td></tr>",fname,args.height)
+    P("<tr><td style='border: solid 2px #800000;color: #800000'>%s</td></tr>",text)
+    P("</table>")
+    P("<p />")
+
+stream.close()

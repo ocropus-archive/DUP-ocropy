@@ -34,7 +34,7 @@ For each page like 'book/0001.bin.png', it uses the following files:
     book/0001/010001.txt         # recognizer output for lines
     book/0001/010001.cseg.png    # character segmentation for lines
 """)
-parser.add_argument("-b","--breaks",action="store_true",help="output line breaks")
+parser.add_argument("-b","--nobreaks",action="store_true",help="don't output line breaks")
 parser.add_argument("-p","--nopars",action="store_true",help="don't output paragraphs")
 parser.add_argument("-s","--fscale",type=float,default=1.0,help="scale factor for translating xheights into font size (use 0 to disable)")
 parser.add_argument("-o","--output",default="book.html",help="output file")
@@ -152,7 +152,7 @@ for arg in args.files:
             PN("<span")
             if style!="": PN(" style='"+style+"'")
             PN(" class='ocr_line' title='%s'>"%info,text,"</span>")
-            if args.breaks: P("<br />")
+            if not args.nobreaks: P("<br />")
             else: P()
 
     finally:
