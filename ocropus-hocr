@@ -3,7 +3,8 @@
 # FIXME use argparse
 
 import __builtin__ as python
-import sys,os,re,optparse,shutil,glob,argparse
+import random as pyrandom
+import sys,os,re,optparse,shutil,glob,argparse,codecs
 import matplotlib
 if "DISPLAY" not in os.environ: matplotlib.use("AGG")
 else: matplotlib.use("GTK")
@@ -41,7 +42,7 @@ parser.add_argument('files',nargs='+')
 args = parser.parse_args()
 args.files = ocrolib.glob_all(args.files)
 
-ostream = open(args.output,"w")
+ostream = codecs.open(args.output,"w","utf-8")
 
 def E(*args):
     args = [str(x) for x in args]
@@ -59,6 +60,10 @@ xhfiles = python.sum([glob.glob(d+"/??????.xheight") for d in dirs],[])
 if len(xhfiles)>5:
     xheights = [float(ocrolib.read_text(f)) for f in xhfiles]
     median_xheight = median(xheights)
+else:    
+    lfiles = python.sum([glob.glob(d+"/??????.bin.png") for d in dirs],[])
+    pyrandom.shuffle(lfiles)
+    median_xheight = 0.5*median([imread(f).shape[0] for f in lfiles[:100]])
 E("median_xheight",median_xheight)
 
 P(hocr.header())
@@ -117,8 +122,7 @@ for arg in args.files:
                 E("note: line %s produced no output (it may not have contained text)"%(lbase+".bin.png"))
                 continue
 
-            with open(lbase+".txt") as stream:
-                text = stream.read()
+            text = ocrolib.read_text(lbase+".txt")
 
             text = re.sub(r'\&','\&amp;',text)
             text = re.sub(r'\<','\&lt;',text)

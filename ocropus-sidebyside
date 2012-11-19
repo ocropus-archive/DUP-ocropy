@@ -54,7 +54,13 @@ for i,base in enumerate(sorted(glob.glob("[0-9][0-9][0-9][0-9]"))):
     if i>=args.maxpages: break
     P("<tr>")
     P("<td valign=top style='width:600px'>")
-    P("<img src='%s.nrm.png' width=100%% />"%base)
+    print base
+    if os.path.exists("%s.nrm.png"%base):
+        P("<img src='%s.nrm.png' width=100%% />"%base)
+    elif os.path.exists("%s.bin.png"%base):
+        P("<img src='%s.bin.png' width=100%% />"%base)
+    else:
+        P("<p>[no image for %s]<p>"%base)
     P("<font size=1>%s</font>"%base)
     P("</td>")
     P("<td valign=top style='width:600px;padding:3ex'>")
