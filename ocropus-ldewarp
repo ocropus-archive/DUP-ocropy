@@ -31,7 +31,7 @@ parser = argparse.ArgumentParser(description = """Dewarps textlines and rescales
 parser.add_argument("-X","--exec",dest="execute",help="execute before anything else (usually used for imports)",default="None")
 parser.add_argument('-d',"--baselinedegree",type=int,default=1,help="degree of baseline model")
 parser.add_argument('-e','--lineest',default=ocrolib.default.lineest,help="line geometry model (%(default)s)")
-parser.add_argument('-l','--height',default=48,type=int,help="target line height")
+parser.add_argument('-l','--height',default=32,type=int,help="target line height")
 parser.add_argument('-x','--xheightfrac',default=0.5,type=float,help="target xheight frac")
 parser.add_argument('-b','--baselinefrac',default=0.8,type=float,help="target baseline frac")
 parser.add_argument('files',nargs="*",default=[],help="text line files")
@@ -44,6 +44,7 @@ if len(args.files)==0:
 
 target_height = args.height
 exec args.execute
+print "# target height",target_height
 
 lnorm = lineest.load_normalizer(args.lineest)
 print "lnorm",lnorm

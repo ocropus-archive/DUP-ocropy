@@ -48,7 +48,7 @@ def process1(fname):
     ftxt = ocrolib.allsplitext(fname)[0]+args.extension
     missing = 0
     if os.path.exists(ftxt):
-        txt = ocropus.project_text(ocrolib.read_text(ftxt),kind=args.kind)
+        txt = ocrolib.project_text(ocrolib.read_text(ftxt),kind=args.kind)
     else:
         missing = len(gt)
         txt = ""

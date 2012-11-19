@@ -1,42 +1,68 @@
 #!/usr/bin/python
 
-import os,sys,glob,re,traceback,codecs
+import os,sys,glob,re,traceback,codecs,os.path
 
 import argparse
 parser = argparse.ArgumentParser(description = """
 Create a simple side-by-side display of OCR results.
 """)
-parser.add_argument('file',default="book")
+parser.add_argument('-s','--fontsize',default=10,type=int)
+parser.add_argument('-R','--readme',default="README")
+parser.add_argument('-o','--output',default="index.html")
+parser.add_argument('-b','--bookdir',default="book")
 args = parser.parse_args()
 
 def format(s):
     s = re.sub(r'[<]','&lt;',s)
-    s = re.sub(r'[\s\n]*\n[\s\n]*','<br />\n',s)
+    s = re.sub(r'[\s\n]*\n[\s\n]*','',s)
     return s
 
-os.chdir(args.file)
+readme = None
+if os.path.exists(args.readme):
+    readme = codecs.open(args.readme,"r","utf-8").read()
 
-print "<header>"
-print '<meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>'
-print "<style type='text/css'>td {font-size:9pt;}</style>"
-print "</header>"
-print "<body>"
-print """
+os.chdir(args.bookdir)
+
+stream = codecs.open(args.output,"w","utf-8")
+
+def P(x):
+    stream.write(x)
+    stream.write("\n")
+
+P("<header>")
+P('<meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>')
+P("""<style type='text/css'>
+td {
+    font-size:%dpt;
+    border: solid 2px #808080;
+}
+</style>"""%args.fontsize)
+P("</header>")
+P("<body>")
+
+if readme is not None:
+    import markdown
+    P(markdown.markdown(readme))
+else:
+    P("""
 <h1>Image vs Output</h1>
-"""
+""")
 
-print "<table>"
+P("<table>")
 for base in sorted(glob.glob("[0-9][0-9][0-9][0-9]")):
-    print "<tr>"
-    print "<td valign=top style='width:600px'>"
-    print "<img src='%s.raw.png' width=100%% />"%base
-    print "</td>"
-    print "<td valign=top style='width:600px'>"
-    for lname in sorted(glob(base+"/0?????.txt")):
+    P("<tr>")
+    P("<td valign=top style='width:600px'>")
+    P("<img src='%s.nrm.png' width=100%% />"%base)
+    P("<font size=1>%s</font>"%base)
+    P("</td>")
+    P("<td valign=top style='width:600px;padding:3ex'>")
+    for lname in sorted(glob.glob(base+"/0?????.txt")):
         try:
-            print format(codecs.open(base+".txt","r","utf-8").read())
+            P(format(codecs.open(lname,"r","utf-8").read())+u"<br />")
         except:
             traceback.print_exc()
-    print "</td>"
-    print "</tr>"
-print "</table>"
+    P("</td>")
+    P("</tr>")
+P("</table>")
+
+stream.close()
