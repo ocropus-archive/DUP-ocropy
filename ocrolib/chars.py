@@ -47,6 +47,11 @@ replacements = [
     (u"〃",u"''"), # ditto mark
     (u"µ",u"μ"), # replace micro unit with greek character
     (u"[–—]",u"-"), # variant length hyphens
+    (u"ﬂ",u"fl"), # expand Unicode ligatures
+    (u"ﬁ",u"fi"),
+    (u"ﬀ",u"ff"),
+    (u"ﬃ",u"ffi"),
+    (u"ﬄ",u"ffl"),
 ]
 
 def requote(s):
