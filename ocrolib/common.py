@@ -60,7 +60,8 @@ def project_text(s,kind="exact"):
     """Project text onto a smaller subset of characters
     for comparison."""
     s = normalize_text(s)
-    (r'( *[.] *){4,}','....') # dot rows
+    s = re.sub(ur'( *[.] *){4,}',u'....',s) # dot rows
+    s = re.sub(ur'[~_]',u'',s) # dot rows
     if kind=="exact":
         return s
     if kind=="nospace":

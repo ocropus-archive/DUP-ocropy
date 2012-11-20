@@ -23,7 +23,7 @@ parser.add_argument("-x","--extension",default=".txt",help="extension for recogn
 parser.add_argument("-k","--kind",default="exact",help="kind of comparison (exact, nospace, letdig, letters, digits, lnc), default: %(default)s")
 parser.add_argument("-s","--skipmissing",action="store_true",help="don't use missing or empty output files in the calculation")
 
-parser.add_argument("-c","--confusion",default=0,type=int,help="output this many top confusion")
+parser.add_argument("-c","--confusion",default=10,type=int,help="output this many top confusion")
 parser.add_argument("-a","--allconf",default=None,help="output all confusions to this file")
 parser.add_argument("-e","--perfile",default=None,help="output per-file errors to this file")
 parser.add_argument("-C","--context",type=int,default=0,help="context for confusion matrix")
@@ -132,6 +132,7 @@ def process1(fname):
     return fname,err,len(gt),missing,counts
 
 outputs = ocrolib.parallel_map(process1,args.files,parallel=args.parallel,chunksize=10)
+outputs = sorted(list(outputs))
 
 perfile = None
 if args.perfile is not None:
@@ -145,7 +146,7 @@ errs = 0
 total = 0
 missing = 0
 counts = Counter()
-for fname,e,t,m,c in sorted(outputs):
+for fname,e,t,m,c in outputs:
     errs += e
     total += t
     missing += m
