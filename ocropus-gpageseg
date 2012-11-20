@@ -104,7 +104,8 @@ def compute_separators_morph(binary,scale):
     return vert
 
 def compute_colseps_morph(binary,scale,maxseps=3,minheight=20,maxwidth=5):
-    """Finds extended vertical whitespace corresponding to column separators."""
+    """Finds extended vertical whitespace corresponding to column separators
+    using morphological operations."""
     boxmap = psegutils.compute_boxmap(binary,scale,dtype='B')
     bounds = morph.rb_closing(B(boxmap),(int(5*scale),int(5*scale)))
     bounds = maximum(B(1-bounds),B(boxmap))
@@ -115,19 +116,47 @@ def compute_colseps_morph(binary,scale,maxseps=3,minheight=20,maxwidth=5):
     cols = morph.r_dilation(cols,(int(0.5+scale),0),origin=(int(scale/2)-1,0))
     return cols
 
-def compute_colseps_conv(binary,scale=1.0):
+def compute_colseps_mconv(binary,scale=1.0):
+    """Find column separators using a combination of morphological
+    operations and convolution."""
     h,w = binary.shape
-    # smoothed = filters.gaussian_filter(binary,(clip(5*scale,h/20,h/5),0.5*scale))
     smoothed = gaussian_filter(1.0*binary,(scale,scale*0.5))
     smoothed = uniform_filter(smoothed,(5.0*scale,1))
-    DSAVE("csc_smoothed",smoothed)
     thresh = (smoothed<amax(smoothed)*0.1)
-    DSAVE("csc_thresh",thresh)
-    dilated = 1-morphology.binary_dilation(binary,ones((10,2)))
-    seps = minimum(dilated,thresh)
-    DSAVE("csc_seps",seps)
+    DSAVE("1thresh",thresh)
+    blocks = morph.rb_closing(binary,(int(4*scale),int(4*scale)))
+    DSAVE("2blocks",blocks)
+    seps = minimum(blocks,thresh)
     seps = morph.select_regions(seps,sl.dim0,min=args.csminheight*scale,nbest=args.maxcolseps)
-    DSAVE("csc_seps2",seps)
+    DSAVE("3seps",seps)
+    blocks = morph.r_dilation(blocks,(5,5))
+    DSAVE("4blocks",blocks)
+    seps = maximum(seps,1-blocks)
+    DSAVE("5combo",seps)
+    return seps
+
+def compute_colseps_conv(binary,scale=1.0):
+    """Find column separators by convoluation and
+    thresholding."""
+    h,w = binary.shape
+    # find vertical whitespace by thresholding
+    smoothed = gaussian_filter(1.0*binary,(scale,scale*0.5))
+    smoothed = uniform_filter(smoothed,(5.0*scale,1))
+    thresh = (smoothed<amax(smoothed)*0.1)
+    DSAVE("1thresh",thresh)
+    # find column edges by filtering
+    grad = gaussian_filter(1.0*binary,(scale,scale*0.5),order=(0,1))
+    grad = uniform_filter(grad,(10.0*scale,1))
+    # grad = abs(grad) # use this for finding both edges
+    grad = (grad>0.5*amax(grad))
+    DSAVE("2grad",grad)
+    # combine edges and whitespace
+    seps = minimum(thresh,maximum_filter(grad,(int(scale),int(5*scale))))
+    seps = maximum_filter(seps,(int(2*scale),1))
+    DSAVE("3seps",seps)
+    # select only the biggest column separators
+    seps = morph.select_regions(seps,sl.dim0,min=args.csminheight*scale,nbest=args.maxcolseps+1)
+    DSAVE("4seps",seps)
     return seps
 
 def compute_colseps(binary,scale):

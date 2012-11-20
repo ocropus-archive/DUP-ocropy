@@ -29,7 +29,10 @@ P("<body>")
 
 for i,fname in enumerate(args.files):
     base,_ = ocrolib.allsplitext(fname)
-    text = ocrolib.read_text(base+".txt")
+    if os.path.exists(base+".txt"):
+        text = ocrolib.read_text(base+".txt")
+    else:
+        text = u""
     P("<table>")
     P("<tr><td><img src='%s' height=%d /></td></tr>",fname,args.height)
     P("<tr><td style='border: solid 2px #800000;color: #800000'>%s</td></tr>",text)
