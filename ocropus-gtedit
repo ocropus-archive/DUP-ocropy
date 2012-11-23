@@ -3,40 +3,65 @@
 import argparse,codecs,re,os,sys,os.path,ocrolib
 
 parser = argparse.ArgumentParser()
-parser.add_argument('-d','--debug',action="store_true")
-parser.add_argument('-o','--output',default="correct.html")
-parser.add_argument('-f','--fontsize',default=14,type=int)
-parser.add_argument('-H','--height',default=24,type=int)
-parser.add_argument('files',nargs='+')
+subparsers = parser.add_subparsers(help="subcommands",dest="subparser_name")
+
+p_text = subparsers.add_parser("text",help="generate text")
+p_text.add_argument('-o','--output',default="correct.txt")
+p_text.add_argument('-x','--extension',default='.txt')
+p_text.add_argument('files',nargs='+')
+
+p_html = subparsers.add_parser("html",help="generate html")
+p_html.add_argument('-d','--debug',action="store_true")
+p_html.add_argument('-o','--output',default="correct.html")
+p_html.add_argument('-x','--extension',default='.txt')
+p_html.add_argument('-f','--fontsize',default=14,type=int)
+p_html.add_argument('-H','--height',default=24,type=int)
+p_html.add_argument('files',nargs='+')
+
 args = parser.parse_args()
 
-stream = codecs.open(args.output,"w","utf-8")
+if args.subparser_name=="text":
+    stream = codecs.open(args.output,"w","utf-8")
+    def P(x,*args):
+        stream.write(x%args)
+        stream.write("\n")
+    for i,fname in enumerate(args.files):
+        base,_ = ocrolib.allsplitext(fname)
+        page,line = re.search(r'(\d{4})/([0-9a-f]{6})\.[^/]*$(?i)',fname).groups()
+        page = int(page)
+        line = int(line,16)
+        if os.path.exists(base+args.extension):
+            text = ocrolib.read_text(base+args.extension)
+        else:
+            text = u"-"
+        P(u"%04d.%010d\t%s",page,line,text)
+    stream.close()
 
-def P(x,*args):
-    stream.write(x%args)
-    stream.write("\n")
+if args.subparser_name=="html":
+    stream = codecs.open(args.output,"w","utf-8")
+    def P(x,*args):
+        stream.write(x%args)
+        stream.write("\n")
+    P("<header>")
+    P('<meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>')
+    P("""<style type='text/css'>
+    td {
+        font-size:%dpt;
+        border: solid 2px #808080;
+    }
+    </style>"""%args.fontsize)
+    P("</header>")
+    P("<body>")
 
-P("<header>")
-P('<meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>')
-P("""<style type='text/css'>
-td {
-    font-size:%dpt;
-    border: solid 2px #808080;
-}
-</style>"""%args.fontsize)
-P("</header>")
-P("<body>")
-
-for i,fname in enumerate(args.files):
-    base,_ = ocrolib.allsplitext(fname)
-    if os.path.exists(base+".txt"):
-        text = ocrolib.read_text(base+".txt")
-    else:
-        text = u""
-    P("<table>")
-    P("<tr><td><img src='%s' height=%d /></td></tr>",fname,args.height)
-    P("<tr><td style='border: solid 2px #800000;color: #800000'>%s</td></tr>",text)
-    P("</table>")
-    P("<p />")
-
-stream.close()
+    for i,fname in enumerate(args.files):
+        base,_ = ocrolib.allsplitext(fname)
+        if os.path.exists(base+args.extension):
+            text = ocrolib.read_text(base+args.extension)
+        else:
+            text = u""
+        P("<table>")
+        P("<tr><td><img src='%s' height=%d /></td></tr>",fname,args.height)
+        P("<tr><td style='border: solid 2px #800000;color: #800000'>%s</td></tr>",text)
+        P("</table>")
+        P("<p />")
+    stream.close()
