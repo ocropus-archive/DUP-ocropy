@@ -1,7 +1,10 @@
 #!/usr/bin/python
 
 from pylab import *
-import argparse,codecs,re,os,sys,os.path,ocrolib,base64
+import argparse,codecs,re,os,sys,os.path,ocrolib,base64,os.path
+from bs4 import BeautifulSoup
+import urllib2
+import StringIO
 
 parser = argparse.ArgumentParser()
 subparsers = parser.add_subparsers(help="subcommands",dest="subparser_name")
@@ -36,6 +39,12 @@ p_html.add_argument('-f','--fontsize',default=14,type=int)
 p_html.add_argument('-H','--height',default=24,type=int)
 p_html.add_argument("-M","--maxsize",default=1000,type=int)
 p_html.add_argument('files',nargs='+')
+
+p_ext = subparsers.add_parser("extract",help="extract from html")
+p_ext.add_argument('-i','--ignorepaths',action="store_true")
+p_ext.add_argument('-O','--overwrite',action="store_true")
+p_ext.add_argument('-x','--extension',default=".gt.txt")
+p_ext.add_argument('html')
 
 stream = None
 def P(x,*args):
@@ -150,7 +159,7 @@ def approx_split(l,k):
 
 if args.subparser_name=="html":
     for i,fname in enumerate(args.files):
-        assert fname[0]!="/","do not use absolute file names: %s"%fname
+        assert not os.path.isabs(dest),"absolute file names not allowed"
 
     if len(args.files)<=args.maxsize:
         chunks = [(args.output,args.files)]
@@ -184,3 +193,47 @@ if args.subparser_name=="html":
             P("</table>")
             P("<p />")
         stream.close()
+
+def url_decode(image):
+    prefix = "data:image/png;base64,"
+    if image.startswith(prefix):
+        data = image[len(prefix):]
+        data = base64.b64decode(data)
+    else:
+        data = urllib2.urlopen(image).read()
+    return data
+
+if args.subparser_name=="extract":
+    with codecs.open(args.html,"r","utf-8") as stream:
+        html = stream.read()
+    soup = BeautifulSoup(html)
+    count = 0
+    for table in soup.find_all("table"):
+        rows = table.find_all("tr")
+        try:
+            dest = rows[0].get_text()
+            dest = dest.encode('ascii')
+            image = rows[1].find_all("img")[0].get("src")
+            transcript = rows[2].get_text()
+            png = url_decode(image)
+        except:
+            print "decoding problem:"
+            print table
+            print
+            continue
+        if args.ignorepaths:
+            dest = prefix+"/%04d/01%04x.bin.png"%((i//100)+1,(i%100)+1)
+        print dest,"\t",transcript
+        assert not os.path.isabs(dest)
+        d = os.path.dirname(dest)
+        if not os.path.exists(d): os.makedirs(d)
+        if os.path.exists(dest):
+            print "#",dest,"exists, not writing"
+        else:
+            with open(dest,"wb") as stream: stream.write(png)
+        base,_ = ocrolib.allsplitext(dest)
+        gtname = base+args.extension
+        if os.path.exists(gtname) and not args.overwrite:
+            print "#",gtname,"exists, not writing"
+        else:
+            ocrolib.write_text(gtname,transcript)
