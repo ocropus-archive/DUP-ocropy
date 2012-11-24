@@ -8,10 +8,13 @@ Create a simple side-by-side display of OCR results.
 """)
 parser.add_argument('-s','--fontsize',default=10,type=int)
 parser.add_argument('-R','--readme',default="README")
+parser.add_argument('-x','--extensions',default=".txt")
 parser.add_argument('-o','--output',default="index.html")
 parser.add_argument('-b','--bookdir',default="book")
 parser.add_argument('-N','--maxpages',default=10,type=int)
 args = parser.parse_args()
+
+extensions = args.extensions.split()
 
 def format(s):
     s = re.sub(r'[<]','&lt;',s)
@@ -50,6 +53,11 @@ else:
 """)
 
 P("<table>")
+P("<tr>")
+for t in ["image"]+extensions:
+    P("<th>%s</th>"%t)
+P("</tr>")
+
 for i,base in enumerate(sorted(glob.glob("[0-9][0-9][0-9][0-9]"))):
     if i>=args.maxpages: break
     P("<tr>")
@@ -63,13 +71,14 @@ for i,base in enumerate(sorted(glob.glob("[0-9][0-9][0-9][0-9]"))):
         P("<p>[no image for %s]<p>"%base)
     P("<font size=1>%s</font>"%base)
     P("</td>")
-    P("<td valign=top style='width:600px;padding:3ex'>")
-    for lname in sorted(glob.glob(base+"/0?????.txt")):
-        try:
-            P(format(codecs.open(lname,"r","utf-8").read())+u"<br />")
-        except:
-            traceback.print_exc()
-    P("</td>")
+    for ext in extensions:
+        P("<td valign=top style='width:600px;padding:3ex'>")
+        for lname in sorted(glob.glob(base+"/0?????"+ext)):
+            try:
+                P(format(codecs.open(lname,"r","utf-8").read())+u"<br />")
+            except:
+                traceback.print_exc()
+        P("</td>")
     P("</tr>")
 P("</table>")
 
