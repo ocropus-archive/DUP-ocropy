@@ -41,9 +41,10 @@ p_html.add_argument("-M","--maxsize",default=1000,type=int)
 p_html.add_argument('files',nargs='+')
 
 p_ext = subparsers.add_parser("extract",help="extract from html")
-p_ext.add_argument('-i','--ignorepaths',action="store_true")
+p_ext.add_argument('-p','--prefix',default=None)
 p_ext.add_argument('-O','--overwrite',action="store_true")
 p_ext.add_argument('-x','--extension',default=".gt.txt")
+p_ext.add_argument('-e','--allowempty',action="store_true")
 p_ext.add_argument('html')
 
 stream = None
@@ -159,7 +160,7 @@ def approx_split(l,k):
 
 if args.subparser_name=="html":
     for i,fname in enumerate(args.files):
-        assert not os.path.isabs(dest),"absolute file names not allowed"
+        assert not os.path.isabs(fname),"absolute file names not allowed"
 
     if len(args.files)<=args.maxsize:
         chunks = [(args.output,args.files)]
@@ -210,19 +211,29 @@ if args.subparser_name=="extract":
     count = 0
     for table in soup.find_all("table"):
         rows = table.find_all("tr")
-        try:
+        if len(rows)==2:
+            rows = [None]+rows
+            dest = None
+        elif len(rows)==3:
             dest = rows[0].get_text()
             dest = dest.encode('ascii')
-            image = rows[1].find_all("img")[0].get("src")
-            transcript = rows[2].get_text()
-            png = url_decode(image)
-        except:
-            print "decoding problem:"
-            print table
-            print
+        else:
+            print "wrong # rows"
             continue
-        if args.ignorepaths:
-            dest = prefix+"/%04d/01%04x.bin.png"%((i//100)+1,(i%100)+1)
+        image = rows[1].find_all("img")
+        if len(image)!=1:
+            print "can't find image"
+            continue
+        image = image[0].get("src")
+        transcript = rows[2].get_text()
+        transcript = transcript.strip()
+        png = url_decode(image)
+        if transcript=="" and not args.allowempty:
+            print "#",dest,"has empty transcript; skipping"
+            continue
+        count += 1
+        if args.prefix is not None:
+            dest = args.prefix+"/%04d/01%04x.bin.png"%((count//30)+1,(count%30)+1)
         print dest,"\t",transcript
         assert not os.path.isabs(dest)
         d = os.path.dirname(dest)
