@@ -560,7 +560,11 @@ def glob_all(args):
     """Given a list of command line arguments, expand all of them with glob."""
     result = []
     for arg in args:
-        expanded = sorted(glob.glob(arg))
+        if arg[0]=="@":
+            with open(arg[1:],"r") as stream:
+                expanded = stream.read().split("\n")
+        else:
+            expanded = sorted(glob.glob(arg))
         if len(expanded)<1:
             raise Exception("%s: expansion did not yield any files"%arg)
         result += expanded
