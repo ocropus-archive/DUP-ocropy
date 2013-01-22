@@ -352,7 +352,7 @@ class RegionExtractor:
         """Return the bounding box in raster coordinates
         (row0,col0,row1,col1)."""
         r = self.objects[i]
-        #print "@@@bbox",i,r
+        # print "@@@bbox",i,r
         return (r[0].start,r[1].start,r[0].stop,r[1].stop)
     def bboxMath(self,i):
         """Return the bounding box in math coordinates

@@ -240,7 +240,7 @@ def make_normalizer_abs(emodel,limage,target_height,target_xheight,target_baseli
         for x in range(w):
             baseline = polyval(blp,x)
             img[:,x] = interpolation.shift(img[:,x],bs-baseline,order=order,mode='constant',cval=cval,output=dtype)
-        img = interpolation.zoom(img,scale,order=1)
+        img = interpolation.zoom(img,scale,order=order,cval=cval,output=dtype)
         img = force_height(img,target_height,cval=cval)
         return img
     return normalize
@@ -257,9 +257,9 @@ class LineestNormalizer:
     def setHeight(self,target_height):
         self.target_height = target_height
     def measure(self,limage):
-        self.normalize = make_normalizer(self.emodel,amax(limage)-limage,self.target_height,self.params)
-    def normalize(self,img,*args,**kw):
-        return self.normalize(img,*args,**kw)
+        self.normalizer = make_normalizer(self.emodel,amax(limage)-limage,self.target_height,self.params)
+    def normalize(self,img,order=1,dtype=dtype('f'),cval=0):
+        return self.normalizer(img,order=order,dtype=dtype,cval=cval)
 
 class MvNormalizer:
     def __init__(self,target_height=32):

@@ -3,9 +3,7 @@
 
 import warnings,numpy,argparse,re,sys,os,os.path,unicodedata,multiprocessing
 import ocrolib
-
-# disable rank warnings from polyfit
-warnings.simplefilter('ignore',numpy.RankWarning) 
+from ocrolib import edist
 
 parser = argparse.ArgumentParser(description = """
 Compute the edit distances between ground truth and recognizer output.
@@ -24,21 +22,6 @@ parser.add_argument("-Q","--parallel",type=int,default=multiprocessing.cpu_count
 args = parser.parse_args()
 args.files = ocrolib.glob_all(args.files)
 
-def levenshtein(a,b):
-    """Calculates the Levenshtein distance between a and b. 
-    (Clever compact Pythonic implementation from hetland.org)"""
-    n, m = len(a), len(b)
-    if n > m: a,b = b,a; n,m = m,n       
-    current = range(n+1)
-    for i in range(1,m+1):
-        previous,current = current,[i]+[0]*n
-        for j in range(1,n+1):
-            add,delete = previous[j]+1,current[j-1]+1
-            change = previous[j-1]
-            if a[j-1]!=b[i-1]: change = change+1
-            current[j] = min(add, delete, change)
-    return current[n]
-
 if not ".gt." in args.files[0]:
     sys.stderr.write("warning: compare on .gt.txt files, not .txt files\n")
 
@@ -52,7 +35,7 @@ def process1(fname):
     else:
         missing = len(gt)
         txt = ""
-    err = levenshtein(txt,gt)
+    err = edist.levenshtein(txt,gt)
     return fname,err,len(gt),missing
 
 outputs = ocrolib.parallel_map(process1,args.files,parallel=args.parallel,chunksize=10)

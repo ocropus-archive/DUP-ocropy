@@ -82,12 +82,16 @@ def dshow(image,info):
 
 def process1(job):
     fname,i = job
+    print "#",fname
     if args.parallel<2: print "===",fname,i
     comment = ""
     raw = ocrolib.read_image_gray(fname)
     dshow(raw,"input")
     # perform image normalization
     image = raw-amin(raw)
+    if amax(image)==amin(image): 
+        print "# image is empty",fname
+        return
     image /= amax(image)
 
     # check whether the image is already effectively binarized
@@ -175,6 +179,13 @@ if args.debug>0 or args.show>0: args.parallel = 0
 if args.output:
     if not os.path.exists(args.output):
         os.mkdir(args.output)
+
+def processp(*arg):
+    try:
+        return process1(*arg)
+    except Exception as e:
+        print e
+        return None
 
 if args.parallel<2:
     for i,f in enumerate(args.files): 
