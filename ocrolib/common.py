@@ -563,6 +563,7 @@ def glob_all(args):
         if arg[0]=="@":
             with open(arg[1:],"r") as stream:
                 expanded = stream.read().split("\n")
+            expanded = [s for s in expanded if s!=""]
         else:
             expanded = sorted(glob.glob(arg))
         if len(expanded)<1:

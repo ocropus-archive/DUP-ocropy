@@ -1,3 +1,5 @@
+from scipy.ndimage import filters,measurements
+from pylab import *
 import re
 
 def levenshtein(a,b):

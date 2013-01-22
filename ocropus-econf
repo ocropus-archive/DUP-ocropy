@@ -6,7 +6,7 @@ from collections import Counter
 import ocrolib
 from pylab import *
 from scipy.ndimage import filters
-from ocorlib import edist
+from ocrolib import edist
 
 # disable rank warnings from polyfit
 warnings.simplefilter('ignore',numpy.RankWarning) 
