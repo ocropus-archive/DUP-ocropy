@@ -121,7 +121,7 @@ def pil2array(im,alpha=0):
         return a
     if im.mode=="RGB":
         a = numpy.fromstring(im.tostring(),'B')
-        a.shape = im.size[1],im.size[0],3   
+        a.shape = im.size[1],im.size[0],3
         return a
     if im.mode=="RGBA":
         a = numpy.fromstring(im.tostring(),'B')
@@ -177,7 +177,7 @@ def read_image_gray(fname,pageno=0):
         pass
     else:
         raise Exception("unknown image type: "+a.dtype)
-    if a.ndim==3: 
+    if a.ndim==3:
         a = mean(a,2)
     return a
 
@@ -383,14 +383,14 @@ class RegionExtractor:
         h,w = image.shape[:2]
         mask = self.mask(index,margin=margin)
         # FIXME ... not circular
-        if grow>0: mask = morphology.binary_dilation(mask,iterations=grow) 
+        if grow>0: mask = morphology.binary_dilation(mask,iterations=grow)
         mh,mw = mask.shape
         box = self.bbox(index)
         r0,c0,r1,c1 = box
         subimage = improc.cut(image,(r0,c0,r0+mh-2*margin,c0+mw-2*margin),margin,bg=bg)
         return where(mask,subimage,bg)
 
-    
+
 
 ################################################################
 ### Simple record object.
@@ -888,7 +888,7 @@ def intarray_as_unicode(a,skip0=1):
             assert a[i]>=0 and a[i]<0x110000,"%d (0x%x) character out of range"%(a[i],a[i])
             result += unichr(a[i])
     return result
-    
+
 def rect_union(rectangles):
     """Given a list of lists or tuples, where each list/tuple
     represents a rectangle (x0,y0,x1,y1), returns the
@@ -909,7 +909,7 @@ def obinfo(ob):
     the str representation of the object, and if it has a shape,
     also includes the shape."""
     result = str(ob)
-    if hasattr(ob,"shape"): 
+    if hasattr(ob,"shape"):
         result += " "
         result += str(ob.shape)
     return result
@@ -934,7 +934,7 @@ def save_component(file,object,verbose=0,verify=0):
         import ocropus
         ocropus.save_component(file,object)
         return
-    if verbose: 
+    if verbose:
         print "[save_component]"
     if verbose:
         for k,v in object.__dict__.items():
@@ -942,20 +942,16 @@ def save_component(file,object,verbose=0,verify=0):
     with open(file,"wb") as stream:
         pickle.dump(object,stream,pickle_mode)
     if verify:
-        if verbose: 
+        if verbose:
             print "[trying to read it again]"
         with open(file,"rb") as stream:
             test = pickle.load(stream)
 
 def load_component(file):
-    """Load a component from disk.  If file starts with "@", it is
-    taken as a Python expression and evaluated, but this can be overridden
-    by starting file with "=".  Otherwise, the contents of the file are
-    examined.  If it looks like a native component, it is loaded as a line
-    recognizers if it can be identified as such, otherwise it is loaded
-    with load_Imodel as a model.  Anything else is loaded with Python's
-    pickle.load."""
-
+    """Load a component. This handles various special cases,
+    including old-style C++ recognizers (soon to be gotten rid of),
+    python expressions ("=package.ObjectName(arg1,arg2)"),
+    and simple pickled Python objects (default)."""
     if file[0]=="=":
         return pyconstruct(file[1:])
     elif file[0]=="@":
