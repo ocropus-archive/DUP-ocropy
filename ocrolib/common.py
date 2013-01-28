@@ -13,6 +13,7 @@ import improc
 import ligatures
 import sl
 import multiprocessing
+import lstm
 
 import cPickle as pickle
 from pylab import imshow
@@ -389,6 +390,46 @@ class RegionExtractor:
         r0,c0,r1,c1 = box
         subimage = improc.cut(image,(r0,c0,r0+mh-2*margin,c0+mw-2*margin),margin,bg=bg)
         return where(mask,subimage,bg)
+
+
+
+################################################################
+### Object reading and writing
+### This handles reading and writing zipped files directly,
+### and it also contains workarounds for changed module/class names.
+################################################################
+
+import cPickle
+import gzip
+
+def save_object(fname,obj,zip=0):
+    if zip==0 and fname.endswith(".gz"):
+        zip = 1
+    if zip>0:
+        with gzip.GzipFile(fname,"wb") as stream:
+            cPickle.dump(obj,stream,2)
+    else:
+        with open(fname,"wb") as stream:
+            cPickle.dump(obj,stream,2)
+
+def unpickle_find_global(mname,cname):
+    if mname=="lstm.lstm":
+        return getattr(lstm,cname)
+    return getattr(sys.modules[mname],cname)
+
+def load_object(fname,zip=0):
+    if zip==0 and fname.endswith(".gz"):
+        zip = 1
+    if zip>0:
+        with gzip.GzipFile(fname,"rb") as stream:
+            unpickler = cPickle.Unpickler(stream)
+            unpickler.find_global = unpickle_find_global
+            return unpickler.load()
+    else:
+        with open(fname,"rb") as stream:
+            unpickler = cPickle.Unpickler(stream)
+            unpickler.find_global = unpickle_find_global
+            return unpickler.load()
 
 
 
