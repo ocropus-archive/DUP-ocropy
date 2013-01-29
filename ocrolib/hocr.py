@@ -13,6 +13,7 @@ header_template = """\
 <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
 <head>
 <title>OCR Results</title>
+<meta http-equiv="content-type" content="text/html; charset=utf-8" />
 <meta name="Description" content="OCRopus Output" />
 <meta name="ocr-system" content="ocropus-0.4" />
 <meta name="ocr-capabilities" content="ocr_line ocr_page" />

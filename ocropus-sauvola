@@ -49,7 +49,7 @@ ocropus-nlbin is the preferred binarizer now.
 
 parser.add_argument("files",default=[],nargs='*',help="input lines")
 
-parser.add_argument("-o","--output",help="output directory",default="book")
+parser.add_argument("-o","--output",help="output directory",default=None)
 parser.add_argument("-q","--silent",action="store_true",help="disable warnings")
 parser.add_argument("-Q","--parallel",type=int,default=0,help="number of parallel processes to use")
 parser.add_argument("-g","--gtextension",help="ground truth extension for copying in ground truth (include all dots)",default=None)
@@ -75,6 +75,8 @@ parser.add_argument("-k","--k",type=float,default=0.3,help="k value for Sauvola 
 # TBD
 
 args = parser.parse_args()
+
+args.files = ocrolib.glob_all(args.files)
 
 if len(args.files)<1:
     parser.print_help()
@@ -376,13 +378,13 @@ def process1(job):
         draw()
 
     pylab.gray()
-    if args.output:
-        ocrolib.write_image_gray(args.output+"/%04d.nrm.png"%count,flat)
-        ocrolib.write_image_binary(args.output+"/%04d.bin.png"%count,bin)
+    if args.output is not None:
+        ocrolib.write_image_gray(args.output+"/%04d.nrm.png"%count,flat,verbose=1)
+        ocrolib.write_image_binary(args.output+"/%04d.bin.png"%count,bin,verbose=1)
     else:
         base,_ = ocrolib.allsplitext(fname)
-        ocrolib.write_image_gray(base+".nrm.png",flat)
-        ocrolib.write_image_binary(base+".bin.png",bin)
+        ocrolib.write_image_gray(base+".nrm.png",flat,verbose=1)
+        ocrolib.write_image_binary(base+".bin.png",bin,verbose=1)
 
 
 if args.debug>0: args.parallel = 0

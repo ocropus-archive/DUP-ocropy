@@ -1,0 +1,13 @@
+#!/bin/bash -e
+
+parallel=$(grep '^processor' /proc/cpuinfo | wc -l)
+model=uw3unlv.pyrnn
+book=_book$$
+
+ocropus-sauvola -o $book "$@" 1>&2
+ocropus-gpageseg -Q $parallel $book'/????.bin.png' 1>&2
+ocropus-rpred -Q $parallel -m $model $book'/????/??????.bin.png' 1>&2
+ocropus-hocr $book'/????' -o $book/book.html 1>&1
+
+cat $book/book.html
+rm -rf $book

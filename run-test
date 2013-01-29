@@ -16,16 +16,10 @@ true
 ocropus-gpageseg 'temp/????.bin.png'
 
 true
-true raw text line recognition
+true recognition
 true
 
-ocropus-lattices --writebestpath 'temp/????/??????.bin.png'
-
-true
-true language model application
-true
-
-ocropus-ngraphs 'temp/????/??????.lattice'
+ocropus-rpred 'temp/????/??????.bin.png'
 
 true
 true create hOCR output

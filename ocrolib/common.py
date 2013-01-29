@@ -182,11 +182,12 @@ def read_image_gray(fname,pageno=0):
     return a
 
 
-def write_image_gray(fname,image,normalize=0):
+def write_image_gray(fname,image,normalize=0,verbose=0):
     """Write an image to disk.  If the image is of floating point
     type, its values are clipped to the range [0,1],
     multiplied by 255 and converted to unsigned bytes.  Otherwise,
     the image must be of type unsigned byte."""
+    if verbose: print "# writing",fname
     if isfloatarray(image):
         image = array(255*clip(image,0.0,1.0),'B')
     assert image.dtype==dtype('B'),"array has wrong dtype: %s"%image.dtype
@@ -205,10 +206,11 @@ def read_image_binary(fname,dtype='i',pageno=0):
     return array(a>0.5*(amin(a)+amax(a)),dtype)
 
 @checks(str,ABINARY2)
-def write_image_binary(fname,image):
+def write_image_binary(fname,image,verbose=0):
     """Write a binary image to disk. This verifies first that the given image
     is, in fact, binary.  The image may be of any type, but must consist of only
     two values."""
+    if verbose: print "# writing",fname
     assert image.ndim==2
     image = array(255*(image>midrange(image)),'B')
     im = array2pil(image)
@@ -414,6 +416,8 @@ def save_object(fname,obj,zip=0):
 def unpickle_find_global(mname,cname):
     if mname=="lstm.lstm":
         return getattr(lstm,cname)
+    if not mname in sys.modules.keys():
+        exec "import "+mname
     return getattr(sys.modules[mname],cname)
 
 def load_object(fname,zip=0,nofind=0,verbose=0):
@@ -541,7 +545,7 @@ def summary(x):
 from default import getlocal
 
 @checks(str,_=str)
-def findfile(name,error=1):
+def findfile_old(name,error=1):
     """Find some OCRopus-related resource by looking in a bunch off standard places.
     (FIXME: The implementation is pretty adhoc for now.
     This needs to be integrated better with setup.py and the build system.)"""
@@ -565,6 +569,11 @@ def findfile(name,error=1):
         raise IOError("file '"+path+"' not found in . or /usr/local/share/ocropus/")
     else:
         return None
+
+@checks(str,_=str)
+def findfile(name,error=1):
+    result = ocropus_find_file(name)
+    return result
 
 @checks(str)
 def finddir(name):
@@ -1028,8 +1037,7 @@ def load_component(file):
         import ocropus
         result.comp = ocropus.load_IModel(file)
         return result
-    with open(file,"rb") as stream:
-        return pickle.load(stream)
+    return load_object(file)
 
 def load_linerec_OBSOLETE(file,wrapper=None):
     """Loads a line recognizer.  If the argument is
