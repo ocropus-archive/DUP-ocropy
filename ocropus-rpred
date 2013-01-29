@@ -66,8 +66,13 @@ if len(args.files)<1:
     parser.print_help()
     sys.exit(0)
 
+print 
+print "#"*10,(" ".join(sys.argv))[:60]
+print 
+
+
 inputs = ocrolib.glob_all(args.files)
-if not args.quiet: print "# inputs",len(inputs)
+if not args.quiet: print "#inputs",len(inputs)
 
 # disable parallelism when anything is being displayed
 
@@ -164,7 +169,7 @@ def process1(arg):
             draw()
             savename = args.save
             if "%" in savename: savename = savename%trial
-            print "# saving",savename
+            print "saving",savename
             savefig(savename,bbox_inches=0)
         if trial==len(inputs)-1:
             ginput(1,99999999)
@@ -208,6 +213,6 @@ if args.estrate:
         confusions += conf
     print "%.5f"%(terr*1.0/total),terr,total,args.model
     if args.estconf>0:
-        print "# top",args.estconf,"confusions (count pred gt), comparison:",args.compare
+        print "top",args.estconf,"confusions (count pred gt), comparison:",args.compare
         for ((u,v),n) in Counter(confusions).most_common(args.estconf):
             print "%6d %-4s %-4s"%(n,u,v)

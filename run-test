@@ -1,39 +1,12 @@
 #!/bin/bash -e
 
-set -x
-
-true
-true binarization
-true
-
 rm -rf temp 
-ocropus-nlbin tests/testpage.png -o temp
-
-true
-true page level segmentation
-true
-
+#ocropus-nlbin tests/testpage.png -o temp
+ocropus-sauvola tests/testpage.png -o temp
 ocropus-gpageseg 'temp/????.bin.png'
-
-true
-true recognition
-true
-
 ocropus-rpred 'temp/????/??????.bin.png'
-
-true
-true create hOCR output
-true
-
 ocropus-hocr 'temp/????.bin.png' -o temp.html
-
-true
-true 'create HTML for debugging (use "firefox temp/index.html" to view)'
-true
-
 ocropus-visualize-results temp
 
-true
-true "to see recognition results, type: firefox temp.html"
-true "to see details on the recognition process, type: firefox temp/index.html"
-true
+echo "to see recognition results, type: firefox temp.html"
+echo "to see details on the recognition process, type: firefox temp/index.html"

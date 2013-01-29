@@ -50,7 +50,7 @@ ocropus-nlbin is the preferred binarizer now.
 parser.add_argument("files",default=[],nargs='*',help="input lines")
 
 parser.add_argument("-o","--output",help="output directory",default=None)
-parser.add_argument("-q","--silent",action="store_true",help="disable warnings")
+parser.add_argument("-q","--quiet",action="store_true",help="disable warnings")
 parser.add_argument("-Q","--parallel",type=int,default=0,help="number of parallel processes to use")
 parser.add_argument("-g","--gtextension",help="ground truth extension for copying in ground truth (include all dots)",default=None)
 parser.add_argument("--debug",help="display intermediate results for debugging",action="store_true")
@@ -70,6 +70,10 @@ parser.add_argument("--noskew",action="store_true",help="do not perform skew cor
 # sauvola
 parser.add_argument("-s","--sigma",type=float,default=150,help="sigma arguent for Sauvola binarization")
 parser.add_argument("-k","--k",type=float,default=0.3,help="k value for Sauvola binarization")
+
+print 
+print "#"*10,(" ".join(sys.argv))[:60]
+print 
 
 # hysteresis thresholding
 # TBD
@@ -352,7 +356,7 @@ files = None
 def process1(job):
     fname,count = job
 
-    if args.parallel<2: print "===",fname,count
+    if args.parallel<2: print "sauvola",fname,count
 
     image = ocrolib.read_image_gray(fname)
     if amax(image)<=amin(image)+1e-4:
