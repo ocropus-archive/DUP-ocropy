@@ -3,7 +3,7 @@
 
 from pylab import *
 from collections import Counter,defaultdict
-import glob,re,heapq,os,cPickle
+import glob,re,heapq,os
 import ocrolib
 from ocrolib import ngraphs as ng
 from ocrolib import fvariant

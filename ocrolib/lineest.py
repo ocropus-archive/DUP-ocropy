@@ -11,7 +11,6 @@ import re
 import glob
 from ocrolib import patrec
 import argparse
-import cPickle
 
 
 
@@ -415,19 +414,16 @@ if __name__=="__main__":
         import ocrolib.lineest
         estimator = ocrolib.lineest.GradientLineGeometry()
         if args.em_estimator is not None:
-            with open(args.em_estimator) as stream:
-                estimator = cPickle.load(stream)
+            estimator = common.load_object(args.em_estimator)
         lem = TrainedLineGeometry(k=args.nprotos,d=args.ndims)
         lem.buildShapeDictionary(expand(args.dictlines))
         lem.buildGeomaps(expand(args.geolines),
             old_model=estimator,old_order=args.order,
             debug=args.debug)
-        with open(args.output,"w") as stream:
-            cPickle.dump(lem,stream,2)
+        common.save_object(args.output,lem)
         sys.exit(0)
     elif args.subcommand=="showdict":
-        with open(args.show_estimator) as stream:
-            lem = cPickle.load(stream)
+        lem = common.load_object(args.show_estimator)
         print "loaded",lem
         km = lem.shapedict
         ion(); gray()
@@ -437,8 +433,7 @@ if __name__=="__main__":
         ginput(1,1000)
         sys.exit(0)
     elif args.subcommand=="showline":
-        with open(args.line_estimator) as stream:
-            lem = cPickle.load(stream)
+        lem = common.load_object(args.line_estimator)
         print "loaded",lem
         for fname in args.images:
             try:

@@ -17,7 +17,6 @@ from ocrolib.ligatures import lig
 from ocrolib.lineest import TrainedLineGeometry,make_normalizer
 from ocrolib import lineest
 from ocrolib import lineseg,morph,linerec,improc,lineproc,h5utils
-import cPickle
 from ocrolib.toplevel import *
 
 import warnings,numpy

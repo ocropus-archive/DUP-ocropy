@@ -1,6 +1,5 @@
 from pylab import *
 import tables
-import cPickle
 from scipy.optimize.optimize import fmin_cg, fmin_bfgs, fmin
 from scipy.ndimage import filters
 from collections import Counter

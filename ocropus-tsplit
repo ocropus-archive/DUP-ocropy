@@ -48,8 +48,7 @@ args = parser.parse_args()
 if args.show1 is not None:
     print "loading model"
     import cPickle
-    with open(args.show1) as stream:
-        sc = cPickle.load(stream)
+    sc = ocrolib.load_object(args.show1)
     assert sc.splitter is not None
     print "got model",sc,len(sc.splitter.centers())
     centers = sc.splitter.centers()
@@ -72,9 +71,7 @@ if args.show1 is not None:
 
 if args.show is not None:
     print "loading model"
-    import cPickle
-    with open(args.show) as stream:
-        sc = cPickle.load(stream)
+    sc = ocrolib.load_object(args.show)
     assert sc.splitter is not None
     print "got model",sc,len(sc.splitter.centers())
     centers = sc.splitter.centers()
@@ -138,9 +135,7 @@ sc.sizemode = (h5.getNodeAttr("/","sizemode") or "perchar")
 sc.fit(patches)
 
 print "writing"
-import cPickle
-with open(args.output,"w") as stream:
-    cPickle.dump(sc,stream,2)
+ocrolib.save_object(args.output,sc)
 
 h5.close()
 del h5

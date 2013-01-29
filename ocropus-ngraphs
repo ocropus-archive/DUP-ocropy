@@ -9,7 +9,7 @@
 
 from pylab import *
 from collections import Counter,defaultdict
-import glob,re,heapq,os,cPickle,codecs
+import glob,re,heapq,os,codecs
 import ocrolib
 from ocrolib import ngraphs as ng
 from ocrolib.lattice import Lattice2
@@ -272,8 +272,7 @@ if args.build is not None:
     print "got",len(fnames),"files"
     ngraphs = ng.NGraphs()
     ngraphs.buildFromFiles(fnames,args.ngraph)
-    with open(args.build,"w") as stream:
-        cPickle.dump(ngraphs,stream,2)
+    ocrolib.save_object(args.build,ngraphs)
     sys.exit(0)
 
 
@@ -283,8 +282,7 @@ if args.sample is not None:
     print "loading",args.lmodel
     assert os.path.exists(args.lmodel),\
            "%s: cannot find language model"%args.lmodel
-    with open(args.lmodel) as stream:
-        ngraphs = cPickle.load(stream)
+    ngraphs = ocrolib.load_object(args.lmodel)
     for i in range(args.sample):
         print ngraphs.sample(args.slength)
     sys.exit(0)
@@ -305,19 +303,16 @@ if len(fnames)==0:
 if ":" in args.lmodel:
     primary,secondary = args.lmodel.split(":")
     primary = ocrolib.findfile(primary)
-    with open(primary) as stream:
-        primary = cPickle.load(stream)
+    primary = ocrolib.load_object(primary)
     secondary = ocrolib.findfile(secondary)
-    with open(secondary) as stream:
-        secondary = cPickle.load(stream)
+    secondary = ocrolib.load_object(secondary)
     ngraphs = ng.NGraphsBackoff(primary,secondary)
 else:
     args.lmodel = ocrolib.findfile(args.lmodel)
     print "loading",args.lmodel
     assert os.path.exists(args.lmodel),\
            "%s: cannot find language model"%args.lmodel
-    with open(args.lmodel) as stream:
-        ngraphs = cPickle.load(stream)
+    ngraphs = ocrolib.load_object(args.lmodel)
 
 def compute_cseg(path,rseg):
     nmax = 10000

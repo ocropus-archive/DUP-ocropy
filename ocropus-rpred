@@ -9,7 +9,6 @@ import glob
 import ocrolib
 from ocrolib import lineest
 import argparse
-import cPickle
 import scipy
 import matplotlib
 from multiprocessing import Pool
@@ -21,14 +20,20 @@ from ocrolib import lstm
 parser = argparse.ArgumentParser("apply an RNN recognizer")
 
 # line dewarping (usually contained in model)
-parser.add_argument("-e","--lineest",default=None)
-parser.add_argument("-l","--height",default=-1,type=int)
-parser.add_argument("-E","--nolineest",action='store_true')
+parser.add_argument("-e","--lineest",default=None,
+                    help="line dewarping model (overrides recognizer)")
+parser.add_argument("-l","--height",default=-1,type=int,
+                    help="target line height (overrides recognizer)")
+parser.add_argument("-E","--nolineest",action='store_true',
+                    help="skip dewarping (lines are already dewarped)")
 
 # recognition
-parser.add_argument("-p","--pad",default=16,type=int)
-parser.add_argument('-m','--model',default=None)
-parser.add_argument('-N',"--nonormalize",action="store_true")
+parser.add_argument('-m','--model',default=ocrolib.default.rnnmodel,
+                    help="line recognition model")
+parser.add_argument("-p","--pad",default=16,type=int,
+                    help="extra blank padding to the left and right of text line")
+parser.add_argument('-N',"--nonormalize",action="store_true",
+                    help="don't normalize the textual output from the recognizer")
 
 # error measures
 parser.add_argument("-r","--estrate",action="store_true",
@@ -41,12 +46,18 @@ parser.add_argument("--context",default=0,type=int,
                     help="context for error reporting")
 
 # debugging
-parser.add_argument('-s','--show',default=-1,type=float)
-parser.add_argument('-S','--save',default=None)
-parser.add_argument("-q","--quiet",action="store_true")
+parser.add_argument('-s','--show',default=-1,type=float,
+                    help="if >0, shows recognition output in a window and waits this many seconds")
+parser.add_argument('-S','--save',default=None,
+                    help="save debugging output image as PNG (for bug reporting)")
+parser.add_argument("-q","--quiet",action="store_true",
+                    help="turn off most output")
 parser.add_argument("-Q","--parallel",type=int,default=1,
                     help="number of parallel processes to use (%(default)s)")
-parser.add_argument("files",nargs="+")
+
+# input files
+parser.add_argument("files",nargs="+",
+                    help="input files; glob and @ expansion performed")
 args = parser.parse_args()
 
 # compute the list of files to be classified
@@ -65,7 +76,7 @@ if args.show>=0 or args.save is not None:
 
 # load the network used for classification
 
-network = ocrolib.load_object(args.model)
+network = ocrolib.load_object(args.model,verbose=1)
 
 # get the line normalizer from the loaded network, or optionally
 # let the user override it (this is not very useful)

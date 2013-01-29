@@ -42,9 +42,7 @@ if args.execute is not None:
     exec args.execute
 
 print "loading splitter"
-import cPickle
-with open(args.splitter) as stream:
-    splitter = cPickle.load(stream)
+splitter = ocrolib.load_object(args.splitter)
 print "got",splitter
 print "#splits",splitter.nclusters()
 print "excluding",args.exclude
@@ -150,5 +148,4 @@ for i,c in classifiers:
 cmodel.sizemode = data_sizemode
 
 print "writing"
-with open(args.output,"w") as stream:
-    cPickle.dump(cmodel,stream,2)
+ocrolib.save_object(args.output,cmodel)

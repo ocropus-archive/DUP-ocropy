@@ -1,27 +1,17 @@
 # the defaults used by the recognizer
 
-model = "en-uw3-linerel-2.cmodel"
-ngraphs = "en-mixed-3.ngraphs"
-space = "en-space.model"
-lineest = "en-mixed.lineest"
+rnnmodel = "uw3unlv.pyrnn.gz"
+model = "en-uw3-linerel-2.cmodel.gz"
+ngraphs = "en-mixed-3.ngraphs.gz"
+space = "en-space.model.gz"
+lineest = "en-mixed.lineest.gz"
 
 # install the default models
 
-installable = [model,ngraphs,space,lineest]
-
-# an isolated character recognition model
-
-installable += ["en-uw3unlv-perchar.cmodel"]
-
-# gradient based line estimator (script independent)
-
-installable += ["gradient.lineest"]
-
-# another line estimator
-
-installable += ["en-mixed-round1.lineest"]
-
-# these are system paths
+installable = [rnnmodel,model,ngraphs,space,lineest]
+installable += ["en-uw3unlv-perchar.cmodel.gz"] # isolated character model
+installable += ["gradient.lineest.gz"] # gradient based line model
+installable += ["en-mixed-round1.lineest.gz"] # another line estimator
 
 modeldir = "/usr/local/share/ocropus/"
 

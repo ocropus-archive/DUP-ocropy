@@ -26,12 +26,20 @@ class DownloadCommand(Command):
             if os.path.exists(dest):
                 print m,": already downloaded"
                 continue
-            url = modelprefix+m+".bz2"
-            cmd = "curl '%s' | bunzip2 > '%s.temp' && mv '%s.temp' '%s'"%(url,dest,dest,dest)
+            url = modelprefix+m
+            cmd = "curl '%s' > '%s'"%(url,dest)
             print "\n#",cmd,"\n"
             if os.system(cmd)!=0:
                 print "download failed"
                 sys.exit(1)
+
+for m in modelfiles:
+    if not os.path.exists(modeldir+m):
+        print
+        print "warning:",modeldir+m,"does not exist"
+        print 'run "python setup.py download_models"'
+        print
+        break
 
 setup(
         name = 'ocropy',
@@ -41,9 +49,7 @@ setup(
         packages = ["ocrolib"],
         data_files=
             [('share/ocropus', glob.glob("*.glade")),
-             ('share/ocropus', [modeldir+m for m in modelfiles]),
-             ('share/ocropus', glob.glob("models/*.lnorm")),
-             ('share/ocropus', ["models/gradient.lineest"])],
+             ('share/ocropus', [modeldir+m for m in modelfiles])],
         scripts = 
             [c for c in glob.glob("ocropus-*") if "." not in c and "~" not in c],
         cmdclass = {

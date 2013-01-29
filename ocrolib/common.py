@@ -15,7 +15,6 @@ import sl
 import multiprocessing
 import lstm
 
-import cPickle as pickle
 from pylab import imshow
 import psegutils
 from pylab import imshow
@@ -417,7 +416,14 @@ def unpickle_find_global(mname,cname):
         return getattr(lstm,cname)
     return getattr(sys.modules[mname],cname)
 
-def load_object(fname,zip=0):
+def load_object(fname,zip=0,nofind=0,verbose=0):
+    """Loads an object from disk. By default, this handles zipped files
+    and searches in the usual places for OCRopus. It also handles some
+    class names that have changed."""
+    if not nofind:
+        fname = ocropus_find_file(fname)
+    if verbose:
+        print "# loading object",fname   
     if zip==0 and fname.endswith(".gz"):
         zip = 1
     if zip>0:
@@ -640,14 +646,21 @@ data_paths = [
     "/usr/local/share/ocropus",
 ]
 
-def ocropus_find_file(fname):
+def ocropus_find_file(fname,gz=1):
     """Search for OCRopus-related files in common OCRopus install
     directories (as well as the current directory)."""
     if os.path.exists(fname):
         return fname
+    if gz:
+        if os.path.exists(fname+".gz"):
+            return fname+".gz"
     for path in data_paths:
         full = path+"/"+fname
         if os.path.exists(full): return full
+    if gz:
+        for path in data_paths:
+            full = path+"/"+fname+".gz"
+            if os.path.exists(full): return full
     raise OcropusFileNotFound(fname)
 
 def fexists(fname):

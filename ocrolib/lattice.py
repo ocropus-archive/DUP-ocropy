@@ -1,6 +1,6 @@
 from pylab import *
 from collections import Counter,defaultdict
-import glob,re,heapq,os,cPickle
+import glob,re,heapq,os
 import ngraphs as ng
 
 class Edge:
