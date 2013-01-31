@@ -584,7 +584,7 @@ from scipy.ndimage import measurements,filters
 def translate_back(outputs,threshold=0.7):
     """Translate back. Thresholds on class 0, then assigns
     the maximum class to each region."""
-    labels,n = measurements.label(1*(outputs[:,0]<threshold))
+    labels,n = measurements.label(outputs[:,0]<threshold)
     mask = tile(labels.reshape(-1,1),(1,outputs.shape[1]))
     maxima = measurements.maximum_position(outputs,mask,arange(1,amax(mask)+1))
     return [c for (r,c) in maxima]
