@@ -137,7 +137,7 @@ else:
         codec=codec,
         normalize=lstm.normalize_nfkc)
 
-if not lnorm in dir(network):
+if getattr(network,"lnorm",None) is None:
     network.lnorm = lnorm
 
 network.upgrade()

@@ -12,6 +12,8 @@ installable = [rnnmodel,model,ngraphs,space,lineest]
 installable += ["en-uw3unlv-perchar.cmodel.gz"] # isolated character model
 installable += ["gradient.lineest.gz"] # gradient based line model
 installable += ["en-mixed-round1.lineest.gz"] # another line estimator
+installable += ["fraktur.pyrnn.gz"] # another line estimator
+installable += ["frakant.pyrnn.gz"] # another line estimator
 
 modeldir = "/usr/local/share/ocropus/"
 
