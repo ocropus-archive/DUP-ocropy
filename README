@@ -7,3 +7,47 @@ To install, use:
 To test the recognizer, run:
 
     $ ./run-test
+
+OCRopus is really a collection of document analysis programs, not a turn-key OCR system.
+
+In addition to the recognition scripts themselves, there are a number of scripts for
+ground truth editing and correction, measuring error rates, determining confusion matrices, etc.
+OCRopus commands will generally print a stack trace along with an error message;
+this is not generally indicative of a problem (in a future release, we'll suppress the stack
+trace by default since it seems to confuse too many users).
+
+To recognize pages of text, you need to run separate commands: binarization, page layout
+analysis, and text line recognition. 
+
+    # perform binarization
+    ./ocoropus-nlbin tests/ersch.png -o book
+
+    # perform page layout analysis
+    ./ocropus-gpageseg 'book/????.bin.png'
+
+    # perform text line recognition (on four cores, with a fraktur model)
+    ./ocropus-rpred -Q 4 -m models/fraktur.pyrnn.gz 'book/????/??????.bin.png'
+
+    # generate HTML output
+    ./ocropus-hocr 'book/????.bin.png' -o ersch.html
+
+    # display the output
+    firefox ersch.html
+
+There are also a number of older commands for text line recognition,
+layout analysis, etc., kept for backwards compatibility. The binarization
+and layout analysis commands of the current release will be replaced in 
+the next release with entirely new, trainable commands.
+
+The main feature of this release is ocropus-rpred, which achieves very
+low error rates on a wide variety of fonts and inputs (even degraded)
+of body text, even without language models or dictionaries. The model
+has been trained on UW3 and UNLV data.  Test set error on UW3 is
+about 0.5% without a language model or dictionary.
+
+There are some things the currently trained models for ocropus-rpred
+will not handle well, largely because they are nearly absent in the
+current training data. That includes all-caps text, some special symbols
+(including "?"), typewriter fonts, and subscripts/superscripts. This will
+be addressed in a future release, and, of course, you are welcome to contribute
+new, trained models.
