@@ -162,17 +162,20 @@ matplotlib.rc('xtick',labelsize=7)
 matplotlib.rc('ytick',labelsize=7)
 matplotlib.rcParams.update({"font.size":7})
 
-def plot_network_info(network,transcript):
+def cleandisp(s):
+    return re.sub('[$]',r'#',s)
+
+def plot_network_info(network,transcript,pred,gta):
     subplot(511)
     imshow(line.T,cmap=cm.gray)
-    title(transcript)
+    title(cleandisp(transcript))
     subplot(512)
     gca().set_xticks([])
     imshow(network.outputs.T[1:],vmin=0,cmap=cm.hot)
-    title(pred[:80])
+    title(cleandisp(pred[:len(transcript)]))
     subplot(513)
     imshow(network.aligned.T[1:],vmin=0,cmap=cm.hot)
-    title(gta[:80])
+    title(cleandisp(gta[:len(transcript)]))
     subplot(514)
     plot(network.outputs[:,0],color='yellow',linewidth=3,alpha=0.5)
     plot(network.outputs[:,1],color='green',linewidth=3,alpha=0.5)
@@ -245,9 +248,7 @@ for trial in range(start,args.ntrain):
         print "   OUT:",repr(pred[:len(transcript)+5])
 
     pred = re.sub(' ','_',pred)
-    pred = re.sub('[^A-Za-z0-9,.;:\'"_ ()-]+','#',pred)
     gta = re.sub(' ','_',gta)
-    gta = re.sub('[^A-Za-z0-9,.;:\'"_ ()-]+','#',gta)
 
     if (trial+1)%args.savefreq==0:
         ofile = oname%(trial+1)+".gz"
@@ -259,7 +260,7 @@ for trial in range(start,args.ntrain):
         figure("training",figsize=(1400//75,800//75),dpi=75)
         clf()
         gcf().canvas.set_window_title(args.output)
-        plot_network_info(network,transcript)
+        plot_network_info(network,transcript,pred,gta)
         ginput(1,0.01)
         if args.movie is not None:
             draw()
