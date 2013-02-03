@@ -13,8 +13,8 @@ installable += ["uw3unlv.pyrnn.gz"]
 installable += ["en-uw3unlv-perchar.cmodel.gz"] # isolated character model
 installable += ["gradient.lineest.gz"] # gradient based line model
 installable += ["en-mixed-round1.lineest.gz"] # another line estimator
-installable += ["fraktur.pyrnn.gz"] # another line estimator
-installable += ["frakant.pyrnn.gz"] # another line estimator
+installable += ["frakant.pyrnn.gz"] # Fraktur recognizer
+installable += ["fraktur.pyrnn.gz"] # Fraktur recognizer
 
 modeldir = "/usr/local/share/ocropus/"
 

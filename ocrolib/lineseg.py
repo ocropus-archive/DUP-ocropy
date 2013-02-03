@@ -201,9 +201,8 @@ class DPSegmentLine(SimpleParams):
 
 
 
-import cv
-
 def seq2list(seq,result=None):
+    import cv
     """Given an OpenCV sequence object representing contours,
     returns a list of 2D point arrays."""
     if result is None: result = []
@@ -216,6 +215,7 @@ def seq2list(seq,result=None):
     return result
 
 def image2contours(image,inside=0):
+    import cv
     """Given an image, return a list of (n,2) arrays corresponding to the
     contours of that image. Uses OpenCV's FindContours with no approximation
     and finding both inside and outside contours.  The result is returned
