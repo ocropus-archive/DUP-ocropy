@@ -75,8 +75,10 @@ def check_line(image):
     if w>4000: return "line too long %s"%(image.shape,)
     ratio = w*1.0/h
     _,ncomps = measurements.label(image>mean(image))
-    if ncomps<0.5*ratio: return "too few connected components (got %d, wanted >=%d)"%(ncomps,int(0.5*ratio))
-    if ncomps>4*ratio: return "too many connected components (got %d, wanted <=%d)"%(ncomps,int(4*ratio))
+    lo = int(0.5*ratio+0.5)
+    hi = int(4*ratio)+1
+    if ncomps<lo: return "too few connected components (got %d, wanted >=%d)"%(ncomps,lo)
+    if ncomps>hi*ratio: return "too many connected components (got %d, wanted <=%d)"%(ncomps,hi)
     return None
 
 # compute the list of files to be classified
@@ -206,11 +208,12 @@ def safe_process1(arg):
     trial,fname = arg
     try:
         return process1(arg)
+    except IOError as e:
+        if ocrolib.trace: traceback.print_exc()
+        print fname,":",e
     except ocrolib.OcropusException as e:
-        if e.trace:
-            traceback.print_exc()
-        else:
-            print fname,":",e
+        if e.trace: traceback.print_exc()
+        print fname,":",e
     except:
         traceback.print_exc()
         return None
