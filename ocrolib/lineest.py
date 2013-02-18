@@ -26,7 +26,7 @@ def extract_chars(segmentation,h=32,w=32,f=0.5,minscale=0.5):
     """Extract all the characters from the segmentation and yields them
     as an interator.  Also yields a forward and a backwards transformation."""
     bin = (segmentation>0)
-    if amax(bin)==0: raise ocrolib.RecognitionError("empty segmentation")
+    if amax(bin)==0: raise BadImage("segmentation came out empty")
     ls,ly,lx = vertical_stddev(bin)
     boxes = morph.find_objects(segmentation)
     for i,b in enumerate(boxes):
@@ -132,7 +132,7 @@ if 0:
 
 def blxlimages(image,shapedict,bls,xls):
     image = (image>ocrolib.midrange(image))
-    if amax(image)==0: raise RecognitionError("empty line")
+    if amax(image)==0: raise BadImage("input line is empty")
     seg = lineseg.ccslineseg(image)
     # ion(); subplot(311); imshow(image); subplot(312); morph.showlabels(seg); ginput(1,0.1); raw_input()
     seg = morph.renumber_by_xcenter(seg)
@@ -361,7 +361,7 @@ def load_normalizer(fname):
         return LineestNormalizer(model,params=default_params)
     if "normalize" in dir(model):
         return model
-    raise Exception("model seems to be neither a normalizer nor a line estimator")
+    raise BadInput("model seems to be neither a normalizer nor a line estimator")
 
 
 
@@ -373,7 +373,7 @@ def expand(fname):
     elif "?" in fname or "*" in fname:
         return sorted(glob.glob(fname))
     else:
-        raise Exception("argument must either be a glob pattern or start with an '@'")
+        raise Warning("argument must either be a glob pattern or start with an '@'")
 
 
 if __name__=="__main__":

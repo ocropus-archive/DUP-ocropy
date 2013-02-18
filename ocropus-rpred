@@ -16,8 +16,13 @@ from ocrolib import edist
 from collections import Counter
 import ocrolib
 from ocrolib import lstm
+from scipy.ndimage import measurements
 
 parser = argparse.ArgumentParser("apply an RNN recognizer")
+
+# error checking
+parser.add_argument('-n','--nocheck',action="store_true",
+                    help="disable error checking on inputs")
 
 # line dewarping (usually contained in model)
 parser.add_argument("-e","--lineest",default=None,
@@ -60,6 +65,20 @@ parser.add_argument("files",nargs="+",
                     help="input files; glob and @ expansion performed")
 args = parser.parse_args()
 
+def check_line(image):
+    if len(image.shape)==3: return "input image is color image %s"%(image.shape,)
+    if mean(image)<median(image): return "image may be inverted"
+    h,w = image.shape
+    if h<20: return "image not tall enough for a text line %s"%(image.shape,)
+    if h>200: return "image too tall for a text line %s"%(image.shape,)
+    if w<1.5*h: return "line too short %s"%(image.shape,)
+    if w>4000: return "line too long %s"%(image.shape,)
+    ratio = w*1.0/h
+    _,ncomps = measurements.label(image>mean(image))
+    if ncomps<0.5*ratio: return "too few connected components (got %d, wanted >=%d)"%(ncomps,int(0.5*ratio))
+    if ncomps>4*ratio: return "too many connected components (got %d, wanted <=%d)"%(ncomps,int(4*ratio))
+    return None
+
 # compute the list of files to be classified
 
 if len(args.files)<1:
@@ -101,6 +120,12 @@ def process1(arg):
     line = ocrolib.read_image_gray(fname)
     if prod(line.shape)==0: return None
     if amax(line)==amin(line): return None
+
+    if not args.nocheck:
+        check = check_line(amax(line)-line)
+        if check is not None:
+            print fname,"SKIPPED",check,"(use -n to disable this check)"
+            return (0,[],0,trial,fname)            
 
     if not args.nolineest:
         assert "dew.png" not in fname,"don't dewarp dewarped images"
@@ -178,8 +203,14 @@ def process1(arg):
     return None
 
 def safe_process1(arg):
+    trial,fname = arg
     try:
         return process1(arg)
+    except ocrolib.OcropusException as e:
+        if e.trace:
+            traceback.print_exc()
+        else:
+            print fname,":",e
     except:
         traceback.print_exc()
         return None

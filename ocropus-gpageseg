@@ -25,45 +25,86 @@ from multiprocessing import Pool
 from ocrolib.toplevel import *
 
 parser = argparse.ArgumentParser()
-parser.add_argument('-z','--zoom',type=float,default=0.5,help='zoom for page background estimation, smaller=faster')
+# error checking
+parser.add_argument('-n','--nocheck',action="store_true",
+                    help="disable error checking on inputs")
 
-parser.add_argument('--gray',action='store_true',help='output grayscale lines as well (%(default)s)')
-parser.add_argument('--usefilename',action='store_true',help='use the input filename, instead of base + .bin.png (%(default)s)')
-parser.add_argument('-q','--quiet',action='store_true',help='be less verbose (%(default)s)')
+parser.add_argument('-z','--zoom',type=float,default=0.5,
+                    help='zoom for page background estimation, smaller=faster')
+
+parser.add_argument('--gray',action='store_true',
+                    help='output grayscale lines as well (%(default)s)')
+parser.add_argument('-q','--quiet',action='store_true',
+                    help='be less verbose (%(default)s)')
 
 # limits
-parser.add_argument('--minscale',type=float,default=12.0,help='minimum scale permitted (%(default)s)')
-parser.add_argument('--maxlines',type=float,default=300,help='maximum # lines permitted (%(default)s)')
+parser.add_argument('--minscale',type=float,default=12.0,
+                    help='minimum scale permitted (%(default)s)')
+parser.add_argument('--maxlines',type=float,default=300,
+                    help='maximum # lines permitted (%(default)s)')
 
 # scale parameters
-parser.add_argument('--scale',type=float,default=0.0,help='the basic scale of the document (roughly, xheight) 0=automatic (%(default)s)')
-parser.add_argument('--hscale',type=float,default=1.0,help='non-standard scaling of horizontal parameters (%(default)s)')
-parser.add_argument('--vscale',type=float,default=1.0,help='non-standard scaling of vertical parameters (%(default)s)')
+parser.add_argument('--scale',type=float,default=0.0,
+                    help='the basic scale of the document (roughly, xheight) 0=automatic (%(default)s)')
+parser.add_argument('--hscale',type=float,default=1.0,
+                    help='non-standard scaling of horizontal parameters (%(default)s)')
+parser.add_argument('--vscale',type=float,default=1.0,
+                    help='non-standard scaling of vertical parameters (%(default)s)')
 
 # line parameters
-parser.add_argument('--threshold',type=float,default=0.2,help='baseline threshold (%(default)s)')
-parser.add_argument('--noise',type=int,default=8,help="noise threshold for removing small components from lines (%(default)s)")
-parser.add_argument('--usegauss',action='store_true',help='use gaussian instead of uniform (%(default)s)')
+parser.add_argument('--threshold',type=float,default=0.2,
+                    help='baseline threshold (%(default)s)')
+parser.add_argument('--noise',type=int,default=8,
+                    help="noise threshold for removing small components from lines (%(default)s)")
+parser.add_argument('--usegauss',action='store_true',
+                    help='use gaussian instead of uniform (%(default)s)')
 
 # column parameters
-parser.add_argument('--maxseps',type=int,default=2,help='maximum black column separators (%(default)s)')
-parser.add_argument('--sepwiden',type=int,default=10,help='widen black separators (to account for warping) (%(default)s)')
-parser.add_argument('-b','--blackseps',action="store_true",help="also check for black column separators")
+parser.add_argument('--maxseps',type=int,default=2,
+                    help='maximum black column separators (%(default)s)')
+parser.add_argument('--sepwiden',type=int,default=10,
+                    help='widen black separators (to account for warping) (%(default)s)')
+parser.add_argument('-b','--blackseps',action="store_true",
+                    help="also check for black column separators")
 
 # whitespace column separators
-parser.add_argument('--maxcolseps',type=int,default=2,help='maximum # whitespace column separators (%(default)s)')
-parser.add_argument('--csminaspect',type=float,default=1.1,help='minimum aspect ratio for column separators')
-parser.add_argument('--csminheight',type=float,default=10,help='minimum column height (units=scale) (%(default)s)')
+parser.add_argument('--maxcolseps',type=int,default=2,
+                    help='maximum # whitespace column separators (%(default)s)')
+parser.add_argument('--csminaspect',type=float,default=1.1,
+                    help='minimum aspect ratio for column separators')
+parser.add_argument('--csminheight',type=float,default=10,
+                    help='minimum column height (units=scale) (%(default)s)')
 
 # wait for input after everything is done
 
-parser.add_argument('-p','--pad',type=int,default=3,help='padding for extracted lines (%(default)s)')
-parser.add_argument('-e','--expand',type=int,default=3,help='expand mask for grayscale extraction (%(default)s)')
-parser.add_argument('-Q','--parallel',type=int,default=0)
+parser.add_argument('-p','--pad',type=int,default=3,
+                    help='padding for extracted lines (%(default)s)')
+parser.add_argument('-e','--expand',type=int,default=3,
+                    help='expand mask for grayscale extraction (%(default)s)')
+parser.add_argument('-Q','--parallel',type=int,default=0,
+                    help="number of CPUs to use")
 parser.add_argument('-d','--debug',action="store_true")
 parser.add_argument('files',nargs='+')
 args = parser.parse_args()
 args.files = ocrolib.glob_all(args.files)
+
+def check_page(image):
+    if len(image.shape)==3: return "input image is color image %s"%(image.shape,)
+    if mean(image)<median(image): return "image may be inverted"
+    h,w = image.shape
+    if h<600: return "image not tall enough for a page image %s"%(image.shape,)
+    if h>10000: return "image too tall for a page image %s"%(image.shape,)
+    if w<600: return "image too narrow for a page image %s"%(image.shape,)
+    if w>10000: return "line too wide for a page image %s"%(image.shape,)
+    slots = int(w*h*1.0/(30*30))
+    _,ncomps = measurements.label(image>mean(image))
+    if ncomps<10: return "too few connected components for a page image (got %d)"%(ncomps,)
+    if ncomps>slots: return "too many connnected components for a page image (%d > %d)"%(ncomps,slots)
+    return None
+
+if len(args.files)<1:
+    parser.print_help()
+    sys.exit(0)
 
 print 
 print "#"*10,(" ".join(sys.argv))[:60]
@@ -286,13 +327,24 @@ def process1(job):
     base,_ = ocrolib.allsplitext(fname)
     outputdir = base
 
-    if args.usefilename:
-        binary = ocrolib.read_image_binary(fname)
-    else:
+    try:
         binary = ocrolib.read_image_binary(base+".bin.png")
+    except IOError as e:
+        try:
+            binary = ocrolib.read_image_binary(fname)
+        except IOError as e:
+            if ocrolib.trace: traceback.print_exc()
+            print "cannot open either",base+".bin.png","or",fname
+            return
 
     checktype(binary,ABINARY2)
  
+    if not args.nocheck:
+        check = check_page(amax(binary)-binary)
+        if check is not None:
+            print fname,"SKIPPED",check,"(use -n to disable this check)"
+            return
+
     if args.gray:
         if os.path.exists(base+".nrm.png"):
             gray = ocrolib.read_image_gray(base+".nrm.png")
@@ -356,12 +408,24 @@ if len(args.files)==1 and os.path.isdir(args.files[0]):
 else:
     files = args.files
 
+def safe_process1(job):
+    fname,i = job
+    try:
+        process1(job)
+    except ocrolib.OcropusException as e:
+        if e.trace:
+            traceback.print_exc()
+        else:
+            print fname,":",e
+    except Exception as e:
+        traceback.print_exc()
+
 if args.parallel<2:
     count = 0
     for i,f in enumerate(files):
         if args.parallel==0: print f
         count += 1
-        process1((f,i+1))
+        safe_process1((f,i+1))
 else:
     pool = Pool(processes=args.parallel)
     jobs = []

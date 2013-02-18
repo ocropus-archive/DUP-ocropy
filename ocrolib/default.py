@@ -25,3 +25,7 @@ def getlocal():
     otherwise defaults to /usr/local/share/ocropus."""
     local = os.getenv("OCROPUS_DATA") or modeldir
     return local
+
+import os
+traceback = int(os.getenv("OCROTRACE") or "0")
+

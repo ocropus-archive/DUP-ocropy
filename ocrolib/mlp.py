@@ -425,7 +425,7 @@ class MLP:
                                        len(data),data,cls,eta,batchsize,
                                        len(samples),samples)
             else:
-                raise Exception("data has unknown type (%s)"%data.dtype)
+                raise Internal("data has unknown type (%s)"%data.dtype)
             err = error(self,data,cls)
             rate = err*1.0/len(data)
             if verbose:
@@ -456,7 +456,7 @@ class MLP:
             nnet_native.forward_b(n,m,l,self.w1,self.b1,self.w2,self.b2,
                                   len(data),data,result)
         else:
-            raise Exception("data has unknown type: %s"%data.dtype)
+            raise Internal("data has unknown type: %s"%data.dtype)
         return result
     def classify(self,data,subset=None):
         data = data.reshape(len(data),prod(data.shape[1:]))
@@ -473,7 +473,7 @@ class MLP:
             nnet_native.classify_b(n,m,l,self.w1,self.b1,self.w2,self.b2,
                                    len(data),data,result)
         else:
-            raise Exception("data has unknown type")
+            raise Internal("data has unknown type")
         return result
 
 def log_uniform(lo,hi):
