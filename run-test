@@ -7,6 +7,8 @@ ocropus-gpageseg 'temp/????.bin.png'
 ocropus-rpred 'temp/????/??????.bin.png'
 ocropus-hocr 'temp/????.bin.png' -o temp.html
 ocropus-visualize-results temp
+ocropus-gtedit html temp/????/??????.bin.png -o temp-correction.html
 
 echo "to see recognition results, type: firefox temp.html"
+echo "to see correction page, type: firefox temp-correction.html"
 echo "to see details on the recognition process, type: firefox temp/index.html"
