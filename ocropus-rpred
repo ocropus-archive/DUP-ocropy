@@ -180,6 +180,9 @@ def process1(arg):
 def safe_process1(arg):
     try:
         return process1(arg)
+    except ocrolib.RecognitionError as e:
+        print e
+        return None
     except:
         traceback.print_exc()
         return None

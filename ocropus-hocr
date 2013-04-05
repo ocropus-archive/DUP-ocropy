@@ -59,11 +59,13 @@ dirs = [ocrolib.allsplitext(name)[0] for name in args.files]
 xhfiles = python.sum([glob.glob(d+"/??????.xheight") for d in dirs],[])
 if len(xhfiles)>5:
     xheights = [float(ocrolib.read_text(f)) for f in xhfiles]
-    median_xheight = median(xheights)
+    if len(xheights)>0:
+        median_xheight = median(xheights)
 else:    
     lfiles = python.sum([glob.glob(d+"/??????.bin.png") for d in dirs],[])
     pyrandom.shuffle(lfiles)
-    median_xheight = 0.5*median([imread(f).shape[0] for f in lfiles[:100]])
+    if len(lfiles)>0:
+        median_xheight = 0.5*median([imread(f).shape[0] for f in lfiles[:100]])
 E("median_xheight",median_xheight)
 
 P(hocr.header())

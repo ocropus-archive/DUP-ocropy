@@ -1,3 +1,4 @@
+import common as ocrolib
 import pdb
 from pylab import *
 import sys
@@ -368,7 +369,8 @@ class LSTM(Network):
         ni,ns,na = self.dims
         assert len(xs[0])==ni
         n = len(xs)
-        if n>len(self.gi): raise RangeError("input too large")
+        if n>len(self.gi): 
+	    raise ocrolib.RecognitionError("input too large for LSTM model")
         self.last_n = n
         self.reset(n)
         for t in range(n):
@@ -398,7 +400,8 @@ class LSTM(Network):
     def backward(self,deltas):
         """Perform backward propagation of deltas."""
         n = len(deltas)
-        if n>len(self.gi): raise RangeError("input too large")
+        if n>len(self.gi): 
+	    raise ocrolib.RecognitionError("input too large")
         assert n==self.last_n
         ni,ns,na = self.dims
         for t in reversed(range(n)):
@@ -595,7 +598,8 @@ def log_mul(x,y):
 
 def log_add(x,y):
     "Perform addition in the log domain."
-    return where(abs(x-y)>10,maximum(x,y),log(exp(x-y)+1)+y)
+    #return where(abs(x-y)>10,maximum(x,y),log(exp(x-y)+1)+y)
+    return where(abs(x-y)>10,maximum(x,y),log(exp(clip(x-y,-20,20))+1)+y)
 
 def forward_algorithm(match,skip=-5.0):
     """Apply the forward algorithm to an array of log state
@@ -631,9 +635,11 @@ def ctc_align_targets(outputs,targets,threshold=100.0,verbose=0,debug=0,lo=1e-5)
     assert not isnan(lmatch).any()
     both = forwardbackward(lmatch)
     epath = exp(both-amax(both))
-    epath /= sum(epath,axis=0)[newaxis,:]
+    l = sum(epath,axis=0)[newaxis,:]
+    epath /= where(l==0.0,1e-9,l)
     aligned = maximum(lo,dot(epath,targets))
-    aligned /= sum(aligned,axis=1)[:,newaxis]
+    l = sum(aligned,axis=1)[:,newaxis]
+    aligned /= where(l==0.0,1e-9,l)
     if debug:
         subplot(413); imshow(epath.T,cmap=cm.hot,interpolation='nearest')
         subplot(414); imshow(aligned.T,cmap=cm.hot,interpolation='nearest')

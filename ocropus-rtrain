@@ -7,7 +7,6 @@ import os.path
 import glob
 import ocrolib
 import argparse
-import lstm
 import scipy
 import matplotlib
 import numpy
@@ -218,6 +217,9 @@ for trial in range(start,args.ntrain):
     else:
         assert "dew.png" in fname,"input must already be dewarped"
 
+    if line.size<10 or amax(line)==amin(line):
+        print "EMPTY-INPUT"
+        continue
     line = line * 1.0/amax(line)
     line = amax(line)-line
     line = line.T

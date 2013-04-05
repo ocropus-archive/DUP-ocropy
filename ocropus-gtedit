@@ -33,7 +33,7 @@ p_org.add_argument('files',nargs='+')
 
 p_html = subparsers.add_parser("html",help="generate html")
 p_html.add_argument('-d','--debug',action="store_true")
-p_html.add_argument('-o','--output',default="correct.html")
+p_html.add_argument('-o','--output',default="correction.html")
 p_html.add_argument('-x','--extension',default='.txt')
 p_html.add_argument('-f','--fontsize',default=14,type=int)
 p_html.add_argument('-H','--height',default=24,type=int)
