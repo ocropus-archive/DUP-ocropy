@@ -584,12 +584,13 @@ def translate_back0(outputs,threshold=0.25):
 
 from scipy.ndimage import measurements,filters
 
-def translate_back(outputs,threshold=0.7):
+def translate_back(outputs,threshold=0.7,pos=0):
     """Translate back. Thresholds on class 0, then assigns
     the maximum class to each region."""
     labels,n = measurements.label(outputs[:,0]<threshold)
     mask = tile(labels.reshape(-1,1),(1,outputs.shape[1]))
     maxima = measurements.maximum_position(outputs,mask,arange(1,amax(mask)+1))
+    if pos: return maxima
     return [c for (r,c) in maxima]
 
 def log_mul(x,y):
@@ -685,7 +686,8 @@ class SeqRecognizer:
         self.lstm.setLearningRate(r,momentum)
     def predictSequence(self,xs):
         "Predict an integer sequence of codes."
-        assert xs.shape[1]==self.Ni,"wrong image height (image: %d, expected: %d)"%(xs.shape[1],self.Ni)
+        assert xs.shape[1]==self.Ni,\
+            "wrong image height (image: %d, expected: %d)"%(xs.shape[1],self.Ni)
         self.outputs = array(self.lstm.forward(xs))
         return translate_back(self.outputs)
     def trainSequence(self,xs,cs,update=1,key=None):

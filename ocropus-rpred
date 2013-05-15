@@ -2,6 +2,7 @@
 
 import random as pyrandom
 import traceback
+import codecs
 import re
 from pylab import *
 import os.path
@@ -16,8 +17,13 @@ from ocrolib import edist
 from collections import Counter
 import ocrolib
 from ocrolib import lstm
+from scipy.ndimage import measurements
 
 parser = argparse.ArgumentParser("apply an RNN recognizer")
+
+# error checking
+parser.add_argument('-n','--nocheck',action="store_true",
+                    help="disable error checking on inputs")
 
 # line dewarping (usually contained in model)
 parser.add_argument("-e","--lineest",default=None,
@@ -34,6 +40,10 @@ parser.add_argument("-p","--pad",default=16,type=int,
                     help="extra blank padding to the left and right of text line")
 parser.add_argument('-N',"--nonormalize",action="store_true",
                     help="don't normalize the textual output from the recognizer")
+parser.add_argument('--llocs',action="store_true",
+                    help="output LSTM locations for characters")
+parser.add_argument('--alocs',action="store_true",
+                    help="output aligned LSTM locations for characters")
 
 # error measures
 parser.add_argument("-r","--estrate",action="store_true",
@@ -59,6 +69,22 @@ parser.add_argument("-Q","--parallel",type=int,default=1,
 parser.add_argument("files",nargs="+",
                     help="input files; glob and @ expansion performed")
 args = parser.parse_args()
+
+def check_line(image):
+    if len(image.shape)==3: return "input image is color image %s"%(image.shape,)
+    if mean(image)<median(image): return "image may be inverted"
+    h,w = image.shape
+    if h<20: return "image not tall enough for a text line %s"%(image.shape,)
+    if h>200: return "image too tall for a text line %s"%(image.shape,)
+    if w<1.5*h: return "line too short %s"%(image.shape,)
+    if w>4000: return "line too long %s"%(image.shape,)
+    ratio = w*1.0/h
+    _,ncomps = measurements.label(image>mean(image))
+    lo = int(0.5*ratio+0.5)
+    hi = int(4*ratio)+1
+    if ncomps<lo: return "too few connected components (got %d, wanted >=%d)"%(ncomps,lo)
+    if ncomps>hi*ratio: return "too many connected components (got %d, wanted <=%d)"%(ncomps,hi)
+    return None
 
 # compute the list of files to be classified
 
@@ -99,8 +125,15 @@ def process1(arg):
     (trial,fname) = arg
     base,_ = ocrolib.allsplitext(fname)
     line = ocrolib.read_image_gray(fname)
+    raw_line = line.copy()
     if prod(line.shape)==0: return None
     if amax(line)==amin(line): return None
+
+    if not args.nocheck:
+        check = check_line(amax(line)-line)
+        if check is not None:
+            print fname,"SKIPPED",check,"(use -n to disable this check)"
+            return (0,[],0,trial,fname)            
 
     if not args.nolineest:
         assert "dew.png" not in fname,"don't dewarp dewarped images"
@@ -113,6 +146,33 @@ def process1(arg):
 
     line = lstm.prepare_line(line,args.pad)
     pred = network.predictString(line)
+
+    if args.llocs:
+        # output recognized LSTM locations of characters
+        result = lstm.translate_back(network.outputs,pos=1)
+        scale = len(raw_line.T)*1.0/(len(network.outputs)-2*args.pad)
+        #ion(); imshow(raw_line,cmap=cm.gray)
+        with codecs.open(base+".llocs","w") as locs:
+            for r,c in result:
+                c = network.l2s([c])
+                r = (r-args.pad)*scale
+                locs.write("%s\t%.1f\n"%(c,r))
+                #plot([r,r],[0,20],'r' if c==" " else 'b')
+        #ginput(1,1000)
+
+    if args.alocs:
+        # output recognized and aligned LSTM locations
+        if os.path.exists(base+".gt.txt"):
+            transcript = ocrolib.read_text(base+".gt.txt")
+            transcript = ocrolib.normalize_text(transcript)
+            pred2 = network.trainString(line,transcript,update=0)
+            result = lstm.translate_back(network.aligned,pos=1)
+            scale = len(raw_line.T)*1.0/(len(network.aligned)-2*args.pad)
+            with codecs.open(base+".alocs","w") as locs:
+                for r,c in result:
+                    c = network.l2s([c])
+                    r = (r-args.pad)*scale
+                    locs.write("%s\t%.1f\n"%(c,r))
 
     if not args.nonormalize:
         pred = ocrolib.normalize_text(pred)
@@ -178,11 +238,15 @@ def process1(arg):
     return None
 
 def safe_process1(arg):
+    trial,fname = arg
     try:
         return process1(arg)
-    except ocrolib.RecognitionError as e:
-        print e
-        return None
+    except IOError as e:
+        if ocrolib.trace: traceback.print_exc()
+        print fname,":",e
+    except ocrolib.OcropusException as e:
+        if e.trace: traceback.print_exc()
+        print fname,":",e
     except:
         traceback.print_exc()
         return None

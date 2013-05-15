@@ -343,7 +343,7 @@ def charprop(image,kind):
     elif kind=="endpoints":
         result = ocrolib.endpoints_counts(image,1.0)
     else:
-        raise Exception("unknown charprop")
+        raise BadInput("unknown charprop")
     print image.shape,kind,result
     return result
 
@@ -486,8 +486,10 @@ def load_confidence(which=options.model):
         # confidence.info()
         # confidence.getExtractor().info()
         print "loaded confidence",which,confidence
-    except:
-        traceback.print_exc()
+    except e:
+        if ocrolib.trace:
+            print e
+            traceback.print_exc()
         print "loading",options.model,"failed"
         confidence = None
 

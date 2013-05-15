@@ -129,7 +129,7 @@ def estimate_baseline(line,order=3):
     line = line*1.0/amax(line)
     vgrad = morphology.grey_closing(line,(1,40))
     vgrad = filters.gaussian_filter(vgrad,(2,60),(1,0))
-    if amin(vgrad)>0 or amax(vgrad)<0: raise BadLine()
+    if amin(vgrad)>0 or amax(vgrad)<0: raise BadImage()
     h,w = vgrad.shape
     ys = argmin(vgrad,axis=0)
     xs = arange(w)
@@ -159,7 +159,7 @@ def estimate_xheight(line,scale=1.0,debug=0):
     filtering."""
     vgrad = morphology.grey_closing(line,(1,int(scale*40)))
     vgrad = filters.gaussian_filter(vgrad,(2,int(scale*60)),(1,0))
-    if amin(vgrad)>0 or amax(vgrad)<0: raise Exception("bad line")
+    if amin(vgrad)>0 or amax(vgrad)<0: raise BadImage("bad line")
     if debug: imshow(vgrad)
     proj = sum(vgrad,1)
     proj = filters.gaussian_filter(proj,0.5)

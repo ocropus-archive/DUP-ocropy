@@ -11,4 +11,4 @@ __all__ = [
 import default
 from common import *
 from mlp import MLP,AutoMLP
-
+from default import traceback as trace

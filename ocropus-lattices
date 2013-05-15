@@ -138,7 +138,7 @@ class CharResizer:
             baseline = polyval(self.blp,x)
             xline = polyval(self.xlp,x)
             if xline>=baseline: 
-                raise ocrolib.RecognitionError("xline>=baseline %d %d"%(xline,baseline))
+                raise BadImage("xline>=baseline %d %d"%(xline,baseline))
             options = dict(bar=(xline,baseline))
             scale = self.target_xheight*1.0/self.xheight
             image = improc.line_normalize(1.0*image,scale=scale,**options)
@@ -147,9 +147,9 @@ class CharResizer:
                 image = improc.classifier_normalize(1.0*image)
             except:
                 traceback.print_exc()
-                raise ocrolib.RecognitionError("classifier_normalize failed, skipping")
+                raise BadInput("classifier_normalize failed, skipping")
         elif self.sizemode=="lineabs":
-            raise Exception("not implemented yet")
+            raise Unimplemented("lineabs")
         else:
             raise Exception("unknown sizemode:"+self.sizemode)
         return image

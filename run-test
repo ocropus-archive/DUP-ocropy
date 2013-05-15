@@ -1,10 +1,9 @@
 #!/bin/bash -e
 
 rm -rf temp 
-#ocropus-nlbin tests/testpage.png -o temp
-ocropus-sauvola tests/testpage.png -o temp
+ocropus-nlbin tests/testpage.png -o temp
 ocropus-gpageseg 'temp/????.bin.png'
-ocropus-rpred 'temp/????/??????.bin.png'
+ocropus-rpred -n 'temp/????/??????.bin.png'
 ocropus-hocr 'temp/????.bin.png' -o temp.html
 ocropus-visualize-results temp
 ocropus-gtedit html temp/????/??????.bin.png -o temp-correction.html

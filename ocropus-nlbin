@@ -2,7 +2,7 @@
 
 from pylab import *
 import argparse,glob,os,os.path
-from scipy.ndimage import filters,interpolation,morphology
+from scipy.ndimage import filters,interpolation,morphology,measurements
 from scipy import stats
 import multiprocessing
 import ocrolib
@@ -16,6 +16,8 @@ This is a compute-intensive binarization method that works on degraded
 and historical book pages.
 """)
 
+parser.add_argument('-n','--nocheck',action="store_true",
+                    help="disable error checking on inputs")
 parser.add_argument('-t','--threshold',type=float,default=0.5,help='threshold, determines lightness')
 parser.add_argument('-z','--zoom',type=float,default=0.5,help='zoom for page background estimation, smaller=faster')
 parser.add_argument('-e','--escale',type=float,default=1.0,help='scale for estimating a mask over the text region')
@@ -37,7 +39,20 @@ args = parser.parse_args()
 
 args.files = ocrolib.glob_all(args.files)
 
+if len(args.files)<1:
+    parser.print_help()
+    sys.exit(0)
 
+
+def check_page(image):
+    if len(image.shape)==3: return "input image is color image %s"%(image.shape,)
+    if mean(image)<median(image): return "image may be inverted"
+    h,w = image.shape
+    if h<600: return "image not tall enough for a page image %s"%(image.shape,)
+    if h>10000: return "image too tall for a page image %s"%(image.shape,)
+    if w<600: return "image too narrow for a page image %s"%(image.shape,)
+    if w>10000: return "line too wide for a page image %s"%(image.shape,)
+    return None
 
 def estimate_scale(binary):
     objects = binary_objects(binary)
@@ -93,6 +108,12 @@ def process1(job):
         print "# image is empty",fname
         return
     image /= amax(image)
+
+    if not args.nocheck:
+        check = check_page(amax(image)-image)
+        if check is not None:
+            print fname,"SKIPPED",check,"(use -n to disable this check)"
+            return
 
     # check whether the image is already effectively binarized
     if args.gray:

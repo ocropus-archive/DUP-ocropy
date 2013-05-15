@@ -239,30 +239,22 @@ max_xheight = 30
 
 def check_line_image(image):
     if image.shape[0]<10:
-        raise common.RecognitionError("line image not high enough (maybe rescale?)",
-                                      image=image)
+        raise BadImage("line image not high enough (maybe rescale?)",image=image)
     if image.shape[0]>200:
-        raise common.RecognitionError("line image too high (maybe rescale?)",
-                                      image=image)
+        raise BadImage("line image too high (maybe rescale?)",image=image)
     if image.shape[1]<10:
-        raise common.RecognitionError("line image not wide enough (segmentation error?)",
-                                      image=image)
+        raise BadImage("line image not wide enough (segmentation error?)",image=image)
     if image.shape[1]>10000:
-        raise common.RecognitionError("line image too wide???",
-                                      image=image)
+        raise BadImage("line image too wide???",image=image)
     if mean(image)<0.5*amax(image):
-        raise common.RecognitionError("image may not be white on black text (maybe invert?)",
-                                      image=image)
+        raise BadImage("image may not be white on black text (maybe invert?)",image=image)
     if sum(image)<20:
-        raise common.RecognitionError("not enough pixels in image, maybe the line is empty?",
-                                      image=image)
+        raise BadImage("not enough pixels in image, maybe the line is empty?",image=image)
     xheight,_ = lineproc.estimate_xheight(1-image)
     if xheight<min_xheight:
-        raise common.RecognitionError("xheight %f too small (maybe rescale?)"%
-                                      xheight,image=image)
+        raise BadImage("xheight %f too small (maybe rescale?)"%xheight,image=image)
     if xheight>max_xheight:
-        raise common.RecognitionError("xheight %f too large (maybe rescale?)"%
-                                      xheight,image=image)
+        raise BadImage("xheight %f too large (maybe rescale?)"%xheight,image=image)
 
 def clean_line_image(image,latin=1):
     # convert to float, normalize
@@ -290,7 +282,7 @@ def read_lattice(fname):
             elif f[0]=="chr":
                 segments[-1].out.append((float(f[2]),f[3]))
             else:
-                raise Exception("unknown start of line: "+line)
+                raise Internal("unknown start of line: "+line)
     return segments
 
 def write_lattice(stream,segments):

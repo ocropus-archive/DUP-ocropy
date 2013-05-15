@@ -21,6 +21,66 @@ from pylab import imshow
 import psegutils,morph
 from toplevel import *
 
+################################################################
+### exceptions
+################################################################
+
+class OcropusException(Exception):
+    trace = 1
+    def __init__(self,*args,**kw):
+        Exception.__init__(self,*args,**kw)
+
+class Unimplemented(OcropusException):
+    trace = 1
+    "Exception raised when a feature is unimplemented."
+    def __init__(self,s):
+        Exception.__init__(self,inspect.stack()[1][3])
+
+class Internal(OcropusException):
+    trace = 1
+    "Exception raised when a feature is unimplemented."
+    def __init__(self,s):
+        Exception.__init__(self,inspect.stack()[1][3])
+
+class RecognitionError(OcropusException):
+    trace = 1
+    "Some kind of error during recognition."
+    def __init__(self,explanation,**kw):
+        self.context = kw
+        s = [explanation]
+        s += ["%s=%s"%(k,summary(kw[k])) for k in kw]
+        message = " ".join(s)
+        Exception.__init__(self,message)
+
+class Warning(OcropusException):
+    trace = 0
+    def __init__(self,*args,**kw):
+        OcropusException.__init__(self,*args,**kw)
+
+class BadClassLabel(OcropusException):
+    trace = 0
+    "Exception for bad class labels in a dataset or input."
+    def __init__(self,s):
+        Exception.__init__(self,s)
+
+class BadImage(OcropusException):
+    trace = 0
+    def __init__(self,*args,**kw):
+        OcropusException.__init__(self,*args)
+
+class BadInput(OcropusException):
+    trace = 0
+    def __init__(self,*args,**kw):
+        OcropusException.__init__(self,*args,**kw)
+
+class FileNotFound(OcropusException):
+    trace = 0
+    """Some file-not-found error during OCRopus processing."""
+    def __init__(self,fname):
+        self.fname = fname
+    def __str__(self):
+        return "file not found %s"%(self.fname,)
+
 pickle_mode = 2
 
 def deprecated(f):
@@ -77,7 +137,7 @@ def project_text(s,kind="exact"):
     if kind=="lnc":
         s = s.upper()
         return re.sub(ur'[^A-Z]','',s)
-    raise Exception("unknown normalization: "+kind)
+    raise BadInput("unknown normalization: "+kind)
 
 ################################################################
 ### Text I/O
@@ -137,11 +197,11 @@ def array2pil(a):
         elif a.ndim==3:
             return PIL.Image.fromstring("RGB",(a.shape[1],a.shape[0]),a.tostring())
         else:
-            raise Exception("bad image rank")
+            raise OcropusException("bad image rank")
     elif a.dtype==dtype('float32'):
         return PIL.Image.fromstring("F",(a.shape[1],a.shape[0]),a.tostring())
     else:
-        raise Exception("unknown image type")
+        raise OcropusException("unknown image type")
 
 def isbytearray(a):
     return a.dtype in [dtype('uint8')]
@@ -176,7 +236,7 @@ def read_image_gray(fname,pageno=0):
     elif isfloatarray(a):
         pass
     else:
-        raise Exception("unknown image type: "+a.dtype)
+        raise OcropusException("unknown image type: "+a.dtype)
     if a.ndim==3:
         a = mean(a,2)
     return a
@@ -493,29 +553,6 @@ def parallel_map(fun,jobs,parallel=0,chunksize=1):
             pool.join()
             del pool
 
-################################################################
-### exceptions
-################################################################
-
-class Unimplemented():
-    "Exception raised when a feature is unimplemented."
-    def __init__(self,s):
-        Exception.__init__(self,inspect.stack()[1][3])
-
-class BadClassLabel(Exception):
-    "Exception for bad class labels in a dataset or input."
-    def __init__(self,s):
-        Exception.__init__(self,s)
-
-class RecognitionError(Exception):
-    "Some kind of error during recognition."
-    def __init__(self,explanation,**kw):
-        self.context = kw
-        s = [explanation]
-        s += ["%s=%s"%(k,summary(kw[k])) for k in kw]
-        message = " ".join(s)
-        Exception.__init__(self,message)
-
 def check_valid_class_label(s):
     """Determines whether the given character is a valid class label.
     Control characters and spaces are not permitted."""
@@ -566,7 +603,7 @@ def findfile_old(name,error=1):
     path = local+tail
     if os.path.exists(path) and os.path.isfile(path): return path
     if error:
-        raise IOError("file '"+path+"' not found in . or /usr/local/share/ocropus/")
+        raise FileNotFound("file '"+path+"' not found in . or /usr/local/share/ocropus/")
     else:
         return None
 
@@ -589,7 +626,7 @@ def finddir(name):
     if os.path.exists(path) and os.path.isdir(path): return path
     path = local+tail
     if os.path.exists(path) and os.path.isdir(path): return path
-    raise IOError("file '"+path+"' not found in . or /usr/local/share/ocropus/")
+    raise FileNotFound("file '"+path+"' not found in . or /usr/local/share/ocropus/")
 
 @checks(str)
 def allsplitext(path):
@@ -623,7 +660,7 @@ def glob_all(args):
         else:
             expanded = sorted(glob.glob(arg))
         if len(expanded)<1:
-            raise Exception("%s: expansion did not yield any files"%arg)
+            raise FileNotFound("%s: expansion did not yield any files"%arg)
         result += expanded
     return result
 
@@ -636,13 +673,6 @@ def expand_args(args):
         return sorted(glob.glob(args[0]+"/????/??????.png"))
     else:
         return args
-
-class OcropusFileNotFound:
-    """Some file-not-found error during OCROpus processing."""
-    def __init__(self,fname):
-        self.fname = fname
-    def __str__(self):
-        return "<OcropusFileNotFound "+self.fname+">"
 
 data_paths = [
     ".",
@@ -670,7 +700,7 @@ def ocropus_find_file(fname,gz=1):
         for path in data_paths:
             full = path+"/"+fname+".gz"
             if os.path.exists(full): return full
-    raise OcropusFileNotFound(fname)
+    raise FileNotFound(fname)
 
 def fexists(fname):
     """Returns fname if it exists, otherwise None."""
@@ -711,7 +741,7 @@ def fvariant(fname,kind,gt=""):
     # per character costs
     if kind=="costs":
         return base+".costs"
-    raise Exception("unknown kind: %s"%kind)
+    raise BadInput("unknown kind: %s"%kind)
 
 def fcleanup(fname,gt,kinds):
     """Removes all the variants of the file given by gt
@@ -725,7 +755,7 @@ def ffind(fname,kind,gt=None):
     doesn't exist."""
     s = fvariant(fname,kind,gt=gt)
     if not os.path.exists(s):
-        raise IOError(s)
+        raise FileNotFound(s)
     return s
 
 def fopen(fname,kind,gt=None,mode="r"):
@@ -1048,7 +1078,7 @@ def load_linerec_OBSOLETE(file,wrapper=None):
         return component
     if hasattr(component,"coutputs"):
         return wrapper(cmodel=component)
-    raise Exception("wanted linerec, got %s"%component)
+    raise BadInput("wanted linerec, got %s"%component)
 
 def binarize_range(image,dtype='B',threshold=0.5):
     """Binarize an image by its range."""
@@ -1078,7 +1108,7 @@ def draw_pseg(pseg,axis=None):
         axis.add_patch(p)
 
 def draw_aligned(result,axis=None):
-    raise Error("FIXME draw_aligned")
+    raise Unimplemented("FIXME draw_aligned")
     if axis is None:
         axis = subplot(111)
     axis.imshow(NI(result.image),cmap=cm.gray)
@@ -1163,7 +1193,7 @@ def gt_implode(l):
         elif len(c)<=4:
             result.append("_"+c+"_")
         else:
-            raise Exception("cannot create ground truth transcription for: %s"%l)
+            raise BadInput("cannot create ground truth transcription for: %s"%l)
     return "".join(result)
 
 @checks(int,sequence=int,frac=int,_=BOOL)
