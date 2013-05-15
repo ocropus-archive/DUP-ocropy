@@ -400,16 +400,18 @@ class RegionExtractor:
         return self.correspondence[i]
     def x0(self,i):
         """Return x0 (column) for the start of the box."""
-        return self.comp.x0(i)
+        return self.bbox(i)[1]
     def x1(self,i):
         """Return x0 (column) for the end of the box."""
-        return self.comp.x1(i)
+        return self.bbox(i)[3]
     def y0(self,i):
         """Return y0 (row) for the start of the box."""
-        return h-self.comp.y1(i)-1
+        h = self.image.shape[0]
+        return h-self.bbox(i)[2]-1
     def y1(self,i):
         """Return y0 (row) for the end of the box."""
-        return h-self.comp.y0(i)-1
+        h = self.image.shape[0]
+        return h-self.bbox(i)[0]-1
     def bbox(self,i):
         """Return the bounding box in raster coordinates
         (row0,col0,row1,col1)."""

@@ -304,6 +304,74 @@ def hprime(x,y=None):
     if y is None: y = tanh(x)
     return 1-y**2
 
+def forward_py(n,N,ni,ns,na,xs,source,gix,gfx,gox,cix,gi,gf,go,ci,state,output,WGI,WGF,WGO,WCI,WIP,WFP,WOP):
+    """Perform forward propagation of activations."""
+    cix[:,:] = nan; gix[:,:] = nan; gfx[:,:] = nan; gox[:,:] = nan 
+    ci[:,:] = nan; gi[:,:] = nan; gf[:,:] = nan; go[:,:] = nan 
+    state[:,:] = nan; source[:,:] = nan; output[:,:] = nan
+    for t in range(n):
+        prev = zeros(ns) if t==0 else output[t-1]
+        source[t,0] = 1
+        source[t,1:1+ni] = xs[t]
+        source[t,1+ni:] = prev
+        dot(WGI,source[t],out=gix[t])
+        dot(WGF,source[t],out=gfx[t])
+        dot(WGO,source[t],out=gox[t])
+        dot(WCI,source[t],out=cix[t])
+        if t>0:
+            gix[t] += WIP*state[t-1]
+            gfx[t] += WFP*state[t-1]
+        gi[t] = ffunc(gix[t])
+        gf[t] = ffunc(gfx[t])
+        ci[t] = gfunc(cix[t])
+        state[t] = ci[t]*gi[t]
+        if t>0:
+            state[t] += gf[t]*state[t-1]
+            gox[t] += WOP*state[t]
+        go[t] = ffunc(gox[t])
+        output[t] = hfunc(state[t]) * go[t]
+    assert not isnan(output[:n]).any()
+
+def backward_py(n,N,ni,ns,na,deltas,
+                    source,
+                    gix,gfx,gox,cix,
+                    gi,gf,go,ci,
+                    state,output,
+                    WGI,WGF,WGO,WCI,
+                    WIP,WFP,WOP,
+                    sourceerr,
+                    gierr,gferr,goerr,cierr,
+                    stateerr,outerr,
+                    DWGI,DWGF,DWGO,DWCI,
+                    DWIP,DWFP,DWOP):
+    for t in reversed(range(n)):
+        outerr[t] = deltas[t]
+        if t<n-1:
+            outerr[t] += sourceerr[t+1][-ns:]
+        goerr[t] = fprime(None,go[t]) * hfunc(state[t]) * outerr[t]
+        stateerr[t] = hprime(state[t]) * go[t] * outerr[t]
+        stateerr[t] += goerr[t]*WOP
+        if t<n-1:
+            stateerr[t] += gferr[t+1]*WFP
+            stateerr[t] += gierr[t+1]*WIP
+            stateerr[t] += stateerr[t+1]*gf[t+1]
+        if t>0:
+            gferr[t] = fprime(None,gf[t])*stateerr[t]*state[t-1]
+        gierr[t] = fprime(None,gi[t])*stateerr[t]*ci[t] # gfunc(cix[t])
+        cierr[t] = gprime(None,ci[t])*stateerr[t]*gi[t]
+        dot(gierr[t],WGI,out=sourceerr[t])
+        if t>0:
+            sourceerr[t] += dot(gferr[t],WGF)
+        sourceerr[t] += dot(goerr[t],WGO)
+        sourceerr[t] += dot(cierr[t],WCI)
+    DWIP = nutils.sumprod(gierr[1:n],state[:n-1],out=DWIP)
+    DWFP = nutils.sumprod(gferr[1:n],state[:n-1],out=DWFP)
+    DWOP = nutils.sumprod(goerr[:n],state[:n],out=DWOP)
+    DWGI = nutils.sumouter(gierr[:n],source[:n],out=DWGI)
+    DWGF = nutils.sumouter(gferr[1:n],source[1:n],out=DWGF)
+    DWGO = nutils.sumouter(goerr[:n],source[:n],out=DWGO)
+    DWCI = nutils.sumouter(cierr[:n],source[:n],out=DWCI)
+
 class LSTM(Network):
     """A standard LSTM network. This is a direct implementation of all the forward
     and backward propagation formulas, mainly for speed. (There is another, more
@@ -369,68 +437,37 @@ class LSTM(Network):
         ni,ns,na = self.dims
         assert len(xs[0])==ni
         n = len(xs)
-        if n>len(self.gi): 
-	    raise ocrolib.RecognitionError("input too large for LSTM model")
         self.last_n = n
-        self.reset(n)
-        for t in range(n):
-            prev = zeros(ns) if t==0 else self.output[t-1]
-            self.source[t,0] = 1
-            self.source[t,1:1+ni] = xs[t]
-            self.source[t,1+ni:] = prev
-            dot(self.WGI,self.source[t],out=self.gix[t])
-            dot(self.WGF,self.source[t],out=self.gfx[t])
-            dot(self.WGO,self.source[t],out=self.gox[t])
-            dot(self.WCI,self.source[t],out=self.cix[t])
-            if t>0:
-                # ATTENTION: peep weights are diagonal matrices
-                self.gix[t] += self.WIP*self.state[t-1]
-                self.gfx[t] += self.WFP*self.state[t-1]
-            self.gi[t] = ffunc(self.gix[t])
-            self.gf[t] = ffunc(self.gfx[t])
-            self.ci[t] = gfunc(self.cix[t])
-            self.state[t] = self.ci[t]*self.gi[t]
-            if t>0:
-                self.state[t] += self.gf[t]*self.state[t-1]
-                self.gox[t] += self.WOP*self.state[t]
-            self.go[t] = ffunc(self.gox[t])
-            self.output[t] = hfunc(self.state[t]) * self.go[t]
+        N = len(self.gi)
+        if n>N: raise ocrolib.RecognitionError("input too large for LSTM model")
+        forward_py(n,N,ni,ns,na,xs,
+                   self.source,
+                   self.gix,self.gfx,self.gox,self.cix,
+                   self.gi,self.gf,self.go,self.ci,
+                   self.state,self.output,
+                   self.WGI,self.WGF,self.WGO,self.WCI,
+                   self.WIP,self.WFP,self.WOP)
         assert not isnan(self.output[:n]).any()
         return self.output[:n]
     def backward(self,deltas):
         """Perform backward propagation of deltas."""
-        n = len(deltas)
-        if n>len(self.gi): 
-	    raise ocrolib.RecognitionError("input too large")
-        assert n==self.last_n
         ni,ns,na = self.dims
-        for t in reversed(range(n)):
-            self.outerr[t] = deltas[t]
-            if t<n-1:
-                self.outerr[t] += self.sourceerr[t+1][-ns:]
-            self.goerr[t] = fprime(None,self.go[t]) * hfunc(self.state[t]) * self.outerr[t]
-            self.stateerr[t] = hprime(self.state[t]) * self.go[t] * self.outerr[t]
-            self.stateerr[t] += self.goerr[t]*self.WOP
-            if t<n-1:
-                self.stateerr[t] += self.gferr[t+1]*self.WFP
-                self.stateerr[t] += self.gierr[t+1]*self.WIP
-                self.stateerr[t] += self.stateerr[t+1]*self.gf[t+1]
-            if t>0:
-                self.gferr[t] = fprime(None,self.gf[t])*self.stateerr[t]*self.state[t-1]
-            self.gierr[t] = fprime(None,self.gi[t])*self.stateerr[t]*self.ci[t] # gfunc(self.cix[t])
-            self.cierr[t] = gprime(None,self.ci[t])*self.stateerr[t]*self.gi[t]
-            dot(self.gierr[t],self.WGI,out=self.sourceerr[t])
-            if t>0:
-                self.sourceerr[t] += dot(self.gferr[t],self.WGF)
-            self.sourceerr[t] += dot(self.goerr[t],self.WGO)
-            self.sourceerr[t] += dot(self.cierr[t],self.WCI)
-        self.DWIP = nutils.sumprod(self.gierr[1:n],self.state[:n-1],out=self.DWIP)
-        self.DWFP = nutils.sumprod(self.gferr[1:n],self.state[:n-1],out=self.DWFP)
-        self.DWOP = nutils.sumprod(self.goerr[:n],self.state[:n],out=self.DWOP)
-        self.DWGI = nutils.sumouter(self.gierr[:n],self.source[:n],out=self.DWGI)
-        self.DWGF = nutils.sumouter(self.gferr[1:n],self.source[1:n],out=self.DWGF)
-        self.DWGO = nutils.sumouter(self.goerr[:n],self.source[:n],out=self.DWGO)
-        self.DWCI = nutils.sumouter(self.cierr[:n],self.source[:n],out=self.DWCI)
+        n = len(deltas)
+        self.last_n = n
+        N = len(self.gi)
+        if n>N: raise ocrolib.RecognitionError("input too large for LSTM model")
+        backward_py(n,N,ni,ns,na,deltas,
+                    self.source,
+                    self.gix,self.gfx,self.gox,self.cix,
+                    self.gi,self.gf,self.go,self.ci,
+                    self.state,self.output,
+                    self.WGI,self.WGF,self.WGO,self.WCI,
+                    self.WIP,self.WFP,self.WOP,
+                    self.sourceerr,
+                    self.gierr,self.gferr,self.goerr,self.cierr,
+                    self.stateerr,self.outerr,
+                    self.DWGI,self.DWGF,self.DWGO,self.DWCI,
+                    self.DWIP,self.DWFP,self.DWOP)
         return [s[1:1+ni] for s in self.sourceerr[:n]]
 
 ################################################################
