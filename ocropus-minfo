@@ -1,0 +1,66 @@
+#!/usr/bin/python
+
+import numpy
+import argparse,codecs,re,os,sys,os.path,ocrolib,base64,os.path
+from pylab import *
+from bs4 import BeautifulSoup
+import urllib2
+import StringIO
+import ocrolib
+
+parser = argparse.ArgumentParser()
+subparsers = parser.add_subparsers(help="subcommands",dest="subparser_name")
+
+p_info = subparsers.add_parser("info",help="print info about the model")
+p_info.add_argument('model')
+
+p_info = subparsers.add_parser("klog",help="print key log info")
+p_info.add_argument('model')
+
+p_strip = subparsers.add_parser("strip",help="strip info from the model")
+p_strip.add_argument('model')
+p_strip.add_argument('-o','--output')
+
+stream = None
+def P(x,*args):
+    global stream
+    stream.write(x%args)
+    stream.write("\n")
+
+args = parser.parse_args()
+
+if args.subparser_name=="info":
+    model = ocrolib.load_object(args.model)
+    for k,v in model.__dict__.items():
+        print "%-20s"%k,
+        if type(v) in [int,float,numpy.float64]: print v,
+        elif type(v)==list: print "list(%s)"%len(v),
+        elif type(v)==numpy.ndarray: print v.shape,
+        elif k in ["normalize","codec","lnorm"]: print v,
+        print
+    for c in model.command_log:
+        print " >",c
+    print
+    for k,v in model.lstm.__dict__.items():
+        print "%-20s"%k,
+        if type(v) in [int,float,numpy.float64]: print v,
+        elif type(v)==list: print "list(%s)"%len(v),
+        elif type(v)==numpy.ndarray: print v.shape,
+        elif k in ["normalize","codec","lnorm"]: print v,
+        print
+
+if args.subparser_name=="klog":
+    model = ocrolib.load_object(args.model)
+    for k,e,(ne,n) in zip(model.key_log,model.error_log,model.cerror_log):
+        print "%3d %3d %.5f %s"%(ne,n,e,k)
+
+if args.subparser_name=="strip":
+    assert args.output is not None
+    model = ocrolib.load_object(args.model)
+    model.outputs = array([])
+    model.aligned = array([])
+    model.targets = array([])
+    model.key_log = []
+    model.cerror_log = []
+    model.error_log = []
+    ocrolib.save_object(args.output,model)
