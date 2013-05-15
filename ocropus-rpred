@@ -2,6 +2,7 @@
 
 import random as pyrandom
 import traceback
+import codecs
 import re
 from pylab import *
 import os.path
@@ -39,6 +40,10 @@ parser.add_argument("-p","--pad",default=16,type=int,
                     help="extra blank padding to the left and right of text line")
 parser.add_argument('-N',"--nonormalize",action="store_true",
                     help="don't normalize the textual output from the recognizer")
+parser.add_argument('--llocs',action="store_true",
+                    help="output LSTM locations for characters")
+parser.add_argument('--alocs',action="store_true",
+                    help="output aligned LSTM locations for characters")
 
 # error measures
 parser.add_argument("-r","--estrate",action="store_true",
@@ -120,6 +125,7 @@ def process1(arg):
     (trial,fname) = arg
     base,_ = ocrolib.allsplitext(fname)
     line = ocrolib.read_image_gray(fname)
+    raw_line = line.copy()
     if prod(line.shape)==0: return None
     if amax(line)==amin(line): return None
 
@@ -140,6 +146,33 @@ def process1(arg):
 
     line = lstm.prepare_line(line,args.pad)
     pred = network.predictString(line)
+
+    if args.llocs:
+        # output recognized LSTM locations of characters
+        result = lstm.translate_back(network.outputs,pos=1)
+        scale = len(raw_line.T)*1.0/(len(network.outputs)-2*args.pad)
+        #ion(); imshow(raw_line,cmap=cm.gray)
+        with codecs.open(base+".llocs","w") as locs:
+            for r,c in result:
+                c = network.l2s([c])
+                r = (r-args.pad)*scale
+                locs.write("%s\t%.1f\n"%(c,r))
+                #plot([r,r],[0,20],'r' if c==" " else 'b')
+        #ginput(1,1000)
+
+    if args.alocs:
+        # output recognized and aligned LSTM locations
+        if os.path.exists(base+".gt.txt"):
+            transcript = ocrolib.read_text(base+".gt.txt")
+            transcript = ocrolib.normalize_text(transcript)
+            pred2 = network.trainString(line,transcript,update=0)
+            result = lstm.translate_back(network.aligned,pos=1)
+            scale = len(raw_line.T)*1.0/(len(network.aligned)-2*args.pad)
+            with codecs.open(base+".alocs","w") as locs:
+                for r,c in result:
+                    c = network.l2s([c])
+                    r = (r-args.pad)*scale
+                    locs.write("%s\t%.1f\n"%(c,r))
 
     if not args.nonormalize:
         pred = ocrolib.normalize_text(pred)
