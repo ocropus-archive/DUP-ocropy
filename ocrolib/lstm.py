@@ -54,7 +54,7 @@ def sumouter(us,vs,lo=-1.0,hi=1.0,out=None):
     Values are clipped into the range `[lo,hi]`.
     This is mainly used for computing weight updates
     in logistic regression layers."""
-    result = zeros((len(us[0]),len(vs[0])))
+    result = out or zeros((len(us[0]),len(vs[0])))
     for u,v in zip(us,vs):
         result += outer(clip(u,lo,hi),v)
     return result
@@ -65,7 +65,7 @@ def sumprod(us,vs,lo=-1.0,hi=1.0,out=None):
     This is mainly used for computing weight updates
     in logistic regression layers."""
     assert len(us[0])==len(vs[0])
-    result = zeros(len(us[0]))
+    result = out or zeros(len(us[0]))
     for u,v in zip(us,vs):
         result += clip(u,lo,hi)*v
     return result
