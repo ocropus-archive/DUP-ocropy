@@ -306,9 +306,6 @@ def hprime(x,y=None):
 
 def forward_py(n,N,ni,ns,na,xs,source,gix,gfx,gox,cix,gi,gf,go,ci,state,output,WGI,WGF,WGO,WCI,WIP,WFP,WOP):
     """Perform forward propagation of activations."""
-    cix[:,:] = nan; gix[:,:] = nan; gfx[:,:] = nan; gox[:,:] = nan 
-    ci[:,:] = nan; gi[:,:] = nan; gf[:,:] = nan; go[:,:] = nan 
-    state[:,:] = nan; source[:,:] = nan; output[:,:] = nan
     for t in range(n):
         prev = zeros(ns) if t==0 else output[t-1]
         source[t,0] = 1
@@ -331,6 +328,7 @@ def forward_py(n,N,ni,ns,na,xs,source,gix,gfx,gox,cix,gi,gf,go,ci,state,output,W
         go[t] = ffunc(gox[t])
         output[t] = hfunc(state[t]) * go[t]
     assert not isnan(output[:n]).any()
+
 
 def backward_py(n,N,ni,ns,na,deltas,
                     source,
@@ -440,6 +438,7 @@ class LSTM(Network):
         self.last_n = n
         N = len(self.gi)
         if n>N: raise ocrolib.RecognitionError("input too large for LSTM model")
+        self.reset(n)
         forward_py(n,N,ni,ns,na,xs,
                    self.source,
                    self.gix,self.gfx,self.gox,self.cix,

@@ -9,6 +9,7 @@
 
 from pylab import *
 from collections import Counter,defaultdict
+import codecs
 import glob,re,heapq,os,codecs
 import ocrolib
 from ocrolib import ngraphs as ng
@@ -283,8 +284,9 @@ if args.sample is not None:
     assert os.path.exists(args.lmodel),\
            "%s: cannot find language model"%args.lmodel
     ngraphs = ocrolib.load_object(args.lmodel)
+    output = codecs.EncodedFile(sys.stdout,"utf8")
     for i in range(args.sample):
-        print ngraphs.sample(args.slength)
+        output.write(ngraphs.sample(args.slength)+"\n")
     sys.exit(0)
     
 fnames = []
