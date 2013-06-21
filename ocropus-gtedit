@@ -2,7 +2,7 @@
 
 from pylab import *
 import argparse,codecs,re,os,sys,os.path,ocrolib,base64,os.path
-from bs4 import BeautifulSoup
+from lxml import etree
 import urllib2
 import StringIO
 
@@ -99,9 +99,11 @@ if args.subparser_name=="text":
         P(u"%04d.%010d\t%s",page,line,text)
     stream.close()
     stream = codecs.open(args.reffile,"w","utf-8")
-    P("<header>")
+    P("<!DOCTYPE html>")
+    P("<html>")
+    P("<head>")
     P('<meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>')
-    P("</header>")
+    P("</head>")
     P("<body>")
     P("<table border=1>")
     for i,fname in enumerate(args.files):
@@ -111,9 +113,10 @@ if args.subparser_name=="text":
         line = int(line,16)
         P("<tr>")
         P(u"<td>%04d.%010d</td>",page,line)
-        P(u"<td><img src='%s' height=%d /></td>",fname,args.height)
+        P(u"<td><img alt='line' src='%s' height=%d /></td>",fname,args.height)
         P("</tr>")
     P("</table>")
+    P("</html>")
     stream.close()
 
 if args.subparser_name=="org":
@@ -174,9 +177,13 @@ if args.subparser_name=="html":
     for oname,files in chunks:
         print "# writing",oname
         stream = codecs.open(oname,"w","utf-8")
-        P("<header>")
-        P('<meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>')
-        P("</header>")
+        # P("<!DOCTYPE html>")
+        P('<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">')
+        P("<html>")
+        P("<head>")
+        P('<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />')
+        P('<title>Correction</title>')
+        P("</head>")
         P("<body>")
         for i,fname in enumerate(args.files):
             base,_ = ocrolib.allsplitext(fname)
@@ -189,10 +196,12 @@ if args.subparser_name=="html":
             png = "data:image/png;base64,"+png
             P("<table>")
             P("<tr><td style='border:0px;color:#808080;font-size:12px'>%s</td></tr>",fname)
-            P("<tr><td><img src='%s' height=%d /></td></tr>",png,args.height)
+            P("<tr><td><img alt='line' src='%s' height='%d' /></td></tr>",png,args.height)
             P("<tr><td style='border: solid 1px #808080;color: #000060;font-size:%dpx;min-height:%dpx' contenteditable='true' spellcheck='true'>%s</td></tr>",args.fontsize,args.fontsize,text)
             P("</table>")
             P("<p />")
+        P("</body>")
+        P("</html>")
         stream.close()
 
 def url_decode(image):
@@ -205,29 +214,16 @@ def url_decode(image):
     return data
 
 if args.subparser_name=="extract":
+    parser = etree.HTMLParser()
     with codecs.open(args.html,"r","utf-8") as stream:
-        html = stream.read()
-    soup = BeautifulSoup(html)
+        tree = etree.parse(stream,parser)
     count = 0
-    for table in soup.find_all("table"):
-        rows = table.find_all("tr")
-        if len(rows)==2:
-            rows = [None]+rows
-            dest = None
-        elif len(rows)==3:
-            dest = rows[0].get_text()
-            dest = dest.encode('ascii')
-        else:
-            print "wrong # rows"
-            continue
-        image = rows[1].find_all("img")
-        if len(image)!=1:
-            print "can't find image"
-            continue
-        image = image[0].get("src")
-        transcript = rows[2].get_text()
-        transcript = transcript.strip()
-        png = url_decode(image)
+    for table in tree.iter('table'):
+        rows = [r for r in table.iter('tr')]
+        dest = rows[0].findtext(".//td")
+        src = rows[1].find(".//img").get("src")
+        png = url_decode(src)
+        transcript = rows[2].findtext(".//td")
         if transcript=="" and not args.allowempty:
             print "#",dest,"has empty transcript; skipping"
             continue
@@ -236,9 +232,11 @@ if args.subparser_name=="extract":
             dest = args.prefix+"/%04d/01%04x.bin.png"%((count//30)+1,(count%30)+1)
         print dest,"\t",transcript
         assert not os.path.isabs(dest)
+        assert ".." not in dest
+        assert "/." not in dest
         d = os.path.dirname(dest)
         if not os.path.exists(d): os.makedirs(d)
-        if os.path.exists(dest):
+        if os.path.exists(dest) and not args.overwrite:
             print "#",dest,"exists, not writing"
         else:
             with open(dest,"wb") as stream: stream.write(png)
