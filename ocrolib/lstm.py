@@ -308,6 +308,12 @@ def hprime(x,y=None):
 # make their conversion to native code easy; these are the "inner loops"
 # of the LSTM algorithm.
 
+# Both functions are a straightforward implementation of the
+# LSTM equations. It is possible to abstract this further and
+# represent gates and memory cells as individual data structures.
+# However, that is several times slower and the extra abstraction
+# isn't actually all that useful.
+
 def forward_py(n,N,ni,ns,na,xs,source,gix,gfx,gox,cix,gi,gf,go,ci,state,output,WGI,WGF,WGO,WCI,WIP,WFP,WOP):
     """Perform forward propagation of activations for a simple LSTM layer."""
     for t in range(n):
