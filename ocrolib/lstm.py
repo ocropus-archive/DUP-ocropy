@@ -304,8 +304,12 @@ def hprime(x,y=None):
     if y is None: y = tanh(x)
     return 1-y**2
 
+# These two routines have been factored out of the class in order to 
+# make their conversion to native code easy; these are the "inner loops"
+# of the LSTM algorithm.
+
 def forward_py(n,N,ni,ns,na,xs,source,gix,gfx,gox,cix,gi,gf,go,ci,state,output,WGI,WGF,WGO,WCI,WIP,WFP,WOP):
-    """Perform forward propagation of activations."""
+    """Perform forward propagation of activations for a simple LSTM layer."""
     for t in range(n):
         prev = zeros(ns) if t==0 else output[t-1]
         source[t,0] = 1
@@ -331,6 +335,7 @@ def forward_py(n,N,ni,ns,na,xs,source,gix,gfx,gox,cix,gi,gf,go,ci,state,output,W
 
 
 def backward_py(n,N,ni,ns,na,deltas,
+    """Perform backward propagation of deltas for a simple LSTM layer."""
                     source,
                     gix,gfx,gox,cix,
                     gi,gf,go,ci,
