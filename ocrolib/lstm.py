@@ -26,10 +26,11 @@ def prepare_line(line,pad=16):
     return line
 
 def randu(*shape):
-    # ATTENTION: whether you use randu or randn can make a difference.
     """Generate uniformly random values in the range (-1,1).
     This can usually be used as a drop-in replacement for `randn`
-    resulting in a different distribution."""
+    resulting in a different distribution for weight initializations.
+    Empirically, the choice of randu/randn can make a difference
+    for neural network initialization."""
     return 2*rand(*shape)-1
 
 def sigmoid(x):
@@ -72,10 +73,33 @@ def sumprod(us,vs,lo=-1.0,hi=1.0,out=None):
 
 class Network:
     """General interface for networks. This mainly adds convenience
-    functions for `predict` and `train`."""
+    functions for `predict` and `train`.
+
+    For the purposes of this library, all inputs and outputs are
+    in the form of (temporal) sequences of vectors. Sequences of
+    vectors are represented as 2D arrays, with each row representing
+    a vector at the time step given by the row index. Both activations
+    and deltas are propagated that way.
+
+    Common implementations of this are the `MLP`, `Logreg`, `Softmax`,
+    and `LSTM` networks. These implementations do most of the numerical
+    computation and learning.
+
+    Networks are designed such that they can be abstracted; that is,
+    you can create a network class that implements forward/backward
+    methods but internally implements through calls to component networks.
+    The `Stacked`, `Reversed`, and `Parallel` classes below take advantage
+    of that.
+    """
+
     def predict(self,xs):
+        """Prediction is the same as forward propagation."""
         return self.forward(xs)
+
     def train(self,xs,ys,debug=0):
+        """Training performs forward propagation, computes the output deltas
+        as the difference between the predicted and desired values,
+        and then propagates those deltas backwards."""
         xs = array(xs)
         ys = array(ys)
         pred = array(self.forward(xs))
@@ -83,6 +107,7 @@ class Network:
         self.backward(deltas)
         self.update()
         return pred
+
     def ctrain(self,xs,cs,debug=0,lo=1e-5,accelerated=1):
         """Training for classification.  This handles
         the special case of just two classes. It also
@@ -130,10 +155,12 @@ class Network:
         self.backward(deltas)
         self.update()
         return pred
+
     def setLearningRate(self,r,momentum=0.9):
         """Set the learning rate and momentum for weight updates."""
         self.learning_rate = r
         self.momentum = momentum
+
     def weights(self):
         """Return an iterator that iterates over (W,DW,name) triples
         representing the weight matrix, the computed deltas, and the names
@@ -141,6 +168,7 @@ class Network:
         in subclasses. The objects returned by the iterator must not be copies,
         since they are updated in place by the `update` method."""
         pass
+
     def allweights(self):
         """Return all weights as a single vector. This is mainly a convenience
         function for plotting."""
@@ -149,6 +177,7 @@ class Network:
         weights = [w.ravel() for w in weights]
         derivs = [d.ravel() for d in derivs]
         return concatenate(weights),concatenate(derivs)
+
     def update(self):
         """Update the weights using the deltas computed in the last forward/backward pass.
         Subclasses need not implement this, they should implement the `weights` method."""
@@ -162,8 +191,30 @@ class Network:
             if self.verbose:
                 print n,(amin(w),amax(w)),(amin(dw),amax(dw))
 
+''' The following as subclass responsibility:
+
+    def forward(self,xs):
+        """Propagate activations forward through the network.
+        This needs to be implemented in subclasses.
+        It updates the internal state of the object for an (optional)
+        subsequent call to `backward`.
+        """
+        pass
+
+    def backward(self,deltas):
+        """Propagate error signals backward through the network.
+        This needs to be implemented in subclasses.
+        It assumes that activations for the input have previously
+        been computed by a call to `forward`.
+        It should not perform weight updates (that is handled by
+        the `update` method)."""
+        pass
+
+'''
+
 class Logreg(Network):
-    """A logistic regression network."""
+    """A logistic regression layer, a straightforward implementation
+    of the logistic regression equations. Uses 1-augmented vectors."""
     def __init__(self,Nh,No,initial_range=initial_range,rand=rand):
         self.Nh = Nh
         self.No = No
@@ -201,7 +252,8 @@ class Logreg(Network):
         yield self.W2,self.DW2,"Logreg"
 
 class Softmax(Network):
-    """A logistic regression network."""
+    """A softmax layer, a straightforward implementation
+    of the softmax equations. Uses 1-augmented vectors."""
     def __init__(self,Nh,No,initial_range=initial_range,rand=rand):
         self.Nh = Nh
         self.No = No
@@ -212,6 +264,9 @@ class Softmax(Network):
     def noutputs(self):
         return self.No
     def forward(self,ys):
+        """Forward propagate activations. This updates the internal
+        state for a subsequent call to `backward` and returns the output
+        activations."""
         n = len(ys)
         inputs,zs = [None]*n,[None]*n
         for i in range(n):
@@ -241,7 +296,9 @@ class Softmax(Network):
         yield self.W2,self.DW2,"Softmax"
 
 class MLP(Network):
-    """A multilayer perceptron (direct implementation)."""
+    """A multilayer perceptron (direct implementation). Effectively,
+    two `Logreg` layers stacked on top of each other, or a simple direct
+    implementation of the MLP equations. This is mainly used for testing."""
     def __init__(self,Ni,Nh,No,initial_range=initial_range,rand=randu):
         self.Ni = Ni
         self.Nh = Nh
@@ -341,7 +398,6 @@ def forward_py(n,N,ni,ns,na,xs,source,gix,gfx,gox,cix,gi,gf,go,ci,state,output,W
 
 
 def backward_py(n,N,ni,ns,na,deltas,
-    """Perform backward propagation of deltas for a simple LSTM layer."""
                     source,
                     gix,gfx,gox,cix,
                     gi,gf,go,ci,
@@ -353,6 +409,7 @@ def backward_py(n,N,ni,ns,na,deltas,
                     stateerr,outerr,
                     DWGI,DWGF,DWGO,DWCI,
                     DWIP,DWFP,DWOP):
+    """Perform backward propagation of deltas for a simple LSTM layer."""
     for t in reversed(range(n)):
         outerr[t] = deltas[t]
         if t<n-1:
@@ -442,7 +499,12 @@ class LSTM(Network):
         for v in vars.split():
             getattr(self,v)[:,:] = nan
     def forward(self,xs):
-        """Perform forward propagation of activations."""
+        """Perform forward propagation of activations and update the 
+        internal state for a subsequent call to `backward`.
+        Since this performs sequence classification, `xs` is a 2D
+        array, with rows representing input vectors at each time step.
+        Returns a 2D array whose rows represent output vectors for
+        each input vector."""
         ni,ns,na = self.dims
         assert len(xs[0])==ni
         n = len(xs)
@@ -460,7 +522,9 @@ class LSTM(Network):
         assert not isnan(self.output[:n]).any()
         return self.output[:n]
     def backward(self,deltas):
-        """Perform backward propagation of deltas."""
+        """Perform backward propagation of deltas. Must be called after `forward`.
+        Does not perform weight updating (for that, use the generic `update` method).
+        Returns the `deltas` for the input vectors."""
         ni,ns,na = self.dims
         n = len(deltas)
         self.last_n = n
