@@ -1,3 +1,29 @@
+# An implementation of LSTM networks, CTC alignment, and related classes.
+# 
+# This code operates on sequences of vectors as inputs, and either outputs
+# sequences of vectors, or symbol sequences. Sequences of vectors are
+# represented as 2D arrays, with rows representing vectors at different
+# time steps.
+# 
+# The code makes liberal use of array programming, including slicing,
+# both for speed and for simplicity. All arrays are actual narrays (not matrices),
+# so `*` means element-wise multiplication. If you're not familiar with array
+# programming style, the numerical code may be hard to follow. If you're familiar with
+# MATLAB, here is a side-by-side comparison: http://wiki.scipy.org/NumPy_for_Matlab_Users
+#
+# Implementations follow the mathematical formulas for forward and backward
+# propagation closely; these are not documented in the code, but you can find
+# them in the original publications or the slides for the LSTM tutorial
+# at http://lstm.iupr.com/
+#
+# You can find a simple example of how to use this code in this worksheet:
+# https://docs.google.com/a/iupr.com/file/d/0B2VUW2Zx_hNoXzJQemFhOXlLN0U
+# More complex usage is illustrated by the ocropus-rpred and ocropus-rtrain
+# command line programs.
+#
+# Author: Thomas M. Breuel
+# License: Apache 2.0
+
 import common as ocrolib
 import pdb
 from pylab import *
