@@ -191,7 +191,7 @@ class Network:
             if self.verbose:
                 print n,(amin(w),amax(w)),(amin(dw),amax(dw))
 
-''' The following as subclass responsibility:
+''' The following are subclass responsibility:
 
     def forward(self,xs):
         """Propagate activations forward through the network.
