@@ -801,8 +801,9 @@ def ctc_align_targets(outputs,targets,threshold=100.0,verbose=0,debug=0,lo=1e-5)
     epath /= where(l==0.0,1e-9,l)
 
     # The previous computation gives us an alignment between input time
-    # and output sequence position; however, we actually want the posterior
-    # probability distribution at each time step. This dot product gives
+    # and output sequence position as posteriors over states. 
+    # However, we actually want the posterior probability distribution over
+    # output classes at each time step. This dot product gives
     # us that result. We renormalize again afterwards.
     aligned = maximum(lo,dot(epath,targets))
     l = sum(aligned,axis=1)[:,newaxis]
