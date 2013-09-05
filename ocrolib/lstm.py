@@ -751,7 +751,10 @@ def forward_algorithm(match,skip=-5.0):
     # from how well the symbols match the network output.
     for i in range(0,len(match)):
         w = roll(v,1).copy()
+        # extra cost for skipping initial symbols
         w[0] = skip*i
+        # total cost is match cost of staying in same state
+        # plus match cost of making a transition into the next state
         v = log_add(log_mul(v,match[i]),log_mul(w,match[i]))
         result.append(v)
     return array(result,'f')
