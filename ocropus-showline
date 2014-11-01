@@ -2,21 +2,15 @@
 
 # make the clustering class-specific
 
-import sys,os,re,glob,math,glob,signal,traceback,codecs
-import matplotlib,tables
+import sys,os,signal
+import matplotlib
 if "DISPLAY" not in os.environ: matplotlib.use("AGG")
 else: matplotlib.use("GTK")
-from scipy.ndimage import interpolation
 from pylab import *
-from optparse import OptionParser
-from multiprocessing import Pool
 import ocrolib
-from ocrolib import number_of_processors,die
-from ocrolib.ligatures import lig
-from ocrolib import lineseg,morph,linerec,improc,sl
+from ocrolib import morph,linerec,sl
 signal.signal(signal.SIGINT,lambda *args:sys.exit(1))
 from ocrolib import fvariant
-from os.path import exists
 
 import argparse
 parser = argparse.ArgumentParser(description = "Displays all the files associated with a text line.")

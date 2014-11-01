@@ -1,5 +1,7 @@
 # the defaults used by the recognizer
 
+import os
+
 rnnmodel = "en-default.pyrnn.gz"
 model = "en-uw3-linerel-2.cmodel.gz"
 ngraphs = "en-mixed-3.ngraphs.gz"
@@ -18,7 +20,6 @@ installable += ["fraktur.pyrnn.gz"] # Fraktur recognizer
 
 modeldir = "/usr/local/share/ocropus/"
 
-import os
 def getlocal():
     """Get the path to the local directory where OCRopus data is
     installed. Checks OCROPUS_DATA in the environment first,
@@ -26,6 +27,5 @@ def getlocal():
     local = os.getenv("OCROPUS_DATA") or modeldir
     return local
 
-import os
 traceback = int(os.getenv("OCROTRACE") or "0")
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-import sys,pickle,os,glob,traceback,sqlite3,scipy,time
+import sys,os,glob,traceback,scipy,time
 import matplotlib
 import tables
 if "DISPLAY" not in os.environ: matplotlib.use("AGG")
@@ -12,7 +12,6 @@ import gobject,gtk,gtk.glade
 from pylab import *
 import ocrolib
 from scipy import stats
-import random
 from ocrolib.ligatures import lig
 
 
@@ -138,9 +137,6 @@ def get_clusters(cls,limit=options.batchsize,table=options.table):
         if len(cur)>options.maxchars and options.random: 
             import random
             random.shuffle(cur)
-
-        nothing = [None]*len(cur)
-
         if "costs" in dir(pdb.root):
             costs = array([unlist(pdb.root.costs[c]) for c in cur])
             if len(costs)>options.maxchars:
@@ -161,9 +157,9 @@ def get_clusters(cls,limit=options.batchsize,table=options.table):
                 cur = random.sample(cur,options.maxchars)
             costs = zeros(len(cur))
 
-        counts = [unlist(pdb.root.counts[c]) for c in cur] if "counts" in dir(pdb.root) else nothing
-        files = [unlist(pdb.root.files[c]) for c in cur] if "files" in dir(pdb.root) else nothing
-        rels = [pdb.root.rel[c] for c in cur] if "rel" in dir(pdb.root) else nothing
+        # counts = [unlist(pdb.root.counts[c]) for c in cur] if "counts" in dir(pdb.root) else nothing
+        # files = [unlist(pdb.root.files[c]) for c in cur] if "files" in dir(pdb.root) else nothing
+        # rels = [pdb.root.rel[c] for c in cur] if "rel" in dir(pdb.root) else nothing
 
         for i,c in enumerate(cur):
             if len(clusters)%1000==0: print len(clusters)
@@ -198,7 +194,7 @@ def set_class(index,cls):
 
 def get_classes(table=options.table):
     with tables.openFile(fname) as pdb:
-        sclasses = set(db_classes)
+        sclasses = set(pdb.root.classes)
         return [lig.chr(c) for c in list(sclasses)]
 
 def compute_combolist():
@@ -250,7 +246,6 @@ def update_info():
     if index is None: return
     index = index[0][0]
     row = grid[index][2]
-    rel = row.rel
     info = ""
     if row.cost is not None: info += " %.2f"%row.cost
     if row.rel is not None: info += " <%.2f,%.2f,%.2f>"%tuple(unlist(row.rel))
@@ -349,11 +344,9 @@ def charprop(image,kind):
 
 def tighten(image):
     h = sum(image,axis=1)
-    hs = arange(len(h))[h>0]
     r0 = amin(h)
     r1 = amax(h)+1
     v = sum(image,axis=0)
-    vs = arange(len(v))[v>0]
     c0 = amin(v)
     c1 = amax(v)
     return image[r0:r1,c0:c1]
@@ -427,7 +420,6 @@ def cmd_sort(*args):
 def classifier_menu(cmd):
     menu = gtk.Menu()
     group = None
-    activated = 0
     models = ["None"]
     models += glob.glob("*.cmodel") + glob.glob("*.model") + glob.glob("*.pymodel")
     try:
@@ -720,7 +712,6 @@ def build_toolbar():
 def main():
     global main_widget_tree,class_selector,cluster_viewer,info_area
     gladefile = ocrolib.findfile("ocropus-cedit.glade")
-    windowname = "window1" 
     main_widget_tree = gtk.glade.XML(gladefile)
     dic = {
         "on_window1_destroy_event" : gtk.main_quit,
@@ -733,7 +724,6 @@ def main():
         "on_comboboxentry1_changed" : on_comboboxentry1_changed,
         }
     main_widget_tree.signal_autoconnect(dic)
-    window = main_widget_tree.get_widget("window1")
     build_toolbar()
 
     graphview = main_widget_tree.get_widget("scrolledwindow1") 
@@ -751,7 +741,6 @@ def main():
     compute_combolist()
     # class_selector.set_active(0)
 
-    status = main_widget_tree.get_widget("status")
     main_widget_tree.get_widget("window1").show_all()
     if options.select is not None:
         set_store(options.select)

@@ -2,13 +2,10 @@
 ### Language and script related data.
 ################################################################
 
-import sys,os,re,glob,math,glob,signal
-from pylab import amax,zeros
-
 ### character properties
 
 def size_category(c):
-    if len(c)>1: raise Internal("isolated characters only")
+    if len(c)>1: raise Exception("isolated characters only")
     if c in "acemnorsuvwxyz": return "x"
     if c in "ABCDEFGHIJKLMNOPQRSTUVWXYZbdfhklt!?": return "k"
     if c in "gpqy": return "y"

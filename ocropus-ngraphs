@@ -8,9 +8,9 @@
 # FIXME right now, it can't really "look back" to add rejected characters; they usually fall out of the beam too early
 
 from pylab import *
-from collections import Counter,defaultdict
+from collections import defaultdict
 import codecs
-import glob,re,heapq,os,codecs
+import glob,os
 import ocrolib
 from ocrolib import ngraphs as ng
 from ocrolib.lattice import Lattice2
@@ -116,7 +116,7 @@ def rewrite_path(path):
         for o,c in l:
             npath = path.path[:-i]+o
             nlabels = path.labels[:-1]+["_"]
-            ncost = path.cost + c
+            # ncost = path.cost + c
             # print path.path,"->",npath,";",path.cost,ncost
             p = Path(cost=path.cost+c,state=path.state,path=npath,sequence=path.sequence,labels=nlabels)
             result.append(p)

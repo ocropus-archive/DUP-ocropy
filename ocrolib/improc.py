@@ -2,17 +2,14 @@
 ### generic image processing utilities
 ################################################################
 
-import sys,os,re,glob,math,glob,signal
 from numpy import *
 from scipy.ndimage import interpolation
 import sl
 from pylab import *
 import scipy
-from scipy import stats
 from scipy.ndimage import measurements
 from pylab import *
 from common import *
-import common
 #from common import method,deprecated
 import morph
 from numpy import array
@@ -48,11 +45,11 @@ def pad_to(image,w,h):
     wd = int(w-iw)
     assert wd>=0
     w0 = wd/2
-    w1 = wd-w0
+    # w1 = wd-w0
     hd = int(h-ih)
     assert hd>=0
     h0 = hd/2
-    h1 = hd-h0
+    # h1 = hd-h0
     result = zeros((w,h))
     result[w0:w0+iw,h0:h0+ih] = image
     return result

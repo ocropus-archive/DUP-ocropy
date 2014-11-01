@@ -3,10 +3,8 @@
 # Copyright (c) 2013 Thomas M. Breuel; see accompanying LICENSE file
 
 from pylab import *
-from collections import Counter,defaultdict
-import glob,re,heapq,os
+import glob,re,os
 import ocrolib
-from ocrolib import ngraphs as ng
 from ocrolib import fvariant
 from ocrolib.lattice import Lattice
 

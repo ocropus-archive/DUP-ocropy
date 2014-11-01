@@ -3,12 +3,10 @@
 ### (text line segmentation is in lineseg)
 ################################################################
 
-import sys,os,re,glob,math,glob,signal
-import scipy
 from scipy import stats
-from scipy.ndimage import measurements,interpolation,morphology,filters
+from scipy.ndimage import interpolation,morphology,filters
 from pylab import *
-import common,sl,morph
+import morph
 from toplevel import *
 
 ################################################################
@@ -176,7 +174,7 @@ def latin_mask(line,scale=1.0,r=1.2,debug=0):
     tops = argmax(vgrad,0)
     bottoms = argmin(vgrad,0)
     mask = zeros(line.shape)
-    xheight = mean(bottoms-tops)
+    # xheight = mean(bottoms-tops)
     for i in range(len(bottoms)):
         d = bottoms[i]-tops[i]
         y0 = int(maximum(0,bottoms[i]-r*d))

@@ -3,22 +3,16 @@
 ### common functions for data structures, file name manipulation, etc.
 ################################################################
 
-import os,os.path,re,numpy,unicodedata,sys,warnings,inspect,glob,traceback
-import numpy
+import os,os.path,re,numpy,unicodedata,sys,warnings,inspect,glob
 from numpy import *
-from scipy.misc import imsave
-from scipy.ndimage import interpolation, measurements, morphology, filters
-
+from scipy.ndimage import morphology
 import improc
 import ligatures
-import sl
 import multiprocessing
 import lstm
 
 from pylab import imshow
-import psegutils
-from pylab import imshow
-import psegutils,morph
+import morph
 from toplevel import *
 
 ################################################################
@@ -439,7 +433,7 @@ class RegionExtractor:
         """Return the subimage for component index."""
         h,w = image.shape[:2]
         (r0,c0,r1,c1) = self.bbox(index)
-        mask = self.mask(index,margin=margin)
+        # mask = self.mask(index,margin=margin)
         return image[max(0,r0-margin):min(h,r1+margin),max(0,c0-margin):min(w,c1+margin),...]
     def extractMasked(self,image,index,grow=0,bg=None,margin=0,dtype=None):
         """Return the masked subimage for component index, elsewhere the bg value."""
@@ -644,7 +638,7 @@ def base(path):
     return allsplitext(path)[0]
 
 @checks(str,{str,unicode})
-def write_text(file,s):
+def write_text_FIXME(file,s):
     """Write the given string s to the output file."""
     with open(file,"w") as stream:
         if type(s)==unicode: s = s.encode("utf-8")
@@ -1040,7 +1034,7 @@ def save_component(file,object,verbose=0,verify=0):
         if verbose:
             print "[trying to read it again]"
         with open(file,"rb") as stream:
-            test = pickle.load(stream)
+            pickle.load(stream)
 
 def load_component(file):
     """Load a component. This handles various special cases,
@@ -1092,6 +1086,7 @@ def binarize_range(image,dtype='B',threshold=0.5):
 def simple_classify(model,inputs):
     """Given a model, classify the inputs with the model."""
     result = []
+    return result
 
 def gtk_yield():
     import gtk

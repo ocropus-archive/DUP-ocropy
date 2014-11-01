@@ -4,7 +4,6 @@
 ### on a textline.
 ################################################################
 
-import code,pickle,sys,os,re,traceback
 from pylab import *
 import common as ocrolib
 from scipy.ndimage import interpolation
@@ -77,13 +76,13 @@ class WhitespaceModel:
         self.setLine(image,cseg=cseg)
         self.showLine()
         h,w = image.shape
-        geo = improc.seg_geometry(cseg)
+        # geo = improc.seg_geometry(cseg)
         grouper = ocrolib.StandardGrouper()
         grouper.pset("maxrange",1)
         grouper.setSegmentation(cseg)
         if len(gt)!=grouper.length():
             raise BadGroundTruth()
-        s = None
+        # s = None
         for i in range(grouper.length()-1):
             bbox = grouper.boundingBox(i)
             y0,x0,y1,x1 = bbox

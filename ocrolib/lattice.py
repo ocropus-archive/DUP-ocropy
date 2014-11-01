@@ -1,7 +1,5 @@
 from pylab import *
-from collections import Counter,defaultdict
-import glob,re,heapq,os
-import ngraphs as ng
+from collections import defaultdict
 
 class Edge:
     def __init__(self,**kw):

@@ -4,10 +4,8 @@ import random as pyrandom
 import re
 from pylab import *
 import os.path
-import glob
 import ocrolib
 import argparse
-import scipy
 import matplotlib
 import numpy
 from ocrolib import lineest

@@ -4,8 +4,8 @@
 ### Ligatures-related data.
 ################################################################
 
-import sys,os,unicodedata,re
-from pylab import uint32,uint16,uint64
+import re
+from pylab import uint32
 
 ### These aren't formal ligatures, they are character pairs
 ### that are frequently touching in Latin script documents.
@@ -56,7 +56,7 @@ class LigatureTable:
     def add(self,name,code,override=1):
         assert type(name)==unicode or not re.search(r'[\x80-\xff]',name)
         if not override and self.lig2code.get(name) is not None:
-            raise Internal("character '%s' (%d) already in ligature table"%(name,self.ord(name)))
+            raise Exception("character '%s' (%d) already in ligature table"%(name,self.ord(name)))
         self.lig2code[name] = code
         self.code2lig[code] = unicode(name)
     def ord(self,name):

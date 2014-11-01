@@ -1,10 +1,9 @@
 #!/usr/bin/python
 
 from pylab import *
-import argparse,codecs,re,os,sys,os.path,ocrolib,base64,os.path
+import argparse,codecs,re,os.path,ocrolib,base64
 from lxml import etree
 import urllib2
-import StringIO
 
 parser = argparse.ArgumentParser()
 subparsers = parser.add_subparsers(help="subcommands",dest="subparser_name")

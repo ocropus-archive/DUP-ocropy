@@ -1,10 +1,7 @@
 import copy as pycopy
-from collections import Counter,namedtuple,defaultdict
 from pylab import *
 from scipy.ndimage import measurements,morphology
-import common as ocrolib
-from ocrolib import showgrid
-import morph,lineseg,lineproc,sl
+import morph,lineproc,sl
 
 class Segment:
     def __init__(self,**kw):
@@ -58,7 +55,7 @@ def extract_candidate_groups(segmentation,min_aspect=0.1,max_aspect=1.8,maxgap=2
             if 1.0/a<min_aspect: continue
             assert sum(segmentation[box])>0
             j = i+r-1
-            seg = segmentation[box]*(segmentation[box]>=i)*(segmentation[box]<=j)
+            # seg = segmentation[box]*(segmentation[box]>=i)*(segmentation[box]<=j)
             result.append(Segment(first=i,last=j,bbox=box))
     return result
 
@@ -184,7 +181,7 @@ def extract_csegs(segmentation,aligned=None):
     if aligned is None: aligned = []
     def get(c): return aligned[c] if c<len(aligned) else ""
     boxes = morph.find_objects(segmentation)
-    n = len(boxes)
+    # n = len(boxes)
     result = [Segment(first=i+1,last=i+1,bbox=box,out=[(get(i),0.0)],
                       img=1*(segmentation[:,box[1]]==i+1)) \
                       for i,box in enumerate(boxes) if box is not None]
@@ -195,7 +192,7 @@ def extract_csegs(segmentation,aligned=None):
 ###
 
 import improc
-from scipy.ndimage import interpolation,filters
+from scipy.ndimage import filters
 from scipy import signal
 
 def best_correlation(u,l,pad=1):

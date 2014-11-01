@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-import os,sys,glob,re,traceback,codecs,os.path
+import os,glob,re,traceback,codecs,os.path
 
 import argparse
 parser = argparse.ArgumentParser(description = """

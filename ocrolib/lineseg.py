@@ -1,6 +1,6 @@
 from pylab import *
 from scipy.ndimage import filters,morphology,measurements
-import common,morph
+import morph
 from toplevel import *
 
 @checks(AFLOAT2,alpha=RANGE(0.0,20.0),r=RANGE(0,20))
@@ -202,14 +202,13 @@ class DPSegmentLine(SimpleParams):
 
 
 def seq2list(seq,result=None):
-    import cv
     """Given an OpenCV sequence object representing contours,
     returns a list of 2D point arrays."""
     if result is None: result = []
     while seq:
         l = list(seq)
         result.append(array(l,'i'))
-        sub = seq2list(seq.v_next(),result)
+        # sub = seq2list(seq.v_next(),result)
         seq = seq.h_next()
     result.sort(key=len,reverse=1)
     return result

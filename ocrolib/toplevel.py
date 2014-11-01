@@ -1,13 +1,10 @@
-import collections
 import functools
 import linecache
-import numbers
 import numpy
 import os
 import sys
-import traceback
 import warnings
-from types import NoneType,IntType,FloatType,StringTypes
+# FIXME from ... import wrap
 
 ### printing
 
@@ -177,7 +174,7 @@ def checktype(value,type_):
     if type(type_)==set:
         for t in type_:
             if isinstance(value,t): return value
-        raise CheckError("set membership failed",value,type_,var=var)
+        raise CheckError("set membership failed",value,type_,var=var) # FIXME var?
     # for tuples, check that all conditions are satisfied
     if type(type_)==tuple:
         for t in type_:

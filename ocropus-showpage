@@ -7,7 +7,7 @@ parser.add_argument('-o','--output',default=None,help="save a figure instead of 
 parser.add_argument("image",default=None,nargs=1,help="input lines")
 args = parser.parse_args()
 
-import matplotlib,tables
+import matplotlib
 if args.output is None:
     matplotlib.use("GTK")
 else: 
@@ -17,14 +17,10 @@ from pylab import *
 figure(figsize=(9,12),dpi=args.dpi)
 
 
-import sys,os,re,glob,math,glob,signal,traceback,codecs
+import sys,os,signal
 import ocrolib
-from ocrolib import number_of_processors,die
-from ocrolib.ligatures import lig
-from ocrolib import lineseg,morph,linerec,improc,sl
+from ocrolib import linerec
 signal.signal(signal.SIGINT,lambda *args:sys.exit(1))
-from ocrolib import fvariant
-from os.path import exists
 
 arg = args.image[0]
 base,_ = ocrolib.allsplitext(arg)

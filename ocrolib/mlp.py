@@ -6,10 +6,9 @@ from __future__ import with_statement
 
 __all__ = "MLP".split()
 
-import os,sys,os.path,re,math
-import copy as pycopy
+import os,os.path
 import random as pyrandom
-from random import sample as selection, shuffle, uniform
+from random import sample as selection, uniform
 from numpy import *
 from pylab import *
 from scipy import *
@@ -331,7 +330,7 @@ class MLP:
         hidden units."""
         data = data.reshape(len(data),prod(data.shape[1:]))
         scale = max(abs(amax(data)),abs(amin(data)))
-        ninput = data.shape[1]
+        # ninput = data.shape[1]
         if nhidden is None: nhidden = len(set(cls))
         noutput = amax(cls)+1
         self.w1 = array(data[selection(xrange(len(data)),nhidden)] * eps/scale,'f')
@@ -443,7 +442,7 @@ class MLP:
             "input shape: %s w1: %s"%(data.shape,self.w1.shape)
         if subset is not None:
             data = take(data,subset,axis=0)
-            cls = take(cls,subset)
+            # cls = take(cls,subset)
         result = zeros((len(data),self.w2.shape[0]),dtype='f')
         n,m,l = self.shape()
         if data.dtype==dtype('f'):

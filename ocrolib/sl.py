@@ -109,7 +109,7 @@ def height(s):
 
 def mbox(x0,y0,x1,y1,h):
     return (slice(h-y1-1,h-y0-1),slice(x0,x1))
-def raster(u):
+def raster_FIXME(u):
     """Return (y0,x0,y1,x1) for the given height."""
     return (u[0].start,u[1].start,u[0].stop,u[1].stop)
 def math(u,h):

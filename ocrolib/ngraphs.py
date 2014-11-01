@@ -3,7 +3,7 @@
 
 from pylab import *
 from collections import Counter,defaultdict
-import glob,re,heapq,os
+import re
 import codecs
 
 def method(cls):

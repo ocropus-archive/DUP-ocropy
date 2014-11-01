@@ -2,20 +2,16 @@
 
 # make the clustering class-specific
 
-import sys,os,re,glob,math,glob,signal,traceback,codecs,time
+import sys,os,signal,traceback
 import fcntl
 import matplotlib,tables
 if "DISPLAY" not in os.environ: matplotlib.use("AGG")
 else: matplotlib.use("GTK")
-from scipy.ndimage import interpolation
 from pylab import *
-from optparse import OptionParser
 from multiprocessing import Pool
 import ocrolib
-from ocrolib import number_of_processors,die
 from ocrolib.ligatures import lig
-from ocrolib.lineest import TrainedLineGeometry
-from ocrolib import lineseg,morph,linerec,improc,lineproc,h5utils
+from ocrolib import morph,linerec,improc,h5utils
 from ocrolib.toplevel import *
 
 import warnings,numpy
@@ -91,7 +87,7 @@ class Hdf5Writer:
         os.system("sync")
         os.system("sleep 3")
     def create(self):
-        from tables import Float32Atom,Int64Atom,StringAtom,Filters
+        from tables import Float32Atom,Int64Atom,Filters
         h5 = self.h5
         if "patches" not in dir(h5.root):
             h5.createEArray(h5.root,'patches',Float32Atom(),shape=(0,)+self.size,filters=Filters(9))

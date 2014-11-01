@@ -1,11 +1,7 @@
 from toplevel import *
-import pdb
 from pylab import *
-import argparse,glob,os,os.path
-from scipy.ndimage import filters,interpolation,morphology,measurements
-from scipy import stats
-from scipy.misc import imsave
-import common,sl,morph
+from scipy.ndimage import filters,interpolation
+import sl,morph
 
 def B(a):
     if a.dtype==dtype('B'): return a

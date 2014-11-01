@@ -3,15 +3,12 @@
 ### inside Python.
 ################################################################
 
-import os,sys,re,string,hashlib
-import numpy
-from  numpy.ctypeslib import ndpointer
+import os,hashlib
 from ctypes import c_int,c_float,c_double,c_byte
 import ctypes
-import timeit
-from pylab import prod
-
-import os,time,errno,contextlib
+import time
+import errno
+import contextlib
 
 @contextlib.contextmanager
 def lockfile(fname,delay=0.5):

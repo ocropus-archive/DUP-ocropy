@@ -1,4 +1,4 @@
-from scipy.ndimage import filters,measurements
+from scipy.ndimage import filters
 from pylab import *
 import re
 

@@ -1,12 +1,9 @@
 #!/usr/bin/python
 
 import numpy
-import argparse,codecs,re,os,sys,os.path,ocrolib,base64,os.path
-from pylab import *
-from bs4 import BeautifulSoup
-import urllib2
-import StringIO
+import argparse
 import ocrolib
+from pylab import *
 
 parser = argparse.ArgumentParser()
 subparsers = parser.add_subparsers(help="subcommands",dest="subparser_name")

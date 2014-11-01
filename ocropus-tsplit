@@ -7,18 +7,14 @@
 
 import sys
 sys.path = ["."]+sys.path
-import pdb
-from pdb import pm
 
 import re
-import random as pyrand
 from pylab import *
 import tables
 import ocrolib; reload(ocrolib)
 from collections import Counter
 from ocrolib import patrec; reload(patrec)
-from scipy.spatial import distance
-from ocrolib.patrec import Dataset,cshow,showgrid
+from ocrolib.patrec import Dataset
 from ocrolib.ligatures import lig
 
 
@@ -47,7 +43,6 @@ args = parser.parse_args()
 
 if args.show1 is not None:
     print "loading model"
-    import cPickle
     sc = ocrolib.load_object(args.show1)
     assert sc.splitter is not None
     print "got model",sc,len(sc.splitter.centers())

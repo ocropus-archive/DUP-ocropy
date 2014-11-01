@@ -3,7 +3,7 @@
 ### Largely self-contained image binarization and deskewing.  You can easily 
 ### use this as a basis for other kinds of preprocessing.
 
-import sys,os,re,optparse,shutil,glob,fcntl
+import sys,os
 import signal
 signal.signal(signal.SIGINT,lambda *args:sys.exit(1))
 import traceback
@@ -13,15 +13,11 @@ import multiprocessing
 import matplotlib
 if "DISPLAY" not in os.environ: matplotlib.use("AGG")
 else: matplotlib.use("GTK")
-from matplotlib import patches
 import pylab
 
 # all the image processing code comes from scipy and pylab
 from pylab import *
-from scipy.stats.stats import trim1
-from multiprocessing import Pool
 from scipy.ndimage import measurements,interpolation
-from scipy.misc import imsave
 
 # ocrolib is only used for image I/O and pathname manipulation
 import ocrolib
@@ -94,8 +90,7 @@ if args.debug or args.show: args.parallel = 1
 
 import os,os.path
 from pylab import *
-from scipy.ndimage import measurements,interpolation,filters,morphology
-import math
+from scipy.ndimage import filters
 
 ################################################################
 ### Binarization

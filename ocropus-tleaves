@@ -2,8 +2,6 @@
 
 import sys
 sys.path = ["."]+sys.path
-import pdb
-from pdb import pm
 
 import re
 import random as pyrandom
@@ -13,8 +11,7 @@ import ocrolib; reload(ocrolib)
 from collections import Counter
 import ocrolib
 from ocrolib import patrec
-from scipy.spatial import distance
-from ocrolib.patrec import Dataset,cshow,showgrid
+from ocrolib.patrec import Dataset,showgrid
 from ocrolib.ligatures import lig
 
 import argparse

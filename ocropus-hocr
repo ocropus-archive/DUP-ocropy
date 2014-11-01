@@ -4,19 +4,14 @@
 
 import __builtin__ as python
 import random as pyrandom
-import sys,os,re,optparse,shutil,glob,argparse,codecs
+import sys,os,re,glob,argparse,codecs
 import matplotlib
 if "DISPLAY" not in os.environ: matplotlib.use("AGG")
 else: matplotlib.use("GTK")
 import signal
 signal.signal(signal.SIGINT,lambda *args:sys.exit(1))
-from matplotlib import patches
 from pylab import *
-from scipy.stats.stats import trim1
 
-from scipy.ndimage import measurements
-from scipy.misc import imsave
-from PIL import Image
 import ocrolib
 from ocrolib import hocr
 

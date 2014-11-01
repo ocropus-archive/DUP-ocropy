@@ -1,6 +1,5 @@
 from pylab import *
-from scipy.optimize.optimize import fmin_cg, fmin_bfgs, fmin
-from scipy.ndimage import filters
+from scipy.optimize.optimize import fmin_bfgs
 from collections import Counter
 
 ###
@@ -43,11 +42,11 @@ class MLP:
         y = sigmoid(dot(self.A,x)+self.a)
         z = sigmoid(dot(self.B,y)+self.b)
         delta_z = 2*(z-target)*z*(1-z)
-        B -= eta * outer(delta_z,y)
-        b -= eta * delta_z
+        self.B -= eta * outer(delta_z,y)
+        self.b -= eta * delta_z
         delta_y = dot(delta_z,self.B)*y*(1-y)
-        A -= eta * outer(delta_y,x)
-        a -= eta * delta_y
+        self.A -= eta * outer(delta_y,x)
+        self.a -= eta * delta_y
 
 ###
 ### Logistic regression using gradient descent.
@@ -82,7 +81,7 @@ def logpred(data,A):
 
 def logloss(data,target,A,verbose=0):
     if A.ndim==1: A = A.reshape(target.shape[1],data.shape[1])
-    pred = logpred(data,A)
+    # pred = logpred(data,A)
     loss = sum((logpred(data,A)-target)**2)
     if verbose: print "loss",loss
     return loss
@@ -298,7 +297,7 @@ class LinKernelClassifier:
     def outputs(self,data):
         assert data.ndim>=2
         data = make2d(data)
-        ys = c_[ones(len(data)),cdist(data,self.protos,'euclidean')]
+        # ys = c_[ones(len(data)),cdist(data,self.protos,'euclidean')]
         if self.linear:
             pred = dot(make2d(data),self.M.T)
         else:

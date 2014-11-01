@@ -1,9 +1,5 @@
 from pylab import *
-from scipy.optimize.optimize import fmin_cg, fmin_bfgs, fmin
 from scipy.ndimage import filters,interpolation
-from collections import Counter
-from collections import defaultdict
-from scipy.ndimage import measurements
 from collections import Counter
 import random as pyrandom
 import improc
@@ -124,7 +120,7 @@ def minsert(x,l):
     if len(l)<2:
         return l+[x]
     dists = array(cdist([x],l))[0]
-    dists2 = dists+roll(dists,-1)
+    # dists2 = dists+roll(dists,-1)
     i = argmin(dists)
     return l[:i]+[x]+l[i:]
 
@@ -136,7 +132,7 @@ def vecsort(l):
     return result
 
 def rselect(data,n,s=1000,f=0.99):
-    N = len(data)
+    # N = len(data)
     l = pyrandom.sample(data,1)
     while len(l)<n:
         if len(l)%100==0: print len(l)
@@ -497,8 +493,6 @@ class LocalCmodel:
         self.nclusters = splitter.nclusters()
         self.cshape = None
         self.cmodels = [None]*self.nclusters
-    def split1(self,v):
-        return self.splitter.predict(v.reshape(1,-1))[0]
     def split1(self,v):
         return self.splitter.predict(v.reshape(1,-1))[0]
     def setCmodel(self,i,cmodel):

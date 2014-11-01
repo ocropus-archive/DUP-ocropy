@@ -6,14 +6,9 @@ from __future__ import with_statement
 
 __all__ = "MLP".split()
 
-import os,sys,os.path,re,math
-import copy as pycopy
-import random as pyrandom
-from random import sample as selection, shuffle, uniform
 from numpy import *
 from pylab import *
 from scipy import *
-import common as ocrolib
 from native import *
 import multiprocessing
 

@@ -11,16 +11,13 @@
 # - pick up stragglers
 # ? laplacian as well
 
-import pdb
 from pylab import *
 import argparse,glob,os,os.path
-from scipy.ndimage import filters,interpolation,morphology,measurements
-from scipy import stats
+from scipy.ndimage import measurements
 from scipy.misc import imsave
-from scipy.ndimage.filters import gaussian_filter,uniform_filter,maximum_filter,minimum_filter
+from scipy.ndimage.filters import gaussian_filter,uniform_filter,maximum_filter
 import ocrolib
-from ocrolib import psegutils,morph,improc,sl,lineproc
-import multiprocessing
+from ocrolib import psegutils,morph,improc,sl
 from multiprocessing import Pool
 from ocrolib.toplevel import *
 
@@ -329,10 +326,10 @@ def process1(job):
 
     try:
         binary = ocrolib.read_image_binary(base+".bin.png")
-    except IOError as e:
+    except IOError:
         try:
             binary = ocrolib.read_image_binary(fname)
-        except IOError as e:
+        except IOError:
             if ocrolib.trace: traceback.print_exc()
             print "cannot open either",base+".bin.png","or",fname
             return

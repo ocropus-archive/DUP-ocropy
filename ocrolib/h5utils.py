@@ -1,5 +1,6 @@
+from numpy import dtype
 import tables
-from tables import openFile,Filters,Int32Atom,Float32Atom,Int64Atom
+import re
 
 def table_copy(source,dest,names=None,omit=[],verbose=1):
     if names is None:
@@ -26,7 +27,7 @@ def assign_array(db,name,a,verbose=1):
     elif a.dtype==dtype('f') or a.dtype==dtype('d'):
         atom = tables.Float32Atom()
     else:
-        raise Internal('unknown array type: %s'%a.dtype)
+        raise Exception('unknown array type: %s'%a.dtype)
     if verbose: print "[writing",name,a.shape,atom,"]"
     node = db.createEArray(db.root,name,atom,shape=[0]+list(a.shape[1:]),filters=tables.Filters(9))
     node.append(a)
@@ -44,5 +45,5 @@ def log(db,*args):
 def create_earray(db,name,element_shape,type='f'):
     if type=='f' or type=='float32': atom = tables.Float32Atom()
     elif type=='i' or type=='float64': atom = tables.Int64Atom()
-    else: raise Internal("unknown array type; choose one of: 'i', 'f'")
+    else: raise Exception("unknown array type; choose one of: 'i', 'f'")
     return db.createEArray(db.root,name,atom,shape=(0,)+tuple(element_shape),filters=tables.Filters(9))

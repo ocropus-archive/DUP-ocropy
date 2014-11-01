@@ -3,15 +3,14 @@
 import matplotlib
 matplotlib.use("AGG")
 
-import sys,os,re,glob,math,glob,signal,traceback
-from optparse import OptionParser
+import sys,os,signal
 
 from scipy.ndimage import interpolation
 import pylab
 from pylab import *
 
 import ocrolib
-from ocrolib import number_of_processors,die,linerec,morph
+from ocrolib import linerec,morph
 from scipy.misc import imsave
 
 signal.signal(signal.SIGINT,lambda *args:sys.exit(1))

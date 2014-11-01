@@ -1,11 +1,10 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
-import warnings,numpy,argparse,re,sys,os,os.path,unicodedata,multiprocessing,codecs
+import warnings,numpy,argparse,sys,os,os.path,multiprocessing,codecs
 from collections import Counter
 import ocrolib
 from pylab import *
-from scipy.ndimage import filters
 from ocrolib import edist
 
 # disable rank warnings from polyfit
@@ -30,9 +29,7 @@ parser.add_argument("-e","--perfile",default=None,help="output per-file errors t
 parser.add_argument("-C","--context",type=int,default=0,help="context for confusion matrix")
 parser.add_argument("-Q","--parallel",type=int,default=multiprocessing.cpu_count())
 args = parser.parse_args()
-try:
-    args.files = ocrolib.glob_all(args.files)
-except 
+args.files = ocrolib.glob_all(args.files)
 
 if not ".gt." in args.files[0]:
     sys.stderr.write("warning: compare on .gt.txt files, not .txt files\n")

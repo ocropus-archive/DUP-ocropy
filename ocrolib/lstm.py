@@ -25,9 +25,7 @@
 # License: Apache 2.0
 
 import common as ocrolib
-import pdb
 from pylab import *
-import sys
 from collections import defaultdict
 from ocrolib.native import *
 from ocrolib import edist
@@ -651,7 +649,7 @@ class Parallel(Network):
         for net in self.nets:
             net.info()
     def states(self):
-        states = [net.states() for net in self.nets]
+        # states = [net.states() for net in self.nets] # FIXME
         outputs = zip(*outputs)
         outputs = [concatenate(l) for l in outputs]
         return outputs
@@ -925,7 +923,7 @@ class Codec:
         return len(list(self.code2char.keys()))
     def encode(self,s):
         "Encode the string `s` into a code sequence."
-        tab = self.char2code
+        # tab = self.char2code
         dflt = self.char2code["~"]
         return [self.char2code.get(c,dflt) for c in s]
     def decode(self,l):

@@ -1,14 +1,11 @@
-import sys,os,re,glob,math,glob,signal
-import scipy
+import sys,os,re
 from scipy import stats
-from scipy.ndimage import measurements,interpolation,morphology,filters
+from scipy.ndimage import measurements,interpolation,filters
 from pylab import *
-import common,sl,morph
+import common,morph
 import ocrolib
 from ocrolib import lineseg,lineproc
 from toplevel import *
-import re
-import glob
 from ocrolib import patrec
 import argparse
 
@@ -300,7 +297,6 @@ class MvNormalizer:
 
 from pylab import *
 import ocrolib
-from scipy.ndimage import filters,interpolation
 
 def scale_to_h(img,target_height,order=1,dtype=dtype('f'),cval=0):
     h,w = img.shape
@@ -347,7 +343,7 @@ class CenterNormalizer:
     def normalize(self,img,order=1,dtype=dtype('f'),cval=0):
         dewarped = self.dewarp(img,cval=cval,dtype=dtype)
         h,w = dewarped.shape
-        output = zeros(dewarped.shape,dtype)
+        # output = zeros(dewarped.shape,dtype)
         scaled = scale_to_h(dewarped,self.target_height,order=order,dtype=dtype,cval=cval)
         return scaled
 

@@ -1,5 +1,7 @@
 # -*- encoding: utf-8 -*-
 
+import re
+
 # common character sets
 
 digits = u"0123456789"
