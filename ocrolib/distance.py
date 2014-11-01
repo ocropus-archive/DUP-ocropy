@@ -44,6 +44,7 @@ void cdist(int d,int na,int nb,float a[na][d],float b[nb][d],float result[na][nb
 cdist_native = None
 
 def cdist_native_load():
+    # FIXME move to cython
     global cdist_native
     if cdist_native is not None: return
     cdist_native = compile_and_load(cdist_native_c)

@@ -160,7 +160,7 @@ def process1(arg):
         if os.path.exists(base+".gt.txt"):
             transcript = ocrolib.read_text(base+".gt.txt")
             transcript = ocrolib.normalize_text(transcript)
-            pred2 = network.trainString(line,transcript,update=0)
+            network.trainString(line,transcript,update=0)
             result = lstm.translate_back(network.aligned,pos=1)
             scale = len(raw_line.T)*1.0/(len(network.aligned)-2*args.pad)
             with codecs.open(base+".alocs","w") as locs:

@@ -25,9 +25,6 @@ class Err:
 def sigmoid(x):
     return 1/(1+exp(-clip(x,-20,20)))
     
-def sigmoidp(y):
-    return y*(1-y)
-
 class MLP:
     def init(self,n,m,d):
         self.A = randn(n,m)

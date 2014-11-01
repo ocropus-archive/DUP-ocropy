@@ -188,7 +188,7 @@ class DPSegmentLine(SimpleParams):
                             threshold=self.threshold)
         tracks = array(tracks<0.5*amax(tracks),'i')
         tracks,_ = morph.label(tracks)
-        self.tracks = tracks
+        self.tracks = tracks # for debuggin
         stracks = morph.spread_labels(tracks)
         rsegs = stracks*(line>0.5*amax(line))
         if 0:

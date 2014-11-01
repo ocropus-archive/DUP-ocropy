@@ -39,9 +39,6 @@ def finite(x):
     "Make sure that all entries of x are finite."
     return not isnan(x).any() and not isinf(x).any()
 
-verbose_examples = 0
-sigmoid_floor = 0.0
-
 nnet_native_c = r'''
 #include <math.h>
 #include <stdio.h>

@@ -10,6 +10,7 @@ import improc
 import ligatures
 import multiprocessing
 import lstm
+import pylab
 
 from pylab import imshow
 import morph
@@ -577,31 +578,6 @@ def summary(x):
 
 from default import getlocal
 
-@checks(str,_=str)
-def findfile_old(name,error=1):
-    """Find some OCRopus-related resource by looking in a bunch off standard places.
-    (FIXME: The implementation is pretty adhoc for now.
-    This needs to be integrated better with setup.py and the build system.)"""
-    local = getlocal()
-    path = name
-    if os.path.exists(path) and os.path.isfile(path): return path
-    path = local+name
-    if os.path.exists(path) and os.path.isfile(path): return path
-    path = local+"/gui/"+name
-    if os.path.exists(path) and os.path.isfile(path): return path
-    path = local+"/models/"+name
-    if os.path.exists(path) and os.path.isfile(path): return path
-    path = local+"/words/"+name
-    if os.path.exists(path) and os.path.isfile(path): return path
-    _,tail = os.path.split(name)
-    path = tail
-    if os.path.exists(path) and os.path.isfile(path): return path
-    path = local+tail
-    if os.path.exists(path) and os.path.isfile(path): return path
-    if error:
-        raise FileNotFound("file '"+path+"' not found in . or /usr/local/share/ocropus/")
-    else:
-        return None
 
 @checks(str,_=str)
 def findfile(name,error=1):
@@ -638,7 +614,7 @@ def base(path):
     return allsplitext(path)[0]
 
 @checks(str,{str,unicode})
-def write_text_FIXME(file,s):
+def write_text_simple(file,s):
     """Write the given string s to the output file."""
     with open(file,"w") as stream:
         if type(s)==unicode: s = s.encode("utf-8")
@@ -698,11 +674,6 @@ def ocropus_find_file(fname,gz=1):
             if os.path.exists(full): return full
     raise FileNotFound(fname)
 
-def fexists(fname):
-    """Returns fname if it exists, otherwise None."""
-    if os.path.exists(fname): return fname
-    return None
-
 def fvariant(fname,kind,gt=""):
     """Find the file variant corresponding to the given file name.
     Possible fil variants are line (or png), rseg, cseg, fst, costs, and txt.
@@ -739,25 +710,6 @@ def fvariant(fname,kind,gt=""):
         return base+".costs"
     raise BadInput("unknown kind: %s"%kind)
 
-def fcleanup(fname,gt,kinds):
-    """Removes all the variants of the file given by gt
-    and the list of kinds."""
-    for kind in kinds:
-        s = fvariant(fname,kind,gt)
-        if os.path.exists(s): os.unlink(s)
-
-def ffind(fname,kind,gt=None):
-    """Like fvariant, but throws an IOError if the file variant
-    doesn't exist."""
-    s = fvariant(fname,kind,gt=gt)
-    if not os.path.exists(s):
-        raise FileNotFound(s)
-    return s
-
-def fopen(fname,kind,gt=None,mode="r"):
-    """Like fvariant, but opens the file."""
-    return open(fvariant(fname,kind,gt),mode)
-
 ################################################################
 ### Utility for setting "parameters" on an object: a list of keywords for
 ### changing instance variables.
@@ -787,11 +739,6 @@ def caller():
     result = "%s:%d (%s)"%(info.filename,info.lineno,info.function)
     del frame
     return result
-
-def logging(message,*args):
-    """Write a log message (to stderr by default)."""
-    message = message%args
-    sys.stderr.write(message)
 
 def die(message,*args):
     """Die with an error message."""
@@ -892,100 +839,6 @@ def mkpython(name):
     else:
         return None
 
-def make_ICleanupGray(name):
-    """Make a native component or a Python component.  Anything containing
-    a "(" is assumed to be a Python component."""
-    result = mkpython(name)
-    assert result is not None,"cannot create CleanupGray component for '%s'"%name
-    assert "cleanup_gray" in dir(result)
-    return result
-def make_ICleanupBinary(name):
-    """Make a native component or a Python component.  Anything containing
-    a "(" is assumed to be a Python component."""
-    result = mkpython(name)
-    assert result is not None,"cannot create CleanupBinary component for '%s'"%name
-    assert "cleanup_binary" in dir(result)
-    return result
-def make_IBinarize(name):
-    """Make a native component or a Python component.  Anything containing
-    a "(" is assumed to be a Python component."""
-    result = mkpython(name)
-    assert result is not None,"cannot create Binarize component for '%s'"%name
-    assert "binarize" in dir(result)
-    return result
-def make_ITextImageClassification(name):
-    """Make a native component or a Python component.  Anything containing
-    a "(" is assumed to be a Python component."""
-    result = mkpython(name)
-    assert result is not None,"cannot create TextImageClassification component for '%s'"%name
-    assert "textImageProbabilities" in dir(result)
-    return result
-def make_ISegmentPage(name):
-    """Make a native component or a Python component.  Anything containing
-    a "(" is assumed to be a Python component."""
-    result = mkpython(name)
-    assert result is not None,"cannot create SegmentPage component for '%s'"%name
-    assert "segment" in dir(result)
-    return result
-def make_ISegmentLine(name):
-    """Make a native component or a Python component.  Anything containing
-    a "(" is assumed to be a Python component."""
-    result = mkpython(name)
-    assert result is not None,"cannot create SegmentLine component for '%s'"%name
-    assert "charseg" in dir(result)
-    return result
-def make_IGrouper(name):
-    """Make a native component or a Python component.  Anything containing
-    a "(" is assumed to be a Python component."""
-    result = mkpython(name)
-    assert result is not None,"cannot create Grouper component for '%s'"%name
-    assert "setSegmentation" in dir(result)
-    assert "getLattice" in dir(result)
-    return result
-def make_IRecognizeLine(name):
-    """Make a native component or a Python component.  Anything containing
-    a "(" is assumed to be a Python component."""
-    result = mkpython(name)
-    assert result is not None,"cannot create RecognizeLine component for '%s'"%name
-    assert "recognizeLine" in dir(result)
-    return result
-def make_IModel(name):
-    """Make a native component or a Python component.  Anything containing
-    a "(" is assumed to be a Python component."""
-    result = mkpython(name)
-    assert result is not None,"cannot create Model component for '%s'"%name
-    assert "outputs" in dir(result)
-    return result
-def make_IExtractor(name):
-    """Make a native component or a Python component.  Anything containing
-    a "(" is assumed to be a Python component."""
-    result = mkpython(name)
-    assert result is not None,"cannot create Extractor component for: '%s'"%name
-    assert "extract" in dir(name)
-    return result
-
-################################################################
-### alignment, segmentations, and conversions
-################################################################
-
-def intarray_as_unicode(a,skip0=1):
-    """Given an integer array containing unicode codepoints,
-    returns a unicode string with those codepoints."""
-    result = u""
-    for i in range(len(a)):
-        if a[i]!=0:
-            assert a[i]>=0 and a[i]<0x110000,"%d (0x%x) character out of range"%(a[i],a[i])
-            result += unichr(a[i])
-    return result
-
-def rect_union(rectangles):
-    """Given a list of lists or tuples, where each list/tuple
-    represents a rectangle (x0,y0,x1,y1), returns the
-    union of all the rectangles."""
-    if len(rectangles)<1: return (0,0,-1,-1)
-    r = array(rectangles)
-    return (amin(r[:,0]),amax(r[:,0]),amin(r[:,1]),amax(r[:1]))
-
 ################################################################
 ### loading and saving components
 ################################################################
@@ -1065,33 +918,12 @@ def load_component(file):
         return result
     return load_object(file)
 
-def load_linerec_OBSOLETE(file,wrapper=None):
-    """Loads a line recognizer.  If the argument is
-    a character recognizer, wraps the wrapper around
-    it (default: CmodelLineRecognizer)."""
-    component = load_component(file)
-    if hasattr(component,"recognizeLine"):
-        return component
-    if hasattr(component,"coutputs"):
-        return wrapper(cmodel=component)
-    raise BadInput("wanted linerec, got %s"%component)
-
 def binarize_range(image,dtype='B',threshold=0.5):
     """Binarize an image by its range."""
     threshold = (amax(image)+amin(image))*threshold
     scale = 1
     if dtype=='B': scale = 255
     return array(scale*(image>threshold),dtype=dtype)
-
-def simple_classify(model,inputs):
-    """Given a model, classify the inputs with the model."""
-    result = []
-    return result
-
-def gtk_yield():
-    import gtk
-    while gtk.events_pending():
-       gtk.main_iteration(False)
 
 def draw_pseg(pseg,axis=None):
     if axis is None:
@@ -1125,16 +957,6 @@ def draw_aligned(result,axis=None):
         if i>0 and i-1<len(s):
             axis.text(x0,h-y0-1,s[i-1],color="red",weight="bold",fontsize=14)
     draw()
-
-from matplotlib import patches
-import pylab
-
-def draw_rect(p0,p1,w0,w1,**kw):
-    p = patches.Rectangle((p0,p1),w0,w1,**kw)  # edgecolor="red",fill=0
-    pylab.gca().add_patch(p)
-
-def draw_slrect(b,**kw):
-    draw_rect(b[1].start,b[0].start,b[1].stop-b[1].start,b[0].stop-b[0].start,**kw)
 
 def plotgrid(data,d=10,shape=(30,30)):
     """Plot a list of images on a grid."""

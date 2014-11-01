@@ -6,14 +6,6 @@ from collections import Counter,defaultdict
 import re
 import codecs
 
-def method(cls):
-    """Adds the function as a method to the given class."""
-    import new
-    def _wrap(f):
-        cls.__dict__[f.func_name] = new.instancemethod(f,None,cls)
-        return None
-    return _wrap
-
 replacements = [
     (r'[\0-\x1f]',''), # get rid of weird control characters
     (r'\s+',' '),     # replace multiple spaces

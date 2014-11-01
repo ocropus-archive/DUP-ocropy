@@ -112,23 +112,6 @@ def unlist(x):
     if type(x)==list: return x[0]
     return x
 
-def db_cclasses(index):
-    with tables.openFile(fname) as pdb:
-        if "cclasses" in dir(pdb.root): return unlist(pdb.root.cclasses[index])
-        else: return ""
-def db_counts(index):
-    with tables.openFile(fname) as pdb:
-        if "counts" in dir(pdb.root): return unlist(pdb.root.counts[index])
-        else: return 1
-def db_costs(index):
-    with tables.openFile(fname) as pdb:
-        if "costs" in dir(pdb.root): return unlist(pdb.root.costs[index])
-        else: return 0.0
-def db_files(index):
-    with tables.openFile(fname) as pdb:
-        if "files" in dir(pdb.root): return unlist(pdb.root.files[index])
-        else: return ""
-
 def get_clusters(cls,limit=options.batchsize,table=options.table):
     with tables.openFile(fname) as pdb:
         clusters = []
@@ -274,17 +257,6 @@ def get_extended():
     text = entry.get_text()
     dialog.destroy()
     return text
-
-def set_dist(x,s):
-    assert type(x)==ndarray,x
-    assert type(s[0])==ndarray,s[0]
-    minerr = 10000
-    for y in s:
-        if x.shape!=y.shape: continue
-        xt = x
-        err,rerr,_ = ocrolib.symdist(xt,y)
-        minerr = min(err,minerr)
-    return minerr
 
 ### toolbar commands
 
@@ -443,9 +415,6 @@ def cmd_sel_class(item,which):
         load_classifier(which)
 
 classifier = None
-
-class NoException:
-    pass
 
 def load_classifier(which=options.model):
     global classifier

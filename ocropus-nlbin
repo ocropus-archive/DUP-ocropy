@@ -201,13 +201,6 @@ if args.output:
     if not os.path.exists(args.output):
         os.mkdir(args.output)
 
-def processp(*arg):
-    try:
-        return process1(*arg)
-    except Exception as e:
-        print e
-        return None
-
 if args.parallel<2:
     for i,f in enumerate(args.files): 
         process1((f,i+1))

@@ -129,7 +129,6 @@ if args.load:
     network = ocrolib.load_object(args.load)
 else:
     last_save = None
-    nclasses = codec.size()
     network = lstm.SeqRecognizer(args.height,args.hiddensize,
         codec=codec,
         normalize=lstm.normalize_nfkc)
@@ -146,14 +145,8 @@ print "# last_trial",network.last_trial
 network.setLearningRate(args.lrate,0.9)
 if args.updates: network.lstm.verbose = 1
 
-# keep track of the best quality so far
-
-best_quality = 1e99
-
 # used for plotting
 
-pdeltas = []
-pweights = []
 ion()
 matplotlib.rc('xtick',labelsize=7)
 matplotlib.rc('ytick',labelsize=7)

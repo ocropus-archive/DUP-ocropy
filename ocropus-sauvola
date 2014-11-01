@@ -131,13 +131,6 @@ def gsauvola(image,sigma=150.0,R=None,k=0.3,filter='uniform',scale=2.0):
 def inverse(image):
     return amax(image)-image
 
-def autoinvert(image):
-    """Automatically invert document images, so that the majority of pixels
-    (background pixels) are black."""
-    if median(image)>mean([amax(image),amin(image)]):
-        image = amax(image)-image
-    return image
-
 ################################################################
 ### Bounding-box operations.
 ################################################################
@@ -159,25 +152,6 @@ def bounding_boxes_math(image):
         result.append(c)
     return result
 
-def select_plausible_char_bboxes(bboxes,dpi=300.0):
-    """Performs simple heuristic checks on character bounding boxes;
-    removes boxes that are too small or too large, or have the wrong
-    aspect ratio."""
-    s = dpi/300.0
-    result = []
-    for b in bboxes:
-        x0,y0,x1,y1 = b
-        w = x1-x0
-        if w<s*5: continue
-        h = y1-y0
-        if h<s*5: continue
-        a = w*1.0/h
-        if a>s or a<0.25: continue
-        if w>s*100: continue
-        if h>s*100: continue
-        result.append(b)
-    return result
-
 def estimate_skew_angle(image,angles=linspace(-2.0,2.0,11)):
     estimates = []
     for a in angles:
@@ -190,12 +164,6 @@ def estimate_skew_angle(image,angles=linspace(-2.0,2.0,11)):
     _,a = max(estimates)
     return a
     
-def deskew(image):
-    """Actually deskew an image by first estimating the skew angle, then
-    performing the rotation."""
-    a = estimate_skew_angle(image)
-    return interpolation.rotate(image,-a*180/pi,mode='nearest',order=0)
-
 def check_contains_halftones(image,dpi=300.0):
     """Heuristic method for determining whether we should apply a halftone removal
     algorithm."""
