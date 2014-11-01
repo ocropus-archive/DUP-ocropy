@@ -5,6 +5,7 @@
 
 import os,hashlib
 from ctypes import c_int,c_float,c_double,c_byte
+from numpy.ctypeslib import ndpointer
 import ctypes
 import time
 import errno
@@ -13,9 +14,9 @@ import contextlib
 @contextlib.contextmanager
 def lockfile(fname,delay=0.5):
     while 1:
-        try: 
+        try:
             fd = os.open(fname,os.O_RDWR|os.O_CREAT|os.O_EXCL)
-        except OSError as e: 
+        except OSError as e:
             if e.errno!=errno.EEXIST: raise
             time.sleep(delay)
             continue

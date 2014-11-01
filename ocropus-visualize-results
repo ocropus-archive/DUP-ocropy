@@ -2,13 +2,11 @@
 
 import matplotlib
 matplotlib.use("AGG")
-
 import sys,os,signal
-
 from scipy.ndimage import interpolation
 import pylab
 from pylab import *
-
+import glob
 import ocrolib
 from ocrolib import linerec,morph
 from scipy.misc import imsave

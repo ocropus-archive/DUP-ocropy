@@ -4,6 +4,7 @@ import numpy
 import os
 import sys
 import warnings
+from types import NoneType
 # FIXME from ... import wrap
 
 ### printing
@@ -150,7 +151,7 @@ class CheckWarning(CheckError):
 
 def checktype(value,type_):
     """Check value against the type spec.  If everything
-    is OK, this just returns the value itself.  
+    is OK, this just returns the value itself.
     If the types don't check out, an exception is thrown."""
     # True skips any check
     if type_ is True:
@@ -245,7 +246,7 @@ def ANY(*checks):
                 pass
         raise CheckError(x,": failed all checks:",[strc(x) for x in checks])
     return CHK_
-                    
+
 
 @makeargcheck("value should be type book or 0/1")
 def BOOL(x):
@@ -292,7 +293,7 @@ int_dtypes = [numpy.dtype('uint8'),numpy.dtype('int32'),numpy.dtype('int64'),num
 
 @makeargcheck("array must contain integer values")
 def AINT(a):
-    return a.dtype in int_dtypes 
+    return a.dtype in int_dtypes
 
 @makeargcheck("expected a byte (uint8) array")
 def ABYTE(a):
@@ -408,10 +409,10 @@ def SEGMENTATION(a):
     return isinstance(a,numpy.ndarray) and a.ndim==2 and a.dtype in ['int32','int64']
 @makeargcheck("expected a segmentation with white background")
 def WHITESEG(a):
-    return numpy.amax(a)==0xffffff 
+    return numpy.amax(a)==0xffffff
 @makeargcheck("expected a segmentation with black background")
 def BLACKSEG(a):
-    return numpy.amax(a)<0xffffff 
+    return numpy.amax(a)<0xffffff
 @makeargcheck("all non-zero pixels in a page segmentation must have a column value >0")
 def PAGEEXTRA(a):
     u = numpy.unique(a)
