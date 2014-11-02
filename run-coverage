@@ -1,0 +1,17 @@
+#!/bin/bash -e
+
+rm -rf .coverage
+rm -rf .coverage.*
+rm -rf temp 
+python -m coverage run -p ocropus-nlbin tests/testpage.png -o temp
+python -m coverage run -p ocropus-gpageseg 'temp/????.bin.png'
+python -m coverage run -p ocropus-rpred -n 'temp/????/??????.bin.png'
+python -m coverage run -p ocropus-hocr 'temp/????.bin.png' -o temp.html
+python -m coverage run -p ocropus-visualize-results temp
+python -m coverage run -p ocropus-gtedit html temp/????/??????.bin.png -o temp-correction.html
+python -m coverage run -p ocropus-rpred tests/0079-01000d.png
+python -m coverage run -p ocropus-errs tests/0079-01000d.gt.txt
+python -m coverage run -p ocropus-econf tests/0079-01000d.gt.txt
+python -m coverage merge
+rm -rf htmlcov
+python -m coverage html

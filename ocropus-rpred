@@ -5,7 +5,6 @@ import codecs
 from pylab import *
 import os.path
 import ocrolib
-from ocrolib import lineest
 import argparse
 import matplotlib
 from multiprocessing import Pool
@@ -21,12 +20,10 @@ parser.add_argument('-n','--nocheck',action="store_true",
                     help="disable error checking on inputs")
 
 # line dewarping (usually contained in model)
-parser.add_argument("-e","--lineest",default=None,
-                    help="line dewarping model (overrides recognizer)")
+parser.add_argument("-e","--nolineest",action="store_true",
+                    help="target line height (overrides recognizer)")
 parser.add_argument("-l","--height",default=-1,type=int,
                     help="target line height (overrides recognizer)")
-parser.add_argument("-E","--nolineest",action='store_true',
-                    help="skip dewarping (lines are already dewarped)")
 
 # recognition
 parser.add_argument('-m','--model',default=ocrolib.default.rnnmodel,
@@ -108,8 +105,6 @@ network = ocrolib.load_object(args.model,verbose=1)
 # let the user override it (this is not very useful)
 
 lnorm = getattr(network,"lnorm",None)
-if args.lineest is not None:
-    lnorm = lineest.load_normalizer(args.lineest)
 
 if args.height>0:
     lnorm.setHeight(args.height)

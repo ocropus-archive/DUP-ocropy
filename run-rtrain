@@ -1,0 +1,4 @@
+#!/bin/bash -ex
+
+tar -zxvf tests/uw3-500.tgz
+ocropus-rtrain 'book/*/*.bin.png' -d 5 -o uw3-500-model

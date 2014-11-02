@@ -13,12 +13,13 @@
 
 from pylab import *
 import argparse,glob,os,os.path
+import traceback
 from scipy.ndimage import measurements
 from scipy.misc import imsave
 from scipy.ndimage.filters import gaussian_filter,uniform_filter,maximum_filter
-import ocrolib
-from ocrolib import psegutils,morph,improc,sl
 from multiprocessing import Pool
+import ocrolib
+from ocrolib import psegutils,morph,sl
 from ocrolib.toplevel import *
 
 parser = argparse.ArgumentParser()
@@ -85,6 +86,8 @@ parser.add_argument('files',nargs='+')
 args = parser.parse_args()
 args.files = ocrolib.glob_all(args.files)
 
+def norm_max(v):
+    return v/amax(v)
 def check_page(image):
     if len(image.shape)==3: return "input image is color image %s"%(image.shape,)
     if mean(image)<median(image): return "image may be inverted"
@@ -237,8 +240,8 @@ def compute_gradmaps(binary,scale):
         grad = gaussian_filter(1.0*cleaned,(max(4,args.vscale*0.3*scale),
                                             args.hscale*scale),order=(1,0))
         grad = uniform_filter(grad,(args.vscale,args.hscale*6*scale))
-    bottom = improc.norm_max((grad<0)*(-grad))
-    top = improc.norm_max((grad>0)*grad)
+    bottom = ocrolib.norm_max((grad<0)*(-grad))
+    top = ocrolib.norm_max((grad>0)*grad)
     return bottom,top,boxmap
 
 def compute_line_seeds(binary,bottom,top,colseps,scale):
@@ -391,7 +394,7 @@ def process1(job):
         os.mkdir(outputdir)
     lines = [lines[i] for i in lsort]
     ocrolib.write_page_segmentation("%s.pseg.png"%outputdir,segmentation)
-    cleaned = improc.remove_noise(binary,args.noise)
+    cleaned = ocrolib.remove_noise(binary,args.noise)
     for i,l in enumerate(lines):
         binline = psegutils.extract_masked(1-cleaned,l,pad=args.pad,expand=args.expand)
         ocrolib.write_image_binary("%s/01%04x.bin.png"%(outputdir,i+1),binline)

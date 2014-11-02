@@ -1,6 +1,7 @@
 #!/usr/bin/python
 
 from pylab import *
+from numpy.ctypeslib import ndpointer
 import argparse,os,os.path
 from scipy.ndimage import filters,interpolation,morphology,measurements
 from scipy import stats

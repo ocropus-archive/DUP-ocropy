@@ -1,14 +1,14 @@
 #!/usr/bin/python
 
+import glob
 import matplotlib
 matplotlib.use("AGG")
 import sys,os,signal
 from scipy.ndimage import interpolation
 import pylab
 from pylab import *
-import glob
 import ocrolib
-from ocrolib import linerec,morph
+from ocrolib import morph
 from scipy.misc import imsave
 
 signal.signal(signal.SIGINT,lambda *args:sys.exit(1))

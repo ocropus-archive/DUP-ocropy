@@ -91,7 +91,10 @@ print "# tests",(len(tests) if tests is not None else "None")
 
 # load the line normalizer
 
-lnorm = lineest.load_normalizer(args.lineest)
+if args.lineest=="center":
+  lnorm = lineest.CenterNormalizer()
+else:
+  raise Exception(args.lineest+": unknown line normalizer")
 lnorm.setHeight(args.height)
 
 # The `codec` maps between strings and arrays of integers.
