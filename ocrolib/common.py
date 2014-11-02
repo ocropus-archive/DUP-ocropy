@@ -3,10 +3,16 @@
 ### common functions for data structures, file name manipulation, etc.
 ################################################################
 
-import os,os.path,re,numpy,unicodedata,sys,warnings,inspect,glob
+import os,os.path
+import re
+import numpy
+import unicodedata
+import sys
+import warnings
+import inspect
+import glob
 from numpy import *
 from scipy.ndimage import morphology
-import improc
 import ligatures
 import multiprocessing
 import lstm
@@ -352,6 +358,17 @@ def iulib_page_iterator(files):
         image = read_image_gray(fname)
         yield image,fname
 
+def norm_max(a):
+    return a/amax(a)
+
+def pad_by(image,r,dtype=None):
+    """Symmetrically pad the image by the given amount.
+    FIXME: replace by scipy version."""
+    if dtype is None: dtype = image.dtype
+    w,h = image.shape
+    result = zeros((w+2*r,h+2*r))
+    result[r:(w+r),r:(h+r)] = image
+    return result
 class RegionExtractor:
     """A class facilitating iterating over the parts of a segmentation."""
     def __init__(self):
@@ -428,7 +445,7 @@ class RegionExtractor:
         #print "@@@mask",index,b
         m = self.labels[b]
         m[m!=index] = 0
-        if margin>0: m = improc.pad_by(m,margin)
+        if margin>0: m = pad_by(m,margin)
         return array(m!=0,'B')
     def extract(self,image,index,margin=0):
         """Return the subimage for component index."""
@@ -1024,3 +1041,14 @@ def midrange(image,frac=0.5):
     """Computes the center of the range of image values
     (for quick thresholding)."""
     return frac*(amin(image)+amax(image))
+from scipy.ndimage import measurements
+
+def remove_noise(line,minsize=8):
+    """Remove small pixels from an image."""
+    if minsize==0: return line
+    bin = (line>0.5*amax(line))
+    labels,n = morph.label(bin)
+    sums = measurements.sum(bin,labels,range(n+1))
+    sums = sums[labels]
+    good = minimum(bin,1-(sums>0)*(sums<minsize))
+    return good

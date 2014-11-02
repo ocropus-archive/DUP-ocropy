@@ -1,6 +1,6 @@
 __all__ = [
     "binnednn","cairoextras","common","components","dbtables",
-    "fgen","gmmtree","gtkyield","hocr","improc","lang","native",
+    "fgen","gmmtree","gtkyield","hocr","lang","native",
     "mlp","multiclass","default","lineest"
 ]
 
@@ -10,5 +10,4 @@ __all__ = [
 
 import default
 from common import *
-from mlp import MLP,AutoMLP
 from default import traceback as trace
