@@ -26,7 +26,7 @@ parser.add_argument("-l","--height",default=-1,type=int,
                     help="target line height (overrides recognizer)")
 
 # recognition
-parser.add_argument('-m','--model',default=ocrolib.default.rnnmodel,
+parser.add_argument('-m','--model',default="en-default.pyrnn.gz",
                     help="line recognition model")
 parser.add_argument("-p","--pad",default=16,type=int,
                     help="extra blank padding to the left and right of text line")
@@ -99,7 +99,15 @@ if args.show>=0 or args.save is not None:
 
 # load the network used for classification
 
-network = ocrolib.load_object(args.model,verbose=1)
+try:
+  network = ocrolib.load_object(args.model,verbose=1)
+except ocrolib.FileNotFound:
+  print
+  print "Cannot find OCR model file:",args.model
+  print "Download a model and put it into:",ocrolib.default.modeldir
+  print "(Or override the location with OCROPUS_DATA.)"
+  print
+  sys.exit(1)
 
 # get the line normalizer from the loaded network, or optionally
 # let the user override it (this is not very useful)

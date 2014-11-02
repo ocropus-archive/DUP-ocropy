@@ -5,54 +5,27 @@ import sys,time,urllib,traceback,glob,os,os.path
 assert sys.version_info[0]==2 and sys.version_info[1]>=7,\
     "you must install and use OCRopus with Python version 2.7 or later, but not Python 3.x"
 
-from distutils.core import setup, Extension, Command
-from distutils.command.install_data import install_data
+from distutils.core import setup #, Extension, Command
+#from distutils.command.install_data import install_data
 
-from ocrolib import default
-modeldir = "models/"
-modelfiles = default.installable
-modelprefix = "http://iupr1.cs.uni-kl.de/~tmb/ocropus-models/"
+if not os.path.exists("models/en-default.pyrnn.gz"):
+    print
+    print "You must download the default model 'en-default.pyrnn.gz'"
+    print "and put it into ./models."
+    print
+    print "Check https://github.com/tmbdev/ocropy for the location"
+    print "of model files."
+    print
+    sys.exit(1)
 
-class DownloadCommand(Command):
-    description = "Download OCRopus datafiles. (This needs to happen prior to installation.)"
-    user_options = []
-    def initialize_options(self): pass
-    def finalize_options(self): pass
-    def run(self):
-        print "Starting download of about 500Mbytes of model data."
-        time.sleep(3) # give them time to quit
-        for m in modelfiles:
-            dest = modeldir+m
-            if os.path.exists(dest):
-                print m,": already downloaded"
-                continue
-            url = modelprefix+m
-            cmd = "curl '%s' > '%s'"%(url,dest)
-            print "\n#",cmd,"\n"
-            if os.system(cmd)!=0:
-                print "download failed"
-                sys.exit(1)
-
-for m in modelfiles:
-    if not os.path.exists(modeldir+m):
-        print
-        print "warning:",modeldir+m,"does not exist"
-        print 'run "python setup.py download_models"'
-        print
-        break
+scripts = [c for c in glob.glob("ocropus-*") if "." not in c and "~" not in c]
 
 setup(
-        name = 'ocropy',
-        version = '0.6',
-        author = "Thomas Breuel",
-        description = "The core of the OCRopus OCR system.",
-        packages = ["ocrolib"],
-        data_files=
-            [('share/ocropus', glob.glob("*.glade")),
-             ('share/ocropus', [modeldir+m for m in modelfiles])],
-        scripts = 
-            [c for c in glob.glob("ocropus-*") if "." not in c and "~" not in c],
-        cmdclass = {
-            "download_models" : DownloadCommand,
-            }
-     )
+    name = 'ocropy',
+    version = 'v0.2',
+    author = "Thomas Breuel",
+    description = "The OCRopy RNN-based Text Line Recognizer",
+    packages = ["ocrolib"],
+    data_files= [('share/ocropus', ["models/en-default.pyrnn.gz"])],
+    scripts = scripts,
+    )
