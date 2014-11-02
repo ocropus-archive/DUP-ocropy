@@ -1,0 +1,4 @@
+*.pyc
+book/
+temp/
+.pynative
