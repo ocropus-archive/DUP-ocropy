@@ -6,7 +6,7 @@ Python-based OCR package using recurrent neural networks.
 To install, use:
 
     $ sudo apt-get install $(cat PACKAGES)
-    $ wget -nd http://www.tmbdev.org/en-default.pyrnn.gz
+    $ wget -nd http://www.tmbdev.net/en-default.pyrnn.gz
     $ mv en-default.pyrnn.gz models/
     $ sudo python setup.py install
 
