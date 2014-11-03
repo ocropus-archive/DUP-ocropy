@@ -26,7 +26,7 @@ To recognize pages of text, you need to run separate commands: binarization, pag
 analysis, and text line recognition. 
 
     # perform binarization
-    ./ocoropus-nlbin tests/ersch.png -o book
+    ./ocropus-nlbin tests/ersch.png -o book
 
     # perform page layout analysis
     ./ocropus-gpageseg 'book/????.bin.png'
