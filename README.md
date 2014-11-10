@@ -46,3 +46,10 @@ current training data. That includes all-caps text, some special symbols
 (including "?"), typewriter fonts, and subscripts/superscripts. This will
 be addressed in a future release, and, of course, you are welcome to contribute
 new, trained models.
+
+You can also generate training data using ocropus-linegen:
+
+    ocropus-linegen -t tests/tomsawyer.txt -f tests/DejaVuSans.ttf
+
+This will create a directory "linegen/..." containing training data
+suitable for training OCRopus with synthetic data.

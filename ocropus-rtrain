@@ -17,22 +17,38 @@ numpy.seterr(divide='raise',over='raise',invalid='raise',under='ignore')
 parser = argparse.ArgumentParser("train an RNN recognizer")
 
 # line normalization
-parser.add_argument("-e","--lineest",default="center")
-parser.add_argument("-E","--nolineest",action="store_true")
-parser.add_argument("-l","--height",default=48,type=int)
+parser.add_argument("-e","--lineest",default="center",
+                    help="type of text line estimator")
+parser.add_argument("-E","--nolineest",action="store_true",
+                    help="don't perform line estimation and load .dew.png file")
+parser.add_argument("-l","--height",default=48,type=int,
+                    help="set the default height for line estimation")
+parser.add_argument("--dewarp",action="store_true",
+                    help="only perform line estimation and output .dew.png file")
 
 # character set
-parser.add_argument("-c","--codec",default=None)
+parser.add_argument("-c","--codec",default=None,
+                    help="construct a codec from the input text")
 
 # learning
-parser.add_argument("-r","--lrate",type=float,default=1e-4)
-parser.add_argument("-S","--hiddensize",type=int,default=100)
-parser.add_argument("-o","--output",default=None)
-parser.add_argument("-F","--savefreq",type=int,default=1000)
-parser.add_argument("-N","--ntrain",type=int,default=1000000)
-parser.add_argument("-t","--tests",default=None)
-parser.add_argument('--unidirectional',action="store_true")
-parser.add_argument("--updates",action="store_true")
+parser.add_argument("-r","--lrate",type=float,default=1e-4,
+                    help="LSTM learning rate")
+parser.add_argument("-S","--hiddensize",type=int,default=100,
+                    help="# LSTM state units")
+parser.add_argument("-o","--output",default=None,
+                    help="LSTM model file")
+parser.add_argument("-F","--savefreq",type=int,default=1000,
+                    help="LSTM save frequency")
+parser.add_argument("-N","--ntrain",type=int,default=1000000,
+                    help="# lines to train before stopping")
+parser.add_argument("-t","--tests",default=None,
+                    help="test cases for error estimation")
+parser.add_argument('--unidirectional',action="store_true",
+                    help="use only unidirectional LSTM")
+parser.add_argument("--updates",action="store_true",
+                    help="verbose LSTM updates")
+parser.add_argument('--load',default=None,
+                    help="start training with a previously trained model")
 parser.add_argument('--start',default=-1,type=int)
 parser.add_argument('--load',default=None)
 
