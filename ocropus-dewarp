@@ -47,7 +47,7 @@ for fname in inputs:
         line = ocrolib.read_image_gray(fname)
         lnorm.measure(amax(line)-line)
         line = lnorm.normalize(line,cval=amax(line))
+        scipy.misc.imsave(base+".dew.png",line)
     except IOError as e:
         print "ERROR",e
         continue
-    scipy.misc.imsave(base+".dew.png",line)
