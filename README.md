@@ -6,7 +6,7 @@ Python-based OCR package using recurrent neural networks.
 To install, use:
 
     $ sudo apt-get install $(cat PACKAGES)
-    $ wget -nd http://www.tmbdev.org/en-default.pyrnn.gz
+    $ wget -nd http://www.tmbdev.net/en-default.pyrnn.gz
     $ mv en-default.pyrnn.gz models/
     $ sudo python setup.py install
 
@@ -26,7 +26,7 @@ To recognize pages of text, you need to run separate commands: binarization, pag
 analysis, and text line recognition. 
 
     # perform binarization
-    ./ocoropus-nlbin tests/ersch.png -o book
+    ./ocropus-nlbin tests/ersch.png -o book
 
     # perform page layout analysis
     ./ocropus-gpageseg 'book/????.bin.png'

@@ -232,7 +232,7 @@ def read_image_gray(fname,pageno=0):
         a = a/127.0
     elif a.dtype==dtype('uint16'):
         a = a/65536.0
-    elif a.dtype==dtype('uint16'):
+    elif a.dtype==dtype('int16'):
         a = a/32767.0
     elif isfloatarray(a):
         pass
