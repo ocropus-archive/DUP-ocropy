@@ -48,6 +48,6 @@ for fname in inputs:
         lnorm.measure(amax(line)-line)
         line = lnorm.normalize(line,cval=amax(line))
         scipy.misc.imsave(base+".dew.png",line)
-    except IOError as e:
+    except Exception as e:
         print "ERROR",e
         continue
