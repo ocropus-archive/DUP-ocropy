@@ -27,7 +27,7 @@ parser.add_argument("--dewarp",action="store_true",
                     help="only perform line estimation and output .dew.png file")
 
 # character set
-parser.add_argument("-c","--codec",default=None,
+parser.add_argument("-c","--codec",action="store_true",
                     help="construct a codec from the input text")
 
 # learning
@@ -119,7 +119,7 @@ if args.codec is not None:
     print "# building codec"
     codec = lstm.Codec()
     charset = set()
-    for fname in ocrolib.glob_all(args.codec):
+    for fname in ocrolib.glob_all(args.files):
         assert os.path.exists(fname)
         base,_ = ocrolib.allsplitext(fname)
         transcript = ocrolib.read_text(base+".gt.txt")
