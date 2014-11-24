@@ -118,7 +118,7 @@ if args.codec is not None:
     print "# building codec"
     codec = lstm.Codec()
     charset = set()
-    for fname in ocrolib.glob_all(args.files):
+    for fname in ocrolib.glob_all(args.codecs):
         assert os.path.exists(fname)
         base,_ = ocrolib.allsplitext(fname)
         transcript = ocrolib.read_text(base+".gt.txt")
