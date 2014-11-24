@@ -27,7 +27,7 @@ parser.add_argument("--dewarp",action="store_true",
                     help="only perform line estimation and output .dew.png file")
 
 # character set
-parser.add_argument("-c","--codec",action="store_true",
+parser.add_argument("-c","--codec",default=None,
                     help="construct a codec from the input text")
 
 # learning
@@ -50,7 +50,6 @@ parser.add_argument("--updates",action="store_true",
 parser.add_argument('--load',default=None,
                     help="start training with a previously trained model")
 parser.add_argument('--start',default=-1,type=int)
-parser.add_argument('--load',default=None)
 
 # debugging
 parser.add_argument("-X","--exec",default="None",dest="execute",
