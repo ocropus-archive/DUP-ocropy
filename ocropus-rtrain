@@ -27,7 +27,7 @@ parser.add_argument("--dewarp",action="store_true",
                     help="only perform line estimation and output .dew.png file")
 
 # character set
-parser.add_argument("-c","--codec",default=None,
+parser.add_argument("-c","--codec",default=[],nargs='*',
                     help="construct a codec from the input text")
 
 # learning
@@ -114,14 +114,13 @@ lnorm.setHeight(args.height)
 
 # The `codec` maps between strings and arrays of integers.
 
-if args.codec is not None:
+if args.codec!=[]:
     print "# building codec"
     codec = lstm.Codec()
     charset = set()
+    print args.codec
     for fname in ocrolib.glob_all(args.codec):
-        assert os.path.exists(fname)
-        base,_ = ocrolib.allsplitext(fname)
-        transcript = ocrolib.read_text(base+".gt.txt")
+        transcript = ocrolib.read_text(fname)
         l = list(lstm.normalize_nfkc(transcript))
         charset = charset.union(l)
     charset = sorted(list(charset))
