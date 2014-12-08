@@ -1,5 +1,7 @@
 #!/usr/bin/python
 
+#import sys;sys.path.append('/home/tmb/github/ocropy/clstm')
+
 import random as pyrandom
 import re
 from pylab import *
@@ -31,6 +33,8 @@ parser.add_argument("-c","--codec",default=[],nargs='*',
                     help="construct a codec from the input text")
 
 # learning
+parser.add_argument("-C","--clstm",action="store_true",
+                    help="LSTM learning rate")
 parser.add_argument("-r","--lrate",type=float,default=1e-4,
                     help="LSTM learning rate")
 parser.add_argument("-S","--hiddensize",type=int,default=100,
@@ -93,7 +97,10 @@ if args.output is None:
     sys.exit(0)
 
 if not "%" in args.output:
-    oname = args.output+"-%08d.pyrnn"
+    if args.clstm:
+        oname = args.output+"-%08d.h5"
+    else:
+        oname = args.output+"-%08d.pyrnn"
 else:
     oname = args.output
 
@@ -138,17 +145,46 @@ else:
     print "["+s[:20],"...",s[-20:]+"]"
 codec = lstm.Codec().init(charset)
 
-# load an existing network or construct a new one
+# Load an existing network or construct a new one
+# Somewhat convoluted logic for dealing with old style Python
+# modules and new style C++ LSTM networks.
+
+def save_lstm(fname,network):
+    if args.clstm:
+        network.lstm.save(fname)
+    else:
+        ocrolib.save_object(fname,network)
+
+def load_lstm(fname):
+    if args.clstm:
+        network = lstm.SeqRecognizer(args.height,args.hiddensize,
+            codec=codec,
+            normalize=lstm.normalize_nfkc)
+        import clstm
+        mylstm = clstm.make_BIDILSTM()
+        mylstm.init(network.No,args.hiddensize,network.Ni)
+        mylstm.load(fname)
+        network.lstm = clstm.CNetwork(mylstm)
+        return network
+    else:
+        network = ocrolib.load_object(last_save)
+        network.upgrade()
+        return network
 
 if args.load:
     print "# loading",args.load
     last_save = args.load
-    network = ocrolib.load_object(args.load)
+    network = load_lstm(args.load)
 else:
     last_save = None
     network = lstm.SeqRecognizer(args.height,args.hiddensize,
         codec=codec,
         normalize=lstm.normalize_nfkc)
+    if args.clstm:
+        import clstm
+        mylstm = clstm.make_BIDILSTM()
+        mylstm.init(network.No,args.hiddensize,network.Ni)
+        network.lstm = clstm.CNetwork(mylstm)
 
 if getattr(network,"lnorm",None) is None:
     network.lnorm = lnorm
@@ -156,6 +192,7 @@ if getattr(network,"lnorm",None) is None:
 network.upgrade()
 if network.last_trial%100==99: network.last_trial += 1
 print "# last_trial",network.last_trial
+
 
 # set up the learning rate
 
@@ -243,8 +280,7 @@ for trial in range(start,args.ntrain):
     except FloatingPointError as e:
         print "# oops, got FloatingPointError",e
         traceback.print_exc()
-        network = ocrolib.load_object(last_save)
-        network.upgrade()
+        network = load_lstm(last_save)
         continue
     except lstm.RangeError as e:
         continue
@@ -263,7 +299,7 @@ for trial in range(start,args.ntrain):
     if (trial+1)%args.savefreq==0:
         ofile = oname%(trial+1)+".gz"
         print "# saving",ofile
-        ocrolib.save_object(ofile,network)
+        save_lstm(ofile,network)
         last_save = ofile
 
     if do_display:

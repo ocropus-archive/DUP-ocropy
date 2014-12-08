@@ -1,0 +1,130 @@
+#!/usr/bin/python
+
+import random as pyrandom
+import re
+from pylab import *
+import os.path
+import ocrolib
+import argparse
+import matplotlib
+import numpy
+from ocrolib import lineest
+import ocrolib.lstm as lstm
+import traceback
+import clstm
+ion()
+matplotlib.rc('xtick',labelsize=7)
+matplotlib.rc('ytick',labelsize=7)
+matplotlib.rcParams.update({"font.size":7})
+
+
+numpy.seterr(divide='raise',over='raise',invalid='raise',under='ignore')
+
+parser = argparse.ArgumentParser("train an RNN recognizer")
+
+# character set
+parser.add_argument("-c","--codec",default=[],nargs='*',
+                    help="construct a codec from the input text")
+
+parser.add_argument("--lineheight",type=int,default=48,
+                    help="# LSTM state units")
+parser.add_argument("-p","--pad",type=int,default=16)
+
+# learning
+parser.add_argument("-r","--lrate",type=float,default=1e-4,
+                    help="LSTM learning rate")
+parser.add_argument("-S","--hiddensize",type=int,default=100,
+                    help="# LSTM state units")
+parser.add_argument("-o","--output",default="temp",
+                    help="LSTM model file")
+parser.add_argument("-F","--savefreq",type=int,default=1000,
+                    help="LSTM save frequency")
+
+parser.add_argument('--load',default=None,
+                    help="start training with a previously trained model")
+
+parser.add_argument("--start",type=int,default=0,
+                    help="# start training line")
+parser.add_argument("--ntrain",type=int,default=1000000,
+                    help="# lines to train before stopping")
+
+parser.add_argument("files",nargs="*")
+args = parser.parse_args()
+
+inputs = ocrolib.glob_all(args.files)
+if len(inputs)==0:
+    parser.print_help()
+    sys.exit(0)
+
+if "%" not in args.output:
+    args.output = args.output + "-%08d-lstm.h5"
+
+charset = sorted(list(set(list(lstm.ascii_labels) + list(ocrolib.chars.default))))
+charset = [""," ","~",]+[c for c in charset if c not in [" ","~"]]
+codec = lstm.Codec().init(charset)
+lnorm = lineest.CenterNormalizer(args.lineheight)
+
+network = clstm.make_BIDILSTM()
+print "# network",(codec.size(),args.hiddensize,lnorm.target_height)
+network.init(codec.size(),args.hiddensize,lnorm.target_height)
+network = clstm.CNetwork(network)
+if args.load: network.load(args.load)
+
+network.setLearningRate(args.lrate,0.9)
+
+def cleandisp(s):
+    return re.sub('[$]',r'#',s)
+
+def preprocess(line):
+    lnorm.measure(amax(line)-line)
+    line = lnorm.normalize(line,cval=amax(line))
+    if line.size<10 or amax(line)==amin(line):
+        return None
+    line = line * 1.0/amax(line)
+    line = amax(line)-line
+    line = line.T
+    if args.pad>0:
+        w = line.shape[1]
+        line = vstack([zeros((args.pad,w)),line,zeros((args.pad,w))])
+    return line
+
+for trial in range(args.start,args.ntrain):
+    if trial>args.start and trial%args.savefreq==0:
+        network.save(args.output % trial)
+    try:
+        # fname = inputs[trial%len(inputs)]
+        fname = inputs[randint(0,len(inputs))]
+        base,_ = ocrolib.allsplitext(fname)
+        line = ocrolib.read_image_gray(fname)
+        transcript = ocrolib.read_text(base+".gt.txt")
+        print "#",trial,fname,line.shape
+        line = preprocess(line)
+        if line is None: continue
+        cs = array(codec.encode(transcript),'i')
+        outputs = array(network.forward(line))
+        targets = array(lstm.make_target(cs,network.noutput()))
+        aligned = array(lstm.ctc_align_targets(outputs,targets))
+        deltas = aligned-outputs
+        network.backward(deltas)
+        result = lstm.translate_back(outputs)
+        pred = "".join(codec.decode(result))
+        acs = lstm.translate_back(aligned)
+        gta = "".join(codec.decode(acs))
+        print "   TRU:",repr(transcript)
+        print "   ALN:",repr(gta[:len(transcript)+5])
+        print "   OUT:",repr(pred[:len(transcript)+5])
+        if trial%20==0:
+            clf()
+            subplot(311)
+            title(cleandisp(transcript))
+            imshow(line.T,cmap=cm.gray,interpolation='bilinear')
+            subplot(312)
+            title(cleandisp(gta))
+            imshow(aligned.T,cmap=cm.hot,interpolation='bilinear',aspect='auto')
+            subplot(313)
+            title(cleandisp(pred))
+            imshow(outputs.T,cmap=cm.hot,interpolation='bilinear',aspect='auto')
+            tight_layout()
+        ginput(1,0.01)
+    except e:
+        print e

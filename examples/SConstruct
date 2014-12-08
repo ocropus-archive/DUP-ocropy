@@ -1,0 +1,19 @@
+import os
+import distutils.sysconfig
+
+env = Environment()
+env.Append(CXXFLAGS="--std=c++11 -g -fno-inline".split())
+env.Append(CPPPATH=["/usr/include/eigen3"])
+env.Append(CPPPATH=["/usr/local/include"])
+env.Append(LIBS=["clstm"])
+env.Append(LIBS=["hdf5_cpp","hdf5"])
+env.Append(LIBS=["zmqpp","zmq"])
+env.Append(CPPPATH=[distutils.sysconfig.get_python_inc()])
+
+env.Program(target='test_ctc', source = ["test_ctc.cc"])
+env.Program(target='test_loadnet', source = ["test_loadnet.cc"])
+env.Program(target='test_write', source = ["test_write.cc"])
+env.Program(target='test_mnist_lstm1', source = ["test_mnist_lstm1.cc"])
+env.Program(target='test_seq', source = ["test_seq.cc"])
+env.Program(target='test_mnist', source = ["test_mnist.cc"])
+env.Program(target='test_mnist_lstm', source = ["test_mnist_lstm.cc"])

@@ -2,3 +2,5 @@
 book/
 temp/
 .pynative
+models/
+*~

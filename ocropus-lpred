@@ -1,0 +1,100 @@
+#!/usr/bin/python
+
+import random as pyrandom
+import re
+from pylab import *
+import os.path
+import ocrolib
+import argparse
+import matplotlib
+import numpy
+from ocrolib import lineest
+import ocrolib.lstm as lstm
+from ocrolib import edist
+import traceback
+import clstm
+ion()
+matplotlib.rc('xtick',labelsize=7)
+matplotlib.rc('ytick',labelsize=7)
+matplotlib.rcParams.update({"font.size":7})
+
+
+numpy.seterr(divide='raise',over='raise',invalid='raise',under='ignore')
+
+parser = argparse.ArgumentParser("run an RNN recognizer")
+
+# character set
+parser.add_argument("-c","--codec",default=[],nargs='*',
+                    help="construct a codec from the input text")
+parser.add_argument("-e","--eval",action="store_true")
+parser.add_argument("-K","--kind",default="exact",help="kind of comparison (exact, nospace, letdig, letters, digits, lnc), default: %(default)s")
+
+parser.add_argument("--lineheight",type=int,default=48,
+                    help="# LSTM state units")
+parser.add_argument("-p","--pad",type=int,default=16)
+
+# learning
+parser.add_argument("-S","--hiddensize",type=int,default=100,
+                    help="# LSTM state units")
+parser.add_argument('-m','--load',default=None,
+                    help="start training with a previously trained model")
+
+parser.add_argument("files",nargs="*")
+args = parser.parse_args()
+
+inputs = ocrolib.glob_all(args.files)
+if len(inputs)==0:
+    parser.print_help()
+    sys.exit(0)
+
+charset = sorted(list(set(list(lstm.ascii_labels) + list(ocrolib.chars.default))))
+charset = [""," ","~",]+[c for c in charset if c not in [" ","~"]]
+codec = lstm.Codec().init(charset)
+lnorm = lineest.CenterNormalizer(args.lineheight)
+
+network = clstm.make_BIDILSTM()
+print "# network",(codec.size(),args.hiddensize,lnorm.target_height)
+network.init(codec.size(),args.hiddensize,lnorm.target_height)
+network = clstm.CNetwork(network)
+network.load(args.load)
+
+def preprocess(line):
+    lnorm.measure(amax(line)-line)
+    line = lnorm.normalize(line,cval=amax(line))
+    if line.size<10 or amax(line)==amin(line):
+        return None
+    line = line * 1.0/amax(line)
+    line = amax(line)-line
+    line = line.T
+    if args.pad>0:
+        w = line.shape[1]
+        line = vstack([zeros((args.pad,w)),line,zeros((args.pad,w))])
+    return line
+
+if args.eval:
+    errs = 0
+    total = 0
+
+for trial in range(len(inputs)):
+    try:
+        fname = inputs[trial]
+        base,_ = ocrolib.allsplitext(fname)
+        line = ocrolib.read_image_gray(fname)
+        line = preprocess(line)
+        if line is None: continue
+        outputs = array(network.forward(line))
+        result = lstm.translate_back(outputs)
+        pred = "".join(codec.decode(result))
+        print "%s\t%s"%(fname,pred)
+        if args.eval:
+            transcript = ocrolib.read_text(base+".gt.txt")
+            gt = ocrolib.project_text(transcript,kind=args.kind)
+            txt = ocrolib.project_text(pred,kind=args.kind)
+            err = edist.levenshtein(txt,gt)
+            errs += err
+            total += len(gt)
+    except e:
+        print e
+
+if args.eval:
+    print errs,total,errs*1.0/total
