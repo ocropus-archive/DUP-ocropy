@@ -43,6 +43,8 @@ parser.add_argument("-o","--output",default=None,
                     help="LSTM model file")
 parser.add_argument("-F","--savefreq",type=int,default=1000,
                     help="LSTM save frequency")
+parser.add_argument("--strip",action="store_false",
+                    help="strip the model before saving")
 parser.add_argument("-N","--ntrain",type=int,default=1000000,
                     help="# lines to train before stopping")
 parser.add_argument("-t","--tests",default=None,
@@ -153,7 +155,12 @@ def save_lstm(fname,network):
     if args.clstm:
         network.lstm.save(fname)
     else:
+        if args.strip:
+            network.clear_log()
+            for x in network.walk(): x.preSave()
         ocrolib.save_object(fname,network)
+        if args.strip:
+            for x in network.walk(): x.postLoad()
 
 def load_lstm(fname):
     if args.clstm:
@@ -169,6 +176,7 @@ def load_lstm(fname):
     else:
         network = ocrolib.load_object(last_save)
         network.upgrade()
+        for x in network.walk(): x.postLoad()
         return network
 
 if args.load:

@@ -1,10 +1,10 @@
 # An implementation of LSTM networks, CTC alignment, and related classes.
-# 
+#
 # This code operates on sequences of vectors as inputs, and either outputs
 # sequences of vectors, or symbol sequences. Sequences of vectors are
 # represented as 2D arrays, with rows representing vectors at different
 # time steps.
-# 
+#
 # The code makes liberal use of array programming, including slicing,
 # both for speed and for simplicity. All arrays are actual narrays (not matrices),
 # so `*` means element-wise multiplication. If you're not familiar with array
@@ -131,6 +131,15 @@ class Network:
         self.backward(deltas)
         self.update()
         return pred
+
+    def walk(self):
+        yield self
+
+    def preSave(self):
+        pass
+
+    def postLoad(self):
+        pass
 
     def ctrain(self,xs,cs,debug=0,lo=1e-5,accelerated=1):
         """Training for classification.  This handles
@@ -385,7 +394,7 @@ def hprime(x,y=None):
     if y is None: y = tanh(x)
     return 1-y**2
 
-# These two routines have been factored out of the class in order to 
+# These two routines have been factored out of the class in order to
 # make their conversion to native code easy; these are the "inner loops"
 # of the LSTM algorithm.
 
@@ -505,6 +514,11 @@ class LSTM(Network):
         for v in vars:
             a = array(getattr(self,v))
             print v,a.shape,amin(a),amax(a)
+    def preSave(self):
+        self.max_n = max(500,len(self.ci))
+        self.allocate(1)
+    def postLoad(self):
+        self.allocate(getattr(self,"max_n",5000))
     def allocate(self,n):
         """Allocate space for the internal state variables.
         `n` is the maximum sequence length that can be processed."""
@@ -523,7 +537,7 @@ class LSTM(Network):
         for v in vars.split():
             getattr(self,v)[:,:] = nan
     def forward(self,xs):
-        """Perform forward propagation of activations and update the 
+        """Perform forward propagation of activations and update the
         internal state for a subsequent call to `backward`.
         Since this performs sequence classification, `xs` is a 2D
         array, with rows representing input vectors at each time step.
@@ -578,6 +592,10 @@ class Stacked(Network):
     def __init__(self,nets):
         self.nets = nets
         self.dstats = defaultdict(list)
+    def walk(self):
+        yield self
+        for sub in self.nets:
+            for x in sub.walk(): yield x
     def ninputs(self):
         return self.nets[0].ninputs()
     def noutputs(self):
@@ -611,6 +629,9 @@ class Reversed(Network):
     """Run a network on the time-reversed input."""
     def __init__(self,net):
         self.net = net
+    def walk(self):
+        yield self
+        for x in self.net.walk(): yield x
     def ninputs(self):
         return self.net.ninputs()
     def noutputs(self):
@@ -632,6 +653,10 @@ class Parallel(Network):
     """Run multiple networks in parallel on the same input."""
     def __init__(self,*nets):
         self.nets = nets
+    def walk(self):
+        yield self
+        for sub in self.nets:
+            for x in sub.walk(): yield x
     def forward(self,xs):
         outputs = [net.forward(xs) for net in self.nets]
         outputs = zip(*outputs)
@@ -769,7 +794,7 @@ def forwardbackward(lmatch):
 def ctc_align_targets(outputs,targets,threshold=100.0,verbose=0,debug=0,lo=1e-5):
     """Perform alignment between the `outputs` of a neural network
     classifier and some targets. The targets themselves are a time sequence
-    of vectors, usually a unary representation of each target class (but 
+    of vectors, usually a unary representation of each target class (but
     possibly sequences of arbitrary posterior probability distributions
     represented as vectors)."""
 
@@ -799,7 +824,7 @@ def ctc_align_targets(outputs,targets,threshold=100.0,verbose=0,debug=0,lo=1e-5)
     epath /= where(l==0.0,1e-9,l)
 
     # The previous computation gives us an alignment between input time
-    # and output sequence position as posteriors over states. 
+    # and output sequence position as posteriors over states.
     # However, we actually want the posterior probability distribution over
     # output classes at each time step. This dot product gives
     # us that result. We renormalize again afterwards.
@@ -832,6 +857,8 @@ class SeqRecognizer:
         self.normalize = normalize
         self.codec = codec
         self.clear_log()
+    def walk(self):
+        for x in self.lstm.walk(): yield x
     def clear_log(self):
         self.command_log = []
         self.error_log = []

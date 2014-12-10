@@ -86,6 +86,7 @@ for trial in range(len(inputs)):
         result = lstm.translate_back(outputs)
         pred = "".join(codec.decode(result))
         print "%s\t%s"%(fname,pred)
+        ocrolib.write_text(base+".txt",pred)
         if args.eval:
             transcript = ocrolib.read_text(base+".gt.txt")
             gt = ocrolib.project_text(transcript,kind=args.kind)

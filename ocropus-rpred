@@ -101,6 +101,10 @@ if args.show>=0 or args.save is not None:
 
 try:
   network = ocrolib.load_object(args.model,verbose=1)
+  for x in network.walk(): x.postLoad()
+  for x in network.walk(): 
+      if isinstance(x,lstm.LSTM):
+          x.allocate(5000)
 except ocrolib.FileNotFound:
   print
   print "Cannot find OCR model file:",args.model
