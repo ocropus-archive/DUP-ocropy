@@ -184,7 +184,6 @@ def process1(job):
     print fname,"lo-hi (%.2f %.2f) angle %4.1f"%(lo,hi,angle),comment
     if args.parallel<2: print "writing"
     if args.debug>0 or args.show: clf(); gray();imshow(bin); ginput(1,max(0.1,args.debug))
-    gray()
     if args.output:
         if args.rawcopy: ocrolib.write_image_gray(args.output+"/%04d.raw.png"%i,raw)
         ocrolib.write_image_binary(args.output+"/%04d.bin.png"%i,bin)
