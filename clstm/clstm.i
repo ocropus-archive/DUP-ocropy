@@ -17,7 +17,7 @@
 
 %{
 #include <memory>
-#include "lstm.h"
+#include "clstm.h"
 using namespace ocropus;
 using namespace std;
 %}
@@ -155,6 +155,11 @@ struct Sequence {
         if($self->size()==0) return -1;
         return (*$self)[0].size();
     }
+    void assign(Sequence &other) {
+        $self->resize(other.size());
+        for(int t=0;t<$self->size();t++)
+            (*$self)[t] = other[t];
+    }
     void set(PyObject *object_) {
         Sequence *a = $self;
         if(!object_) throw "null pointer";
@@ -210,8 +215,8 @@ struct INetwork {
     virtual ~INetwork() = 0;
     Float softmax_floor = 1e-5;
     bool softmax_accel = false;
-    Float lr = 1e-4;
-    Float momentum = 0.9;
+    // Float lr = 1e-4;
+    // Float momentum = 0.9;
     Sequence inputs,d_inputs;
     Sequence outputs,d_outputs;
     virtual int ninput();
@@ -226,6 +231,10 @@ struct INetwork {
     void ctrain(Sequence &xs,Classes &cs);
     void ctrain_accelerated(Sequence &xs,Classes &cs,Float lo=1e-5);
     void cpred(Classes &preds,Sequence &xs);
+    void setLearningRate(Float, Float);
+    void setInputs(Sequence &inputs);
+    void setTargets(Sequence &targets);
+    void setClasses(Classes &classes);
     // typedef function<void (const string &,Eigen::Ref<Mat>,Eigen::Ref<Mat>)> WeightFun;
     // typedef function<void (const string &,Sequence *)> StateFun;
     // void weights(const string &prefix,WeightFun f);
@@ -276,6 +285,7 @@ INetwork *make_BIDILSTM();
 void forward_algorithm(Mat &lr,Mat &lmatch,double skip=-5.0);
 void forwardbackward(Mat &both,Mat &lmatch);
 void ctc_align_targets(Sequence &posteriors,Sequence &outputs,Sequence &targets);
+void mktargets(Sequence &seq, Classes &targets, int ndim);
 
 %inline %{
     Mat &getdebugmat() { return debugmat; }

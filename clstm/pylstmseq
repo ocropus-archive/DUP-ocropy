@@ -1,0 +1,98 @@
+#!/usr/bin/python
+
+#import sys;sys.path.append('/home/tmb/github/ocropy/clstm')
+
+import random as pyrandom
+import re
+from pylab import *
+import os.path
+import ocrolib
+import argparse
+import matplotlib
+import numpy
+from ocrolib import lineest,edist
+import ocrolib.lstm as lstm
+from ocrolib import MovingStats
+import traceback
+import h5py
+
+numpy.seterr(divide='raise',over='raise',invalid='raise',under='ignore')
+
+parser = argparse.ArgumentParser("train an RNN recognizer")
+
+parser.add_argument("-r","--lrate",type=float,default=1e-4,
+                    help="LSTM learning rate")
+parser.add_argument("--momentum",type=float,default=0.9,
+                    help="LSTM momentum")
+parser.add_argument("-S","--hiddensize",type=int,default=2,
+                    help="# LSTM state units")
+parser.add_argument("-o","--output",default=None,
+                    help="LSTM model file")
+parser.add_argument("-F","--savefreq",type=int,default=1000,
+                    help="LSTM save frequency")
+parser.add_argument("-N","--ntrain",type=int,default=40000,
+                    help="# lines to train before stopping")
+parser.add_argument('-m','--mode',default="lstm",
+                    help="lstm, reverse, bidi")
+parser.add_argument('-q','--quiet',action="store_true",
+                    help="only output final error rate")
+
+parser.add_argument("file")
+args = parser.parse_args()
+
+h5 = h5py.File(args.file,"r")
+nseq = len(h5["inputs"])
+assert len(h5["outputs"])==nseq
+nin = h5["inputs_dims"][0][1]
+nout = h5["outputs_dims"][0][1]
+if not args.quiet:
+    print nin,"->",nout,";",nseq
+
+if args.mode=="bidi":
+    network = lstm.BIDILSTM(nin,args.hiddensize,nout)
+elif args.mode=="lstm":
+    network = lstm.LSTM1(nin,args.hiddensize,nout)
+else:
+    raise Exception("not implemented")
+
+network.setLearningRate(args.lrate,0.9)
+
+if not args.quiet:
+    ion()
+    matplotlib.rc('xtick',labelsize=7)
+    matplotlib.rc('ytick',labelsize=7)
+    matplotlib.rcParams.update({"font.size":7})
+
+stats = MovingStats(100)
+
+for trial in range(args.ntrain):
+    sample = trial % nseq
+    ishape = tuple(h5["inputs_dims"][sample])
+    inputs = array(h5["inputs"][sample].reshape(*ishape),'f')
+    oshape = tuple(h5["outputs_dims"][sample])
+    targets = array(h5["outputs"][sample].reshape(*oshape),'f')
+    assert len(inputs)==len(targets)
+    assert inputs.shape[1]==nin
+    assert targets.shape[1]==nout
+    pred = array(network.forward(inputs),'f')
+    deltas = targets - pred
+    stats.add(sum(deltas**2)**.5)
+    network.backward(deltas)
+    network.update()
+    if trial%20==0 and not args.quiet:
+        clf()
+        subplot(121)
+        plot(inputs[:,0],"y",linewidth=5,alpha=0.5)
+        plot(targets[:,0],"b",alpha=0.5)
+        plot(pred[:,0],"r-")
+        subplot(122)
+        state = lstm.getstates_for_display(network)
+        assert state is not None
+        plot(state[:,0],state[:,1])
+        tight_layout()
+        print stats.count,stats.mean()
+    if not args.quiet:
+        ginput(1,0.01)
+
+print "PYLSTMSEQ",args.ntrain,args.file,args.lrate,stats.count,stats.mean()
+

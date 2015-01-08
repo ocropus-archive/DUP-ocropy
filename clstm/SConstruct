@@ -10,8 +10,15 @@ else:
 env.Append(CPPPATH=["/usr/include/eigen3"])
 env.Append(LIBS=["hdf5_cpp","hdf5"])
 
-libclstm = env.SharedLibrary("clstm", source = ["clstm.cc"])
+libclstm = env.StaticLibrary("clstm", source = ["clstm.cc"])
 
 Alias('install-lib', Install(os.path.join(prefix,"lib"), libclstm))
 Alias('install-include', Install(os.path.join(prefix,"include"), ["clstm.h"]))
 Alias('install',['install-lib', 'install-include'])
+
+env.Program("clstmctc",
+            ["clstmctc.cc"],
+            LIBS=[libclstm,"hdf5_cpp","hdf5","zmqpp","zmq"])
+env.Program("clstmseq",
+            ["clstmseq.cc"],
+            LIBS=[libclstm,"hdf5_cpp","hdf5","zmqpp","zmq"])

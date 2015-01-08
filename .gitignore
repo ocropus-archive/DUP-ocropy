@@ -1,6 +1,15 @@
-*.pyc
+OLD
+JUNK
+.hg
 book/
 temp/
-.pynative
 models/
+build/
+.pynative
+*.pyc
 *~
+*.h5
+*.o
+*.os
+*.a
+*.so

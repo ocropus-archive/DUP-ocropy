@@ -1054,3 +1054,17 @@ def remove_noise(line,minsize=8):
     sums = sums[labels]
     good = minimum(bin,1-(sums>0)*(sums<minsize))
     return good
+
+class MovingStats:
+    def __init__(self,n=100):
+        self.data = []
+        self.n = n
+        self.count = 0
+    def add(self,x):
+        self.data += [x]
+        self.data = self.data[-self.n:]
+        self.count += 1
+    def mean(self):
+        if len(self.data)==0: return nan
+        return mean(self.data)
+

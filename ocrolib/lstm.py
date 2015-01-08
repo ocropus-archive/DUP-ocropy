@@ -972,3 +972,13 @@ def ocropus_codec():
     base_set = set(base)
     extra = [c for c in ocrolib.chars.default if c not in base_set]
     return Codec().init(base+extra)
+
+def getstates_for_display(net):
+    """Get internal states of an LSTM network for making nice state
+    plots. This only works on a few types of LSTM."""
+    if isinstance(net,LSTM):
+        return net.state[:net.last_n]
+    if isinstance(net,Stacked) and isinstance(net.nets[0],LSTM):
+        return net.nets[0].state[:net.nets[0].last_n]
+    return None
+
