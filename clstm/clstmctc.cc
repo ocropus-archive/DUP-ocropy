@@ -234,6 +234,7 @@ int main_ocr(int argc, char **argv) {
     shared_ptr<INetwork> net(make_BIDILSTM());
     net->init(dataset.nclasses, nhidden, dataset.ndims);
     net->setLearningRate(lrate, 0.9);
+    assign(net->codec, dataset.codec);
     if (load_name != "") net->load(load_name.c_str());
 
     mdarray<float> image, outputs, aligned;
@@ -292,13 +293,13 @@ int main_ocr(int argc, char **argv) {
             py->eval("clf()");
             py->subplot(4, 1, 1);
             py->evalf("title('%s')", gt.c_str());
-            py->imshowT(image, "cmap=cm.gray,interpolation='none'");
+            py->imshowT(image, "cmap=cm.gray,interpolation='bilinear'");
             py->subplot(4, 1, 2);
             py->evalf("title('%s')", out.c_str());
-            py->imshowT(outputs, "cmap=cm.hot,interpolation='none'");
+            py->imshowT(outputs, "cmap=cm.hot,interpolation='bilinear'");
             py->subplot(4, 1, 3);
             py->evalf("title('%s')", aln.c_str());
-            py->imshowT(aligned, "cmap=cm.hot,interpolation='none'");
+            py->imshowT(aligned, "cmap=cm.hot,interpolation='bilinear'");
             py->subplot(4, 1, 4);
             mdarray<float> v;
             v.resize(outputs.dim(0));

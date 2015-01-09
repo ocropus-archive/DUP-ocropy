@@ -51,17 +51,41 @@ struct VecMat {
 };
 
 struct INetwork {
-    virtual ~INetwork() {
-    }
+    // Each network has a name that's used for loading
+    // and saving.
     string name = "???";
-    Float softmax_floor = 1e-5;
-    bool softmax_accel = false;
-    Float lr = 1e-4;
-    Float momentum = 0.9;
+
+    // Networks have input and output "ports" for sequences
+    // and derivatives. These are propagated in forward()
+    // and backward() methods.
     Sequence inputs, d_inputs;
     Sequence outputs, d_outputs;
+
+    // Some networks have subnetworks. They should be
+    // stored in the `sub` vector. That way, functions
+    // like `save` can automatically traverse the tree
+    // of networks. Together with the `name` field,
+    // this forms a hierarchical namespace of networks.
     vector<shared_ptr<INetwork> > sub;
+
+    // Learning rate and momentum used for training.
+    Float lr = 1e-4;
+    Float momentum = 0.9;
+
+    // Data used for loading and saving networks; these
+    // are generally only meaningful for the toplevel network.
+    vector<int> codec;
     map<string, string> attributes;
+
+    // Parameters specific to softmax.
+    Float softmax_floor = 1e-5;
+    bool softmax_accel = false;
+
+    virtual ~INetwork() { }
+
+    // There are several `init` methods depending on
+    // the network; override the one that has the right
+    // number of parameters.
     virtual void init(int no, int ni) {
         throw "unimplemented";
     }
@@ -71,27 +95,36 @@ struct INetwork {
     virtual void init(int no, int nh2, int nh, int ni) {
         throw "unimplemented";
     }
+
+    // Main methods for forward and backward propagation
+    // of activations.
+    virtual void forward() = 0;
+    virtual void backward() = 0;
+
+    // Expected number of input/output features.
+    virtual int ninput() { return -999999; }
+    virtual int noutput() { return -999999; }
+
+    // Add a network as a subnetwork.
     virtual void add(shared_ptr<INetwork> net) {
         sub.push_back(net);
     }
-    virtual void forward() = 0;
-    virtual void backward() = 0;
+
+    // Hooks to iterate over the weights and states of this network.
     typedef function<void (const string &, VecMat, VecMat)> WeightFun;
     typedef function<void (const string &, Sequence *)> StateFun;
-    virtual void myweights(const string &prefix, WeightFun f) {
-    }
-    virtual void mystates(const string &prefix, StateFun f) {
-    }
-    virtual int ninput() {
-        return -999999;
-    }
-    virtual int noutput() {
-        return -999999;
-    }
-    virtual void preSave() {
-    }
-    virtual void postLoad() {
-    }
+    virtual void myweights(const string &prefix, WeightFun f) { }
+    virtual void mystates(const string &prefix, StateFun f) { }
+
+    // Hooks executed prior to saving and after loading.
+    // Loading iterates over the weights with the `weights`
+    // methods and restores only the weights. `postLoad`
+    // allows classes to update other internal state that
+    // depends on matrix size.
+    virtual void preSave() { }
+    virtual void postLoad() { }
+
+    // Set the learning rate for this network and all subnetworks.
     virtual void setLearningRate(Float lr, Float momentum) {
         this->lr = lr;
         this->momentum = momentum;
@@ -102,6 +135,7 @@ struct INetwork {
     // move the rest out of this class
     void setInputs(Sequence &inputs);
     void setTargets(Sequence &targets);
+    void setTargetsAccelerated(Sequence &targets);
     void setClasses(Classes &classes);
     void train(Sequence &xs, Sequence &targets);
     void ctrain(Sequence &xs, Classes &cs);
