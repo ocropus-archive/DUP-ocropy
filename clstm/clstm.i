@@ -17,7 +17,7 @@
 
 %{
 #include <memory>
-#include "lstm.h"
+#include "clstm.h"
 using namespace ocropus;
 using namespace std;
 %}
