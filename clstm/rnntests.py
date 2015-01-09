@@ -201,7 +201,7 @@ import numpy as np
 class H5SeqData:
     def __init__(self,fname,N=None):
         self.fname = fname
-        h5 = h5py.File(fname,"w")
+        h5 = h5py.File("rnntest-"+fname+".h5","w")
         self.h5 = h5
         dt = h5py.special_dtype(vlen=np.dtype('float32'))
         it = np.dtype('int32')
@@ -232,105 +232,114 @@ class H5SeqData:
         self.outputs_dims[self.fill] = array(outputs.shape,'i')
         self.fill += 1
 
-N = 20000
+N = 50000
 
-with H5SeqData("threshold.h5",N) as db:
+with H5SeqData("threshold",N) as db:
     for i in range(N):
         xs,ys = generate_threshold()
         db.add(xs,ys)
 
-with H5SeqData("mod.h5",N) as db:
+with H5SeqData("mod3",N) as db:
     for i in range(N):
-        xs,ys = generate_mod()
+        xs,ys = generate_mod(m=3)
         db.add(xs,ys)
 
-with H5SeqData("dmod3.h5",N) as db:
+with H5SeqData("dmod3",N) as db:
     for i in range(N):
         xs,ys = generate_dmod(m=3)
         db.add(xs,ys)
 
-with H5SeqData("dmod4.h5",N) as db:
+with H5SeqData("dmod4",N) as db:
     for i in range(N):
         xs,ys = generate_dmod(m=4)
         db.add(xs,ys)
 
-with H5SeqData("dmod5.h5",N) as db:
+with H5SeqData("dmod5",N) as db:
     for i in range(N):
         xs,ys = generate_dmod(m=5)
         db.add(xs,ys)
 
-with H5SeqData("dmod6.h5",N) as db:
+with H5SeqData("dmod6",N) as db:
     for i in range(N):
         xs,ys = generate_dmod(m=6)
         db.add(xs,ys)
 
-with H5SeqData("imod.h5",N) as db:
+with H5SeqData("imod3",N) as db:
     for i in range(N):
-        xs,ys = generate_imod()
+        xs,ys = generate_imod(m=3)
         db.add(xs,ys)
 
-with H5SeqData("smod.h5",N) as db:
+with H5SeqData("smod3",N) as db:
     for i in range(N):
-        xs,ys = generate_smod()
+        xs,ys = generate_smod(m=3)
         db.add(xs,ys)
 
-with H5SeqData("anbn.h5",N) as db:
+with H5SeqData("smod4",N) as db:
+    for i in range(N):
+        xs,ys = generate_smod(m=4)
+        db.add(xs,ys)
+
+with H5SeqData("smod5",N) as db:
+    for i in range(N):
+        xs,ys = generate_smod(m=5)
+        db.add(xs,ys)
+
+with H5SeqData("anbn",N) as db:
     for i in range(N):
         xs,ys = generate_anbn()
         db.add(xs,ys)
 
-with H5SeqData("timing.h5",N) as db:
+with H5SeqData("timing",N) as db:
     for i in range(N):
         xs,ys = generate_timing()
         db.add(xs,ys)
 
-with H5SeqData("revtiming.h5",N) as db:
+with H5SeqData("revtiming",N) as db:
     for i in range(N):
         xs,ys = generate_revtiming()
         db.add(xs,ys)
 
-with H5SeqData("biditiming.h5",N) as db:
+with H5SeqData("biditiming",N) as db:
     for i in range(N):
         xs,ys = generate_biditiming()
         db.add(xs,ys)
 
-with H5SeqData("detect.h5",N) as db:
+with H5SeqData("detect",N) as db:
     for i in range(N):
         xs,ys = generate_detect()
         db.add(xs,ys)
 
-with H5SeqData("revdetect.h5",N) as db:
+with H5SeqData("revdetect",N) as db:
     for i in range(N):
         xs,ys = generate_revdetect()
         db.add(xs,ys)
 
-with H5SeqData("bididetect.h5",N) as db:
+with H5SeqData("bididetect",N) as db:
     for i in range(N):
         xs,ys = generate_bididetect()
         db.add(xs,ys)
 
-with H5SeqData("delay1.h5",N) as db:
+with H5SeqData("delay1",N) as db:
     for i in range(N):
         xs,ys = genseq_delay(d=1)
         db.add(xs,ys)
 
-with H5SeqData("delay2.h5",N) as db:
+with H5SeqData("delay2",N) as db:
     for i in range(N):
         xs,ys = genseq_delay(d=2)
         db.add(xs,ys)
 
-with H5SeqData("delay3.h5",N) as db:
+with H5SeqData("delay3",N) as db:
     for i in range(N):
         xs,ys = genseq_delay(d=3)
         db.add(xs,ys)
 
-with H5SeqData("rdelay1.h5",N) as db:
+with H5SeqData("rdelay1",N) as db:
     for i in range(N):
         xs,ys = genseq_delay(d=-1)
         db.add(xs,ys)
 
-with H5SeqData("rdelay2.h5",N) as db:
+with H5SeqData("rdelay2",N) as db:
     for i in range(N):
         xs,ys = genseq_delay(d=-2)
         db.add(xs,ys)
-

@@ -27,6 +27,22 @@ void INetwork::setInputs(Sequence &inputs) {
         this->inputs[t] = inputs[t];
 }
 
+void INetwork::setTargetsAccelerated(Sequence &targets) {
+    Float lo = 1e-5;
+    assert(outputs.size() == targets.size());
+    d_outputs.resize(outputs.size());
+    for (int t = 0; t < outputs.size(); t++) {
+        d_outputs[t] = - outputs[t];
+        for (int i = 0; i < targets[t].size(); i++) {
+            // only allow binary classification
+            assert(fabs(targets[t][i]-0)<1e-5 || fabs(targets[t][i]-1)<1e-5);
+            if (targets[t][i] > 0.5) {
+                d_outputs[t][i] = 1.0/fmax(lo, outputs[t][i]);
+            }
+        }
+    }
+}
+
 void INetwork::setTargets(Sequence &targets) {
     assert(outputs.size() == targets.size());
     d_outputs.resize(outputs.size());
@@ -121,7 +137,7 @@ void INetwork::weights(const string &prefix, WeightFun f) {
     string nprefix = prefix + "." + name;
     myweights(nprefix, f);
     for (int i = 0; i < sub.size(); i++) {
-        sub[i]->weights(nprefix+to_string(i), f);
+        sub[i]->weights(nprefix+"."+to_string(i), f);
     }
 }
 
@@ -133,7 +149,7 @@ void INetwork::states(const string &prefix, StateFun f) {
     f(nprefix+".d_outputs", &d_outputs);
     mystates(nprefix, f);
     for (int i = 0; i < sub.size(); i++) {
-        sub[i]->states(nprefix+to_string(i), f);
+        sub[i]->states(nprefix+"."+to_string(i), f);
     }
 }
 
@@ -160,9 +176,19 @@ void INetwork::save(const char *fname) {
 #ifdef USE_ATTRS
     h5->setAttr("ocropus", "0.0");
     for (auto &kv : attributes) {
-    h5->setAttr(kv.first, kv.second);
+        h5->setAttr(kv.first, kv.second);
     }
 #endif
+    if(codec.size()==0) {
+        codec.resize(noutput());
+        for(int i=0;i<codec.size();i++) codec[i] = i;
+    }
+
+    Vec mycodec;
+    mycodec.resize(codec.size());
+    for(int i=0; i<codec.size(); i++) mycodec[i] = codec[i];
+    h5->put(mycodec, "codec");
+
     weights("", [&h5](const string &prefix, VecMat a, VecMat da) {
                 if (a.mat) h5->put(*a.mat, prefix.c_str());
                 else if (a.vec) h5->put(*a.vec, prefix.c_str());
@@ -177,6 +203,12 @@ void INetwork::load(const char *fname) {
 #ifdef USE_ATTRS
     h5->getAttrs(attributes);
 #endif
+
+    Vec mycodec;
+    h5->get(mycodec, "codec");
+    codec.resize(mycodec.size());
+    for(int i=0; i<codec.size(); i++) codec[i] = mycodec[i];
+
     weights("", [&h5](const string &prefix, VecMat a, VecMat da) {
                 if (a.mat) h5->get(*a.mat, prefix.c_str());
                 else if (a.vec) h5->get1d(*a.vec, prefix.c_str());
@@ -715,7 +747,7 @@ struct LSTM : Network {
         f(prefix+".WFP", &WFP, &DWFP);
         f(prefix+".WOP", &WOP, &DWOP);
     }
-    virtual void mystates(string prefix, StateFun f) {
+    virtual void mystates(const string &prefix, StateFun f) {
         f(prefix+".inputs", &inputs);
         f(prefix+".d_inputs", &d_inputs);
         f(prefix+".outputs", &outputs);

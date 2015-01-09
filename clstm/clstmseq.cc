@@ -186,9 +186,36 @@ void getslice(mdarray<float> &a, Sequence &seq, int i) {
     for (int t = 0; t < seq.size(); t++) a(t) = seq[t][i];
 }
 
+struct ErrStats {
+    double tolerance = 0.2;
+    double decay = 1e-3;
+    double avgmaxerr = 1.0;
+    double absmaxerr(Sequence &targets, Sequence &outputs) {
+        assert(targets.size() == outputs.size());
+        double err = 0.0;
+        for (int t = 0; t < targets.size(); t++) {
+            err = fmax(err, (targets[t]-outputs[t]).cwiseAbs().maxCoeff());
+        }
+        return err;
+    }
+    double add(Sequence &targets, Sequence &outputs) {
+        double err = absmaxerr(targets, outputs);
+        double fail = (err > tolerance);
+        avgmaxerr = (1.0-decay)*avgmaxerr + decay*fail;
+        return avgmaxerr;
+    }
+    double error() {
+        return avgmaxerr;
+    }
+};
+
 int main_seq(int argc, char **argv) {
     const char *h5file = argc > 1 ? argv[1] : "uw3-dew.h5";
-    float lr = 1e-5;
+    float lr = getdenv("lrate", 1e-4);
+    int display_every = getienv("display_every", 1000);
+    int report = getienv("report", 1000);
+    int ntrain = getienv("ntrain", 10000000);
+    int accelerated = getienv("accelerated", 0);
 
     PyServer py;
     py.open();
@@ -223,7 +250,9 @@ int main_seq(int argc, char **argv) {
     Sequence targets;
     Sequence saligned;
     Classes classes;
-    for (int sample = 0; sample < dataset.nsamples; sample++) {
+    ErrStats stats;
+    for (int trial = 0; trial < ntrain; trial++) {
+        int sample = trial % dataset.nsamples;
         mdarray<float> input, target;
         dataset.input(input, sample);
         dataset.output(target, sample);
@@ -233,9 +262,14 @@ int main_seq(int argc, char **argv) {
         net->forward();
         Sequence target_;
         assign(target_, target);
-        net->setTargets(target_);
+        if (accelerated) net->setTargetsAccelerated(target_);
+        else net->setTargets(target_);
+        stats.add(target_, net->outputs);
         net->backward();
-        if (sample%1000 == 0) {
+        if (report > 0 && trial%report == 0) {
+            print(trial, stats.error());
+        }
+        if (display_every > 0 && trial%display_every == 0) {
             py.eval("clf()");
             py.eval("subplot(121)");
             py.eval("ylim(-.1,1.1)");
@@ -245,10 +279,9 @@ int main_seq(int argc, char **argv) {
             getslice(a, target_, 1);
             py.plot(a, "color='b',linewidth=2");
             getslice(a, net->outputs, 1);
-            print("outputs", amin(a), amax(a));
             py.plot(a, "color='r',ls='--'");
             Sequence *state = 0;
-            state = net->getState(".lstm1.lstm.state");
+            state = net->getState(".lstm1.0.lstm.state");
             if (state) {
                 mdarray<float> b;
                 getslice(a, *state, 0);
@@ -270,7 +303,7 @@ float inputs(N,*): input sequences
 int inputs_dims(N,2): shape of input sequences
 float outputs(N,*): output sequences
 int outputs_dims(N,2): shape of output sequences
-)";
+)"                                                                                                                                                                                                                            ;
 
 int main(int argc, char **argv) {
     if (argc < 2) {
