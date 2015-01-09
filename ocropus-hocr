@@ -1,16 +1,9 @@
 #!/usr/bin/python
 
-# FIXME use argparse
-
 import __builtin__ as python
 import random as pyrandom
 import sys,os,re,glob,argparse,codecs
-import matplotlib
-if "DISPLAY" not in os.environ: matplotlib.use("AGG")
-else: matplotlib.use("GTK")
-import signal
-signal.signal(signal.SIGINT,lambda *args:sys.exit(1))
-from pylab import *
+from pylab import median, imread
 
 import ocrolib
 from ocrolib import hocr
@@ -27,7 +20,6 @@ For each page like 'book/0001.bin.png', it uses the following files:
     book/0001.bin.png            # page image
     book/0001.pseg.png           # page segmentation
     book/0001/010001.txt         # recognizer output for lines
-    book/0001/010001.cseg.png    # character segmentation for lines
 """)
 parser.add_argument("-b","--nobreaks",action="store_true",help="don't output line breaks")
 parser.add_argument("-p","--nopars",action="store_true",help="don't output paragraphs")
