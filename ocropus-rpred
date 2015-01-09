@@ -154,7 +154,7 @@ def process1(arg):
         result = lstm.translate_back(network.outputs,pos=1)
         scale = len(raw_line.T)*1.0/(len(network.outputs)-2*args.pad)
         #ion(); imshow(raw_line,cmap=cm.gray)
-        with codecs.open(base+".llocs","w") as locs:
+        with codecs.open(base+".llocs","w","utf-8") as locs:
             for r,c in result:
                 c = network.l2s([c])
                 r = (r-args.pad)*scale
@@ -170,7 +170,7 @@ def process1(arg):
             network.trainString(line,transcript,update=0)
             result = lstm.translate_back(network.aligned,pos=1)
             scale = len(raw_line.T)*1.0/(len(network.aligned)-2*args.pad)
-            with codecs.open(base+".alocs","w") as locs:
+            with codecs.open(base+".alocs","w","utf-8") as locs:
                 for r,c in result:
                     c = network.l2s([c])
                     r = (r-args.pad)*scale
