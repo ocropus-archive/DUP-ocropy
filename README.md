@@ -1,3 +1,7 @@
+NB: The `clstm` subproject is now in its own repository at
+
+https://github.com/tmbdev/clstm
+
 ocropy
 ======
 
