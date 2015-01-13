@@ -1,9 +1,0 @@
-To build the Python extension, run
-
-    python setup.py build
-    sudo python setup.py install
-
-To build a standalone C library, run
-
-    scons
-
