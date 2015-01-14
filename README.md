@@ -27,7 +27,9 @@ this is not generally indicative of a problem (in a future release, we'll suppre
 trace by default since it seems to confuse too many users).
 
 To recognize pages of text, you need to run separate commands: binarization, page layout
-analysis, and text line recognition. 
+analysis, and text line recognition. Here is an example for a page of Fraktur text (German);
+you need to download the Fraktur model from tmbdev.net/ocropy/fraktur.pyrnn.gz to run this
+example:
 
     # perform binarization
     ./ocropus-nlbin tests/ersch.png -o book
