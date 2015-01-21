@@ -3,6 +3,7 @@
 import traceback
 import codecs
 from pylab import *
+import json
 import os.path
 import ocrolib
 import argparse
@@ -56,6 +57,8 @@ parser.add_argument("-q","--quiet",action="store_true",
                     help="turn off most output")
 parser.add_argument("-Q","--parallel",type=int,default=1,
                     help="number of parallel processes to use (%(default)s)")
+parser.add_argument('--alternates', action='store_true',
+                    help='Output JSON file with scores and alternate characters.')
 
 # input files
 parser.add_argument("files",nargs="+",
@@ -175,6 +178,12 @@ def process1(arg):
                     c = network.l2s([c])
                     r = (r-args.pad)*scale
                     locs.write("%s\t%.1f\n"%(c,r))
+
+    if args.alternates:
+        alts = lstm.translate_back_with_alternates(network.outputs)
+        chars = [[(network.l2s([c]), score) for c, score in char if c > 0]
+                    for char in alts]
+        json.dump(chars, open(base + '.alts.json', 'w'), indent=2)
 
     if not args.nonormalize:
         pred = ocrolib.normalize_text(pred)
