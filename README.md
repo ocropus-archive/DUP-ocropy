@@ -7,12 +7,21 @@ ocropy
 
 Python-based OCR package using recurrent neural networks.
 
-To install, use:
-
+To install OCRopus dependencies system-wide:
     $ sudo apt-get install $(cat PACKAGES)
     $ wget -nd http://www.tmbdev.net/en-default.pyrnn.gz
     $ mv en-default.pyrnn.gz models/
     $ sudo python setup.py install
+
+Alternatively, dependenices can be installed into a [Python Virtual Environment]
+(http://docs.python-guide.org/en/latest/dev/virtualenvs/):
+    $ virtualenv ocropus_venv/
+    $ source ocropus_venv/bin/source
+    $ pip install -r requirements_1.txt
+    # tables has some dependencies which must be installed first:
+    $ pip install -r requirements_2.txt
+    $ wget -nd http://www.tmbdev.net/en-default.pyrnn.gz
+    $ mv en-default.pyrnn.gz models/
 
 To test the recognizer, run:
 
