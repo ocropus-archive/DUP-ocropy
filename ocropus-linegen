@@ -173,7 +173,7 @@ def genline(text,fontfile=None,size=36,sigma=0.5,threshold=0.5):
     draw = ImageDraw.Draw(image)
     draw.rectangle((0,0,6000,6000),fill="white")
     #print "\t",size,font
-    draw.text((20,20),text,fill="black",font=font)
+    draw.text((250,20),text,fill="black",font=font)
     a = asarray(image,'f')
     a = a*1.0/amax(a)
     if sigma>0.0:
