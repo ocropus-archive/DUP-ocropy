@@ -1,6 +1,4 @@
-#!/usr/bin/python
-
-#import sys;sys.path.append('/home/tmb/github/ocropy/clstm')
+#!/usr/bin/env python
 
 import random as pyrandom
 import re
