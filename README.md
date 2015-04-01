@@ -14,7 +14,7 @@ To install OCRopus dependencies system-wide:
     $ mv en-default.pyrnn.gz models/
     $ sudo python setup.py install
 
-Alternatively, dependenices can be installed into a [Python Virtual Environment]
+Alternatively, dependencies can be installed into a [Python Virtual Environment]
 (http://docs.python-guide.org/en/latest/dev/virtualenvs/):
 
     $ virtualenv ocropus_venv/
