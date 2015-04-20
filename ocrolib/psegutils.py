@@ -84,15 +84,20 @@ def pad_image(image,d,cval=inf):
 def extract(image,y0,x0,y1,x1,mode='nearest',cval=0):
     h,w = image.shape
     ch,cw = y1-y0,x1-x0
-    y,x = clip(y0,0,h-ch),clip(x0,0,w-cw)
+    y,x = clip(y0,0,max(h-ch,0)),clip(x0,0,max(w-cw, 0))
     sub = image[y:y+ch,x:x+cw]
     # print "extract",image.dtype,image.shape
     try:
-        return interpolation.shift(sub,(y-y0,x-x0),mode=mode,cval=cval,order=0)
+        r = interpolation.shift(sub,(y-y0,x-x0),mode=mode,cval=cval,order=0)
+        if cw > w or ch > h:
+            pady0, padx0 = max(-y0, 0), max(-x0, 0)
+            r = interpolation.affine_transform(r, eye(2), offset=(pady0, padx0), cval=1, output_shape=(ch, cw))
+        return r
+
     except RuntimeError:
-	# workaround for platform differences between 32bit and 64bit
+        # workaround for platform differences between 32bit and 64bit
         # scipy.ndimage
-	dtype = sub.dtype
+        dtype = sub.dtype
         sub = array(sub,dtype='float64')
         sub = interpolation.shift(sub,(y-y0,x-x0),mode=mode,cval=cval,order=0)
         sub = array(sub,dtype=dtype)
