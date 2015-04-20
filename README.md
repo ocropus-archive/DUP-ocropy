@@ -72,3 +72,7 @@ You can also generate training data using ocropus-linegen:
 
 This will create a directory "linegen/..." containing training data
 suitable for training OCRopus with synthetic data.
+
+## Solution for clang
+
+[Read README_OSX.md](README_OSX.md)
