@@ -32,7 +32,7 @@ parser.add_argument("-c","--codec",default=[],nargs='*',
 
 # learning
 parser.add_argument("-C","--clstm",action="store_true",
-                    help="LSTM learning rate")
+                    help="use C++ LSTM")
 parser.add_argument("-r","--lrate",type=float,default=1e-4,
                     help="LSTM learning rate")
 parser.add_argument("-S","--hiddensize",type=int,default=100,
