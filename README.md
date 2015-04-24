@@ -1,6 +1,4 @@
-NB: The `clstm` subproject is now in its own repository at
-
-https://github.com/tmbdev/clstm
+Note: The text line recognizer has been ported to C++ and is now a separate project, the CLSTM project, available here: https://github.com/tmbdev/clstm 
 
 ocropy
 ======
@@ -72,6 +70,32 @@ You can also generate training data using ocropus-linegen:
 
 This will create a directory "linegen/..." containing training data
 suitable for training OCRopus with synthetic data.
+
+## CLSTM vs OCRopy
+
+The CLSTM project (https://github.com/tmbdev/clstm) is a replacement for 
+`ocropus-rtrain` and `ocropus-rpred` in C++ (it used to be a subproject of
+`ocropy` but has been moved into a separate project now). It is significantly faster than 
+the Python versions and has minimal library dependencies, so it is suitable 
+for embedding into C++ programs.
+
+Python and C++ models can _not_ be interchanged, both because the save file 
+formats are different and because the text line normalization is slightly 
+different. Error rates are about the same.
+
+In addition, the C++ command line tool (`clstmctc`) has different command line 
+options and currently requiresloading training data into HDF5 files, instead
+of being trained off a list of image files directly (image file-based training
+will be added to `clstmctc` soon).
+
+Generally, your best bet for CLSTM and OCRopy is to rely only on the command
+line tools; that makes it easy to replace different components. In addition, you
+should keep your OCR training data in .png/.gt.txt files so that you can easily 
+retrain models as better recognizers become available.
+
+After making CLSTM a full replacement for `ocropus-rtrain`/`ocropus-rpred`, the
+next step will be to replace the binarization, text/image segmentation, and layout 
+analysis in OCRopus with trainable 2D LSTM models.
 
 ## Solution for clang
 
