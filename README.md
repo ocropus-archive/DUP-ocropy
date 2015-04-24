@@ -88,6 +88,11 @@ options and currently requiresloading training data into HDF5 files, instead
 of being trained off a list of image files directly (image file-based training
 will be added to `clstmctc` soon).
 
+The CLSTM project also provides LSTM-based language modeling that works very
+well with post-processing and correcting OCR output, as well as solving a number
+of other OCR-related tasks, such as dehyphenation or changes in orthography
+(see our publications). You can train language models using `clstmtext`.
+
 Generally, your best bet for CLSTM and OCRopy is to rely only on the command
 line tools; that makes it easy to replace different components. In addition, you
 should keep your OCR training data in .png/.gt.txt files so that you can easily 
