@@ -9,7 +9,7 @@ from pylab import mean
 
 def is_slices(u):
     for s in u:
-        if type(s)!=slice: return False
+        if not isinstance(s, slice): return False
     return True
 def dims(s):
     """List of dimensions of the slice list."""

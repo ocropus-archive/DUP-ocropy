@@ -6,7 +6,7 @@ def table_copy(source,dest,names=None,omit=[],verbose=1):
     if names is None:
         names = [name for name in dir(source.root) if re.match(r'^[a-zA-Z][a-zA-Z0-9_][a-zA-Z0-9]*$',name)]
         names = [name for name in names if name not in omit]
-    elif type(names) is str:
+    elif isinstance(names, str):
         names = names.split()
     for name in names:
         a = source.getNode("/"+name)

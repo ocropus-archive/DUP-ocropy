@@ -128,7 +128,7 @@ def B(a):
 
 def DSAVE(title,image):
     if not args.debug: return
-    if type(image)==list:
+    if isinstance(image, list):
         assert len(image)==3
         image = transpose(array(image),[1,2,0])
     fname = "_"+title+".png"

@@ -208,12 +208,12 @@ def cairo_render_at(s,loc=None,shape=None,
         cr.set_font_face(face)
     else:
         if fontname is None: fontname = "Helvetica"
-        if type(slant)==str:
+        if isinstance(slant, str):
             if slant[0]=="i": slant = cairo.FONT_SLANT_ITALIC
             elif slant[0]=="o": slant = cairo.FONT_SLANT_OBLIQUE
             elif slant[0]=="n": slant = cairo.FONT_SLANT_NORMAL
             else: raise Exception("bad font slant specification (use n/i/o)")
-        if type(weight)==str:
+        if isinstance(weight, str):
             if weight[0]=="b": weight = cairo.FONT_WEIGHT_BOLD
             elif weight[0]=="n": weight = cairo.FONT_WEIGHT_NORMAL
             else: raise Exception("bad font weight specification (use b/n)")

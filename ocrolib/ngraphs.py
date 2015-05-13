@@ -86,7 +86,7 @@ class NGraphsCounts:
                 continue
             with codecs.open(fname,"r","utf-8") as stream:
                 for lineno,line in enumerate(safe_readlines(stream)):
-                    assert type(line)==unicode
+                    assert isinstance(line, unicode)
                     if lineno<lineskip: continue
                     if lineno>=linelimit+lineskip: break
                     line = line[:-1]

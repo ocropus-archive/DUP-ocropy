@@ -222,7 +222,7 @@ def read_image_gray(fname,pageno=0):
     The optional page number allows images from files containing multiple
     images to be addressed.  Byte and short arrays are rescaled to
     the range 0...1 (unsigned) or -1...1 (signed)."""
-    if type(fname)==tuple: fname,pageno = fname
+    if isinstance(fname, tuple): fname,pageno = fname
     assert pageno==0
     pil = PIL.Image.open(fname)
     a = pil2array(pil)
@@ -259,7 +259,7 @@ def write_image_gray(fname,image,normalize=0,verbose=0):
 def read_image_binary(fname,dtype='i',pageno=0):
     """Read an image from disk and return it as a binary image
     of the given dtype."""
-    if type(fname)==tuple: fname,pageno = fname
+    if isinstance(fname, tuple): fname,pageno = fname
     assert pageno==0
     pil = PIL.Image.open(fname)
     a = pil2array(pil)
@@ -572,10 +572,10 @@ def parallel_map(fun,jobs,parallel=0,chunksize=1):
 def check_valid_class_label(s):
     """Determines whether the given character is a valid class label.
     Control characters and spaces are not permitted."""
-    if type(s)==unicode:
+    if isinstance(s, unicode):
         if re.search(r'[\0-\x20]',s):
             raise BadClassLabel(s)
-    elif type(s)==str:
+    elif isinstance(s, str):
         if re.search(r'[^\x21-\x7e]',s):
             raise BadClassLabel(s)
     else:
@@ -583,11 +583,11 @@ def check_valid_class_label(s):
 
 def summary(x):
     """Summarize a datatype as a string (for display and debugging)."""
-    if type(x)==numpy.ndarray:
+    if isinstance(x, numpy.ndarray):
         return "<ndarray %s %s>"%(x.shape,x.dtype)
-    if type(x)==str and len(x)>10:
+    if isinstance(x, str) and len(x)>10:
         return '"%s..."'%x
-    if type(x)==list and len(x)>10:
+    if isinstance(x, list) and len(x)>10:
         return '%s...'%x
     return str(x)
 
@@ -636,7 +636,7 @@ def base(path):
 def write_text_simple(file,s):
     """Write the given string s to the output file."""
     with open(file,"w") as stream:
-        if type(s)==unicode: s = s.encode("utf-8")
+        if isinstance(s, unicode): s = s.encode("utf-8")
         stream.write(s)
 
 @checks([str])
@@ -849,7 +849,7 @@ def mkpython(name):
     doesn't look like a Python class."""
     if name is None or len(name)==0:
         return None
-    elif type(name) is not str:
+    elif not isinstance(name, str):
         return name()
     elif name[0]=="=":
         return pyconstruct(name[1:])
@@ -961,7 +961,7 @@ def draw_aligned(result,axis=None):
         axis = subplot(111)
     axis.imshow(NI(result.image),cmap=cm.gray)
     cseg = result.cseg
-    if type(cseg)==numpy.ndarray: cseg = common.lseg2narray(cseg)
+    if isinstance(cseg, numpy.ndarray): cseg = common.lseg2narray(cseg)
     ocropy.make_line_segmentation_black(cseg)
     ocropy.renumber_labels(cseg,1)
     bboxes = ocropy.rectarray()

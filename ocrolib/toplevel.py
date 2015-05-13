@@ -13,9 +13,9 @@ def strc(arg,n=10):
     """Compact version of `str`."""
     if isinstance(arg,float):
         return "%.3g"%arg
-    if type(arg)==list:
+    if isinstance(arg, list):
         return "[%s|%d]"%(",".join([strc(x) for x in arg[:3]]),len(arg))
-    if type(arg)==numpy.ndarray:
+    if isinstance(arg, numpy.ndarray):
         return "<ndarray-%x %s %s [%s,%s]>"%(id(arg),arg.shape,str(arg.dtype),numpy.amin(arg),numpy.amax(arg))
     return str(arg).replace("\n"," ")
 
@@ -157,14 +157,14 @@ def checktype(value,type_):
     if type_ is True:
         return value
     # types are checked using isinstance
-    if type(type_)==type:
+    if isinstance(type_, type):
         if not isinstance(value,type_):
             raise CheckError("isinstance failed",value,"of type",type(value),"is not of type",type_)
         return value
     # for a list, check that all elements of a collection have a type
     # of some list element, allowing declarations like [str] or [str,unicode]
     # no recursive checks right now
-    if type(type_)==list:
+    if isinstance(type_, list):
         if not numpy.iterable(value):
             raise CheckError("expected iterable",value)
         for x in value:
@@ -172,12 +172,12 @@ def checktype(value,type_):
                 raise CheckError("element",x,"of type",type(x),"fails to be of type",type_)
         return value
     # for sets, check membership of the type in the set
-    if type(type_)==set:
+    if isinstance(type_, set):
         for t in type_:
             if isinstance(value,t): return value
         raise CheckError("set membership failed",value,type_,var=var) # FIXME var?
     # for tuples, check that all conditions are satisfied
-    if type(type_)==tuple:
+    if isinstance(type_, tuple):
         for t in type_:
             checktype(value,type_)
         return value
@@ -429,7 +429,7 @@ LIGHTLINESEG = ALL(SEGMENTATION,WHITESEG,LINE)
 ### special types for pattern recognition
 
 def TDATASET(a):
-    if type(a[0])!=numpy.ndarray:
+    if not isinstance(a[0], numpy.ndarray):
         raise CheckError("dataset fails to yield ndarray on subscripting")
 def DATASET_SIZE(lo=3,hi=int(1e9)):
     @makeargcheck("data set size should be between %s and %s"%(lo,hi))
