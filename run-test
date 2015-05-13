@@ -1,4 +1,5 @@
 #!/bin/bash -e
+BASE=$(dirname $0)
 
 # 'RUNNER' is the binary that the scripts are executed by. It defaults to
 # 'python2' if not set in the environment.
@@ -10,7 +11,7 @@ RUNNER="${RUNNER:-python2}"
 
 test_page() {
     set -x
-    $RUNNER ocropus-nlbin tests/testpage.png -o temp
+    $RUNNER ocropus-nlbin "$BASE/tests/testpage.png" -o temp
     $RUNNER ocropus-gpageseg 'temp/????.bin.png'
     $RUNNER ocropus-rpred -n 'temp/????/??????.bin.png'
     $RUNNER ocropus-hocr 'temp/????.bin.png' -o temp.html
@@ -25,7 +26,7 @@ test_page() {
 test_conf() {
     local TESTIMAGE=0079-01000d
     mkdir -p temp
-    cp tests/$TESTIMAGE* temp
+    cp "$BASE/tests/$TESTIMAGE"* temp
     set -x
     $RUNNER ocropus-rpred temp/$TESTIMAGE.png
     $RUNNER ocropus-errs  temp/$TESTIMAGE.gt.txt
