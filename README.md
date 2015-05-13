@@ -40,10 +40,19 @@ Alternatively, dependencies can be installed into a [Python Virtual Environment]
     $ wget -nd http://www.tmbdev.net/en-default.pyrnn.gz
     $ mv en-default.pyrnn.gz models/
 
+An additional method using [Conda](http://conda.pydata.org/) is also possible:
+
+    $ conda create -n ocropus_env python=2.7
+    $ source activate ocropus_env
+    $ conda install --file requirements.txt
+    $ wget -nd http://www.tmbdev.net/en-default.pyrnn.gz
+    $ mv en-default.pyrnn.gz models/
+    $ python setup.py install
+
 To test the recognizer, run:
 
     $ ./run-test
-    
+
 Running
 -------
 
