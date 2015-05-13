@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 
+from __future__ import print_function
+
 from pylab import *
 import argparse,codecs,re,os.path,ocrolib,base64
 from lxml import etree
@@ -63,7 +65,7 @@ if args.subparser_name=="write":
         if s[0]=="#": continue
         match = re.search(ur'^(\d{4})\.(\d{10})\s*(.*?)$(?i)',s)
         if not match:
-            if "[[" not in s: print "???",lineno,":",s
+            if "[[" not in s: print("???", lineno, ":", s)
             continue
         page,line,transcript = match.groups()
         page = int(page)
@@ -72,16 +74,16 @@ if args.subparser_name=="write":
         transcript = transcript.strip()
         if transcript==u"" and args.deleteempty:
             if os.path.exists(dest):
-                print dest,": empty transcript; removing"
+                print(dest, ": empty transcript; removing")
                 os.unlink(dest)
             continue
         elif transcript==u"" and not args.allowempty:
-            print dest,": empty transcript; skipping"
+            print(dest, ": empty transcript; skipping")
             continue
         elif os.path.exists(dest) and not args.overwrite:
-            print "???",dest,": already exists"
+            print("???", dest, ": already exists")
             continue
-        print dest,transcript
+        print(dest, transcript)
         ocrolib.write_text(dest,transcript)
 
 if args.subparser_name=="text":
@@ -121,9 +123,9 @@ if args.subparser_name=="text":
 if args.subparser_name=="org":
     stream = codecs.open(args.output,"w","utf-8")
     if not ".dew.png" in args.files[0]:
-        print "# use of dewarped files (.dew.png) is recommended with org mode"
+        print("# use of dewarped files (.dew.png) is recommended in org mode")
     if not ".png" in args.files[0]:
-        print "# warning: your file arguments don't look like image files"
+        print("# warning: your file arguments don't look like image files")
     P("# -*- Org -*-")
     for i,fname in enumerate(args.files):
         base,_ = ocrolib.allsplitext(fname)
@@ -150,7 +152,7 @@ def approx_split_range(n,k):
         l = n//k+1
         d = n-k*(l-1)
         chunks = [l-1+(i<d) for i in range(k)]
-    print chunks
+    print(chunks)
     return chunks
 
 def approx_split(l,k):
@@ -167,14 +169,14 @@ if args.subparser_name=="html":
     if len(args.files)<=args.maxsize:
         chunks = [(args.output,args.files)]
     else:
-        print "# too many lines for one output file; splitting"
+        print("# too many lines for one output file; splitting")
         chunks = approx_split(args.files,len(args.files)//args.maxsize)
         base = re.sub(r'\..*?$','',args.output)
         chunks = [(base+"-%03d"%i+".html",c) for i,c in enumerate(chunks)]
         chunks[0] = (args.output,chunks[0][1])
 
     for oname,files in chunks:
-        print "# writing",oname
+        print("# writing", oname)
         stream = codecs.open(oname,"w","utf-8")
         # P("<!DOCTYPE html>")
         P('<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">')
@@ -224,24 +226,24 @@ if args.subparser_name=="extract":
         png = url_decode(src)
         transcript = rows[2].findtext(".//td")
         if transcript=="" and not args.allowempty:
-            print "#",dest,"has empty transcript; skipping"
+            print("#", dest, "has empty transcript; skipping")
             continue
         count += 1
         if args.prefix is not None:
             dest = args.prefix+"/%04d/01%04x.bin.png"%((count//30)+1,(count%30)+1)
-        print dest,"\t",transcript
+        print(dest, "\t", transcript)
         assert not os.path.isabs(dest)
         assert ".." not in dest
         assert "/." not in dest
         d = os.path.dirname(dest)
         if not os.path.exists(d): os.makedirs(d)
         if os.path.exists(dest) and not args.overwrite:
-            print "#",dest,"exists, not writing"
+            print("#", dest, "exists, not writing")
         else:
             with open(dest,"wb") as stream: stream.write(png)
         base,_ = ocrolib.allsplitext(dest)
         gtname = base+args.extension
         if os.path.exists(gtname) and not args.overwrite:
-            print "#",gtname,"exists, not writing"
+            print("#", gtname, "exists, not writing")
         else:
             ocrolib.write_text(gtname,transcript)

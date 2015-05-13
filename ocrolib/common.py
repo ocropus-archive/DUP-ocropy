@@ -3,6 +3,8 @@
 ### common functions for data structures, file name manipulation, etc.
 ################################################################
 
+from __future__ import print_function
+
 import os,os.path
 import re
 import numpy
@@ -89,7 +91,7 @@ def deprecated(f):
         warned = 0
         def _wrapper(*args,**kw):
             if not warned:
-                print f,"has been DEPRECATED"
+                print(f, "has been DEPRECATED")
                 warned = 1
             return f(*args,**kw)
     return _wrap
@@ -248,7 +250,7 @@ def write_image_gray(fname,image,normalize=0,verbose=0):
     type, its values are clipped to the range [0,1],
     multiplied by 255 and converted to unsigned bytes.  Otherwise,
     the image must be of type unsigned byte."""
-    if verbose: print "# writing",fname
+    if verbose: print("# writing", fname)
     if isfloatarray(image):
         image = array(255*clip(image,0.0,1.0),'B')
     assert image.dtype==dtype('B'),"array has wrong dtype: %s"%image.dtype
@@ -271,7 +273,7 @@ def write_image_binary(fname,image,verbose=0):
     """Write a binary image to disk. This verifies first that the given image
     is, in fact, binary.  The image may be of any type, but must consist of only
     two values."""
-    if verbose: print "# writing",fname
+    if verbose: print("# writing", fname)
     assert image.ndim==2
     image = array(255*(image>midrange(image)),'B')
     im = array2pil(image)
@@ -428,7 +430,7 @@ class RegionExtractor:
         """Return the bounding box in raster coordinates
         (row0,col0,row1,col1)."""
         r = self.objects[i]
-        # print "@@@bbox",i,r
+        # print("@@@bbox", i, r)
         return (r[0].start,r[1].start,r[0].stop,r[1].stop)
     def bboxMath(self,i):
         """Return the bounding box in math coordinates
@@ -442,7 +444,7 @@ class RegionExtractor:
     def mask(self,index,margin=0):
         """Return the mask for component index."""
         b = self.objects[index]
-        #print "@@@mask",index,b
+        # print("@@@mask", index, b)
         m = self.labels[b]
         m[m!=index] = 0
         if margin>0: m = pad_by(m,margin)
@@ -502,7 +504,7 @@ def load_object(fname,zip=0,nofind=0,verbose=0):
     if not nofind:
         fname = ocropus_find_file(fname)
     if verbose:
-        print "# loading object",fname
+        print("# loading object", fname)
     if zip==0 and fname.endswith(".gz"):
         zip = 1
     if zip>0:
@@ -839,7 +841,7 @@ def pyconstruct(s):
     path = s[:s.find("(")]
     if "." in path:
         module = path[:path.rfind(".")]
-        print "import",module
+        print("import", module)
         exec "import "+module in env
     return eval(s,env)
 
@@ -896,15 +898,15 @@ def save_component(file,object,verbose=0,verify=0):
         ocropus.save_component(file,object)
         return
     if verbose:
-        print "[save_component]"
+        print("[save_component]")
     if verbose:
         for k,v in object.__dict__.items():
-            print ":",k,obinfo(v)
+            print(":", k, obinfo(v))
     with open(file,"wb") as stream:
         pickle.dump(object,stream,pickle_mode)
     if verify:
         if verbose:
-            print "[trying to read it again]"
+            print("[trying to read it again]")
         with open(file,"rb") as stream:
             pickle.load(stream)
 

@@ -2,6 +2,8 @@
 ### various add-ons to the SciPy morphology package
 ################################################################
 
+from __future__ import print_function
+
 from numpy import *
 import pylab
 from scipy.ndimage import morphology,measurements,filters
@@ -197,9 +199,9 @@ def select_regions(binary,f,min=0,nbest=100000):
     for i in best[-nbest:]:
         if scores[i]<=min: continue
         keep[i+1] = 1
-    # print scores,best[-nbest:],keep
-    # print sorted(list(set(labels.ravel())))
-    # print sorted(list(set(keep[labels].ravel())))
+    # print(scores, best[-nbest:], keep)
+    # print(sorted(list(set(labels.ravel()))))
+    # print(sorted(list(set(keep[labels].ravel()))))
     return keep[labels]
 
 @checks(SEGMENTATION)

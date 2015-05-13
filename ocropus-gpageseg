@@ -135,8 +135,7 @@ def DSAVE(title,image):
     print_info("debug " + fname)
     imsave(fname,image)
 
-
-
+
 ################################################################
 ### Column finding.
 ###

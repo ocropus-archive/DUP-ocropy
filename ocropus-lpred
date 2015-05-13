@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 
+from __future__ import print_function
+
 import random as pyrandom
 import re
 from pylab import *
@@ -53,7 +55,7 @@ codec = lstm.Codec().init(charset)
 lnorm = lineest.CenterNormalizer(args.lineheight)
 
 network = clstm.make_BIDILSTM()
-print "# network",(codec.size(),args.hiddensize,lnorm.target_height)
+print("# network", (codec.size(), args.hiddensize, lnorm.target_height))
 network.init(codec.size(),args.hiddensize,lnorm.target_height)
 network = clstm.CNetwork(network)
 network.load(args.load)
@@ -85,7 +87,7 @@ for trial in range(len(inputs)):
         outputs = array(network.forward(line))
         result = lstm.translate_back(outputs)
         pred = "".join(codec.decode(result))
-        print "%s\t%s"%(fname,pred)
+        print("%s\t%s" % (fname, pred))
         ocrolib.write_text(base+".txt",pred)
         if args.eval:
             transcript = ocrolib.read_text(base+".gt.txt")
@@ -95,7 +97,7 @@ for trial in range(len(inputs)):
             errs += err
             total += len(gt)
     except Exception as e:
-        print e
+        print(e)
 
 if args.eval:
-    print errs,total,errs*1.0/total
+    print(errs, total, errs * 1.0 / total)

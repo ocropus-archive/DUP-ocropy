@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import functools
 import linecache
 import numpy
@@ -53,15 +55,15 @@ def trace1(f):
         try:
             global _trace1_depth
             _trace1_depth += 1
-            print " "*_trace1_depth,"ENTER",name,":",
+            print(" " * _trace1_depth, "ENTER", name, ":", end=' ')
             for k,v in zip(argnames,args)+kw.items():
-                print "%s=%s"%(k,strc(v)),
-            print
+                print("%s=%s" % (k, strc(v)), end=' ')
+            print()
             result = f(*args,**kw)
-            print " "*_trace1_depth,"LEAVE",name,":",strc(result)
+            print(" " * _trace1_depth, "LEAVE", name, ":", strc(result))
             return result
         except Exception as e:
-            print " "*_trace1_depth,"ERROR",name,":",e
+            print(" " * _trace1_depth, "ERROR", name, ":", e)
             raise
         finally:
             _trace1_depth -= 1
@@ -77,7 +79,8 @@ def tracing(f):
             fname = frame.f_code.co_filename
             lineno = frame.f_lineno
             base = os.path.basename(fname)
-            print "%s(%s): %s"%(base,lineno,linecache.getline(fname,lineno))
+            print("%s(%s): %s" % (base, lineno,
+                                  linecache.getline(fname, lineno)))
         return localtrace
     @wrap(f)
     def wrapper(*args,**kw):
@@ -194,7 +197,8 @@ def checks(*types,**ktypes):
     def argument_check_decorator(f):
         @functools.wraps(f)
         def argument_checks(*args,**kw):
-            # print "@@@",f,"decl",types,ktypes,"call",[strc(x) for x in args],kw
+            # print("@@@", f, "decl", types, ktypes, "call",
+            #       [strc(x) for x in args], kw)
             name = f.func_name
             argnames = f.func_code.co_varnames[:f.func_code.co_argcount]
             kw3 = [(var,value,ktypes.get(var,True)) for var,value in kw.items()]
@@ -208,7 +212,7 @@ def checks(*types,**ktypes):
                     e.var = var
                     raise e
                 except:
-                    print "unknown exception while checking function:",name
+                    print("unknown exception while checking function:", name)
                     raise
             result = f(*args,**kw)
             checktype(result,kw.get("_",True))

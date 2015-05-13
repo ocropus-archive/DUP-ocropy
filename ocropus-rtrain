@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 
+from __future__ import print_function
+
 import random as pyrandom
 import re
 from pylab import *
@@ -75,7 +77,7 @@ if len(inputs)==0:
     parser.print_help()
     sys.exit(0)
 
-print "# inputs",len(inputs)
+print("# inputs", len(inputs))
 
 # pre-execute any python commands
 
@@ -85,7 +87,7 @@ exec args.execute
 
 if args.movie is not None:
     if args.display<2:
-        print "you must set --display to some number greater than 1"
+        print("you must set --display to some number greater than 1")
         sys.exit(0)
 
 if args.moviesample is None:
@@ -94,7 +96,7 @@ if args.moviesample is None:
 # make sure an output file has been set
 
 if args.output is None:
-    print "you must give an output file with %d in it, or a prefix"
+    print("you must give an output file with %d in it, or a prefix")
     sys.exit(0)
 
 if not "%" in args.output:
@@ -110,7 +112,7 @@ else:
 tests = None
 if args.tests is not None:
     tests = ocrolib.glob_all(args.tests.split(":"))
-print "# tests",(len(tests) if tests is not None else "None")
+print("# tests", len(tests) if tests is not None else "None")
 
 # load the line normalizer
 
@@ -123,10 +125,10 @@ lnorm.setHeight(args.height)
 # The `codec` maps between strings and arrays of integers.
 
 if args.codec!=[]:
-    print "# building codec"
+    print("# building codec")
     codec = lstm.Codec()
     charset = set()
-    print args.codec
+    print(args.codec)
     for fname in ocrolib.glob_all(args.codec):
         transcript = ocrolib.read_text(fname)
         l = list(lstm.normalize_nfkc(transcript))
@@ -134,16 +136,16 @@ if args.codec!=[]:
     charset = sorted(list(charset))
     charset = [c for c in charset if c>" " and c!="~"]
 else:
-    print "# using default codec"
+    print("# using default codec")
     charset = sorted(list(set(list(lstm.ascii_labels) + list(ocrolib.chars.default))))
 
 charset = [""," ","~",]+[c for c in charset if c not in [" ","~"]]
-print "# charset size",len(charset),
+print("# charset size", len(charset), end=' ')
 if len(charset)<200:
-    print "["+"".join(charset)+"]"
+    print("[" + "".join(charset) + "]")
 else:
     s = "".join(charset)
-    print "["+s[:20],"...",s[-20:]+"]"
+    print("[" + s[:20], "...", s[-20:] + "]")
 codec = lstm.Codec().init(charset)
 
 # Load an existing network or construct a new one
@@ -179,7 +181,7 @@ def load_lstm(fname):
         return network
 
 if args.load:
-    print "# loading",args.load
+    print("# loading", args.load)
     last_save = args.load
     network = load_lstm(args.load)
 else:
@@ -198,7 +200,7 @@ if getattr(network,"lnorm",None) is None:
 
 network.upgrade()
 if network.last_trial%100==99: network.last_trial += 1
-print "# last_trial",network.last_trial
+print("# last_trial", network.last_trial)
 
 
 # set up the learning rate
@@ -262,7 +264,7 @@ for trial in range(start,args.ntrain):
         line = ocrolib.read_image_gray(fname)
         transcript = ocrolib.read_text(base+".gt.txt")
     except IOError as e:
-        print "ERROR",e
+        print("ERROR", e)
         continue
 
     if not args.nolineest:
@@ -273,7 +275,7 @@ for trial in range(start,args.ntrain):
         assert "dew.png" in fname,"input must already be dewarped"
 
     if line.size<10 or amax(line)==amin(line):
-        print "EMPTY-INPUT"
+        print("EMPTY-INPUT")
         continue
     line = line * 1.0/amax(line)
     line = amax(line)-line
@@ -285,7 +287,7 @@ for trial in range(start,args.ntrain):
     try:
         pcs = network.trainSequence(line,cs,update=do_update,key=fname)
     except FloatingPointError as e:
-        print "# oops, got FloatingPointError",e
+        print("# oops, got FloatingPointError", e)
         traceback.print_exc()
         network = load_lstm(last_save)
         continue
@@ -295,17 +297,17 @@ for trial in range(start,args.ntrain):
     acs = lstm.translate_back(network.aligned)
     gta = "".join(codec.decode(acs))
     if not args.quiet:
-        print "%d %.2f %s"%(trial,network.error,line.shape),fname
-        print "   TRU:",repr(transcript)
-        print "   ALN:",repr(gta[:len(transcript)+5])
-        print "   OUT:",repr(pred[:len(transcript)+5])
+        print("%d %.2f %s" % (trial, network.error, line.shape), fname)
+        print("   TRU:", repr(transcript))
+        print("   ALN:", repr(gta[:len(transcript)+5]))
+        print("   OUT:", repr(pred[:len(transcript)+5]))
 
     pred = re.sub(' ','_',pred)
     gta = re.sub(' ','_',gta)
 
     if (trial+1)%args.savefreq==0:
         ofile = oname%(trial+1)+".gz"
-        print "# saving",ofile
+        print("# saving", ofile)
         save_lstm(ofile,network)
         last_save = ofile
 

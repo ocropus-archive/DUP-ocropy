@@ -1,6 +1,8 @@
 # TODO:
 # - handle UTF-8 inputs correctly
 
+from __future__ import print_function
+
 from pylab import *
 from collections import Counter,defaultdict
 import re
@@ -47,7 +49,7 @@ def safe_readlines(stream,nonl=0):
         try:
             line = stream.readline()
         except UnicodeDecodeError as e:
-            if not once: print lineno,":",e
+            if not once: print(lineno, ":", e)
             once = 1
             return
         if line is None: return
@@ -75,14 +77,14 @@ class NGraphsCounts:
         lineskip = 0
         linelimit = 2000
         for fnum,fname in enumerate(fnames):
-            print fnum,"of",len(fnames),":",fname
+            print(fnum, "of", len(fnames), ":", fname)
             if fname.startswith("lineskip="):
                 lineskip = int(fname.split("=")[1])
-                print "changing lineskip to",lineskip
+                print("changing lineskip to", lineskip)
                 continue
             if fname.startswith("linelimit="):
                 linelimit = int(fname.split("=")[1])
-                print "changing linelimit to",linelimit
+                print("changing linelimit to", linelimit)
                 continue
             with codecs.open(fname,"r","utf-8") as stream:
                 for lineno,line in enumerate(safe_readlines(stream)):
@@ -106,11 +108,11 @@ class NGraphs(NGraphsCounts):
         NGraphsCounts.__init__(self,*args,**kw)
     def buildFromFiles(self,fnames,n):
         """Given a set of files, build the log posteriors."""
-        print "reading",len(fnames),"files"
+        print("reading", len(fnames), "files")
         counter = self.computeNGraphs(fnames,n)
-        print "got",sum(counter.values()),"%d-graphs"%(n,)
+        print("got", sum(counter.values()), "%d-graphs" % (n, ))
         self.computePosteriors(counter)
-        print "done building lposteriors"
+        print("done building lposteriors")
     def computePosteriors(self,counter):
         """Given a `counter` of all n-graphs, compute
         (log) conditional probabilities."""
