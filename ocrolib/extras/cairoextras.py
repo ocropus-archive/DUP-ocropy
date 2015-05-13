@@ -25,7 +25,7 @@ def create_cairo_font_face_for_file(filename, faceindex=0, loadoptions=0):
         # initialize freetype
         _ft_lib = ctypes.c_void_p()
         if FT_Err_Ok != _freetype_so.FT_Init_FreeType(ctypes.byref(_ft_lib)):
-          raise "Error initialising FreeType library."
+          raise OSError("Error initialising FreeType library.")
         _surface = cairo.ImageSurface(cairo.FORMAT_A8, 0, 0)
         _initialized = True
     # create freetype face
@@ -34,14 +34,14 @@ def create_cairo_font_face_for_file(filename, faceindex=0, loadoptions=0):
     cairo_t = PycairoContext.from_address(id(cairo_ctx)).ctx
     _cairo_so.cairo_ft_font_face_create_for_ft_face.restype = ctypes.c_void_p
     if FT_Err_Ok != _freetype_so.FT_New_Face(_ft_lib, filename, faceindex, ctypes.byref(ft_face)):
-        raise "Error creating FreeType font face for " + filename
+        raise Exception("Error creating FreeType font face for " + filename)
     # create cairo font face for freetype face
     cr_face = _cairo_so.cairo_ft_font_face_create_for_ft_face(ft_face, loadoptions)
     if CAIRO_STATUS_SUCCESS != _cairo_so.cairo_font_face_status(cr_face):
-        raise "Error creating cairo font face for " + filename
+        raise Exception("Error creating cairo font face for " + filename)
     _cairo_so.cairo_set_font_face(cairo_t, cr_face)
     if CAIRO_STATUS_SUCCESS != _cairo_so.cairo_status(cairo_t):
-        raise "Error creating cairo font face for " + filename
+        raise Exception("Error creating cairo font face for " + filename)
     face = cairo_ctx.get_font_face()
     return face
 

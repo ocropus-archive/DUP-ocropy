@@ -60,7 +60,7 @@ def trace1(f):
             result = f(*args,**kw)
             print " "*_trace1_depth,"LEAVE",name,":",strc(result)
             return result
-        except Exception,e:
+        except Exception as e:
             print " "*_trace1_depth,"ERROR",name,":",e
             raise
         finally:
