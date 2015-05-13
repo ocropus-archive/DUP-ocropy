@@ -3,6 +3,8 @@
 # Source: http://code.activestate.com/recipes/498245-lru-and-lfu-cache-decorators/
 # Author: Raymond Hettinger
 
+from __future__ import print_function
+
 import collections
 import functools
 from itertools import ifilterfalse

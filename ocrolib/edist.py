@@ -72,8 +72,8 @@ def xlevenshtein(a,b,context=1):
     same = filters.minimum_filter(same,1+2*context)
     als = "".join([al[i] if not same[i] else "~" for i in range(len(al))])
     bls = "".join([bl[i] if not same[i] else "~" for i in range(len(bl))])
-    # print als
-    # print bls
+    # print(als)
+    # print(bls)
     ags = re.split(r'~+',als)
     bgs = re.split(r'~+',bls)
     confusions = [(a,b) for a,b in zip(ags,bgs) if a!="" or b!=""]
