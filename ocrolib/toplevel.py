@@ -168,7 +168,7 @@ def checktype(value,type_):
         if not numpy.iterable(value):
             raise CheckError("expected iterable",value)
         for x in value:
-            if not reduce(max,[isinstance(x,t) for t in type_]):
+            if not any(isinstance(x, t) for t in type_):
                 raise CheckError("element",x,"of type",type(x),"fails to be of type",type_)
         return value
     # for sets, check membership of the type in the set

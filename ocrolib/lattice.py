@@ -1,5 +1,6 @@
 from pylab import *
 from collections import defaultdict
+from itertools import chain
 
 class Edge:
     def __init__(self,**kw):
@@ -60,7 +61,7 @@ class Lattice:
     def lastState(self):
         return max(self.states)
     def classes(self):
-        edges = reduce(lambda x,y:x+y,[[e for e in l] for k,l in self.edges.items()])
+        edges = chain.from_iterable(self.edges.values())
         classes = set([e.cls for e in edges])
         return sorted(list(classes))
 
@@ -109,6 +110,6 @@ class Lattice2:
     def lastState(self):
         return max(self.states)
     def classes(self):
-        edges = reduce(lambda x,y:x+y,[[e for e in l] for k,l in self.edges.items()])
+        edges = chain.from_iterable(self.edges.values())
         classes = set([e.cls for e in edges])
         return sorted(list(classes))
