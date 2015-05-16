@@ -2,13 +2,15 @@
 ### various add-ons to the SciPy morphology package
 ################################################################
 
-from __future__ import print_function
+from __future__ import absolute_import, print_function
 
 from numpy import *
 import pylab
 from scipy.ndimage import morphology,measurements,filters
 from scipy.ndimage.morphology import *
-from toplevel import *
+
+from .toplevel import *
+
 
 @checks(ABINARY2)
 def label(image,**kw):

@@ -1,19 +1,18 @@
-from __future__ import print_function
+from __future__ import absolute_import, print_function
 
 import sys,os,re
 from scipy import stats
 from scipy.ndimage import measurements,interpolation,filters
 from pylab import *
-import common,morph
-import ocrolib
-from toplevel import *
 import argparse
+
+import ocrolib
+from . import common, morph
+from .toplevel import *
+
 
 
 
-
-from pylab import *
-import ocrolib
 
 def scale_to_h(img,target_height,order=1,dtype=dtype('f'),cval=0):
     h,w = img.shape

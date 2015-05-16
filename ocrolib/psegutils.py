@@ -1,9 +1,11 @@
-from __future__ import print_function
+from __future__ import absolute_import, print_function
 
-from toplevel import *
 from pylab import *
 from scipy.ndimage import filters,interpolation
-import sl,morph
+
+from .toplevel import *
+from . import morph, sl
+
 
 def B(a):
     if a.dtype==dtype('B'): return a

@@ -3,7 +3,7 @@
 ### common functions for data structures, file name manipulation, etc.
 ################################################################
 
-from __future__ import print_function
+from __future__ import absolute_import, print_function
 
 import os,os.path
 import re
@@ -15,14 +15,13 @@ import inspect
 import glob
 from numpy import *
 from scipy.ndimage import morphology
-import ligatures
 import multiprocessing
-import lstm
 import pylab
-
 from pylab import imshow
-import morph
-from toplevel import *
+
+from . import ligatures
+from . import morph
+from .toplevel import *
 
 ################################################################
 ### exceptions
@@ -102,7 +101,7 @@ def deprecated(f):
 # text normalization
 ################################################################
 
-import chars
+from . import chars
 replacements = chars.replacements
 
 def normalize_text(s):
@@ -492,6 +491,7 @@ def save_object(fname,obj,zip=0):
 
 def unpickle_find_global(mname,cname):
     if mname=="lstm.lstm":
+        from . import lstm
         return getattr(lstm,cname)
     if not mname in sys.modules.keys():
         exec "import "+mname
@@ -597,7 +597,7 @@ def summary(x):
 ### file name manipulation
 ################################################################
 
-from default import getlocal
+from .default import getlocal
 
 
 @checks(str,_=str)

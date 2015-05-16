@@ -24,15 +24,17 @@
 # Author: Thomas M. Breuel
 # License: Apache 2.0
 
-from __future__ import print_function
+from __future__ import absolute_import, print_function
 
-import common as ocrolib
 from pylab import *
 from collections import defaultdict
+import unicodedata
+
+from . import common as ocrolib
 from ocrolib.native import *
 from ocrolib import edist
-import nutils
-import unicodedata
+from . import nutils
+
 
 initial_range = 0.1
 

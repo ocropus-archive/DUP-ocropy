@@ -1,3 +1,5 @@
+from __future__ import absolute_import
+
 __all__ = [
     "binnednn","cairoextras","common","components","dbtables",
     "fgen","gmmtree","gtkyield","hocr","lang","native",
@@ -8,6 +10,6 @@ __all__ = [
 ### top level imports
 ################################################################
 
-import default
-from common import *
-from default import traceback as trace
+from . import default
+from .common import *
+from .default import traceback as trace
