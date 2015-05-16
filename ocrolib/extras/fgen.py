@@ -2,7 +2,7 @@
 ### text image generation with Cairo
 ################################################################
 
-from __future__ import print_function
+from __future__ import division, print_function
 
 import ctypes
 import cairo

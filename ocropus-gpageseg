@@ -11,7 +11,7 @@
 # - pick up stragglers
 # ? laplacian as well
 
-from __future__ import print_function
+from __future__ import division, print_function
 from pylab import *
 import argparse,glob,os,os.path
 import traceback

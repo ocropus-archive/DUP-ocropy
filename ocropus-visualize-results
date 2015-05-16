@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-from __future__ import print_function
+from __future__ import division, print_function
 
 import glob
 import matplotlib
@@ -35,7 +35,7 @@ def write_cseg(stream,cseg_file):
     for i,c in enumerate(csegs):
         out = ".__"+cseg_file+"_%03d.png"%i
         pylab.imsave(out,amax(c.img)-c.img,cmap=cm.gray)
-        stream.write("<td><img src=%s height=%d style='border: 1px #ccccff solid;'></td>"%(out,max(2,c.img.shape[0]/2)))
+        stream.write("<td><img src=%s height=%d style='border: 1px #ccccff solid;'></td>"%(out,max(2,c.img.shape[0]//2)))
     stream.write("</tr></table>")
     stream.write("\n")
 
@@ -58,7 +58,7 @@ def genpage(d):
                     stream.write("<font color='gray'><b>%s</b></font><br>\n"%rtext)
                 stream.write("<p />\n")
                 image = ocrolib.read_image_gray(img)
-                stream.write("<img width='%d' src='%s'>\n"%(max(10,image.shape[1]/2),img))
+                stream.write("<img width='%d' src='%s'>\n"%(max(10,image.shape[1]//2),img))
                 stream.write("<br />\n")
                 stream.write("<font size=-2>")
                 stream.write("<a href=%s>%s</a> / "%("..",args.book))

@@ -24,7 +24,7 @@
 # Author: Thomas M. Breuel
 # License: Apache 2.0
 
-from __future__ import absolute_import, print_function
+from __future__ import absolute_import, division, print_function
 
 from pylab import *
 from collections import defaultdict
