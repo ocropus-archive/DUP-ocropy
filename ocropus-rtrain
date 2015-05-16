@@ -81,7 +81,7 @@ print("# inputs", len(inputs))
 
 # pre-execute any python commands
 
-exec args.execute
+exec(args.execute)
 
 # make sure movie mode is used correctly
 

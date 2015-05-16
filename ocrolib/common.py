@@ -494,7 +494,7 @@ def unpickle_find_global(mname,cname):
         from . import lstm
         return getattr(lstm,cname)
     if not mname in sys.modules.keys():
-        exec "import "+mname
+        exec("import "+mname)
     return getattr(sys.modules[mname],cname)
 
 def load_object(fname,zip=0,nofind=0,verbose=0):
@@ -842,7 +842,7 @@ def pyconstruct(s):
     if "." in path:
         module = path[:path.rfind(".")]
         print("import", module)
-        exec "import "+module in env
+        exec("import "+module, env)
     return eval(s,env)
 
 def mkpython(name):
