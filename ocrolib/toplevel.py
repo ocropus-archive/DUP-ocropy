@@ -56,7 +56,7 @@ def trace1(f):
             global _trace1_depth
             _trace1_depth += 1
             print(" " * _trace1_depth, "ENTER", name, ":", end=' ')
-            for k,v in zip(argnames,args)+list(kw.items()):
+            for k,v in list(zip(argnames,args))+list(kw.items()):
                 print("%s=%s" % (k, strc(v)), end=' ')
             print()
             result = f(*args,**kw)
@@ -202,7 +202,7 @@ def checks(*types,**ktypes):
             name = f.func_name
             argnames = f.func_code.co_varnames[:f.func_code.co_argcount]
             kw3 = [(var,value,ktypes.get(var,True)) for var,value in kw.items()]
-            for var,value,type_ in zip(argnames,args,types)+kw3:
+            for var,value,type_ in list(zip(argnames,args,types))+kw3:
                 try:
                     checktype(value,type_)
                 except AssertionError as e:
