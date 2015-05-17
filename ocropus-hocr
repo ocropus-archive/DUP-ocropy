@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 
+from __future__ import absolute_import, division, print_function
+
 import __builtin__ as python
 import random as pyrandom
 import sys,os,re,glob,argparse,codecs

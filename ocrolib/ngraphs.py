@@ -1,7 +1,7 @@
 # TODO:
 # - handle UTF-8 inputs correctly
 
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 from pylab import *
 from collections import Counter,defaultdict

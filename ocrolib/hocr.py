@@ -2,6 +2,8 @@
 ### various hOCR-related utilities
 ################################################################
 
+from __future__ import absolute_import, division, print_function
+
 ### Not much here yet, but we will be adding more utility functions.
 
 ### Headers and footers.

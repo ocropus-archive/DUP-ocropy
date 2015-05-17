@@ -2,6 +2,8 @@
 ### Language and script related data.
 ################################################################
 
+from __future__ import absolute_import, division, print_function
+
 ### character properties
 
 def size_category(c):

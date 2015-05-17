@@ -3,7 +3,7 @@
 # Source: http://code.activestate.com/recipes/498245-lru-and-lfu-cache-decorators/
 # Author: Raymond Hettinger
 
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 import collections
 import functools
