@@ -493,7 +493,7 @@ def unpickle_find_global(mname,cname):
     if mname=="lstm.lstm":
         from . import lstm
         return getattr(lstm,cname)
-    if not mname in sys.modules.keys():
+    if not mname in sys.modules:
         exec("import "+mname)
     return getattr(sys.modules[mname],cname)
 

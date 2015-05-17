@@ -56,7 +56,7 @@ def trace1(f):
             global _trace1_depth
             _trace1_depth += 1
             print(" " * _trace1_depth, "ENTER", name, ":", end=' ')
-            for k,v in zip(argnames,args)+kw.items():
+            for k,v in zip(argnames,args)+list(kw.items()):
                 print("%s=%s" % (k, strc(v)), end=' ')
             print()
             result = f(*args,**kw)

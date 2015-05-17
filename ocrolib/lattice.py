@@ -65,7 +65,7 @@ class Lattice:
     def classes(self):
         edges = chain.from_iterable(self.edges.values())
         classes = set([e.cls for e in edges])
-        return sorted(list(classes))
+        return sorted(classes)
 
 class Lattice2:
     """Like Lattice, but handles whitespace by multi-char classes"""
@@ -114,4 +114,4 @@ class Lattice2:
     def classes(self):
         edges = chain.from_iterable(self.edges.values())
         classes = set([e.cls for e in edges])
-        return sorted(list(classes))
+        return sorted(classes)

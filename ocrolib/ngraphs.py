@@ -116,7 +116,7 @@ class NGraphs(NGraphsCounts):
     def computePosteriors(self,counter):
         """Given a `counter` of all n-graphs, compute
         (log) conditional probabilities."""
-        self.N = len(counter.items()[0][0])
+        self.N = len(list(counter.items())[0][0])
         ngrams = defaultdict(list)
         for k,v in counter.items():
             ngrams[k[:-1]].append((k,v))
