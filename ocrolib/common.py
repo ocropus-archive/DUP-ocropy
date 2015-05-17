@@ -110,10 +110,10 @@ def normalize_text(s):
     characters."""
     s = unicode(s)
     s = unicodedata.normalize('NFC',s)
-    s = re.sub(ur'\s+(?u)',' ',s)
-    s = re.sub(ur'\n(?u)','',s)
-    s = re.sub(ur'^\s+(?u)','',s)
-    s = re.sub(ur'\s+$(?u)','',s)
+    s = re.sub(r'\s+(?u)',' ',s)
+    s = re.sub(r'\n(?u)','',s)
+    s = re.sub(r'^\s+(?u)','',s)
+    s = re.sub(r'\s+$(?u)','',s)
     for m,r in replacements:
         s = re.sub(unicode(m),unicode(r),s)
     return s
@@ -122,23 +122,23 @@ def project_text(s,kind="exact"):
     """Project text onto a smaller subset of characters
     for comparison."""
     s = normalize_text(s)
-    s = re.sub(ur'( *[.] *){4,}',u'....',s) # dot rows
-    s = re.sub(ur'[~_]',u'',s) # dot rows
+    s = re.sub(r'( *[.] *){4,}',u'....',s) # dot rows
+    s = re.sub(r'[~_]',u'',s) # dot rows
     if kind=="exact":
         return s
     if kind=="nospace":
-        return re.sub(ur'\s','',s)
+        return re.sub(r'\s','',s)
     if kind=="spletdig":
-        return re.sub(ur'[^A-Za-z0-9 ]','',s)
+        return re.sub(r'[^A-Za-z0-9 ]','',s)
     if kind=="letdig":
-        return re.sub(ur'[^A-Za-z0-9]','',s)
+        return re.sub(r'[^A-Za-z0-9]','',s)
     if kind=="letters":
-        return re.sub(ur'[^A-Za-z]','',s)
+        return re.sub(r'[^A-Za-z]','',s)
     if kind=="digits":
-        return re.sub(ur'[^0-9]','',s)
+        return re.sub(r'[^0-9]','',s)
     if kind=="lnc":
         s = s.upper()
-        return re.sub(ur'[^A-Z]','',s)
+        return re.sub(r'[^A-Z]','',s)
     raise BadInput("unknown normalization: "+kind)
 
 ################################################################

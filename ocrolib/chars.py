@@ -8,7 +8,7 @@ import re
 
 digits = u"0123456789"
 letters = u"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
-symbols = ur"""!"#$%&'()*+,-./:;<=>?@[\]^_`{|}~"""
+symbols = u"""!"#$%&'()*+,-./:;<=>?@[\]^_`{|}~"""
 ascii = digits+letters+symbols
 
 xsymbols = u"""€¢£»«›‹÷©®†‡°∙•◦‣¶§÷¡¿▪▫"""
@@ -60,7 +60,7 @@ replacements = [
 
 def requote(s):
     s = unicode(s)
-    s = re.sub(ur"''",u'"',s)
+    s = re.sub(r"''",u'"',s)
     return s
 
 def requote_fancy(s,germanic=0):
@@ -68,20 +68,20 @@ def requote_fancy(s,germanic=0):
     if germanic:
         # germanic quoting style reverses the shapes
         # straight double quotes
-        s = re.sub(ur"\s+''",u"”",s)
-        s = re.sub(u"''\s+",u"“",s)
-        s = re.sub(ur"\s+,,",u"„",s)
+        s = re.sub(r"\s+''",u"”",s)
+        s = re.sub(r"''\s+",u"“",s)
+        s = re.sub(r"\s+,,",u"„",s)
         # straight single quotes
-        s = re.sub(ur"\s+'",u"’",s)
-        s = re.sub(ur"'\s+",u"‘",s)
-        s = re.sub(ur"\s+,",u"‚",s)
+        s = re.sub(r"\s+'",u"’",s)
+        s = re.sub(r"'\s+",u"‘",s)
+        s = re.sub(r"\s+,",u"‚",s)
     else:
         # straight double quotes
-        s = re.sub(ur"\s+''",u"“",s)
-        s = re.sub(ur"''\s+",u"”",s)
-        s = re.sub(ur"\s+,,",u"„",s)
+        s = re.sub(r"\s+''",u"“",s)
+        s = re.sub(r"''\s+",u"”",s)
+        s = re.sub(r"\s+,,",u"„",s)
         # straight single quotes
-        s = re.sub(ur"\s+'",u"‘",s)
-        s = re.sub(ur"'\s+",u"’",s)
-        s = re.sub(ur"\s+,",u"‚",s)
+        s = re.sub(r"\s+'",u"‘",s)
+        s = re.sub(r"'\s+",u"’",s)
+        s = re.sub(r"\s+,",u"‚",s)
     return s
