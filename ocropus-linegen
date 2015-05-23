@@ -12,7 +12,7 @@ import ocrolib
 
 import argparse
 parser = argparse.ArgumentParser(description = "Generate text line training data")
-parser.add_argument('-o','--base',default='linegen')
+parser.add_argument('-o','--base',default='linegen',help='output directory, default: %(default)s')
 parser.add_argument('-r','--distort',type=float,default=1.0)
 parser.add_argument('-R','--dsigma',type=float,default=20.0)
 parser.add_argument('-f','--fonts',default=None)
@@ -20,9 +20,9 @@ parser.add_argument('-F','--fontlist',default=None)
 parser.add_argument('-t','--texts',default=None)
 parser.add_argument('-T','--textlist',default=None)
 parser.add_argument('-m','--maxlines',default=200,type=int,
-    help='max # lines for each directory')
+    help='max # lines for each directory, default: %(default)s')
 parser.add_argument('-e','--degradations',default="lo",
-    help="lo, med, or hi; or give a file")
+    help="lo, med, or hi; or give a file, default: %(default)s")
 parser.add_argument('-j','--jitter',default=0.5)
 parser.add_argument('-s','--sizes',default="40-70")
 parser.add_argument('-d','--display',action="store_true")

@@ -22,7 +22,7 @@ Input: a directory in standard OCRopus book format
 Output: index.html files and thumbnails showing recognition results
 """)
 parser.add_argument("book",default="book")
-parser.add_argument("-N","--npages",type=int,default=100000,help="max number of pages")
+parser.add_argument("-N","--npages",type=int,default=100000,help="max number of pages, default: %(default)s")
 args = parser.parse_args()
 
 def write_cseg(stream,cseg_file):

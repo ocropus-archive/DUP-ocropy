@@ -55,7 +55,7 @@ parser.add_argument('-S','--save',default=None,
 parser.add_argument("-q","--quiet",action="store_true",
                     help="turn off most output")
 parser.add_argument("-Q","--parallel",type=int,default=1,
-                    help="number of parallel processes to use (%(default)s)")
+                    help="number of parallel processes to use, default: %(default)s")
 
 # input files
 parser.add_argument("files",nargs="+",

@@ -30,12 +30,12 @@ parser.add_argument("-e","--eval",action="store_true")
 parser.add_argument("-K","--kind",default="exact",help="kind of comparison (exact, nospace, letdig, letters, digits, lnc), default: %(default)s")
 
 parser.add_argument("--lineheight",type=int,default=48,
-                    help="# LSTM state units")
+                    help="# LSTM state units, default: %(default)s")
 parser.add_argument("-p","--pad",type=int,default=16)
 
 # learning
 parser.add_argument("-S","--hiddensize",type=int,default=100,
-                    help="# LSTM state units")
+                    help="# LSTM state units, default: %(default)s")
 parser.add_argument('-m','--load',default=None,
                     help="start training with a previously trained model")
 
