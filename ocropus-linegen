@@ -193,7 +193,8 @@ for pageno,font in enumerate(fonts):
     if args.numdir:
         pagedir = "%s/%04d"%(base,pageno+1)
     else:
-        fbase = re.sub(r'[.][^/]*$','',font)
+        fbase = re.sub(r'^[./]*','',font)
+        fbase = re.sub(r'[.][^/]*$','',fbase)
         fbase = re.sub(r'[/]','_',fbase)
         pagedir = "%s/%s"%(base,fbase)
     os.mkdir(pagedir)
