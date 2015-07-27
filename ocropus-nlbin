@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+from __future__ import print_function
 from pylab import *
 from numpy.ctypeslib import ndpointer
 import argparse,os,os.path
@@ -45,6 +46,12 @@ if len(args.files)<1:
     sys.exit(0)
 
 
+def print_info(*objs):
+    print("INFO: ", *objs, file=sys.stdout)
+
+def print_error(*objs):
+    print("ERROR: ", *objs, file=sys.stderr)
+
 def check_page(image):
     if len(image.shape)==3: return "input image is color image %s"%(image.shape,)
     if mean(image)<median(image): return "image may be inverted"
@@ -76,7 +83,7 @@ def estimate_skew_angle(image,angles):
         ginput(1,args.debug)
     _,a = max(estimates)
     return a
-    
+
 def select_regions(binary,f,min=0,nbest=100000):
     labels,n = measurements.label(binary)
     objects = measurements.find_objects(labels)
@@ -98,22 +105,22 @@ def dshow(image,info):
 
 def process1(job):
     fname,i = job
-    print "#",fname
-    if args.parallel<2: print "===",fname,i
+    print_info("#" + fname)
+    if args.parallel<2: print_info("=== "+fname+ " " +str(i))
     comment = ""
     raw = ocrolib.read_image_gray(fname)
     dshow(raw,"input")
     # perform image normalization
     image = raw-amin(raw)
-    if amax(image)==amin(image): 
-        print "# image is empty",fname
+    if amax(image)==amin(image):
+        print_info("# image is empty" + fname)
         return
     image /= amax(image)
 
     if not args.nocheck:
         check = check_page(amax(image)-image)
         if check is not None:
-            print fname,"SKIPPED",check,"(use -n to disable this check)"
+            print_error(fname+"SKIPPED"+check+"(use -n to disable this check)")
             return
 
     # check whether the image is already effectively binarized
@@ -126,7 +133,7 @@ def process1(job):
         flat = image
     else:
         # if not, we need to flatten it by estimating the local whitelevel
-        if args.parallel<2: print "flattening"
+        if args.parallel<2: print_info("flattening")
         m = interpolation.zoom(image,args.zoom)
         m = filters.percentile_filter(m,args.perc,size=(args.range,2))
         m = filters.percentile_filter(m,args.perc,size=(2,args.range))
@@ -138,7 +145,7 @@ def process1(job):
 
     # estimate skew angle and rotate
     if args.maxskew>0:
-        if args.parallel<2: print "estimating skew angle"
+        if args.parallel<2: print_info("estimating skew angle")
         d0,d1 = flat.shape
         o0,o1 = int(args.bignore*d0),int(args.bignore*d1)
         flat = amax(flat)-flat
@@ -153,7 +160,7 @@ def process1(job):
         angle = 0
 
     # estimate low and high thresholds
-    if args.parallel<2: print "estimating thresholds"
+    if args.parallel<2: print_info("estimating thresholds")
     d0,d1 = flat.shape
     o0,o1 = int(args.bignore*d0),int(args.bignore*d1)
     est = flat[o0:d0-o0,o1:d1-o1]
@@ -173,7 +180,7 @@ def process1(job):
     hi = stats.scoreatpercentile(est.ravel(),args.hi)
 
     # rescale the image to get the gray scale image
-    if args.parallel<2: print "rescaling"
+    if args.parallel<2: print_info("rescaling")
     flat -= lo
     flat /= (hi-lo)
     flat = clip(flat,0,1)
@@ -181,8 +188,8 @@ def process1(job):
     bin = 1*(flat>args.threshold)
 
     # output the normalized grayscale and the thresholded images
-    print fname,"lo-hi (%.2f %.2f) angle %4.1f"%(lo,hi,angle),comment
-    if args.parallel<2: print "writing"
+    print_info(fname+" lo-hi (%.2f %.2f) angle %4.1f"%(lo,hi,angle) + comment)
+    if args.parallel<2: print_info("writing")
     if args.debug>0 or args.show: clf(); gray();imshow(bin); ginput(1,max(0.1,args.debug))
     if args.output:
         if args.rawcopy: ocrolib.write_image_gray(args.output+"/%04d.raw.png"%i,raw)
@@ -202,7 +209,7 @@ if args.output:
         os.mkdir(args.output)
 
 if args.parallel<2:
-    for i,f in enumerate(args.files): 
+    for i,f in enumerate(args.files):
         process1((f,i+1))
 else:
     pool = multiprocessing.Pool(processes=args.parallel)
