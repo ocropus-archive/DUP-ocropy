@@ -8,6 +8,7 @@ from scipy.ndimage import filters,interpolation,morphology,measurements
 from scipy import stats
 import multiprocessing
 import ocrolib
+import warnings
 
 
 
@@ -134,6 +135,7 @@ def process1(job):
     else:
         # if not, we need to flatten it by estimating the local whitelevel
         if args.parallel<2: print_info("flattening")
+        warnings.filterwarnings("ignore", category=UserWarning)
         m = interpolation.zoom(image,args.zoom)
         m = filters.percentile_filter(m,args.perc,size=(args.range,2))
         m = filters.percentile_filter(m,args.perc,size=(2,args.range))
@@ -141,6 +143,7 @@ def process1(job):
         if args.debug>0: clf(); imshow(m,vmin=0,vmax=1); ginput(1,args.debug)
         w,h = minimum(array(image.shape),array(m.shape))
         flat = clip(image[:w,:h]-m[:w,:h]+1,0,1)
+        warnings.resetwarnings()
         if args.debug>0: clf(); imshow(flat,vmin=0,vmax=1); ginput(1,args.debug)
 
     # estimate skew angle and rotate
@@ -161,6 +164,7 @@ def process1(job):
 
     # estimate low and high thresholds
     if args.parallel<2: print_info("estimating thresholds")
+    warnings.filterwarnings("ignore", category=DeprecationWarning)
     d0,d1 = flat.shape
     o0,o1 = int(args.bignore*d0),int(args.bignore*d1)
     est = flat[o0:d0-o0,o1:d1-o1]
@@ -178,7 +182,7 @@ def process1(job):
         est = est[v]
     lo = stats.scoreatpercentile(est.ravel(),args.lo)
     hi = stats.scoreatpercentile(est.ravel(),args.hi)
-
+    warnings.resetwarnings()
     # rescale the image to get the gray scale image
     if args.parallel<2: print_info("rescaling")
     flat -= lo
