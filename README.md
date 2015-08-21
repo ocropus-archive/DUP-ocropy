@@ -5,7 +5,7 @@ ocropy
 
 [![Join the chat at https://gitter.im/tmbdev/ocropy](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/tmbdev/ocropy?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
-Python-based OCR package using recurrent neural networks.
+OCRopy is a collection of command line tools useful for document analysis and text recognition.
 
 To install OCRopus dependencies system-wide:
 
