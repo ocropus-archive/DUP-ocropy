@@ -71,6 +71,28 @@ You can also generate training data using ocropus-linegen:
 This will create a directory "linegen/..." containing training data
 suitable for training OCRopus with synthetic data.
 
+## Roadmap
+
+The major change in ocropy wil likely be a refactoring so that there are separate packages for:
+
+ - preprocessing and layout analysis
+ - text line recognition (Python version)
+ - isolated character recognition using local learning
+ - data generation
+ - language modeling
+
+Note that for text line recognition and language modeling, you can also use the CLSTM command line tools. Except for taking different command line options, they are otherwise drop-in replacements for the Python-based text line recognizer.
+
+## Contributing
+
+OCRopy and CLSTM are both command line driven programs. The best way to contribute is to create new command line programs using the same (simple) persistent representations as the rest of OCRopus.
+
+The biggest needs are in the following areas:
+
+ - text/image segmentation
+ - text line detection and extraction
+ - output generation (hOCR and hOCR-to-* transformations)
+
 ## CLSTM vs OCRopy
 
 The CLSTM project (https://github.com/tmbdev/clstm) is a replacement for 
