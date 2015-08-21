@@ -3,9 +3,20 @@ Note: The text line recognizer has been ported to C++ and is now a separate proj
 ocropy
 ======
 
-[![Join the chat at https://gitter.im/tmbdev/ocropy](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/tmbdev/ocropy?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+OCRopus is a collection of document analysis programs, not a turn-key OCR system.
+In order to apply it to your documents, you may need to do some image preprocessing,
+and possibly also train new models.
 
-OCRopy is a collection of command line tools useful for document analysis and text recognition.
+In addition to the recognition scripts themselves, there are a number of scripts for
+ground truth editing and correction, measuring error rates, determining confusion matrices, etc.
+OCRopus commands will generally print a stack trace along with an error message;
+this is not generally indicative of a problem (in a future release, we'll suppress the stack
+trace by default since it seems to confuse too many users).
+
+Installing
+----------
+
+[![Join the chat at https://gitter.im/tmbdev/ocropy](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/tmbdev/ocropy?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
 To install OCRopus dependencies system-wide:
 
@@ -28,17 +39,17 @@ Alternatively, dependencies can be installed into a [Python Virtual Environment]
 To test the recognizer, run:
 
     $ ./run-test
-
-OCRopus is really a collection of document analysis programs, not a turn-key OCR system.
-
-In addition to the recognition scripts themselves, there are a number of scripts for
-ground truth editing and correction, measuring error rates, determining confusion matrices, etc.
-OCRopus commands will generally print a stack trace along with an error message;
-this is not generally indicative of a problem (in a future release, we'll suppress the stack
-trace by default since it seems to confuse too many users).
+    
+Running
+-------
 
 To recognize pages of text, you need to run separate commands: binarization, page layout
-analysis, and text line recognition. Here is an example for a page of Fraktur text (German);
+analysis, and text line recognition. The default parameters and settings of OCRopus assume
+300dpi binary black-on-white images. If your images are scanned at a different resolution, the
+simplest thing to do is to downscale/upscale them to 300dpi. The text line recognizer is
+fairly robust to different resolutions, but the layout analysis is quite resolution dependent.
+
+Here is an example for a page of Fraktur text (German);
 you need to download the Fraktur model from tmbdev.net/ocropy/fraktur.pyrnn.gz to run this
 example:
 
