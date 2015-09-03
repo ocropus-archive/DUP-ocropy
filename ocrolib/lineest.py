@@ -50,8 +50,12 @@ class CenterNormalizer:
     def dewarp(self,img,cval=0,dtype=dtype('f')):
         assert img.shape==self.shape
         h,w = img.shape
-        padded = vstack([cval*ones((h,w)),img,cval*ones((h,w))])
-        center = self.center+h
+        # Changed pad to two times height to "fix" center
+        # exceeding pad height resulting in the error: 
+        # ValueError: setting an array element with a sequence.
+        # -braddock
+        padded = vstack([cval*ones((2*h,w)),img,cval*ones((2*h,w))])
+        center = self.center + 2 * h
         dewarped = [padded[center[i]-self.r:center[i]+self.r,i] for i in range(w)]
         dewarped = array(dewarped,dtype=dtype).T
         return dewarped
