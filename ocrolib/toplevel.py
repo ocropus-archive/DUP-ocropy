@@ -289,7 +289,7 @@ except: pass
 def AFLOAT(a):
     return a.dtype in float_dtypes
 
-int_dtypes = [numpy.dtype('uint8'),numpy.dtype('int32'),numpy.dtype('int64'),numpy.dtype('uint32')]
+int_dtypes = [numpy.dtype('uint8'),numpy.dtype('int32'),numpy.dtype('int64'),numpy.dtype('uint32'),numpy.dtype('uint64')]
 
 @makeargcheck("array must contain integer values")
 def AINT(a):
