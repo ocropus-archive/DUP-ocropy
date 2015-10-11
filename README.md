@@ -29,7 +29,7 @@ Alternatively, dependencies can be installed into a [Python Virtual Environment]
 (http://docs.python-guide.org/en/latest/dev/virtualenvs/):
 
     $ virtualenv ocropus_venv/
-    $ source ocropus_venv/bin/source
+    $ source ocropus_venv/bin/activate
     $ pip install -r requirements_1.txt
     # tables has some dependencies which must be installed first:
     $ pip install -r requirements_2.txt
