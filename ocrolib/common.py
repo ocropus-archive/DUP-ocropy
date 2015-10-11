@@ -194,9 +194,9 @@ def pil2array(im,alpha=0):
 def array2pil(a):
     if a.dtype==dtype("B"):
         if a.ndim==2:
-            return PIL.Image.fromstring("L",(a.shape[1],a.shape[0]),a.tostring())
+            return PIL.Image.frombytes("L",(a.shape[1],a.shape[0]),a.tostring())
         elif a.ndim==3:
-            return PIL.Image.fromstring("RGB",(a.shape[1],a.shape[0]),a.tostring())
+            return PIL.Image.frombytes("RGB",(a.shape[1],a.shape[0]),a.tostring())
         else:
             raise OcropusException("bad image rank")
     elif a.dtype==dtype('float32'):
@@ -1067,4 +1067,3 @@ class MovingStats:
     def mean(self):
         if len(self.data)==0: return nan
         return mean(self.data)
-
