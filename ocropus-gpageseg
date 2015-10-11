@@ -28,57 +28,57 @@ parser.add_argument('-n','--nocheck',action="store_true",
                     help="disable error checking on inputs")
 
 parser.add_argument('-z','--zoom',type=float,default=0.5,
-                    help='zoom for page background estimation, smaller=faster')
+                    help='zoom for page background estimation, smaller=faster, default: %(default)s')
 
 parser.add_argument('--gray',action='store_true',
-                    help='output grayscale lines as well (%(default)s)')
+                    help='output grayscale lines as well, default: %(default)s')
 parser.add_argument('-q','--quiet',action='store_true',
-                    help='be less verbose (%(default)s)')
+                    help='be less verbose, default: %(default)s')
 
 # limits
 parser.add_argument('--minscale',type=float,default=12.0,
-                    help='minimum scale permitted (%(default)s)')
+                    help='minimum scale permitted, default: %(default)s')
 parser.add_argument('--maxlines',type=float,default=300,
-                    help='maximum # lines permitted (%(default)s)')
+                    help='maximum # lines permitted, default: %(default)s')
 
 # scale parameters
 parser.add_argument('--scale',type=float,default=0.0,
-                    help='the basic scale of the document (roughly, xheight) 0=automatic (%(default)s)')
+                    help='the basic scale of the document (roughly, xheight) 0=automatic, default: %(default)s')
 parser.add_argument('--hscale',type=float,default=1.0,
-                    help='non-standard scaling of horizontal parameters (%(default)s)')
+                    help='non-standard scaling of horizontal parameters, default: %(default)s')
 parser.add_argument('--vscale',type=float,default=1.0,
-                    help='non-standard scaling of vertical parameters (%(default)s)')
+                    help='non-standard scaling of vertical parameters, default: %(default)s')
 
 # line parameters
 parser.add_argument('--threshold',type=float,default=0.2,
-                    help='baseline threshold (%(default)s)')
+                    help='baseline threshold, default: %(default)s')
 parser.add_argument('--noise',type=int,default=8,
-                    help="noise threshold for removing small components from lines (%(default)s)")
+                    help="noise threshold for removing small components from lines, default: %(default)s")
 parser.add_argument('--usegauss',action='store_true',
-                    help='use gaussian instead of uniform (%(default)s)')
+                    help='use gaussian instead of uniform, default: %(default)s')
 
 # column parameters
 parser.add_argument('--maxseps',type=int,default=2,
-                    help='maximum black column separators (%(default)s)')
+                    help='maximum black column separators, default: %(default)s')
 parser.add_argument('--sepwiden',type=int,default=10,
-                    help='widen black separators (to account for warping) (%(default)s)')
+                    help='widen black separators (to account for warping), default: %(default)s')
 parser.add_argument('-b','--blackseps',action="store_true",
                     help="also check for black column separators")
 
 # whitespace column separators
 parser.add_argument('--maxcolseps',type=int,default=2,
-                    help='maximum # whitespace column separators (%(default)s)')
+                    help='maximum # whitespace column separators, default: %(default)s')
 parser.add_argument('--csminaspect',type=float,default=1.1,
                     help='minimum aspect ratio for column separators')
 parser.add_argument('--csminheight',type=float,default=10,
-                    help='minimum column height (units=scale) (%(default)s)')
+                    help='minimum column height (units=scale), default: %(default)s')
 
 # wait for input after everything is done
 
 parser.add_argument('-p','--pad',type=int,default=3,
-                    help='padding for extracted lines (%(default)s)')
+                    help='padding for extracted lines, default: %(default)s')
 parser.add_argument('-e','--expand',type=int,default=3,
-                    help='expand mask for grayscale extraction (%(default)s)')
+                    help='expand mask for grayscale extraction, default: %(default)s')
 parser.add_argument('-Q','--parallel',type=int,default=0,
                     help="number of CPUs to use")
 parser.add_argument('-d','--debug',action="store_true")
@@ -126,7 +126,7 @@ def DSAVE(title,image):
     print "debug",fname
     imsave(fname,image)
 
-
+
 
 ################################################################
 ### Column finding.

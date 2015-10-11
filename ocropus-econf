@@ -23,10 +23,10 @@ parser.add_argument("-x","--extension",default=".txt",help="extension for recogn
 parser.add_argument("-k","--kind",default="exact",help="kind of comparison (exact, nospace, letdig, letters, digits, lnc), default: %(default)s")
 parser.add_argument("-s","--skipmissing",action="store_true",help="don't use missing or empty output files in the calculation")
 
-parser.add_argument("-c","--confusion",default=10,type=int,help="output this many top confusion")
+parser.add_argument("-c","--confusion",default=10,type=int,help="output this many top confusion, default: %(default)s")
 parser.add_argument("-a","--allconf",default=None,help="output all confusions to this file")
 parser.add_argument("-e","--perfile",default=None,help="output per-file errors to this file")
-parser.add_argument("-C","--context",type=int,default=0,help="context for confusion matrix")
+parser.add_argument("-C","--context",type=int,default=0,help="context for confusion matrix, default: %(default)s")
 parser.add_argument("-Q","--parallel",type=int,default=multiprocessing.cpu_count())
 args = parser.parse_args()
 args.files = ocrolib.glob_all(args.files)

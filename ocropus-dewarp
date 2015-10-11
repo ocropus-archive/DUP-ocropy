@@ -18,9 +18,9 @@ numpy.seterr(divide='raise',over='raise',invalid='raise',under='ignore')
 parser = argparse.ArgumentParser("dewarp lines as used for the recognizer")
 
 parser.add_argument("-e","--lineest",default="center",
-                    help="type of text line estimator")
+                    help="type of text line estimator, default: %(default)s")
 parser.add_argument("-l","--height",default=48,type=int,
-                    help="set the default height for line estimation")
+                    help="set the default height for line estimation, default: %(default)s")
 
 
 parser.add_argument("files",nargs="*")
