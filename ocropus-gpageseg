@@ -18,6 +18,7 @@ import traceback
 from scipy.ndimage import measurements
 from scipy.misc import imsave
 from scipy.ndimage.filters import gaussian_filter,uniform_filter,maximum_filter
+import numpy as np
 from multiprocessing import Pool
 import ocrolib
 from ocrolib import psegutils,morph,sl
@@ -259,10 +260,10 @@ def compute_line_seeds(binary,bottom,top,colseps,scale):
     as a line seed."""
     t = args.threshold
     vrange = int(args.vscale*scale)
-    bmarked = maximum_filter(bottom==maximum_filter(bottom,(vrange,0)),(2,2))
-    bmarked *= (bottom>t*amax(bottom)*t)*(1-colseps)
-    tmarked = maximum_filter(top==maximum_filter(top,(vrange,0)),(2,2))
-    tmarked *= (top>t*amax(top)*t/2)*(1-colseps)
+    bmarked = np.int32(maximum_filter(bottom==maximum_filter(bottom,(vrange,0)),(2,2)))
+    bmarked *= np.int32(bottom>t*amax(bottom)*t)*(1-colseps)
+    tmarked = np.int32(maximum_filter(top==maximum_filter(top,(vrange,0)),(2,2)))
+    tmarked *= np.int32(top>t*amax(top)*t/2)*(1-colseps)
     tmarked = maximum_filter(tmarked,(1,20))
     seeds = zeros(binary.shape,'i')
     delta = max(3,int(scale/2))
