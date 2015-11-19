@@ -197,7 +197,7 @@ def process1(arg):
         return (err,conf,len(gt0),trial,fname)
 
     if not args.quiet:
-        print fname,":",pred
+        print fname,":",pred.encode('utf-8')
     ocrolib.write_text(base+".txt",pred)
 
     if args.show>0 or args.save is not None:
