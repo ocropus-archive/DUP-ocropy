@@ -27,26 +27,26 @@ parser.add_argument("-c","--codec",default=[],nargs='*',
                     help="construct a codec from the input text")
 
 parser.add_argument("--lineheight",type=int,default=48,
-                    help="# LSTM state units")
+                    help="# LSTM state units, default: %(default)s")
 parser.add_argument("-p","--pad",type=int,default=16)
 
 # learning
 parser.add_argument("-r","--lrate",type=float,default=1e-4,
-                    help="LSTM learning rate")
+                    help="LSTM learning rate, default: %(default)s")
 parser.add_argument("-S","--hiddensize",type=int,default=100,
-                    help="# LSTM state units")
+                    help="# LSTM state units, default: %(default)s")
 parser.add_argument("-o","--output",default="temp",
                     help="LSTM model file")
 parser.add_argument("-F","--savefreq",type=int,default=1000,
-                    help="LSTM save frequency")
+                    help="LSTM save frequency, default: %(default)s")
 
 parser.add_argument('--load',default=None,
                     help="start training with a previously trained model")
 
 parser.add_argument("--start",type=int,default=0,
-                    help="# start training line")
+                    help="# start training line, default: %(default)s")
 parser.add_argument("--ntrain",type=int,default=1000000,
-                    help="# lines to train before stopping")
+                    help="# lines to train before stopping, default: %(default)s")
 
 parser.add_argument("files",nargs="*")
 args = parser.parse_args()

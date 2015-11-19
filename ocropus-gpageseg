@@ -11,6 +11,7 @@
 # - pick up stragglers
 # ? laplacian as well
 
+from __future__ import print_function
 from pylab import *
 import argparse,glob,os,os.path
 import traceback
@@ -28,57 +29,57 @@ parser.add_argument('-n','--nocheck',action="store_true",
                     help="disable error checking on inputs")
 
 parser.add_argument('-z','--zoom',type=float,default=0.5,
-                    help='zoom for page background estimation, smaller=faster')
+                    help='zoom for page background estimation, smaller=faster, default: %(default)s')
 
 parser.add_argument('--gray',action='store_true',
-                    help='output grayscale lines as well (%(default)s)')
+                    help='output grayscale lines as well, default: %(default)s')
 parser.add_argument('-q','--quiet',action='store_true',
-                    help='be less verbose (%(default)s)')
+                    help='be less verbose, default: %(default)s')
 
 # limits
 parser.add_argument('--minscale',type=float,default=12.0,
-                    help='minimum scale permitted (%(default)s)')
+                    help='minimum scale permitted, default: %(default)s')
 parser.add_argument('--maxlines',type=float,default=300,
-                    help='maximum # lines permitted (%(default)s)')
+                    help='maximum # lines permitted, default: %(default)s')
 
 # scale parameters
 parser.add_argument('--scale',type=float,default=0.0,
-                    help='the basic scale of the document (roughly, xheight) 0=automatic (%(default)s)')
+                    help='the basic scale of the document (roughly, xheight) 0=automatic, default: %(default)s')
 parser.add_argument('--hscale',type=float,default=1.0,
-                    help='non-standard scaling of horizontal parameters (%(default)s)')
+                    help='non-standard scaling of horizontal parameters, default: %(default)s')
 parser.add_argument('--vscale',type=float,default=1.0,
-                    help='non-standard scaling of vertical parameters (%(default)s)')
+                    help='non-standard scaling of vertical parameters, default: %(default)s')
 
 # line parameters
 parser.add_argument('--threshold',type=float,default=0.2,
-                    help='baseline threshold (%(default)s)')
+                    help='baseline threshold, default: %(default)s')
 parser.add_argument('--noise',type=int,default=8,
-                    help="noise threshold for removing small components from lines (%(default)s)")
+                    help="noise threshold for removing small components from lines, default: %(default)s")
 parser.add_argument('--usegauss',action='store_true',
-                    help='use gaussian instead of uniform (%(default)s)')
+                    help='use gaussian instead of uniform, default: %(default)s')
 
 # column parameters
 parser.add_argument('--maxseps',type=int,default=2,
-                    help='maximum black column separators (%(default)s)')
+                    help='maximum black column separators, default: %(default)s')
 parser.add_argument('--sepwiden',type=int,default=10,
-                    help='widen black separators (to account for warping) (%(default)s)')
+                    help='widen black separators (to account for warping), default: %(default)s')
 parser.add_argument('-b','--blackseps',action="store_true",
                     help="also check for black column separators")
 
 # whitespace column separators
 parser.add_argument('--maxcolseps',type=int,default=2,
-                    help='maximum # whitespace column separators (%(default)s)')
+                    help='maximum # whitespace column separators, default: %(default)s')
 parser.add_argument('--csminaspect',type=float,default=1.1,
                     help='minimum aspect ratio for column separators')
 parser.add_argument('--csminheight',type=float,default=10,
-                    help='minimum column height (units=scale) (%(default)s)')
+                    help='minimum column height (units=scale), default: %(default)s')
 
 # wait for input after everything is done
 
 parser.add_argument('-p','--pad',type=int,default=3,
-                    help='padding for extracted lines (%(default)s)')
+                    help='padding for extracted lines, default: %(default)s')
 parser.add_argument('-e','--expand',type=int,default=3,
-                    help='expand mask for grayscale extraction (%(default)s)')
+                    help='expand mask for grayscale extraction, default: %(default)s')
 parser.add_argument('-Q','--parallel',type=int,default=0,
                     help="number of CPUs to use")
 parser.add_argument('-d','--debug',action="store_true")
@@ -102,13 +103,21 @@ def check_page(image):
     if ncomps>slots: return "too many connnected components for a page image (%d > %d)"%(ncomps,slots)
     return None
 
+
+def print_info(*objs):
+    print("INFO: ", *objs, file=sys.stdout)
+
+def print_error(*objs):
+    print("ERROR: ", *objs, file=sys.stderr)
+
+
 if len(args.files)<1:
     parser.print_help()
     sys.exit(0)
 
-print 
-print "#"*10,(" ".join(sys.argv))[:60]
-print 
+print_info("")
+print_info("#"*10,(" ".join(sys.argv))[:60])
+print_info("")
 
 if args.parallel>1:
     args.quiet = 1
@@ -123,10 +132,10 @@ def DSAVE(title,image):
         assert len(image)==3
         image = transpose(array(image),[1,2,0])
     fname = "_"+title+".png"
-    print "debug",fname
+    print_info("debug " + fname)
     imsave(fname,image)
 
-
+
 
 ################################################################
 ### Column finding.
@@ -296,20 +305,20 @@ def compute_segmentation(binary,scale):
     binary = remove_hlines(binary,scale)
 
     # do the column finding
-    if not args.quiet: print "computing column separators"
+    if not args.quiet: print_info("computing column separators")
     colseps,binary = compute_colseps(binary,scale)
 
     # now compute the text line seeds
-    if not args.quiet: print "computing lines"
+    if not args.quiet: print_info("computing lines")
     bottom,top,boxmap = compute_gradmaps(binary,scale)
     seeds = compute_line_seeds(binary,bottom,top,colseps,scale)
     DSAVE("seeds",[bottom,top,boxmap])
 
     # spread the text line seeds to all the remaining
     # components
-    if not args.quiet: print "propagating labels"
+    if not args.quiet: print_info("propagating labels")
     llabels = morph.propagate_labels(boxmap,seeds,conflict=0)
-    if not args.quiet: print "spreading labels"
+    if not args.quiet: print_info("spreading labels")
     spread = morph.spread_labels(seeds,maxdist=scale)
     llabels = where(llabels>0,llabels,spread*binary)
     segmentation = llabels*binary
@@ -334,15 +343,15 @@ def process1(job):
             binary = ocrolib.read_image_binary(fname)
         except IOError:
             if ocrolib.trace: traceback.print_exc()
-            print "cannot open either",base+".bin.png","or",fname
+            print_error("cannot open either " + base+".bin.png" + " or " + fname)
             return
 
     checktype(binary,ABINARY2)
- 
+
     if not args.nocheck:
         check = check_page(amax(binary)-binary)
         if check is not None:
-            print fname,"SKIPPED",check,"(use -n to disable this check)"
+            print_error(fname + " SKIPPED " + check + " (use -n to disable this check)")
             return
 
     if args.gray:
@@ -356,26 +365,26 @@ def process1(job):
         scale = psegutils.estimate_scale(binary)
     else:
         scale = args.scale
-    print "scale",scale
+    print_info("scale " + str(scale))
     if isnan(scale) or scale>1000.0:
-        sys.stderr.write("%s: bad scale (%g); skipping\n"%(fname,scale))
+        print_error("%s: bad scale (%g); skipping\n"%(fname,str(scale)))
         return
     if scale<args.minscale:
-        sys.stderr.write("%s: scale (%g) less than --minscale; skipping\n"%(fname,scale))
+        print_error("%s: scale (%g) less than --minscale; skipping\n"%(fname,str(scale)))
         return
 
     # find columns and text lines
 
-    if not args.quiet: print "computing segmentation"
+    if not args.quiet: print_info("computing segmentation")
     segmentation = compute_segmentation(binary,scale)
-    if amax(segmentation)>args.maxlines: 
-        print fname,": too many lines",amax(segmentation)
-        return 
-    if not args.quiet: print "number of lines",amax(segmentation)
+    if amax(segmentation)>args.maxlines:
+        print_error(fname + ": too many lines" + str(amax(segmentation)))
+        return
+    if not args.quiet: print_info("number of lines"+ str(amax(segmentation)))
 
     # compute the reading order
 
-    if not args.quiet: print "finding reading order"
+    if not args.quiet: print_info("finding reading order")
     lines = psegutils.compute_lines(segmentation,scale)
     order = psegutils.reading_order([l.bounds for l in lines])
     lsort = psegutils.topsort(order)
@@ -389,7 +398,7 @@ def process1(job):
 
     # finally, output everything
 
-    if not args.quiet: print "writing lines"
+    if not args.quiet: print_info("writing lines")
     if not os.path.exists(outputdir):
         os.mkdir(outputdir)
     lines = [lines[i] for i in lsort]
@@ -401,7 +410,7 @@ def process1(job):
         if args.gray:
             grayline = psegutils.extract_masked(gray,l,pad=args.pad,expand=args.expand)
             ocrolib.write_image_gray("%s/01%04x.nrm.png"%(outputdir,i+1),grayline)
-    print "%6d"%i,fname,"%4.1f"%scale,len(lines)
+    print_info("%6d "%i + fname + " %4.1f "%  + scale + " " + str(len(lines)))
 
 if len(args.files)==1 and os.path.isdir(args.files[0]):
     files = glob.glob(args.files[0]+"/????.png")
@@ -416,14 +425,14 @@ def safe_process1(job):
         if e.trace:
             traceback.print_exc()
         else:
-            print fname,":",e
+            print_info(fname+":"+e)
     except Exception as e:
         traceback.print_exc()
 
 if args.parallel<2:
     count = 0
     for i,f in enumerate(files):
-        if args.parallel==0: print f
+        if args.parallel==0: print_info(f)
         count += 1
         safe_process1((f,i+1))
 else:
