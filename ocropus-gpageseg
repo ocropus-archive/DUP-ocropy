@@ -205,7 +205,7 @@ def compute_colseps_conv(binary,scale=1.0):
     grad = (grad>0.5*amax(grad))
     DSAVE("2grad",grad)
     # combine edges and whitespace
-    seps = minimum(thresh,maximum_filter(grad,(int(scale),int(5*scale))))
+    seps = minimum(thresh,maximum_filter(grad,(int(5*scale),int(5*scale))))
     seps = maximum_filter(seps,(int(2*scale),1))
     DSAVE("3seps",seps)
     # select only the biggest column separators
