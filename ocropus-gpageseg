@@ -260,9 +260,9 @@ def compute_line_seeds(binary,bottom,top,colseps,scale):
     t = args.threshold
     vrange = int(args.vscale*scale)
     bmarked = maximum_filter(bottom==maximum_filter(bottom,(vrange,0)),(2,2))
-    bmarked *= (bottom>t*amax(bottom)*t)*(1-colseps)
+    bmarked = bmarked*(bottom>t*amax(bottom)*t)*(1-colseps)
     tmarked = maximum_filter(top==maximum_filter(top,(vrange,0)),(2,2))
-    tmarked *= (top>t*amax(top)*t/2)*(1-colseps)
+    tmarked = tmarked*(top>t*amax(top)*t/2)*(1-colseps)
     tmarked = maximum_filter(tmarked,(1,20))
     seeds = zeros(binary.shape,'i')
     delta = max(3,int(scale/2))
@@ -276,7 +276,7 @@ def compute_line_seeds(binary,bottom,top,colseps,scale):
             y1,s1 = transitions[l+1]
             if s1==0 and (y0-y1)<5*scale: seeds[y1:y0,x] = 1
     seeds = maximum_filter(seeds,(1,int(1+scale)))
-    seeds *= (1-colseps)
+    seeds = seeds*(1-colseps)
     DSAVE("lineseeds",[seeds,0.3*tmarked+0.7*bmarked,binary])
     seeds,_ = morph.label(seeds)
     return seeds
