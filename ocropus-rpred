@@ -3,7 +3,6 @@ from __future__ import print_function
 import traceback
 import codecs
 from pylab import *
-import json
 import os.path
 import ocrolib
 import argparse
@@ -57,8 +56,8 @@ parser.add_argument("-q","--quiet",action="store_true",
                     help="turn off most output")
 parser.add_argument("-Q","--parallel",type=int,default=1,
                     help="number of parallel processes to use, default: %(default)s")
-parser.add_argument('--alternates', action='store_true',
-                    help='Output JSON file with scores and alternate characters.')
+parser.add_argument('--probabilities', action='store_true',
+                    help='Output probabilities for each letter')
 
 # input files
 parser.add_argument("files",nargs="+",
@@ -185,11 +184,15 @@ def process1(arg):
                     r = (r-args.pad)*scale
                     locs.write("%s\t%.1f\n"%(c,r))
 
-    if args.alternates:
-        alts = lstm.translate_back_with_alternates(network.outputs)
+    if args.probabilities:
+        alts = lstm.translate_back_with_probabilities(network.outputs)
         chars = [[(network.l2s([c]), score) for c, score in char if c > 0]
                     for char in alts]
-        json.dump(chars, open(base + '.alts.json', 'w'), indent=2)
+        with codecs.open(base+".prob","w") as locs:
+		for char in alts:
+			for p,s in char:
+				l = network.l2s([p])
+				locs.write("%s\t%s\t%s\n"%(l,p,s))
 
     if not args.nonormalize:
         pred = ocrolib.normalize_text(pred)

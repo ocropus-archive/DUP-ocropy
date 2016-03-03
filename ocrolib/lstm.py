@@ -753,7 +753,7 @@ def translate_back(outputs,threshold=0.7,pos=0):
     if pos: return maxima
     return [c for (r,c) in maxima]
 
-def translate_back_with_alternates(orig_outputs, threshold=0.7, alt_threshold=0.1):
+def translate_back_with_probabilities(orig_outputs, threshold=0.7):
     """Like translate_back, but returns a list of possibilities at each pos.
 
     Output is a list of [(letter1, score1), (letter2, score2), ...].
@@ -762,22 +762,13 @@ def translate_back_with_alternates(orig_outputs, threshold=0.7, alt_threshold=0.
     labels, n = measurements.label(outputs[:,0] < threshold)
     mask = tile(labels.reshape(-1, 1), (1, outputs.shape[1]))
 
-    outputs[:,0] = 0
-    outputs[mask == 0] = 0
     out_scores = []
-    while outputs.max() > alt_threshold:
-        maxima = measurements.maximum_position(outputs, mask, arange(1,amax(mask)+1))
-        scores = [(c, outputs[r,c]) for r, c in maxima]
-        out_scores.append(scores)
-
-        # Clear the max cols to expose the next-highest values.
-        for i, (r, c) in enumerate(maxima):
-            col_mask = np.zeros(outputs.shape)
-            col_mask[:,c] = 1
-            outputs[mask * col_mask == i+1] = 0
+    maxima = measurements.maximum_position(outputs, mask, arange(1,amax(mask)+1))
+    scores = [(c, outputs[r,c]) for r, c in maxima]
+    out_scores.append(scores)
 
     scores = zip(*out_scores)
-    return [[(c, score) for c, score in char if score > alt_threshold]
+    return [[(c, score) for c, score in char]
             for char in scores]
 
 
