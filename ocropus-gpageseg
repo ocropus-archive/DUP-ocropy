@@ -370,7 +370,7 @@ def process1(job):
         print_error("%s: bad scale (%g); skipping\n"%(fname,str(scale)))
         return
     if scale<args.minscale:
-        print_error("%s: scale (%g) less than --minscale; skipping\n"%(fname,str(scale)))
+        print_error("%s: scale (%s) less than --minscale; skipping\n"%(fname,str(scale)))
         return
 
     # find columns and text lines
