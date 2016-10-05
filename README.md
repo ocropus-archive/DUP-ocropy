@@ -1,4 +1,9 @@
-Note: The text line recognizer has been ported to C++ and is now a separate project, the CLSTM project, available here: https://github.com/tmbdev/clstm 
+------------------------
+| Project Announcements
+|:-----------------------
+| The text line recognizer has been ported to C++ and is now a separate project, the CLSTM project, available here: https://github.com/tmbdev/clstm
+| Please welcome @zuphilip and @kba as additional project maintainers. @tmb is busy developing new DNN models for document analysis (among other things). (10/15/2016)
+------------------------
 
 ocropy
 ======
