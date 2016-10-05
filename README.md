@@ -89,13 +89,11 @@ suitable for training OCRopus with synthetic data.
 
 ## Roadmap
 
-The major change in ocropy wil likely be a refactoring so that there are separate packages for:
-
- - preprocessing and layout analysis
- - text line recognition (Python version)
- - isolated character recognition using local learning
- - data generation
- - language modeling
+A lot of excellent packages have become available for deep learning, vision, and GPU computing over the last few years.
+At the same time, it has become feasible now to address problems like layout analysis and text line following
+through attentional and reinforcement learning mechanisms. I (@tmb) am planning on developing new software using these
+new tools and techniques for the traditional document analysis tasks. These will become available as separate
+projects.
 
 Note that for text line recognition and language modeling, you can also use the CLSTM command line tools. Except for taking different command line options, they are otherwise drop-in replacements for the Python-based text line recognizer.
 
