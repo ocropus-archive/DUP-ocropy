@@ -127,24 +127,54 @@ def reading_order(lines,highlight=None,debug=0):
     order = zeros((len(lines),len(lines)),'B')
     def x_overlaps(u,v):
         return u[1].start<v[1].stop and u[1].stop>v[1].start
+        #explanation: u,v are disjoint <=> u[1].start>v[1].stop or u[1].stop<v[1].start
+        #i.e. if u starts after v or u stops before v
+    def y_overlaps(u,v):
+        return u[0].start<v[0].stop and u[0].stop>v[0].start
     def above(u,v):
         return u[0].start<v[0].start
     def left_of(u,v):
         return u[1].stop<v[1].start
+    def divides(w,u,v):
+        between = w[0].start>min(u[0].stop,v[0].stop) and w[0].stop<max(u[0].start,v[0].start)
+        if between and x_overlaps(w,u) and x_overlaps(w,v): return 1
+        return 0
     def separates(w,u,v):
         if w[0].stop<min(u[0].start,v[0].start): return 0
         if w[0].start>max(u[0].stop,v[0].stop): return 0
         if w[1].start<u[1].stop and w[1].stop>v[1].start: return 1
+    def is_corner(w,u,v):
+        if w==u or w==v: return 0
+        if x_overlaps(v,w) and y_overlaps(u,w): return 1
+        if x_overlaps(u,w) and y_overlaps(v,w): return 1
+        return 0
     if highlight is not None:
         clf(); title("highlight"); imshow(binary); ginput(1,debug)
     for i,u in enumerate(lines):
         for j,v in enumerate(lines):
+            #if i==0 and j==90: print "### i =",i,"### j =",j,"###"
             if x_overlaps(u,v):
+                #if i==0 and j==90: print "x overlaps"
                 if above(u,v):
                     order[i,j] = 1
             else:
-                if [w for w in lines if separates(w,u,v)]==[]:
-                    if left_of(u,v): order[i,j] = 1
+                #if i==0 and j==90: print "NO x overlaps"
+                if y_overlaps(u,v):
+                    #if i==0 and j==90: print "y overlaps"
+                    if left_of(u,v):
+                        order[i,j] = 1
+                else:
+                    #if i==0 and j==90: print "NO y overlaps"
+                    corners = [w for w in lines if is_corner(w,u,v)]
+                    dividers = [w for w in lines if divides(w,u,v)]
+                    if i==0 and j==90: print corners
+                    if i==0 and j==90: print dividers
+                    if corners==[] or dividers!=[]:
+                        if above(u,v):
+                            order[i,j] = 1
+                    else:
+                        if left_of(u,v):
+                            order[i,j] = 1
             if j==highlight and order[i,j]:
                 print (i,j),
                 y0,x0 = sl.center(lines[i])
@@ -170,6 +200,7 @@ def topsort(order):
         L.append(k)
     for k in range(n):
         visit(k)
+    print(L)
     return L #[::-1]
 
 def show_lines(image,lines,lsort):
