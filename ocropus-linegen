@@ -5,7 +5,8 @@ import random as pyrandom
 import glob,sys,os,re,codecs,traceback
 from pylab import *
 from PIL import Image
-import ImageFont,ImageDraw
+from PIL import ImageFont,ImageDraw
+#import ImageFont,ImageDraw
 from scipy.ndimage import filters,measurements,interpolation
 from scipy.misc import imsave
 import ocrolib
