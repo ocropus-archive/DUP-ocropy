@@ -53,7 +53,8 @@ parser.add_argument("--updates",action="store_true",
                     help="verbose LSTM updates")
 parser.add_argument('--load',default=None,
                     help="start training with a previously trained model")
-parser.add_argument('--start',default=-1,type=int)
+parser.add_argument('--start',default=-1,type=int,
+                    help="manually set the number of already learned lines, which influences the naming and stoping condition, default: %(default)s which will then be overriden by the value saved in the network")
 
 # debugging
 parser.add_argument("-X","--exec",default="None",dest="execute",
