@@ -106,15 +106,15 @@ def dshow(image,info):
 
 def process1(job):
     fname,i = job
-    print_info("#" + fname)
-    if args.parallel<2: print_info("=== "+fname+ " " +str(i))
+    print_info("# %s" % (fname))
+    if args.parallel<2: print_info("=== %s%-3d" % (fname, i))
     comment = ""
     raw = ocrolib.read_image_gray(fname)
     dshow(raw,"input")
     # perform image normalization
     image = raw-amin(raw)
     if amax(image)==amin(image):
-        print_info("# image is empty" + fname)
+        print_info("# image is empty: %s" % (fname))
         return
     image /= amax(image)
 
@@ -192,7 +192,7 @@ def process1(job):
     bin = 1*(flat>args.threshold)
 
     # output the normalized grayscale and the thresholded images
-    print_info(fname+" lo-hi (%.2f %.2f) angle %4.1f"%(lo,hi,angle) + comment)
+    print_info("%s lo-hi (%.2f %.2f) angle %4.1f %s" % (fname, lo, hi, angle, comment))
     if args.parallel<2: print_info("writing")
     if args.debug>0 or args.show: clf(); gray();imshow(bin); ginput(1,max(0.1,args.debug))
     if args.output:

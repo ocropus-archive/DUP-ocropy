@@ -343,7 +343,7 @@ def process1(job):
             binary = ocrolib.read_image_binary(fname)
         except IOError:
             if ocrolib.trace: traceback.print_exc()
-            print_error("cannot open either " + base+".bin.png" + " or " + fname)
+            print_error("cannot open either %s.bin.png or %s" % (base, fname))
             return
 
     checktype(binary,ABINARY2)
@@ -351,7 +351,7 @@ def process1(job):
     if not args.nocheck:
         check = check_page(amax(binary)-binary)
         if check is not None:
-            print_error(fname + " SKIPPED " + check + " (use -n to disable this check)")
+            print_error("%s SKIPPED %s (use -n to disable this check)" % (fname, check))
             return
 
     if args.gray:
@@ -365,12 +365,12 @@ def process1(job):
         scale = psegutils.estimate_scale(binary)
     else:
         scale = args.scale
-    print_info("scale " + str(scale))
+    print_info("scale %f" % (scale))
     if isnan(scale) or scale>1000.0:
-        print_error("%s: bad scale (%g); skipping\n"%(fname,str(scale)))
+        print_error("%s: bad scale (%g); skipping\n" % (fname, scale))
         return
     if scale<args.minscale:
-        print_error("%s: scale (%s) less than --minscale; skipping\n"%(fname,str(scale)))
+        print_error("%s: scale (%g) less than --minscale; skipping\n" % (fname, scale))
         return
 
     # find columns and text lines
@@ -378,9 +378,9 @@ def process1(job):
     if not args.quiet: print_info("computing segmentation")
     segmentation = compute_segmentation(binary,scale)
     if amax(segmentation)>args.maxlines:
-        print_error(fname + ": too many lines" + str(amax(segmentation)))
+        print_error("%s too many lines %g" % (fname, amax(segmentation)))
         return
-    if not args.quiet: print_info("number of lines"+ str(amax(segmentation)))
+    if not args.quiet: print_info("number of lines %g" % amax(segmentation))
 
     # compute the reading order
 
@@ -410,7 +410,7 @@ def process1(job):
         if args.gray:
             grayline = psegutils.extract_masked(gray,l,pad=args.pad,expand=args.expand)
             ocrolib.write_image_gray("%s/01%04x.nrm.png"%(outputdir,i+1),grayline)
-    print_info("%6d "%i + fname + " %4.1f "%  + scale + " " + str(len(lines)))
+    print_info("%6d  %s %4.1f %d" % (i, fname,  scale,  len(lines)))
 
 if len(args.files)==1 and os.path.isdir(args.files[0]):
     files = glob.glob(args.files[0]+"/????.png")
