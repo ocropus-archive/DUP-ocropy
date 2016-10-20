@@ -164,7 +164,7 @@ def process1(job):
 
     # estimate low and high thresholds
     if args.parallel<2: print_info("estimating thresholds")
-    warnings.filterwarnings("ignore", category=DeprecationWarning)
+    warnings.filterwarnings("ignore", category=VisibleDeprecationWarning)
     d0,d1 = flat.shape
     o0,o1 = int(args.bignore*d0),int(args.bignore*d1)
     est = flat[o0:d0-o0,o1:d1-o1]
