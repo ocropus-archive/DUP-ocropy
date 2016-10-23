@@ -181,7 +181,7 @@ if args.subparser_name=="html":
         P("<html>")
         P("<head>")
         P('<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />')
-        P('<title>Correction</title>')
+        P('<title>%s</title>', oname)
         P("</head>")
         P("<body>")
         for i,fname in enumerate(args.files):
