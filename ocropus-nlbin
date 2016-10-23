@@ -107,8 +107,7 @@ def dshow(image,info):
 def process1(job):
     fname,i = job
     print_info("# %s" % (fname))
-    if args.parallel<2: print_info("=== %s%-3d" % (fname, i))
-    comment = ""
+    if args.parallel<2: print_info("=== %s %-3d" % (fname, i))
     raw = ocrolib.read_image_gray(fname)
     dshow(raw,"input")
     # perform image normalization
@@ -130,9 +129,10 @@ def process1(job):
     else:
         extreme = (sum(image<0.05)+sum(image>0.95))*1.0/prod(image.shape)
     if extreme>0.95:
-        comment += " no-normalization"
+        comment = "no-normalization"
         flat = image
     else:
+        comment = ""
         # if not, we need to flatten it by estimating the local whitelevel
         if args.parallel<2: print_info("flattening")
         warnings.filterwarnings("ignore", category=UserWarning)
