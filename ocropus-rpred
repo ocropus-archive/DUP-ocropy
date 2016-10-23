@@ -286,7 +286,7 @@ if args.estrate:
         terr += err
         total += n
         confusions += conf
-    print_info("%.5f %d %d %d" % (terr*1.0/total, terr, total, args.model))
+    print_info("%.5f %d %d %s" % (terr*1.0/total, terr, total, args.model))
     if args.estconf>0:
         print_info("top %d confusions (count pred gt), comparison: %s" % (
             args.estconf, args.compare))
