@@ -378,7 +378,7 @@ def process1(job):
     if not args.quiet: print_info("computing segmentation")
     segmentation = compute_segmentation(binary,scale)
     if amax(segmentation)>args.maxlines:
-        print_error("%s too many lines %g" % (fname, amax(segmentation)))
+        print_error("%s: too many lines %g" % (fname, amax(segmentation)))
         return
     if not args.quiet: print_info("number of lines %g" % amax(segmentation))
 
