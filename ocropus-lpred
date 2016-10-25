@@ -80,6 +80,8 @@ for trial in range(len(inputs)):
         fname = inputs[trial]
         base,_ = ocrolib.allsplitext(fname)
         line = ocrolib.read_image_gray(fname)
+        if not ocrolib.isbinarized(line):
+            raise ValueError("Image %s is not binarized" % (fname))
         line = preprocess(line)
         if line is None: continue
         outputs = array(network.forward(line))
