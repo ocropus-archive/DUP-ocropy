@@ -750,27 +750,9 @@ def translate_back(outputs,threshold=0.7,pos=0):
     labels,n = measurements.label(outputs[:,0]<threshold)
     mask = tile(labels.reshape(-1,1),(1,outputs.shape[1]))
     maxima = measurements.maximum_position(outputs,mask,arange(1,amax(mask)+1))
-    if pos: return maxima
-    return [c for (r,c) in maxima]
-
-def translate_back_with_probabilities(orig_outputs, threshold=0.7):
-    """Like translate_back, but returns a list of possibilities at each pos.
-
-    Output is a list of [(letter1, score1), (letter2, score2), ...].
-    """
-    outputs = orig_outputs.copy()
-    labels, n = measurements.label(outputs[:,0] < threshold)
-    mask = tile(labels.reshape(-1, 1), (1, outputs.shape[1]))
-
-    out_scores = []
-    maxima = measurements.maximum_position(outputs, mask, arange(1,amax(mask)+1))
-    scores = [(c, outputs[r,c]) for r, c in maxima]
-    out_scores.append(scores)
-
-    scores = zip(*out_scores)
-    return [[(c, score) for c, score in char]
-            for char in scores]
-
+    if pos==1: return maxima # include character position
+    if pos==2: return [(c, outputs[r,c]) for (r,c) in maxima] # include character probabilities
+    return [c for (r,c) in maxima] # only recognized characters
 
 def log_mul(x,y):
     "Perform multiplication in the log domain (i.e., addition)."
