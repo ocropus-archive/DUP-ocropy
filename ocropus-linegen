@@ -119,8 +119,6 @@ def rgeometry(image,eps=0.03,delta=0.3):
     d = c-dot(m,c)+array([randn()*delta,randn()*delta])
     return interpolation.affine_transform(image,m,offset=d,order=1,mode='constant',cval=image[0,0])
 
-from scipy.ndimage import interpolation,filters
-
 def rdistort(image,distort=3.0,dsigma=10.0,cval=0):
     h,w = image.shape
     hs = randn(h,w)
