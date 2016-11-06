@@ -1,9 +1,11 @@
 #!/bin/bash -e
-# For coverage tests, run as
-#     coverage erase
-#     PATH=$PWD:$PATH RUNNER="coverage run --include=$PWD/**/*" ./run-test
-#     coverage html
-# See ./run-coverage
+
+# 'RUNNER' is the binary that the scripts are executed by. It defaults to
+# 'python2' if not set in the environment.
+# Examples:
+#       PATH=$PWD:$PATH RUNNER='coverage run --include=$PWD/**/*' ./run-test
+#       PATH=$PWD:$PATH RUNNER='python3' ./run-test
+# See ./run-coverage for a real example.
 RUNNER="${RUNNER:-python2}"
 
 test_page() {
