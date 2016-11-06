@@ -31,6 +31,7 @@ from ocrolib.native import *
 from ocrolib import edist
 import nutils
 import unicodedata
+from scipy.ndimage import measurements,filters
 
 initial_range = 0.1
 
@@ -741,8 +742,6 @@ def translate_back0(outputs,threshold=0.25):
             if cs[i]!=0:
                 result.append(cs[i])
     return result
-
-from scipy.ndimage import measurements,filters
 
 def translate_back(outputs,threshold=0.7,pos=0):
     """Translate back. Thresholds on class 0, then assigns
