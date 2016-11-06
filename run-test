@@ -3,8 +3,8 @@
 rm -rf temp 
 ocropus-nlbin tests/testpage.png -o temp
 ocropus-gpageseg 'temp/????.bin.png'
-ocropus-rpred -n 'temp/????/??????.bin.png'
-ocropus-hocr 'temp/????.bin.png' -o temp.html
+ocropus-rpred --parallel=0 --nocheck 'temp/0001/01000?.bin.png'
+ocropus-hocr 'temp/????.bin.png' -o temp.html 2>/dev/null
 ocropus-visualize-results temp
 ocropus-gtedit html temp/????/??????.bin.png -o temp-correction.html
 

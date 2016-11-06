@@ -1,0 +1,18 @@
+machine:
+  python:
+    version: 2.7.12
+  environment:
+    # Set matplotlb backend to the non-interactive antigrain image lib
+    MPLBACKEND: Agg
+dependencies:
+  pre:
+    # 'models' folder is cached, don't download twice
+    - cd models && wget -nc http://www.tmbdev.net/en-default.pyrnn.gz
+    # Pipe to cat to hide the progress bars
+    - pip install -r requirements_1.txt|cat
+    - pip install -r requirements_2.txt|cat
+  cache_directories:
+    - models
+test:
+  override:
+    - PATH=$PWD:$PATH ./run-test
