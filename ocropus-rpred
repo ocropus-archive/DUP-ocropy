@@ -36,6 +36,8 @@ parser.add_argument('--llocs',action="store_true",
                     help="output LSTM locations for characters")
 parser.add_argument('--alocs',action="store_true",
                     help="output aligned LSTM locations for characters")
+parser.add_argument('--probabilities',action="store_true",
+                    help="output probabilities for each letter")
 
 # error measures
 parser.add_argument("-r","--estrate",action="store_true",
@@ -181,6 +183,14 @@ def process1(arg):
                     c = network.l2s([c])
                     r = (r-args.pad)*scale
                     locs.write("%s\t%.1f\n"%(c,r))
+
+    if args.probabilities:
+        # output character probabilities
+        result = lstm.translate_back(network.outputs,pos=2)
+        with codecs.open(base+".prob","w","utf-8") as file:
+            for c,p in result:
+                c = network.l2s([c])
+                file.write("%s\t%s\n"%(c,p))
 
     if not args.nonormalize:
         pred = ocrolib.normalize_text(pred)

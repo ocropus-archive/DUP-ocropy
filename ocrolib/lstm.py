@@ -745,13 +745,18 @@ def translate_back0(outputs,threshold=0.25):
 from scipy.ndimage import measurements,filters
 
 def translate_back(outputs,threshold=0.7,pos=0):
-    """Translate back. Thresholds on class 0, then assigns
-    the maximum class to each region."""
+    """Translate back. Thresholds on class 0, then assigns the maximum class to
+    each region. ``pos`` determines the depth of character information returned:
+        * `pos=0`: Return list of recognized characters
+        * `pos=1`: Return list of position-character tuples
+        * `pos=2`: Return list of character-probability tuples
+     """
     labels,n = measurements.label(outputs[:,0]<threshold)
     mask = tile(labels.reshape(-1,1),(1,outputs.shape[1]))
     maxima = measurements.maximum_position(outputs,mask,arange(1,amax(mask)+1))
-    if pos: return maxima
-    return [c for (r,c) in maxima]
+    if pos==1: return maxima # include character position
+    if pos==2: return [(c, outputs[r,c]) for (r,c) in maxima] # include character probabilities
+    return [c for (r,c) in maxima] # only recognized characters
 
 def log_mul(x,y):
     "Perform multiplication in the log domain (i.e., addition)."
