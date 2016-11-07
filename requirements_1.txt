@@ -5,3 +5,4 @@ beautifulsoup4>=4.3.2
 numexpr>=2.4
 Cython>=0.22
 Pillow>=2.7.0
+lxml>=3.5.0
