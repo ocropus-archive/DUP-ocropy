@@ -665,15 +665,11 @@ def expand_args(args):
     else:
         return args
 
-data_paths = [
+_data_paths = [
     ".",
-    "./models",
-    "./data",
-    "./gui",
-    "/usr/local/share/ocropus/models",
-    "/usr/local/share/ocropus/data",
-    "/usr/local/share/ocropus/gui",
-    "/usr/local/share/ocropus",
+    "models",
+    "data",
+    "gui",
 ]
 
 def ocropus_find_file(fname,gz=1):
@@ -684,13 +680,28 @@ def ocropus_find_file(fname,gz=1):
     if gz:
         if os.path.exists(fname+".gz"):
             return fname+".gz"
-    for path in data_paths:
-        full = path+"/"+fname
+
+    for path in _data_paths:
+        full = os.path.join(path, fname)
         if os.path.exists(full): return full
     if gz:
-        for path in data_paths:
-            full = path+"/"+fname+".gz"
+        for path in _data_paths:
+            full = os.path.join(path, fname + ".gz")
             if os.path.exists(full): return full
+
+    share_path = os.path.dirname(inspect.getfile(inspect.currentframe()))
+    share_path = os.path.join(share_path,
+                              os.pardir, os.pardir, os.pardir, os.pardir,
+                              'share', 'ocropus')
+
+    for path in _data_paths:
+        full = os.path.join(share_path, path, fname)
+        if os.path.exists(full): return full
+    if gz:
+        for path in _data_paths:
+            full = os.path.join(share_path, path, fname + ".gz")
+            if os.path.exists(full): return full
+
     raise FileNotFound(fname)
 
 def fvariant(fname,kind,gt=""):
