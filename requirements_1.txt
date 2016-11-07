@@ -1,6 +1,5 @@
 numpy>=1.9.2
 scipy>=0.15.1
 matplotlib>=1.4.3
-numexpr>=2.4
 Pillow>=2.7.0
 lxml>=3.5.0
