@@ -1,1 +1,1 @@
-curl python-scipy python-matplotlib python-tables imagemagick python-lxml
+python-scipy python-matplotlib python-tables python-lxml
