@@ -8,6 +8,7 @@ import re
 import numpy
 import unicodedata
 import sys
+import sysconfig
 import warnings
 import inspect
 import glob
@@ -677,36 +678,34 @@ _data_paths = [
 def ocropus_find_file(fname, gz=True):
     """Search for OCRopus-related files in common OCRopus install
     directories (as well as the current directory)."""
-    if os.path.exists(fname):
-        return fname
-    if gz:
-        if os.path.exists(fname + ".gz"):
-            return fname + ".gz"
+    possible_prefixes = [os.curdir]
 
-    for path in _data_paths:
-        full = os.path.join(path, fname)
-        if os.path.exists(full):
-            return full
-    if gz:
+    local_share_path = os.path.dirname(inspect.getfile(inspect.currentframe()))
+    local_share_path = os.path.join(local_share_path,
+                                    os.pardir, os.pardir, os.pardir, os.pardir,
+                                    "share", "ocropus")
+    if os.path.isdir(local_share_path):
+        possible_prefixes += [local_share_path]
+
+    share_path = os.path.join(sysconfig.get_config_var("datarootdir"),
+                              "ocropus")
+    if os.path.isdir(share_path):
+        possible_prefixes += [share_path]
+
+    env_path = os.getenv("OCROPUS_DATA")
+    if env_path:
+        possible_prefixes.insert(0, env_path)
+
+    for prefix in possible_prefixes:
         for path in _data_paths:
-            full = os.path.join(path, fname + ".gz")
+            full = os.path.join(prefix, path, fname)
             if os.path.exists(full):
                 return full
-
-    share_path = os.path.dirname(inspect.getfile(inspect.currentframe()))
-    share_path = os.path.join(share_path,
-                              os.pardir, os.pardir, os.pardir, os.pardir,
-                              "share", "ocropus")
-
-    for path in _data_paths:
-        full = os.path.join(share_path, path, fname)
-        if os.path.exists(full):
-            return full
-    if gz:
-        for path in _data_paths:
-            full = os.path.join(share_path, path, fname + ".gz")
-            if os.path.exists(full):
-                return full
+        if gz:
+            for path in _data_paths:
+                full = os.path.join(prefix, path, fname + ".gz")
+                if os.path.exists(full):
+                    return full
 
     raise FileNotFound(fname)
 
