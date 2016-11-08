@@ -680,16 +680,23 @@ def ocropus_find_file(fname, gz=True):
     directories (as well as the current directory)."""
     possible_prefixes = [os.curdir]
 
-    local_share_path = os.path.dirname(inspect.getfile(inspect.currentframe()))
-    local_share_path = os.path.join(local_share_path,
-                                    os.pardir, os.pardir, os.pardir, os.pardir,
-                                    "share", "ocropus")
-    if os.path.isdir(local_share_path):
+    install_share_path = os.path.dirname(
+        inspect.getfile(inspect.currentframe()))
+    install_share_path = os.path.join(install_share_path, os.pardir, os.pardir,
+                                      os.pardir, os.pardir, "share", "ocropus")
+    if os.path.isdir(install_share_path):
+        possible_prefixes += [install_share_path]
+
+    local_share_path = os.path.join(sysconfig.get_config_var("prefix"),
+                                    "local", "share", "ocropus")
+    if (local_share_path != install_share_path and
+            os.path.isdir(local_share_path)):
         possible_prefixes += [local_share_path]
 
     share_path = os.path.join(sysconfig.get_config_var("datarootdir"),
                               "ocropus")
-    if os.path.isdir(share_path):
+    if (share_path not in [install_share_path, local_share_path] and
+            os.path.isdir(share_path)):
         possible_prefixes += [share_path]
 
     env_path = os.getenv("OCROPUS_DATA")
@@ -701,9 +708,8 @@ def ocropus_find_file(fname, gz=True):
             full = os.path.join(prefix, path, fname)
             if os.path.exists(full):
                 return full
-        if gz:
-            for path in _data_paths:
-                full = os.path.join(prefix, path, fname + ".gz")
+            if gz:
+                full = full + ".gz"
                 if os.path.exists(full):
                     return full
 
