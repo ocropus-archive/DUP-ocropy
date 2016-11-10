@@ -35,9 +35,7 @@ Alternatively, dependencies can be installed into a [Python Virtual Environment]
 
     $ virtualenv ocropus_venv/
     $ source ocropus_venv/bin/activate
-    $ pip install -r requirements_1.txt
-    # tables has some dependencies which must be installed first:
-    $ pip install -r requirements_2.txt
+    $ pip install -r requirements.txt
     $ wget -nd http://www.tmbdev.net/en-default.pyrnn.gz
     $ mv en-default.pyrnn.gz models/
 
