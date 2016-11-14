@@ -199,8 +199,6 @@ def process1(job):
         ocrolib.write_image_binary(base+".bin.png",bin)
         ocrolib.write_image_gray(base+".nrm.png",flat)
 
-import ocrolib
-
 if args.debug>0 or args.show>0: args.parallel = 0
 
 if args.output:
