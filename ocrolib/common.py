@@ -7,6 +7,7 @@ import os
 import os.path
 import re
 import sys
+import sysconfig
 import unicodedata
 import warnings
 import inspect
@@ -659,33 +660,65 @@ def expand_args(args):
     else:
         return args
 
-data_paths = [
-    ".",
-    "./models",
-    "./data",
-    "./gui",
-    "/usr/local/share/ocropus/models",
-    "/usr/local/share/ocropus/data",
-    "/usr/local/share/ocropus/gui",
-    "/usr/local/share/ocropus",
-]
 
-def ocropus_find_file(fname,gz=1):
-    """Search for OCRopus-related files in common OCRopus install
-    directories (as well as the current directory)."""
-    if os.path.exists(fname):
-        return fname
-    if gz:
-        if os.path.exists(fname+".gz"):
-            return fname+".gz"
-    for path in data_paths:
-        full = path+"/"+fname
-        if os.path.exists(full): return full
-    if gz:
-        for path in data_paths:
-            full = path+"/"+fname+".gz"
-            if os.path.exists(full): return full
+def ocropus_find_file(fname, gz=True):
+    """Search for `fname` in one of the OCRopus data directories, as well as
+    the current directory). If `gz` is True, search also for gzipped files.
+
+    Result of searching $fname is the first existing in:
+
+        * $base/$fname
+        * $base/$fname.gz       # if gz
+        * $base/model/$fname
+        * $base/model/$fname.gz # if gz
+        * $base/data/$fname
+        * $base/data/$fname.gz  # if gz
+        * $base/gui/$fname
+        * $base/gui/$fname.gz   # if gz
+
+    $base can be four base paths:
+        * `$OCROPUS_DATA` environment variable
+        * current working directory
+        * ../../../../share/ocropus from this file's install location
+        * `/usr/local/share/ocropus`
+        * `$PREFIX/share/ocropus` ($PREFIX being the Python installation 
+           prefix, usually `/usr`)
+    """
+    possible_prefixes = []
+
+    if os.getenv("OCROPUS_DATA"):
+        possible_prefixes.append(os.getenv("OCROPUS_DATA"))
+
+    possible_prefixes.append(os.curdir)
+
+    possible_prefixes.append(os.path.normpath(os.path.join(
+        os.path.dirname(inspect.getfile(inspect.currentframe())),
+        os.pardir, os.pardir, os.pardir, os.pardir, "share", "ocropus")))
+
+    possible_prefixes.append("/usr/local/share/ocropus")
+
+    possible_prefixes.append(os.path.join(
+        sysconfig.get_config_var("datarootdir"), "ocropus"))
+
+
+    # Unique entries with preserved order in possible_prefixes
+    # http://stackoverflow.com/a/15637398/201318
+    possible_prefixes = [possible_prefixes[i] for i in
+            sorted(numpy.unique(possible_prefixes, return_index=True)[1])]
+    for prefix in possible_prefixes:
+        if not os.path.isdir(prefix):
+            continue
+        for basename in [".", "models", "data", "gui"]:
+            if not os.path.isdir(os.path.join(prefix, basename)):
+                continue
+            full = os.path.join(prefix, basename, fname)
+            if os.path.exists(full):
+                return full
+            if gz and os.path.exists(full + ".gz"):
+                return full + ".gz"
+
     raise FileNotFound(fname)
+
 
 def fvariant(fname,kind,gt=""):
     """Find the file variant corresponding to the given file name.
