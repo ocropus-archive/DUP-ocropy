@@ -824,35 +824,6 @@ def save_component(file,object,verbose=0,verify=0):
         with open(file,"rb") as stream:
             pickle.load(stream)
 
-def load_component(file):
-    """Load a component. This handles various special cases,
-    including old-style C++ recognizers (soon to be gotten rid of),
-    python expressions ("=package.ObjectName(arg1,arg2)"),
-    and simple pickled Python objects (default)."""
-    if file[0]=="=":
-        return pyconstruct(file[1:])
-    elif file[0]=="@":
-        file = file[1:]
-    with open(file,"r") as stream:
-        # FIXME -- get rid of this eventually
-        start = stream.read(128)
-    if start.startswith("<object>\nlinerec\n"):
-        # FIXME -- get rid of this eventually
-        warnings.warn("loading old-style linerec: %s"%file)
-        result = RecognizeLine()
-        import ocropus
-        result.comp = ocropus.load_IRecognizeLine(file)
-        return result
-    if start.startswith("<object>"):
-        # FIXME -- get rid of this eventually
-        warnings.warn("loading old-style cmodel: %s"%file)
-        import ocroold
-        result = ocroold.Model()
-        import ocropus
-        result.comp = ocropus.load_IModel(file)
-        return result
-    return load_object(file)
-
 def binarize_range(image,dtype='B',threshold=0.5):
     """Binarize an image by its range."""
     threshold = (amax(image)+amin(image))*threshold
