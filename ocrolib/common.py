@@ -8,17 +8,15 @@ import os.path
 import re
 import sys
 import unicodedata
-import warnings
 import inspect
 import glob
-import pickle
 import cPickle
 from ocrolib.exceptions import (BadClassLabel, BadInput, FileNotFound,
                                 OcropusException)
 
 import numpy
 from numpy import (amax, amin, array, bitwise_and, clip, dtype, mean, minimum,
-                   nan, ndarray, sin, sqrt, zeros)
+                   nan, sin, sqrt, zeros)
 import pylab
 from pylab import (clf, cm, ginput, gray, imshow, ion, subplot, where)
 from scipy.ndimage import morphology, measurements
