@@ -11,25 +11,29 @@ import unicodedata
 import warnings
 import inspect
 import glob
+import pickle
 import cPickle
 from ocrolib.exceptions import (BadClassLabel, BadInput, FileNotFound,
                                 OcropusException, Unimplemented)
 
 import numpy
-from numpy import *
+from numpy import (amax, amin, array, bitwise_and, clip, dtype, mean, minimum,
+                   nan, ndarray, sin, sqrt, zeros)
 import pylab
-from pylab import imshow
-from scipy.ndimage import morphology,measurements
+from pylab import (clf, cm, draw, ginput, gray, imshow, ion, subplot, where)
+from scipy.ndimage import morphology, measurements
 import PIL
 
 from default import getlocal
-from toplevel import *
+from toplevel import (checks, ABINARY2, AINT2, AINT3, BOOL, DARKSEG, GRAYSCALE,
+                      LIGHTSEG, LINESEG, PAGESEG)
 import chars
 import codecs
 import ligatures
 import lstm
 import morph
 import multiprocessing
+import sl
 
 pickle_mode = 2
 
@@ -43,7 +47,7 @@ def deprecated(f):
             return f(*args,**kw)
     return _wrap
 
-
+
 
 ################################################################
 # text normalization
@@ -405,10 +409,10 @@ class RegionExtractor:
         mh,mw = mask.shape
         box = self.bbox(index)
         r0,c0,r1,c1 = box
-        subimage = improc.cut(image,(r0,c0,r0+mh-2*margin,c0+mw-2*margin),margin,bg=bg)
+        subimage = sl.cut(image,(r0,c0,r0+mh-2*margin,c0+mw-2*margin),margin,bg=bg)
         return where(mask,subimage,bg)
 
-
+
 
 ################################################################
 ### Object reading and writing
@@ -456,7 +460,7 @@ def load_object(fname,zip=0,nofind=0,verbose=0):
             unpickler.find_global = unpickle_find_global
             return unpickler.load()
 
-
+
 
 ################################################################
 ### Simple record object.
@@ -522,7 +526,7 @@ def check_valid_class_label(s):
 
 def summary(x):
     """Summarize a datatype as a string (for display and debugging)."""
-    if type(x)==numpy.ndarray:
+    if type(x)==ndarray:
         return "<ndarray %s %s>"%(x.shape,x.dtype)
     if type(x)==str and len(x)>10:
         return '"%s..."'%x
@@ -897,7 +901,7 @@ def draw_aligned(result,axis=None):
         axis = subplot(111)
     axis.imshow(NI(result.image),cmap=cm.gray)
     cseg = result.cseg
-    if type(cseg)==numpy.ndarray: cseg = common.lseg2narray(cseg)
+    if type(cseg)==ndarray: cseg = common.lseg2narray(cseg)
     ocropy.make_line_segmentation_black(cseg)
     ocropy.renumber_labels(cseg,1)
     bboxes = ocropy.rectarray()
@@ -931,13 +935,13 @@ def showrgb(r,g=None,b=None):
     imshow(array([r,g,b]).transpose([1,2,0]))
 
 def showgrid(l,cols=None,n=400,titles=None,xlabels=None,ylabels=None,**kw):
-    if "cmap" not in kw: kw["cmap"] = pylab.cm.gray
+    if "cmap" not in kw: kw["cmap"] = cm.gray
     if "interpolation" not in kw: kw["interpolation"] = "nearest"
     n = minimum(n,len(l))
     if cols is None: cols = int(sqrt(n))
     rows = (n+cols-1)//cols
     for i in range(n):
-        pylab.xticks([]); pylab.yticks([])
+        pylab.xticks([]) ;pylab.yticks([])
         pylab.subplot(rows,cols,i+1)
         pylab.imshow(l[i],**kw)
         if titles is not None: pylab.title(str(titles[i]))
