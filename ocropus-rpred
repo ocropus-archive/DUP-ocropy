@@ -9,6 +9,7 @@ import argparse
 import matplotlib
 from multiprocessing import Pool
 from ocrolib import edist
+from ocrolib.exceptions import FileNotFound, OcropusException
 from collections import Counter
 from ocrolib import lstm
 from scipy.ndimage import measurements
@@ -113,7 +114,7 @@ try:
   for x in network.walk():
       if isinstance(x,lstm.LSTM):
           x.allocate(5000)
-except ocrolib.FileNotFound:
+except FileNotFound:
   print_error("")
   print_error("Cannot find OCR model file:" + args.model)
   print_error("Download a model and put it into:" + ocrolib.default.modeldir)
