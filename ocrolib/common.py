@@ -661,51 +661,61 @@ def expand_args(args):
         return args
 
 
-_data_paths = [
-    ".",
-    "models",
-    "data",
-    "gui",
-]
-
-
 def ocropus_find_file(fname, gz=True):
-    """Search for OCRopus-related files in common OCRopus install
-    directories (as well as the current directory)."""
-    possible_prefixes = [os.curdir]
+    """Search for `fname` in one of the OCRopus data directories, as well as
+    the current directory). If `gz` is True, search also for gzipped files.
 
-    install_share_path = os.path.dirname(
-        inspect.getfile(inspect.currentframe()))
-    install_share_path = os.path.join(install_share_path, os.pardir, os.pardir,
-                                      os.pardir, os.pardir, "share", "ocropus")
-    if os.path.isdir(install_share_path):
-        possible_prefixes += [install_share_path]
+    Result of searching $fname is the first existing in:
 
-    local_share_path = os.path.join(sysconfig.get_config_var("prefix"),
-                                    "local", "share", "ocropus")
-    if (local_share_path != install_share_path and
-            os.path.isdir(local_share_path)):
-        possible_prefixes += [local_share_path]
+        * $base/$fname
+        * $base/$fname.gz       # if gz
+        * $base/model/$fname
+        * $base/model/$fname.gz # if gz
+        * $base/data/$fname
+        * $base/data/$fname.gz  # if gz
+        * $base/gui/$fname
+        * $base/gui/$fname.gz   # if gz
 
-    share_path = os.path.join(sysconfig.get_config_var("datarootdir"),
-                              "ocropus")
-    if (share_path not in [install_share_path, local_share_path] and
-            os.path.isdir(share_path)):
-        possible_prefixes += [share_path]
+    $base can be four base paths:
+        * `$OCROPUS_DATA` environment variable
+        * current working directory
+        * ../../../../share/ocropus from this file's install location
+        * `/usr/local/share/ocropus`
+        * `$PREFIX/share/ocropus` ($PREFIX being the Python installation 
+           prefix, usually `/usr`)
+    """
+    possible_prefixes = []
 
-    env_path = os.getenv("OCROPUS_DATA")
-    if env_path:
-        possible_prefixes.insert(0, env_path)
+    if os.getenv("OCROPUS_DATA"):
+        possible_prefixes.append(os.getenv("OCROPUS_DATA"))
 
+    possible_prefixes.append(os.curdir)
+
+    possible_prefixes.append(os.path.normpath(os.path.join(
+        os.path.dirname(inspect.getfile(inspect.currentframe())),
+        os.pardir, os.pardir, os.pardir, os.pardir, "share", "ocropus")))
+
+    possible_prefixes.append("/usr/local/share/ocropus")
+
+    possible_prefixes.append(os.path.join(
+        sysconfig.get_config_var("datarootdir"), "ocropus"))
+
+
+    # Unique entries with preserved order in possible_prefixes
+    # http://stackoverflow.com/a/15637398/201318
+    possible_prefixes = [possible_prefixes[i] for i in
+            sorted(numpy.unique(possible_prefixes, return_index=True)[1])]
     for prefix in possible_prefixes:
-        for path in _data_paths:
-            full = os.path.join(prefix, path, fname)
+        if not os.path.isdir(prefix):
+            continue
+        for basename in [".", "models", "data", "gui"]:
+            if not os.path.isdir(os.path.join(prefix, basename)):
+                continue
+            full = os.path.join(prefix, basename, fname)
             if os.path.exists(full):
                 return full
-            if gz:
-                full = full + ".gz"
-                if os.path.exists(full):
-                    return full
+            if gz and os.path.exists(full + ".gz"):
+                return full + ".gz"
 
     raise FileNotFound(fname)
 
