@@ -28,6 +28,7 @@ import common as ocrolib
 from pylab import *
 from collections import defaultdict
 from ocrolib.native import *
+from ocrolib.exceptions import RecognitionError
 from ocrolib import edist
 import nutils
 import unicodedata
@@ -549,7 +550,7 @@ class LSTM(Network):
         n = len(xs)
         self.last_n = n
         N = len(self.gi)
-        if n>N: raise ocrolib.RecognitionError("input too large for LSTM model")
+        if n>N: raise RecognitionError("input too large for LSTM model")
         self.reset(n)
         forward_py(n,N,ni,ns,na,xs,
                    self.source,
