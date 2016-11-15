@@ -781,39 +781,6 @@ def obinfo(ob):
         result += str(ob.shape)
     return result
 
-def save_component(file,object,verbose=0,verify=0):
-    """Save an object to disk in an appropriate format.  If the object
-    is a wrapper for a native component (=inherits from
-    CommonComponent and has a comp attribute, or is in package
-    ocropus), write it using ocropus.save_component in native format.
-    Otherwise, write it using Python's pickle.  We could use pickle
-    for everything (since the native components pickle), but that
-    would be slower and more confusing."""
-    if hasattr(object,"save_component"):
-        object.save_component(file)
-        return
-    if object.__class__.__name__=="CommonComponent" and hasattr(object,"comp"):
-        # FIXME -- get rid of this eventually
-        import ocropus
-        ocropus.save_component(file,object.comp)
-        return
-    if type(object).__module__=="ocropus":
-        import ocropus
-        ocropus.save_component(file,object)
-        return
-    if verbose:
-        print "[save_component]"
-    if verbose:
-        for k,v in object.__dict__.items():
-            print ":",k,obinfo(v)
-    with open(file,"wb") as stream:
-        pickle.dump(object,stream,pickle_mode)
-    if verify:
-        if verbose:
-            print "[trying to read it again]"
-        with open(file,"rb") as stream:
-            pickle.load(stream)
-
 def binarize_range(image,dtype='B',threshold=0.5):
     """Binarize an image by its range."""
     threshold = (amax(image)+amin(image))*threshold
