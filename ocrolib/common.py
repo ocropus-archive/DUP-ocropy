@@ -513,16 +513,6 @@ def check_valid_class_label(s):
     else:
         raise BadClassLabel(s)
 
-def summary(x):
-    """Summarize a datatype as a string (for display and debugging)."""
-    if type(x)==ndarray:
-        return "<ndarray %s %s>"%(x.shape,x.dtype)
-    if type(x)==str and len(x)>10:
-        return '"%s..."'%x
-    if type(x)==list and len(x)>10:
-        return '%s...'%x
-    return str(x)
-
 ################################################################
 ### file name manipulation
 ################################################################
