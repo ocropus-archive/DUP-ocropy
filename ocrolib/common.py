@@ -14,13 +14,13 @@ import glob
 import pickle
 import cPickle
 from ocrolib.exceptions import (BadClassLabel, BadInput, FileNotFound,
-                                OcropusException, Unimplemented)
+                                OcropusException)
 
 import numpy
 from numpy import (amax, amin, array, bitwise_and, clip, dtype, mean, minimum,
                    nan, ndarray, sin, sqrt, zeros)
 import pylab
-from pylab import (clf, cm, draw, ginput, gray, imshow, ion, subplot, where)
+from pylab import (clf, cm, ginput, gray, imshow, ion, subplot, where)
 from scipy.ndimage import morphology, measurements
 import PIL
 
@@ -883,39 +883,6 @@ def binarize_range(image,dtype='B',threshold=0.5):
     scale = 1
     if dtype=='B': scale = 255
     return array(scale*(image>threshold),dtype=dtype)
-
-def draw_pseg(pseg,axis=None):
-    if axis is None:
-        axis = subplot(111)
-    h = pseg.dim(1)
-    regions = ocropy.RegionExtractor()
-    regions.setPageLines(pseg)
-    for i in range(1,regions.length()):
-        x0,y0,x1,y1 = (regions.x0(i),regions.y0(i),regions.x1(i),regions.y1(i))
-        p = patches.Rectangle((x0,h-y1-1),x1-x0,y1-y0,edgecolor="red",fill=0)
-        axis.add_patch(p)
-
-def draw_aligned(result,axis=None):
-    raise Unimplemented("FIXME draw_aligned")
-    if axis is None:
-        axis = subplot(111)
-    axis.imshow(NI(result.image),cmap=cm.gray)
-    cseg = result.cseg
-    if type(cseg)==ndarray: cseg = common.lseg2narray(cseg)
-    ocropy.make_line_segmentation_black(cseg)
-    ocropy.renumber_labels(cseg,1)
-    bboxes = ocropy.rectarray()
-    ocropy.bounding_boxes(bboxes,cseg)
-    s = re.sub(r'\s+','',result.output)
-    h = cseg.dim(1)
-    for i in range(1,bboxes.length()):
-        r = bboxes.at(i)
-        x0,y0,x1,y1 = (r.x0,r.y0,r.x1,r.y1)
-        p = patches.Rectangle((x0,h-y1-1),x1-x0,y1-y0,edgecolor=(0.0,0.0,1.0,0.5),fill=0)
-        axis.add_patch(p)
-        if i>0 and i-1<len(s):
-            axis.text(x0,h-y0-1,s[i-1],color="red",weight="bold",fontsize=14)
-    draw()
 
 def plotgrid(data,d=10,shape=(30,30)):
     """Plot a list of images on a grid."""
