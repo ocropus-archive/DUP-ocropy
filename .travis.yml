@@ -7,6 +7,10 @@ python:
 
 sudo: false
 
+cache:
+  directories:
+    - $HOME/.cache/matplotlib
+
 install:
   # Install miniconda
   # -----------------
