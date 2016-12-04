@@ -19,8 +19,8 @@ def label(image,**kw):
     except: pass
     types = ["int32","uint32","int64","unit64","int16","uint16"]
     for t in types:
-	try: return measurements.label(array(image,dtype=t),**kw) 
-	except: pass
+        try: return measurements.label(array(image,dtype=t),**kw)
+        except: pass
     # let it raise the same exception as before
     return measurements.label(image,**kw)
 
@@ -34,8 +34,8 @@ def find_objects(image,**kw):
     except: pass
     types = ["int32","uint32","int64","unit64","int16","uint16"]
     for t in types:
-	try: return measurements.find_objects(array(image,dtype=t),**kw) 
-	except: pass
+        try: return measurements.find_objects(array(image,dtype=t),**kw)
+        except: pass
     # let it raise the same exception as before
     return measurements.find_objects(image,**kw)
     
