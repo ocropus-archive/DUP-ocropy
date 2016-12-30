@@ -246,7 +246,7 @@ def plot_network_info(network,transcript,pred,gta):
 
 start = args.start if args.start>=0 else network.last_trial
 
-for trial in range(start,args.ntrain):
+for trial in range(start, args.ntrain):
     network.last_trial = trial+1
 
     do_display = (args.display>0 and trial%args.display==0)
@@ -296,10 +296,10 @@ for trial in range(start,args.ntrain):
     acs = lstm.translate_back(network.aligned)
     gta = "".join(codec.decode(acs))
     if not args.quiet:
-        print "%d %.2f %s"%(trial,network.error,line.shape),fname
-        print "   TRU:",repr(transcript)
-        print "   ALN:",repr(gta[:len(transcript)+5])
-        print "   OUT:",repr(pred[:len(transcript)+5])
+        print("%d %.2f %s %s"%(trial, network.error, line.shape, fname))
+        print("   TRU:{}".format(transcript.encode('utf-8')))
+        print("   ALN:{}".format(gta[:len(transcript)+5].encode('utf-8')))
+        print("   OUT:{}".format(pred[:len(transcript)+5].encode('utf-8')))
 
     pred = re.sub(' ','_',pred)
     gta = re.sub(' ','_',gta)
@@ -319,4 +319,3 @@ for trial in range(start,args.ntrain):
         if args.movie is not None:
             draw()
             savefig("%s-%08d.png"%(args.movie,trial),bbox_inches=0)
-
