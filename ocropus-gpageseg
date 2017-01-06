@@ -143,7 +143,7 @@ def DSAVE(title,image):
 ### This attempts to find column separators, either as extended
 ### vertical black lines or extended vertical whitespace.
 ### It will work fairly well in simple cases, but for unusual
-### documents, you need to tune the parameters.
+### documents, you need to tune the parameters or use a mask.
 ################################################################
 
 def compute_separators_morph(binary,scale):
@@ -223,7 +223,18 @@ def compute_colseps(binary,scale):
         #colseps = compute_colseps_morph(binary,scale)
         colseps = maximum(colseps,seps)
         binary = minimum(binary,1-seps)
+    binary,colseps = apply_mask(binary,colseps)
     return colseps,binary
+
+def apply_mask(binary,colseps):
+    try:
+        mask = ocrolib.read_image_binary(base+".mask.png")
+    except IOError:
+        return colseps
+    masked_seps = maximum(colseps,mask)
+    binary = minimum(binary,1-masked_seps)
+    DSAVE("masked_seps", masked_seps)
+    return binary,masked_seps
 
 
 
