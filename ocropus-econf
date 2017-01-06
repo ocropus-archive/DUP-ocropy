@@ -8,7 +8,7 @@ from pylab import *
 from ocrolib import edist
 
 # disable rank warnings from polyfit
-warnings.simplefilter('ignore',numpy.RankWarning) 
+warnings.simplefilter('ignore',numpy.RankWarning)
 
 parser = argparse.ArgumentParser(description = """
 Compute the edit distances between ground truth and recognizer output.
@@ -84,11 +84,11 @@ for fname,e,t,m,c in outputs:
 if perfile is not None: perfile.close()
 if allconf is not None: allconf.close()
 
-sys.stderr.write("errors    %8d\n"%errs)
-sys.stderr.write("missing   %8d\n"%missing)
-sys.stderr.write("total     %8d\n"%total)
-sys.stderr.write("err       %8.3f %%\n"%(errs*100.0/total))
-sys.stderr.write("errnomiss %8.3f %%\n"%((errs-missing)*100.0/total))
+print "errors    %8d"%errs
+print "missing   %8d"%missing
+print "total     %8d"%total
+print "err       %8.3f %%"%(errs*100.0/total)
+print "errnomiss %8.3f %%"%((errs-missing)*100.0/total)
 
 if args.confusion>0:
     for (a,b),v in counts.most_common(args.confusion):
