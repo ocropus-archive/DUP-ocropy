@@ -230,7 +230,7 @@ def apply_mask(binary,colseps):
     try:
         mask = ocrolib.read_image_binary(base+".mask.png")
     except IOError:
-        return colseps
+        return binary,colseps
     masked_seps = maximum(colseps,mask)
     binary = minimum(binary,1-masked_seps)
     DSAVE("masked_seps", masked_seps)
