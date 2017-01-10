@@ -209,7 +209,7 @@ def compute_colseps_conv(binary,scale=1.0):
     seps = maximum_filter(seps,(int(2*scale),1))
     DSAVE("3seps",seps)
     # select only the biggest column separators
-    seps = morph.select_regions(seps,sl.dim0,min=args.csminheight*scale,nbest=args.maxcolseps+1)
+    seps = morph.select_regions(seps,sl.dim0,min=args.csminheight*scale,nbest=args.maxcolseps)
     DSAVE("4seps",seps)
     return seps
 
