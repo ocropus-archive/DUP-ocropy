@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+from __future__ import print_function
+
 import warnings,numpy,argparse,sys,os,os.path,multiprocessing,codecs
 from collections import Counter
 import ocrolib
@@ -92,6 +94,6 @@ sys.stderr.write("errnomiss %8.3f %%\n"%((errs-missing)*100.0/total))
 
 if args.confusion>0:
     for (a,b),v in counts.most_common(args.confusion):
-        print "%d\t%s\t%s"%(v,a,b)
+        print("%d\t%s\t%s" % (v, a, b))
 
-print errs*1.0/total
+print(errs * 1.0 / total)

@@ -3,6 +3,8 @@
 ### inside Python.
 ################################################################
 
+from __future__ import print_function
+
 import os,hashlib
 from ctypes import c_int,c_float,c_double,c_byte
 from numpy.ctypeslib import ndpointer
@@ -47,19 +49,19 @@ def compile_and_find(c_string,prefix=".pynative",opt="-g -O4",libs="-lm",
     m = hashlib.md5()
     m.update(c_string)
     base = m.hexdigest()
-    if verbose: print "hash",base,"for",c_string[:20],"..."
+    if verbose: print("hash", base, "for", c_string[:20], "...")
     with lockfile(os.path.join(prefix,base+".lock")):
         so = os.path.join(prefix,base+".so")
         if os.path.exists(so):
-            if verbose: print "returning existing",so
+            if verbose: print("returning existing", so)
             return so
         source = os.path.join(prefix,base+".c")
         with open(source,"w") as stream:
             stream.write(c_string)
         cmd = "gcc "+opt+" "+libs+" "+options+" "+source+" -o "+so
-        if verbose: print "#",cmd
+        if verbose: print("#", cmd)
         if os.system(cmd)!=0:
-            if verbose: print "compilation failed"
+            if verbose: print("compilation failed")
             raise CompileError()
         return so
 
