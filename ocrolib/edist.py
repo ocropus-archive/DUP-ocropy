@@ -21,6 +21,8 @@ def xlevenshtein(a,b,context=1):
     """Calculates the Levensthein distance between a and b
     and generates a list of differences by context."""
     n, m = len(a), len(b)
+    assert m>0 # xlevenshtein should only be called with non-empty b string (ground truth)
+    if a == b: return 0,[] # speed up for the easy case
     sources = empty((m+1,n+1),object)
     sources[:,:] = None
     dists = 99999*ones((m+1,n+1))
