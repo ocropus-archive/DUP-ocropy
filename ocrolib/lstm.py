@@ -27,10 +27,14 @@
 from __future__ import print_function
 
 import common as ocrolib
-from pylab import *
+from numpy import (amax, amin, argmax, arange, array, clip, concatenate, dot,
+                   exp, isnan, log, maximum, mean, nan, ones, outer, roll, tanh,
+                   tile, vstack, zeros)
+from pylab import (clf, cm, figure, ginput, imshow, newaxis, rand, subplot,
+                   where)
 from collections import defaultdict
-from ocrolib.native import *
-from ocrolib import edist
+from ocrolib.exceptions import RecognitionError
+from ocrolib.edist import levenshtein
 import nutils
 import unicodedata
 from scipy.ndimage import measurements,filters
@@ -551,7 +555,7 @@ class LSTM(Network):
         n = len(xs)
         self.last_n = n
         N = len(self.gi)
-        if n>N: raise ocrolib.RecognitionError("input too large for LSTM model")
+        if n>N: raise RecognitionError("input too large for LSTM model")
         self.reset(n)
         forward_py(n,N,ni,ns,na,xs,
                    self.source,
@@ -907,7 +911,7 @@ class SeqRecognizer:
         self.error = sum(deltas**2)
         self.error_log.append(self.error**.5/len(cs))
         # compute class error
-        self.cerror = edist.levenshtein(cs,result)
+        self.cerror = levenshtein(cs,result)
         self.cerror_log.append((self.cerror,len(cs)))
         # training keys
         self.key_log.append(key)
