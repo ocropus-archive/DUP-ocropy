@@ -2,6 +2,8 @@
 ### text image generation with Cairo
 ################################################################
 
+from __future__ import print_function
+
 import ctypes
 import cairo
 from cairoextras import *
@@ -104,7 +106,7 @@ def pango_render_string(s,spec=None,fontfile=None,size=None,bg=(0.0,0.0,0.0),fg=
         else:
             layout.set_markup(s)
         ((xbear,ybear,tw,th),_) = layout.get_pixel_extents()
-        # print xbear,ybear,tw,th
+        # print(xbear, ybear, tw, th)
         tw = tw+2*pad
         th = th+2*pad
         if tw<=w and th<=h: break
@@ -160,12 +162,12 @@ def gauss_distort(images,maxdelta=2.0,sigma=10.0):
     deltas /= max(amax(deltas),-amin(deltas))
     deltas *= maxdelta
     xy = transpose(array(meshgrid(range(n),range(m))),axes=[0,2,1])
-    # print xy.shape,deltas.shape
+    # print(xy.shape, deltas.shape)
     deltas +=  xy
     return [map_coordinates(image,deltas,order=1) for image in images]
 
 if __name__=="__main__":
-    # print sorted(pango_families())
+    # print(sorted(pango_families()))
     ion()
     show()
     while 1:

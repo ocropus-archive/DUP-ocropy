@@ -24,6 +24,8 @@
 # Author: Thomas M. Breuel
 # License: Apache 2.0
 
+from __future__ import print_function
+
 import common as ocrolib
 from numpy import (amax, amin, argmax, arange, array, clip, concatenate, dot,
                    exp, isnan, log, maximum, mean, nan, ones, outer, roll, tanh,
@@ -227,7 +229,7 @@ class Network:
             ds.ravel()[:] = self.momentum * ds.ravel()[:] + self.learning_rate * dw.ravel()[:]
             w.ravel()[:] += ds.ravel()[:]
             if self.verbose:
-                print n,(amin(w),amax(w)),(amin(dw),amax(dw))
+                print(n, (amin(w), amax(w)), (amin(dw), amax(dw)))
 
 ''' The following are subclass responsibility:
 
@@ -285,7 +287,7 @@ class Logreg(Network):
         vars = sorted("W2".split())
         for v in vars:
             a = array(getattr(self,v))
-            print v,a.shape,amin(a),amax(a)
+            print(v, a.shape, amin(a), amax(a))
     def weights(self):
         yield self.W2,self.DW2,"Logreg"
 
@@ -329,7 +331,7 @@ class Softmax(Network):
         vars = sorted("W2".split())
         for v in vars:
             a = array(getattr(self,v))
-            print v,a.shape,amin(a),amax(a)
+            print(v, a.shape, amin(a), amax(a))
     def weights(self):
         yield self.W2,self.DW2,"Softmax"
 
@@ -518,7 +520,7 @@ class LSTM(Network):
         vars = sorted(vars)
         for v in vars:
             a = array(getattr(self,v))
-            print v,a.shape,amin(a),amax(a)
+            print(v, a.shape, amin(a), amax(a))
     def preSave(self):
         self.max_n = max(500,len(self.ci))
         self.allocate(1)

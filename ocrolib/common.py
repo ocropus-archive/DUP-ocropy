@@ -3,10 +3,13 @@
 ### common functions for data structures, file name manipulation, etc.
 ################################################################
 
+from __future__ import print_function
+
 import os
 import os.path
 import re
 import sys
+import sysconfig
 import unicodedata
 import inspect
 import glob
@@ -181,7 +184,7 @@ def write_image_gray(fname,image,normalize=0,verbose=0):
     type, its values are clipped to the range [0,1],
     multiplied by 255 and converted to unsigned bytes.  Otherwise,
     the image must be of type unsigned byte."""
-    if verbose: print "# writing",fname
+    if verbose: print("# writing", fname)
     if isfloatarray(image):
         image = array(255*clip(image,0.0,1.0),'B')
     assert image.dtype==dtype('B'),"array has wrong dtype: %s"%image.dtype
@@ -204,7 +207,7 @@ def write_image_binary(fname,image,verbose=0):
     """Write a binary image to disk. This verifies first that the given image
     is, in fact, binary.  The image may be of any type, but must consist of only
     two values."""
-    if verbose: print "# writing",fname
+    if verbose: print("# writing", fname)
     assert image.ndim==2
     image = array(255*(image>midrange(image)),'B')
     im = array2pil(image)
@@ -361,7 +364,7 @@ class RegionExtractor:
         """Return the bounding box in raster coordinates
         (row0,col0,row1,col1)."""
         r = self.objects[i]
-        # print "@@@bbox",i,r
+        # print("@@@bbox", i, r)
         return (r[0].start,r[1].start,r[0].stop,r[1].stop)
     def bboxMath(self,i):
         """Return the bounding box in math coordinates
@@ -375,7 +378,7 @@ class RegionExtractor:
     def mask(self,index,margin=0):
         """Return the mask for component index."""
         b = self.objects[index]
-        #print "@@@mask",index,b
+        # print("@@@mask", index, b)
         m = self.labels[b]
         m[m!=index] = 0
         if margin>0: m = pad_by(m,margin)
@@ -432,7 +435,7 @@ def load_object(fname,zip=0,nofind=0,verbose=0):
     if not nofind:
         fname = ocropus_find_file(fname)
     if verbose:
-        print "# loading object",fname
+        print("# loading object", fname)
     if zip==0 and fname.endswith(".gz"):
         zip = 1
     if zip>0:
@@ -582,33 +585,65 @@ def expand_args(args):
     else:
         return args
 
-data_paths = [
-    ".",
-    "./models",
-    "./data",
-    "./gui",
-    "/usr/local/share/ocropus/models",
-    "/usr/local/share/ocropus/data",
-    "/usr/local/share/ocropus/gui",
-    "/usr/local/share/ocropus",
-]
 
-def ocropus_find_file(fname,gz=1):
-    """Search for OCRopus-related files in common OCRopus install
-    directories (as well as the current directory)."""
-    if os.path.exists(fname):
-        return fname
-    if gz:
-        if os.path.exists(fname+".gz"):
-            return fname+".gz"
-    for path in data_paths:
-        full = path+"/"+fname
-        if os.path.exists(full): return full
-    if gz:
-        for path in data_paths:
-            full = path+"/"+fname+".gz"
-            if os.path.exists(full): return full
+def ocropus_find_file(fname, gz=True):
+    """Search for `fname` in one of the OCRopus data directories, as well as
+    the current directory). If `gz` is True, search also for gzipped files.
+
+    Result of searching $fname is the first existing in:
+
+        * $base/$fname
+        * $base/$fname.gz       # if gz
+        * $base/model/$fname
+        * $base/model/$fname.gz # if gz
+        * $base/data/$fname
+        * $base/data/$fname.gz  # if gz
+        * $base/gui/$fname
+        * $base/gui/$fname.gz   # if gz
+
+    $base can be four base paths:
+        * `$OCROPUS_DATA` environment variable
+        * current working directory
+        * ../../../../share/ocropus from this file's install location
+        * `/usr/local/share/ocropus`
+        * `$PREFIX/share/ocropus` ($PREFIX being the Python installation 
+           prefix, usually `/usr`)
+    """
+    possible_prefixes = []
+
+    if os.getenv("OCROPUS_DATA"):
+        possible_prefixes.append(os.getenv("OCROPUS_DATA"))
+
+    possible_prefixes.append(os.curdir)
+
+    possible_prefixes.append(os.path.normpath(os.path.join(
+        os.path.dirname(inspect.getfile(inspect.currentframe())),
+        os.pardir, os.pardir, os.pardir, os.pardir, "share", "ocropus")))
+
+    possible_prefixes.append("/usr/local/share/ocropus")
+
+    possible_prefixes.append(os.path.join(
+        sysconfig.get_config_var("datarootdir"), "ocropus"))
+
+
+    # Unique entries with preserved order in possible_prefixes
+    # http://stackoverflow.com/a/15637398/201318
+    possible_prefixes = [possible_prefixes[i] for i in
+            sorted(numpy.unique(possible_prefixes, return_index=True)[1])]
+    for prefix in possible_prefixes:
+        if not os.path.isdir(prefix):
+            continue
+        for basename in [".", "models", "data", "gui"]:
+            if not os.path.isdir(os.path.join(prefix, basename)):
+                continue
+            full = os.path.join(prefix, basename, fname)
+            if os.path.exists(full):
+                return full
+            if gz and os.path.exists(full + ".gz"):
+                return full + ".gz"
+
     raise FileNotFound(fname)
+
 
 def fvariant(fname,kind,gt=""):
     """Find the file variant corresponding to the given file name.
@@ -743,7 +778,7 @@ def pyconstruct(s):
     path = s[:s.find("(")]
     if "." in path:
         module = path[:path.rfind(".")]
-        print "import",module
+        print("import", module)
         exec "import "+module in env
     return eval(s,env)
 
@@ -778,6 +813,7 @@ def obinfo(ob):
         result += " "
         result += str(ob.shape)
     return result
+
 
 def binarize_range(image,dtype='B',threshold=0.5):
     """Binarize an image by its range."""

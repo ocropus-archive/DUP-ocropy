@@ -2,6 +2,8 @@
 ### various add-ons to the SciPy morphology package
 ################################################################
 
+from __future__ import print_function
+
 from numpy import *
 import pylab
 from pylab import *
@@ -19,8 +21,8 @@ def label(image,**kw):
     except: pass
     types = ["int32","uint32","int64","unit64","int16","uint16"]
     for t in types:
-	try: return measurements.label(array(image,dtype=t),**kw) 
-	except: pass
+        try: return measurements.label(array(image,dtype=t),**kw)
+        except: pass
     # let it raise the same exception as before
     return measurements.label(image,**kw)
 
@@ -34,8 +36,8 @@ def find_objects(image,**kw):
     except: pass
     types = ["int32","uint32","int64","unit64","int16","uint16"]
     for t in types:
-	try: return measurements.find_objects(array(image,dtype=t),**kw) 
-	except: pass
+        try: return measurements.find_objects(array(image,dtype=t),**kw)
+        except: pass
     # let it raise the same exception as before
     return measurements.find_objects(image,**kw)
     
@@ -198,9 +200,9 @@ def select_regions(binary,f,min=0,nbest=100000):
     for i in best[-nbest:]:
         if scores[i]<=min: continue
         keep[i+1] = 1
-    # print scores,best[-nbest:],keep
-    # print sorted(list(set(labels.ravel())))
-    # print sorted(list(set(keep[labels].ravel())))
+    # print(scores, best[-nbest:], keep)
+    # print(sorted(list(set(labels.ravel()))))
+    # print(sorted(list(set(keep[labels].ravel()))))
     return keep[labels]
 
 @checks(SEGMENTATION)
