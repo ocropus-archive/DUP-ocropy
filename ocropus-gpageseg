@@ -22,6 +22,7 @@ from scipy.ndimage.filters import gaussian_filter,uniform_filter,maximum_filter
 from multiprocessing import Pool
 import ocrolib
 from ocrolib import psegutils,morph,sl
+from ocrolib.exceptions import OcropusException
 from ocrolib.toplevel import *
 
 parser = argparse.ArgumentParser()
@@ -422,7 +423,7 @@ def safe_process1(job):
     fname,i = job
     try:
         process1(job)
-    except ocrolib.OcropusException as e:
+    except OcropusException as e:
         if e.trace:
             traceback.print_exc()
         else:
