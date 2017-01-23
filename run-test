@@ -1,7 +1,9 @@
 #!/bin/bash -e
 
+BASE=$(dirname $0)
+
 rm -rf temp 
-ocropus-nlbin tests/testpage.png -o temp
+ocropus-nlbin $BASE/tests/testpage.png -o temp
 ocropus-gpageseg 'temp/????.bin.png'
 ocropus-rpred -n 'temp/????/??????.bin.png'
 ocropus-hocr 'temp/????.bin.png' -o temp.html
