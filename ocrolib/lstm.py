@@ -28,8 +28,8 @@ from __future__ import print_function
 
 import common as ocrolib
 from numpy import (amax, amin, argmax, arange, array, clip, concatenate, dot,
-                   exp, isnan, log, maximum, mean, nan, ones, outer, roll, tanh,
-                   tile, vstack, zeros)
+                   exp, isnan, log, maximum, mean, nan, ones, outer, roll, sum,
+                   tanh, tile, vstack, zeros)
 from pylab import (clf, cm, figure, ginput, imshow, newaxis, rand, subplot,
                    where)
 from collections import defaultdict

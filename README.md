@@ -1,12 +1,8 @@
-------------------------
-| Project Announcements
-|:-----------------------
-| The text line recognizer has been ported to C++ and is now a separate project, the CLSTM project, available here: https://github.com/tmbdev/clstm
-| Please welcome @zuphilip and @kba as additional project maintainers. @tmb is busy developing new DNN models for document analysis (among other things). (10/15/2016)
-------------------------
-
 ocropy
 ======
+
+[![Build Status](https://travis-ci.org/tmbdev/ocropy.svg)](https://travis-ci.org/tmbdev/ocropy)
+[![Join the chat at https://gitter.im/tmbdev/ocropy](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/tmbdev/ocropy?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
 OCRopus is a collection of document analysis programs, not a turn-key OCR system.
 In order to apply it to your documents, you may need to do some image preprocessing,
@@ -20,9 +16,6 @@ trace by default since it seems to confuse too many users).
 
 Installing
 ----------
-
-[![Build Status](https://travis-ci.org/tmbdev/ocropy.svg)](https://travis-ci.org/tmbdev/ocropy)
-[![Join the chat at https://gitter.im/tmbdev/ocropy](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/tmbdev/ocropy?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
 To install OCRopus dependencies system-wide:
 
@@ -96,6 +89,13 @@ This will create a directory "linegen/..." containing training data
 suitable for training OCRopus with synthetic data.
 
 ## Roadmap
+
+------------------------
+| Project Announcements
+|:-----------------------
+| The text line recognizer has been ported to C++ and is now a separate project, the CLSTM project, available here: https://github.com/tmbdev/clstm
+| Please welcome @zuphilip and @kba as additional project maintainers. @tmb is busy developing new DNN models for document analysis (among other things). (10/15/2016)
+------------------------
 
 A lot of excellent packages have become available for deep learning, vision, and GPU computing over the last few years.
 At the same time, it has become feasible now to address problems like layout analysis and text line following
