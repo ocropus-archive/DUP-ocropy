@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+from __future__ import print_function
+
 import argparse,sys,os,os.path,multiprocessing
 import ocrolib
 from ocrolib import edist
@@ -45,16 +47,16 @@ total = 0
 missing = 0
 for fname,e,t,m in sorted(outputs):
     if not args.erroronly:
-        print "%6d\t%6d\t%s"%(e,t,fname)
+        print("%6d\t%6d\t%s" % (e, t, fname))
     errs += e
     total += t
     missing += m
 
-sys.stderr.write("errors    %8d\n"%errs)
-sys.stderr.write("missing   %8d\n"%missing)
-sys.stderr.write("total     %8d\n"%total)
-sys.stderr.write("err       %8.3f %%\n"%(errs*100.0/total))
-sys.stderr.write("errnomiss %8.3f %%\n"%((errs-missing)*100.0/total))
+print("errors    %8d"%errs)
+print("missing   %8d"%missing)
+print("total     %8d"%total)
+print("err       %8.3f %%"%(errs*100.0/total))
+print("errnomiss %8.3f %%"%((errs-missing)*100.0/total))
 
 if args.erroronly:
-    print errs*1.0/total
+    print(errs * 1.0 / total)

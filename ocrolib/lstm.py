@@ -24,11 +24,17 @@
 # Author: Thomas M. Breuel
 # License: Apache 2.0
 
+from __future__ import print_function
+
 import common as ocrolib
-from pylab import *
+from numpy import (amax, amin, argmax, arange, array, clip, concatenate, dot,
+                   exp, isnan, log, maximum, mean, nan, ones, outer, roll, sum,
+                   tanh, tile, vstack, zeros)
+from pylab import (clf, cm, figure, ginput, imshow, newaxis, rand, subplot,
+                   where)
 from collections import defaultdict
-from ocrolib.native import *
-from ocrolib import edist
+from ocrolib.exceptions import RecognitionError
+from ocrolib.edist import levenshtein
 import nutils
 import unicodedata
 from scipy.ndimage import measurements,filters
@@ -223,7 +229,7 @@ class Network:
             ds.ravel()[:] = self.momentum * ds.ravel()[:] + self.learning_rate * dw.ravel()[:]
             w.ravel()[:] += ds.ravel()[:]
             if self.verbose:
-                print n,(amin(w),amax(w)),(amin(dw),amax(dw))
+                print(n, (amin(w), amax(w)), (amin(dw), amax(dw)))
 
 ''' The following are subclass responsibility:
 
@@ -281,7 +287,7 @@ class Logreg(Network):
         vars = sorted("W2".split())
         for v in vars:
             a = array(getattr(self,v))
-            print v,a.shape,amin(a),amax(a)
+            print(v, a.shape, amin(a), amax(a))
     def weights(self):
         yield self.W2,self.DW2,"Logreg"
 
@@ -325,7 +331,7 @@ class Softmax(Network):
         vars = sorted("W2".split())
         for v in vars:
             a = array(getattr(self,v))
-            print v,a.shape,amin(a),amax(a)
+            print(v, a.shape, amin(a), amax(a))
     def weights(self):
         yield self.W2,self.DW2,"Softmax"
 
@@ -514,7 +520,7 @@ class LSTM(Network):
         vars = sorted(vars)
         for v in vars:
             a = array(getattr(self,v))
-            print v,a.shape,amin(a),amax(a)
+            print(v, a.shape, amin(a), amax(a))
     def preSave(self):
         self.max_n = max(500,len(self.ci))
         self.allocate(1)
@@ -549,7 +555,7 @@ class LSTM(Network):
         n = len(xs)
         self.last_n = n
         N = len(self.gi)
-        if n>N: raise ocrolib.RecognitionError("input too large for LSTM model")
+        if n>N: raise RecognitionError("input too large for LSTM model")
         self.reset(n)
         forward_py(n,N,ni,ns,na,xs,
                    self.source,
@@ -905,7 +911,7 @@ class SeqRecognizer:
         self.error = sum(deltas**2)
         self.error_log.append(self.error**.5/len(cs))
         # compute class error
-        self.cerror = edist.levenshtein(cs,result)
+        self.cerror = levenshtein(cs,result)
         self.cerror_log.append((self.cerror,len(cs)))
         # training keys
         self.key_log.append(key)

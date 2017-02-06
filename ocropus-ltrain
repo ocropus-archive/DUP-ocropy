@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 
+from __future__ import print_function
+
 import random as pyrandom
 import re
 from pylab import *
@@ -65,7 +67,7 @@ codec = lstm.Codec().init(charset)
 lnorm = lineest.CenterNormalizer(args.lineheight)
 
 network = clstm.make_BIDILSTM()
-print "# network",(codec.size(),args.hiddensize,lnorm.target_height)
+print("# network", (codec.size(), args.hiddensize, lnorm.target_height))
 network.init(codec.size(),args.hiddensize,lnorm.target_height)
 network = clstm.CNetwork(network)
 if args.load: network.load(args.load)
@@ -97,7 +99,7 @@ for trial in range(args.start,args.ntrain):
         base,_ = ocrolib.allsplitext(fname)
         line = ocrolib.read_image_gray(fname)
         transcript = ocrolib.read_text(base+".gt.txt")
-        print "#",trial,fname,line.shape
+        print("#", trial, fname, line.shape)
         line = preprocess(line)
         if line is None: continue
         cs = array(codec.encode(transcript),'i')
@@ -110,9 +112,9 @@ for trial in range(args.start,args.ntrain):
         pred = "".join(codec.decode(result))
         acs = lstm.translate_back(aligned)
         gta = "".join(codec.decode(acs))
-        print "   TRU:",repr(transcript)
-        print "   ALN:",repr(gta[:len(transcript)+5])
-        print "   OUT:",repr(pred[:len(transcript)+5])
+        print("   TRU:", repr(transcript))
+        print("   ALN:", repr(gta[:len(transcript)+5]))
+        print("   OUT:", repr(pred[:len(transcript)+5]))
         if trial%20==0:
             clf()
             subplot(311)
@@ -126,5 +128,5 @@ for trial in range(args.start,args.ntrain):
             imshow(outputs.T,cmap=cm.hot,interpolation='bilinear',aspect='auto')
             tight_layout()
         ginput(1,0.01)
-    except e:
-        print e
+    except Exception as e:
+        print(e)
