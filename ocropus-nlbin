@@ -10,7 +10,7 @@ from scipy import stats
 import multiprocessing
 import ocrolib
 
-
+
 
 parser = argparse.ArgumentParser("""
 Image binarization using non-linear processing.
@@ -45,7 +45,7 @@ args.files = ocrolib.glob_all(args.files)
 if len(args.files)<1:
     parser.print_help()
     sys.exit(0)
-
+
 
 def print_info(*objs):
     print("INFO: ", *objs, file=sys.stdout)
@@ -84,17 +84,6 @@ def estimate_skew_angle(image,angles):
         ginput(1,args.debug)
     _,a = max(estimates)
     return a
-
-def select_regions(binary,f,min=0,nbest=100000):
-    labels,n = measurements.label(binary)
-    objects = measurements.find_objects(labels)
-    scores = [f(o) for o in objects]
-    best = argsort(scores)
-    keep = zeros(len(objects)+1,'B')
-    for i in best[-nbest:]:
-        if scores[i]<=min: continue
-        keep[i+1] = 1
-    return keep[labels]
 
 def H(s): return s[0].stop-s[0].start
 def W(s): return s[1].stop-s[1].start

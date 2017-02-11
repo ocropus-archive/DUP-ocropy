@@ -227,7 +227,7 @@ def compute_colseps(binary,scale):
         binary = minimum(binary,1-seps)
     return colseps,binary
 
-
+
 
 ################################################################
 ### Text Line Finding.
@@ -283,7 +283,7 @@ def compute_line_seeds(binary,bottom,top,colseps,scale):
     seeds,_ = morph.label(seeds)
     return seeds
 
-
+
 
 ################################################################
 ### The complete line segmentation process.
@@ -326,7 +326,7 @@ def compute_segmentation(binary,scale):
     segmentation = llabels*binary
     return segmentation
 
-
+
 
 ################################################################
 ### Processing each file.
