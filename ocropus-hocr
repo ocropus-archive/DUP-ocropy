@@ -24,6 +24,8 @@ For each page like 'book/0001.bin.png', it uses the following files:
 parser.add_argument("-b","--nobreaks",action="store_true",help="don't output line breaks")
 parser.add_argument("-p","--nopars",action="store_true",help="don't output paragraphs")
 parser.add_argument("-s","--fscale",type=float,default=1.0,help="scale factor for translating xheights into font size (use 0 to disable), default: %(default)s")
+parser.add_argument('--naming',default="hex",
+                    help='naming convention for the lines either "hex" (default), "dec", or own pattern')
 parser.add_argument("-o","--output",default="book.html",help="output file, default: %(default)s")
 parser.add_argument('files',nargs='+')
 args = parser.parse_args()
@@ -43,13 +45,13 @@ def PN(*args):
 E("writing to",args.output)
 median_xheight = None
 dirs = [ocrolib.allsplitext(name)[0] for name in args.files]
-xhfiles = python.sum([glob.glob(d+"/??????.xheight") for d in dirs],[])
+xhfiles = python.sum([glob.glob(d+"/*.xheight") for d in dirs],[])
 if len(xhfiles)>5:
     xheights = [float(ocrolib.read_text(f)) for f in xhfiles]
     if len(xheights)>0:
         median_xheight = median(xheights)
 else:    
-    lfiles = python.sum([glob.glob(d+"/??????.bin.png") for d in dirs],[])
+    lfiles = python.sum([glob.glob(d+"/*.bin.png") for d in dirs],[])
     pyrandom.shuffle(lfiles)
     if len(lfiles)>0:
         median_xheight = 0.5*median([imread(f).shape[0] for f in lfiles[:100]])
@@ -106,8 +108,15 @@ for arg in args.files:
             last_coords = (x0,y0)
 
             # get the text for the line itself
-
-            lbase = "%s/%06x"%(base,id)
+            if (args.naming=="hex"):
+               pattern = "01%04x"
+            elif (args.naming=="dec"):
+               pattern = "%04d"
+            else:
+               pattern = args.naming
+            pattern = "%s/"+pattern
+            id=id-0x010000
+            lbase = pattern%(base,id)
 
             if not os.path.exists(lbase+".txt"):
                 E("note: line %s produced no output (it may not have contained text)"%(lbase+".bin.png"))

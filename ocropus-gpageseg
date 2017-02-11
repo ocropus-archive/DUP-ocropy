@@ -33,6 +33,8 @@ parser.add_argument('-n','--nocheck',action="store_true",
 parser.add_argument('-z','--zoom',type=float,default=0.5,
                     help='zoom for page background estimation, smaller=faster, default: %(default)s')
 
+parser.add_argument('--naming',default="hex",
+                    help='naming convention for the lines either "hex" (default), "dec", or own pattern')
 parser.add_argument('--gray',action='store_true',
                     help='output grayscale lines as well, default: %(default)s')
 parser.add_argument('-q','--quiet',action='store_true',
@@ -406,12 +408,20 @@ def process1(job):
     lines = [lines[i] for i in lsort]
     ocrolib.write_page_segmentation("%s.pseg.png"%outputdir,segmentation)
     cleaned = ocrolib.remove_noise(binary,args.noise)
+    if (args.naming=="hex"):
+       pattern = "01%04x"
+    elif (args.naming=="dec"):
+       pattern = "%04d"
+    else:
+       pattern = args.naming
+    pattern = "%s/"+pattern
+    print_info(pattern)
     for i,l in enumerate(lines):
         binline = psegutils.extract_masked(1-cleaned,l,pad=args.pad,expand=args.expand)
-        ocrolib.write_image_binary("%s/01%04x.bin.png"%(outputdir,i+1),binline)
+        ocrolib.write_image_binary(pattern%(outputdir,i+1)+".bin.png",binline)
         if args.gray:
             grayline = psegutils.extract_masked(gray,l,pad=args.pad,expand=args.expand)
-            ocrolib.write_image_gray("%s/01%04x.nrm.png"%(outputdir,i+1),grayline)
+            ocrolib.write_image_gray(pattern%(outputdir,i+1)+".nrm.png",grayline)
     print_info("%6d  %s %4.1f %d" % (i, fname,  scale,  len(lines)))
 
 if len(args.files)==1 and os.path.isdir(args.files[0]):
