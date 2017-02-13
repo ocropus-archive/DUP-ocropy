@@ -13,3 +13,4 @@ build/
 *.os
 *.a
 *.so
+.idea/
