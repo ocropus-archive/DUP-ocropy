@@ -2,6 +2,8 @@ ocropy
 ======
 
 [![Build Status](https://travis-ci.org/tmbdev/ocropy.svg)](https://travis-ci.org/tmbdev/ocropy)
+[![license](https://img.shields.io/github/license/tmbdev/ocropy.svg)](https://github.com/tmbdev/ocropy/blob/master/LICENSE)
+[![Wiki](https://img.shields.io/badge/wiki-9%20pages-orange.svg)](https://github.com/tmbdev/ocropy/wiki)
 [![Join the chat at https://gitter.im/tmbdev/ocropy](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/tmbdev/ocropy?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
 OCRopus is a collection of document analysis programs, not a turn-key OCR system.
