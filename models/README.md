@@ -1,4 +1,4 @@
-You find the official two and more existing models listed in the wiki:
+You can find a list of available pre-trained models for ocropy here:
 
 https://github.com/tmbdev/ocropy/wiki/Models
 
