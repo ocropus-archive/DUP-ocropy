@@ -20,8 +20,6 @@ from ocrolib.exceptions import (BadClassLabel, BadInput, FileNotFound,
 import numpy
 from numpy import (amax, amin, array, bitwise_and, clip, dtype, mean, minimum,
                    nan, sin, sqrt, zeros)
-import pylab
-from pylab import (clf, cm, ginput, gray, imshow, ion, subplot, where)
 from scipy.ndimage import morphology, measurements
 import PIL
 
@@ -839,19 +837,6 @@ def showrgb(r,g=None,b=None):
     if b is None: b = r
     imshow(array([r,g,b]).transpose([1,2,0]))
 
-def showgrid(l,cols=None,n=400,titles=None,xlabels=None,ylabels=None,**kw):
-    if "cmap" not in kw: kw["cmap"] = cm.gray
-    if "interpolation" not in kw: kw["interpolation"] = "nearest"
-    n = minimum(n,len(l))
-    if cols is None: cols = int(sqrt(n))
-    rows = (n+cols-1)//cols
-    for i in range(n):
-        pylab.xticks([]) ;pylab.yticks([])
-        pylab.subplot(rows,cols,i+1)
-        pylab.imshow(l[i],**kw)
-        if titles is not None: pylab.title(str(titles[i]))
-        if xlabels is not None: pylab.xlabel(str(xlabels[i]))
-        if ylabels is not None: pylab.ylabel(str(ylabels[i]))
 
 def gt_explode(s):
     l = re.split(r'_(.{1,4})_',s)
