@@ -1,7 +1,5 @@
 #!/usr/bin/env python
-
 from __future__ import print_function
-
 import traceback
 import codecs
 from pylab import *
@@ -15,19 +13,16 @@ from ocrolib.exceptions import FileNotFound, OcropusException
 from collections import Counter
 from ocrolib import lstm
 from scipy.ndimage import measurements
-
+import sys
 parser = argparse.ArgumentParser("apply an RNN recognizer")
-
 # error checking
 parser.add_argument('-n','--nocheck',action="store_true",
                     help="disable error checking on inputs")
-
 # line dewarping (usually contained in model)
 parser.add_argument("-e","--nolineest",action="store_true",
                     help="target line height (overrides recognizer)")
 parser.add_argument("-l","--height",default=-1,type=int,
                     help="target line height (overrides recognizer)")
-
 # recognition
 parser.add_argument('-m','--model',default="en-default.pyrnn.gz",
                     help="line recognition model")
@@ -41,7 +36,6 @@ parser.add_argument('--alocs',action="store_true",
                     help="output aligned LSTM locations for characters")
 parser.add_argument('--probabilities',action="store_true",
                     help="output probabilities for each letter")
-
 # error measures
 parser.add_argument("-r","--estrate",action="store_true",
                     help="estimate error rate only")
@@ -51,7 +45,6 @@ parser.add_argument("-C","--compare",default="nospace",
                     help="string comparison used for error rate estimate")
 parser.add_argument("--context",default=0,type=int,
                     help="context for error reporting")
-
 # debugging
 parser.add_argument('-s','--show',default=-1,type=float,
                     help="if >0, shows recognition output in a window and waits this many seconds")
@@ -61,18 +54,14 @@ parser.add_argument("-q","--quiet",action="store_true",
                     help="turn off most output")
 parser.add_argument("-Q","--parallel",type=int,default=1,
                     help="number of parallel processes to use, default: %(default)s")
-
 # input files
 parser.add_argument("files",nargs="+",
                     help="input files; glob and @ expansion performed")
 args = parser.parse_args()
-
 def print_info(*objs):
     print("INFO: ", *objs, file=sys.stdout)
-
 def print_error(*objs):
     print("ERROR: ", *objs, file=sys.stderr)
-
 def check_line(image):
     if len(image.shape)==3: return "input image is color image %s"%(image.shape,)
     if mean(image)<median(image): return "image may be inverted"
@@ -88,28 +77,19 @@ def check_line(image):
     if ncomps<lo: return "too few connected components (got %d, wanted >=%d)"%(ncomps,lo)
     if ncomps>hi*ratio: return "too many connected components (got %d, wanted <=%d)"%(ncomps,hi)
     return None
-
 # compute the list of files to be classified
-
 if len(args.files)<1:
     parser.print_help()
     sys.exit(0)
-
 print_info("")
 print_info("#"*10,(" ".join(sys.argv))[:60])
 print_info("")
-
-
 inputs = ocrolib.glob_all(args.files)
 if not args.quiet: print_info("#inputs: %d" % (len(inputs)))
-
 # disable parallelism when anything is being displayed
-
 if args.show>=0 or args.save is not None:
     args.parallel = 1
-
 # load the network used for classification
-
 try:
   network = ocrolib.load_object(args.model,verbose=1)
   for x in network.walk(): x.postLoad()
@@ -123,17 +103,12 @@ except FileNotFound:
   print_error("(Or override the location with OCROPUS_DATA.)")
   print_error("")
   sys.exit(1)
-
 # get the line normalizer from the loaded network, or optionally
 # let the user override it (this is not very useful)
-
 lnorm = getattr(network,"lnorm",None)
-
 if args.height>0:
     lnorm.setHeight(args.height)
-
 # process one file
-
 def process1(arg):
     (trial,fname) = arg
     base,_ = ocrolib.allsplitext(fname)
@@ -141,13 +116,11 @@ def process1(arg):
     raw_line = line.copy()
     if prod(line.shape)==0: return None
     if amax(line)==amin(line): return None
-
     if not args.nocheck:
         check = check_line(amax(line)-line)
         if check is not None:
             print_error("%s SKIPPED %s (use -n to disable this check)" % (fname, check))
             return (0,[],0,trial,fname)
-
     if not args.nolineest:
         assert "dew.png" not in fname,"don't dewarp dewarped images"
         temp = amax(line)-line
@@ -156,10 +129,8 @@ def process1(arg):
         line = lnorm.normalize(line,cval=amax(line))
     else:
         assert "dew.png" in fname,"only apply to dewarped images"
-
     line = lstm.prepare_line(line,args.pad)
     pred = network.predictString(line)
-
     if args.llocs:
         # output recognized LSTM locations of characters
         result = lstm.translate_back(network.outputs,pos=1)
@@ -172,7 +143,6 @@ def process1(arg):
                 locs.write("%s\t%.1f\n"%(c,r))
                 #plot([r,r],[0,20],'r' if c==" " else 'b')
         #ginput(1,1000)
-
     if args.alocs:
         # output recognized and aligned LSTM locations
         if os.path.exists(base+".gt.txt"):
@@ -186,7 +156,6 @@ def process1(arg):
                     c = network.l2s([c])
                     r = (r-args.pad)*scale
                     locs.write("%s\t%.1f\n"%(c,r))
-
     if args.probabilities:
         # output character probabilities
         result = lstm.translate_back(network.outputs,pos=2)
@@ -194,10 +163,8 @@ def process1(arg):
             for c,p in result:
                 c = network.l2s([c])
                 file.write("%s\t%s\n"%(c,p))
-
     if not args.nonormalize:
         pred = ocrolib.normalize_text(pred)
-
     if args.estrate:
         try:
             gt = ocrolib.read_text(base+".gt.txt")
@@ -214,11 +181,9 @@ def process1(arg):
             print_info("%3d %3d %s:%s" % (err, len(gt), fname, pred))
             sys.stdout.flush()
         return (err,conf,len(gt0),trial,fname)
-
     if not args.quiet:
         print_info(fname+":"+pred)
     ocrolib.write_text(base+".txt",pred)
-
     if args.show>0 or args.save is not None:
         ion()
         matplotlib.rc('xtick',labelsize=7)
@@ -257,7 +222,6 @@ def process1(arg):
         else:
             ginput(1,args.show)
     return None
-
 def safe_process1(arg):
     trial,fname = arg
     try:
@@ -271,37 +235,10 @@ def safe_process1(arg):
     except:
         traceback.print_exc()
         return None
-
-if args.parallel==0:
-    result = []
-    for trial,fname in enumerate(inputs):
-        result.append(process1((trial,fname)))
-elif args.parallel==1:
-    result = []
-    for trial,fname in enumerate(inputs):
-        result.append(safe_process1((trial,fname)))
-else:
-    pool = Pool(processes=args.parallel)
-    result = []
-    for r  in pool.imap_unordered(safe_process1,enumerate(inputs)):
-        result.append(r)
-        if not args.quiet and len(result)%100==0:
-            sys.stderr.write("==== %d of %d\n"%(len(result),len(inputs)))
-
+path=sys.argv[2]
+print (path)
+inputs = [f for f in os.listdir(path) if f.endswith('.png')]
+result = []
+for trial,fname in enumerate(inputs):
+    result.append(process1((trial,path+fname)))
 result = [x for x in result if x is not None]
-
-confusions = []
-
-if args.estrate:
-    terr = 0
-    total = 0
-    for err,conf,n,trial,fname, in result:
-        terr += err
-        total += n
-        confusions += conf
-    print_info("%.5f %d %d %s" % (terr*1.0/total, terr, total, args.model))
-    if args.estconf>0:
-        print_info("top %d confusions (count pred gt), comparison: %s" % (
-            args.estconf, args.compare))
-        for ((u,v),n) in Counter(confusions).most_common(args.estconf):
-            print_info("%6d %-4s %-4s" % (n, u ,v))
