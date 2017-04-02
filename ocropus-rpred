@@ -2,17 +2,16 @@
 from __future__ import print_function
 import traceback
 import codecs
-from pylab import *
 import os.path
 import ocrolib
 import argparse
-import matplotlib
 from multiprocessing import Pool
 from ocrolib import edist
 from ocrolib.exceptions import FileNotFound, OcropusException
 from collections import Counter
 from ocrolib import lstm
 from scipy.ndimage import measurements
+import numpy as np
 import sys
 parser = argparse.ArgumentParser("apply an RNN recognizer")
 # error checking
@@ -114,8 +113,8 @@ def process1(arg):
     base,_ = ocrolib.allsplitext(fname)
     line = ocrolib.read_image_gray(fname)
     raw_line = line.copy()
-    if prod(line.shape)==0: return None
-    if amax(line)==amin(line): return None
+    if np.prod(line.shape)==0: return None
+    if np.amax(line)==np.amin(line): return None
     if not args.nocheck:
         check = check_line(amax(line)-line)
         if check is not None:
@@ -123,10 +122,10 @@ def process1(arg):
             return (0,[],0,trial,fname)
     if not args.nolineest:
         assert "dew.png" not in fname,"don't dewarp dewarped images"
-        temp = amax(line)-line
-        temp = temp*1.0/amax(temp)
+        temp = np.amax(line)-line
+        temp = temp*1.0/np.amax(temp)
         lnorm.measure(temp)
-        line = lnorm.normalize(line,cval=amax(line))
+        line = lnorm.normalize(line,cval=np.amax(line))
     else:
         assert "dew.png" in fname,"only apply to dewarped images"
     line = lstm.prepare_line(line,args.pad)
@@ -184,43 +183,6 @@ def process1(arg):
     if not args.quiet:
         print_info(fname+":"+pred)
     ocrolib.write_text(base+".txt",pred)
-    if args.show>0 or args.save is not None:
-        ion()
-        matplotlib.rc('xtick',labelsize=7)
-        matplotlib.rc('ytick',labelsize=7)
-        matplotlib.rcParams.update({"font.size":7})
-        if os.path.exists(base+".gt.txt"):
-            transcript = ocrolib.read_text(base+".gt.txt")
-            transcript = ocrolib.normalize_text(transcript)
-        else:
-            transcript = pred
-        pred2 = network.trainString(line,transcript,update=0)
-        figure("result",figsize=(1400//75,800//75),dpi=75)
-        clf()
-        subplot(311)
-        imshow(line.T,cmap=cm.gray)
-        title(transcript)
-        subplot(312)
-        gca().set_xticks([])
-        imshow(network.outputs.T[1:],vmin=0,cmap=cm.hot)
-        title(pred[:80])
-        subplot(313)
-        plot(network.outputs[:,0],color='yellow',linewidth=3,alpha=0.5)
-        plot(network.outputs[:,1],color='green',linewidth=3,alpha=0.5)
-        plot(amax(network.outputs[:,2:],axis=1),color='blue',linewidth=3,alpha=0.5)
-        plot(network.aligned[:,0],color='orange',linestyle='dashed',alpha=0.7)
-        plot(network.aligned[:,1],color='green',linestyle='dashed',alpha=0.5)
-        plot(amax(network.aligned[:,2:],axis=1),color='blue',linestyle='dashed',alpha=0.5)
-        if args.save is not None:
-            draw()
-            savename = args.save
-            if "%" in savename: savename = savename%trial
-            print_info("saving "+savename)
-            savefig(savename,bbox_inches=0)
-        if trial==len(inputs)-1:
-            ginput(1,99999999)
-        else:
-            ginput(1,args.show)
     return None
 def safe_process1(arg):
     trial,fname = arg
