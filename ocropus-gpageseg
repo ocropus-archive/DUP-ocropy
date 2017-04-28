@@ -57,19 +57,21 @@ group_line.add_argument('--usegauss',action='store_true',
 
 # column parameters
 group_column = parser.add_argument_group('column parameters')
-group_column.add_argument('--maxseps',type=int,default=2,
+group_column.add_argument('--maxseps',type=int,default=0,
                     help='maximum black column separators, default: %(default)s')
 group_column.add_argument('--sepwiden',type=int,default=10,
                     help='widen black separators (to account for warping), default: %(default)s')
+# Obsolete parameter for 'also check for black column separators'
+# which can now be triggered simply by a positive maxseps value.
 group_column.add_argument('-b','--blackseps',action="store_true",
-                    help="also check for black column separators")
+                    help=argparse.SUPPRESS)
 
 # whitespace column separators
 group_column.add_argument('--maxcolseps',type=int,default=3,
                     help='maximum # whitespace column separators, default: %(default)s')
 group_column.add_argument('--csminheight',type=float,default=10,
                     help='minimum column height (units=scale), default: %(default)s')
-# Obsolet parameter for the 'minimum aspect ratio for column separators'
+# Obsolete parameter for the 'minimum aspect ratio for column separators'
 # used in the obsolete function compute_colseps_morph
 group_column.add_argument('--csminaspect',type=float,default=1.1,
                     help=argparse.SUPPRESS)
@@ -225,9 +227,16 @@ def compute_colseps_conv(binary,scale=1.0):
 
 def compute_colseps(binary,scale):
     """Computes column separators either from vertical black lines or whitespace."""
+    print_info("considering at most %g whitespace column separators" % args.maxcolseps)
     colseps = compute_colseps_conv(binary,scale)
     DSAVE("colwsseps",0.7*colseps+0.3*binary)
-    if args.blackseps:
+    if args.blackseps and args.maxseps == 0:
+        # simulate old behaviour of blackseps when the default value
+        # for maxseps was 2, but only when the maxseps-value is still zero
+        # and not set manually to a non-zero value
+        args.maxseps = 2
+    if args.maxseps > 0:
+        print_info("considering at most %g black column separators" % args.maxseps)
         seps = compute_separators_morph(binary,scale)
         DSAVE("colseps",0.7*seps+0.3*binary)
         #colseps = compute_colseps_morph(binary,scale)
