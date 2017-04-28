@@ -4,17 +4,20 @@ from __future__ import print_function
 
 import traceback
 import codecs
-from pylab import *
 import os.path
-import ocrolib
 import argparse
-import matplotlib
+import sys
 from multiprocessing import Pool
+from collections import Counter
+
+import matplotlib.pyplot as plt
+import numpy as np
+from scipy.ndimage import measurements
+
+import ocrolib
+from ocrolib import lstm
 from ocrolib import edist
 from ocrolib.exceptions import FileNotFound, OcropusException
-from collections import Counter
-from ocrolib import lstm
-from scipy.ndimage import measurements
 
 parser = argparse.ArgumentParser("apply an RNN recognizer")
 
@@ -67,22 +70,25 @@ parser.add_argument("files",nargs="+",
                     help="input files; glob and @ expansion performed")
 args = parser.parse_args()
 
+
 def print_info(*objs):
     print("INFO: ", *objs, file=sys.stdout)
+
 
 def print_error(*objs):
     print("ERROR: ", *objs, file=sys.stderr)
 
+
 def check_line(image):
     if len(image.shape)==3: return "input image is color image %s"%(image.shape,)
-    if mean(image)<median(image): return "image may be inverted"
+    if np.mean(image)<np.median(image): return "image may be inverted"
     h,w = image.shape
     if h<20: return "image not tall enough for a text line %s"%(image.shape,)
     if h>200: return "image too tall for a text line %s"%(image.shape,)
     if w<1.5*h: return "line too short %s"%(image.shape,)
     if w>4000: return "line too long %s"%(image.shape,)
     ratio = w*1.0/h
-    _,ncomps = measurements.label(image>mean(image))
+    _,ncomps = measurements.label(image>np.mean(image))
     lo = int(0.5*ratio+0.5)
     hi = int(4*ratio)+1
     if ncomps<lo: return "too few connected components (got %d, wanted >=%d)"%(ncomps,lo)
@@ -111,18 +117,18 @@ if args.show>=0 or args.save is not None:
 # load the network used for classification
 
 try:
-  network = ocrolib.load_object(args.model,verbose=1)
-  for x in network.walk(): x.postLoad()
-  for x in network.walk():
-      if isinstance(x,lstm.LSTM):
-          x.allocate(5000)
+    network = ocrolib.load_object(args.model,verbose=1)
+    for x in network.walk(): x.postLoad()
+    for x in network.walk():
+        if isinstance(x,lstm.LSTM):
+            x.allocate(5000)
 except FileNotFound:
-  print_error("")
-  print_error("Cannot find OCR model file:" + args.model)
-  print_error("Download a model and put it into:" + ocrolib.default.modeldir)
-  print_error("(Or override the location with OCROPUS_DATA.)")
-  print_error("")
-  sys.exit(1)
+    print_error("")
+    print_error("Cannot find OCR model file:" + args.model)
+    print_error("Download a model and put it into:" + ocrolib.default.modeldir)
+    print_error("(Or override the location with OCROPUS_DATA.)")
+    print_error("")
+    sys.exit(1)
 
 # get the line normalizer from the loaded network, or optionally
 # let the user override it (this is not very useful)
@@ -132,6 +138,7 @@ lnorm = getattr(network,"lnorm",None)
 if args.height>0:
     lnorm.setHeight(args.height)
 
+
 # process one file
 
 def process1(arg):
@@ -139,21 +146,21 @@ def process1(arg):
     base,_ = ocrolib.allsplitext(fname)
     line = ocrolib.read_image_gray(fname)
     raw_line = line.copy()
-    if prod(line.shape)==0: return None
-    if amax(line)==amin(line): return None
+    if np.prod(line.shape)==0: return None
+    if np.amax(line)==np.amin(line): return None
 
     if not args.nocheck:
-        check = check_line(amax(line)-line)
+        check = check_line(np.amax(line)-line)
         if check is not None:
             print_error("%s SKIPPED %s (use -n to disable this check)" % (fname, check))
             return (0,[],0,trial,fname)
 
     if not args.nolineest:
         assert "dew.png" not in fname,"don't dewarp dewarped images"
-        temp = amax(line)-line
-        temp = temp*1.0/amax(temp)
+        temp = np.amax(line)-line
+        temp = temp*1.0/np.amax(temp)
         lnorm.measure(temp)
-        line = lnorm.normalize(line,cval=amax(line))
+        line = lnorm.normalize(line,cval=np.amax(line))
     else:
         assert "dew.png" in fname,"only apply to dewarped images"
 
@@ -220,43 +227,44 @@ def process1(arg):
     ocrolib.write_text(base+".txt",pred)
 
     if args.show>0 or args.save is not None:
-        ion()
-        matplotlib.rc('xtick',labelsize=7)
-        matplotlib.rc('ytick',labelsize=7)
-        matplotlib.rcParams.update({"font.size":7})
+        plt.ion()
+        plt.rc('xtick',labelsize=7)
+        plt.rc('ytick',labelsize=7)
+        plt.rcParams.update({"font.size":7})
         if os.path.exists(base+".gt.txt"):
             transcript = ocrolib.read_text(base+".gt.txt")
             transcript = ocrolib.normalize_text(transcript)
         else:
             transcript = pred
         pred2 = network.trainString(line,transcript,update=0)
-        figure("result",figsize=(1400//75,800//75),dpi=75)
-        clf()
-        subplot(311)
-        imshow(line.T,cmap=cm.gray)
-        title(transcript)
-        subplot(312)
-        gca().set_xticks([])
-        imshow(network.outputs.T[1:],vmin=0,cmap=cm.hot)
-        title(pred[:80])
-        subplot(313)
-        plot(network.outputs[:,0],color='yellow',linewidth=3,alpha=0.5)
-        plot(network.outputs[:,1],color='green',linewidth=3,alpha=0.5)
-        plot(amax(network.outputs[:,2:],axis=1),color='blue',linewidth=3,alpha=0.5)
-        plot(network.aligned[:,0],color='orange',linestyle='dashed',alpha=0.7)
-        plot(network.aligned[:,1],color='green',linestyle='dashed',alpha=0.5)
-        plot(amax(network.aligned[:,2:],axis=1),color='blue',linestyle='dashed',alpha=0.5)
+        plt.figure("result",figsize=(1400//75,800//75),dpi=75)
+        plt.clf()
+        plt.subplot(311)
+        plt.imshow(line.T,cmap=plt.cm.gray)
+        plt.title(transcript)
+        plt.subplot(312)
+        plt.gca().set_xticks([])
+        plt.imshow(network.outputs.T[1:],vmin=0,cmap=plt.cm.hot)
+        plt.title(pred[:80])
+        plt.subplot(313)
+        plt.plot(network.outputs[:,0],color='yellow',linewidth=3,alpha=0.5)
+        plt.plot(network.outputs[:,1],color='green',linewidth=3,alpha=0.5)
+        plt.plot(np.amax(network.outputs[:,2:],axis=1),color='blue',linewidth=3,alpha=0.5)
+        plt.plot(network.aligned[:,0],color='orange',linestyle='dashed',alpha=0.7)
+        plt.plot(network.aligned[:,1],color='green',linestyle='dashed',alpha=0.5)
+        plt.plot(np.amax(network.aligned[:,2:],axis=1),color='blue',linestyle='dashed',alpha=0.5)
         if args.save is not None:
-            draw()
+            plt.draw()
             savename = args.save
             if "%" in savename: savename = savename%trial
             print_info("saving "+savename)
-            savefig(savename,bbox_inches=0)
+            plt.savefig(savename,bbox_inches=0)
         if trial==len(inputs)-1:
-            ginput(1,99999999)
+            plt.ginput(1,99999999)
         else:
-            ginput(1,args.show)
+            plt.ginput(1,args.show)
     return None
+
 
 def safe_process1(arg):
     trial,fname = arg
@@ -283,7 +291,7 @@ elif args.parallel==1:
 else:
     pool = Pool(processes=args.parallel)
     result = []
-    for r  in pool.imap_unordered(safe_process1,enumerate(inputs)):
+    for r in pool.imap_unordered(safe_process1,enumerate(inputs)):
         result.append(r)
         if not args.quiet and len(result)%100==0:
             sys.stderr.write("==== %d of %d\n"%(len(result),len(inputs)))

@@ -3,14 +3,21 @@
 
 from __future__ import print_function
 
-import warnings,numpy,argparse,sys,os,os.path,multiprocessing,codecs
+import warnings
+import argparse
+import sys
+import os.path
+import multiprocessing
+import codecs
 from collections import Counter
+
+import numpy as np
+
 import ocrolib
-from pylab import *
 from ocrolib import edist
 
 # disable rank warnings from polyfit
-warnings.simplefilter('ignore',numpy.RankWarning)
+warnings.simplefilter('ignore',np.RankWarning)
 
 parser = argparse.ArgumentParser(description = """
 Compute the edit distances between ground truth and recognizer output.

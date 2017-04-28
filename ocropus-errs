@@ -3,7 +3,12 @@
 
 from __future__ import print_function
 
-import argparse,sys,os,os.path,multiprocessing
+import argparse
+import sys
+import os
+import os.path
+import multiprocessing
+
 import ocrolib
 from ocrolib import edist
 
@@ -26,6 +31,7 @@ args.files = ocrolib.glob_all(args.files)
 
 if not ".gt." in args.files[0]:
     sys.stderr.write("warning: compare on .gt.txt files, not .txt files\n")
+
 
 def process1(fname):
     # fgt = ocrolib.allsplitext(fname)[0]+args.gtextension

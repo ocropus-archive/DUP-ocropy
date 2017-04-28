@@ -4,17 +4,19 @@ from __future__ import print_function
 
 import random as pyrandom
 import re
-from pylab import *
 import os.path
-import ocrolib
-import argparse
-import matplotlib
-import numpy
-from ocrolib import lineest
-import ocrolib.lstm as lstm
 import traceback
+import argparse
+import sys
 
-numpy.seterr(divide='raise',over='raise',invalid='raise',under='ignore')
+import numpy as np
+import matplotlib.pyplot as plt
+
+import ocrolib
+import ocrolib.lstm as lstm
+from ocrolib import lineest
+
+np.seterr(divide='raise',over='raise',invalid='raise',under='ignore')
 
 parser = argparse.ArgumentParser("train an RNN recognizer")
 
@@ -118,9 +120,9 @@ print("# tests", len(tests) if tests is not None else "None")
 # load the line normalizer
 
 if args.lineest=="center":
-  lnorm = lineest.CenterNormalizer()
+    lnorm = lineest.CenterNormalizer()
 else:
-  raise Exception(args.lineest+": unknown line normalizer")
+    raise Exception(args.lineest+": unknown line normalizer")
 lnorm.setHeight(args.height)
 
 # The `codec` maps between strings and arrays of integers.
@@ -149,6 +151,7 @@ else:
     print("[" + s[:20], "...", s[-20:] + "]")
 codec = lstm.Codec().init(charset)
 
+
 # Load an existing network or construct a new one
 # Somewhat convoluted logic for dealing with old style Python
 # modules and new style C++ LSTM networks.
@@ -163,6 +166,7 @@ def save_lstm(fname,network):
         ocrolib.save_object(fname,network)
         if args.strip:
             for x in network.walk(): x.postLoad()
+
 
 def load_lstm(fname):
     if args.clstm:
@@ -211,40 +215,42 @@ if args.updates: network.lstm.verbose = 1
 
 # used for plotting
 
-ion()
-matplotlib.rc('xtick',labelsize=7)
-matplotlib.rc('ytick',labelsize=7)
-matplotlib.rcParams.update({"font.size":7})
+plt.ion()
+plt.rc('xtick',labelsize=7)
+plt.rc('ytick',labelsize=7)
+plt.rcParams.update({"font.size":7})
+
 
 def cleandisp(s):
     return re.sub('[$]',r'#',s)
 
+
 def plot_network_info(network,transcript,pred,gta):
-    subplot(511)
-    imshow(line.T,cmap=cm.gray)
-    title(cleandisp(transcript))
-    subplot(512)
-    gca().set_xticks([])
-    imshow(network.outputs.T[1:],vmin=0,cmap=cm.hot)
-    title(cleandisp(pred[:len(transcript)]))
-    subplot(513)
-    imshow(network.aligned.T[1:],vmin=0,cmap=cm.hot)
-    title(cleandisp(gta[:len(transcript)]))
-    subplot(514)
-    plot(network.outputs[:,0],color='yellow',linewidth=3,alpha=0.5)
-    plot(network.outputs[:,1],color='green',linewidth=3,alpha=0.5)
-    plot(amax(network.outputs[:,2:],axis=1),color='blue',linewidth=3,alpha=0.5)
-    plot(network.aligned[:,0],color='orange',linestyle='dashed',alpha=0.7)
-    plot(network.aligned[:,1],color='green',linestyle='dashed',alpha=0.5)
-    plot(amax(network.aligned[:,2:],axis=1),color='blue',linestyle='dashed',alpha=0.5)
-    subplot(515)
-    gca().set_yscale('log')
+    plt.subplot(511)
+    plt.imshow(line.T,cmap=plt.cm.gray)
+    plt.title(cleandisp(transcript))
+    plt.subplot(512)
+    plt.gca().set_xticks([])
+    plt.imshow(network.outputs.T[1:],vmin=0,cmap=plt.cm.hot)
+    plt.title(cleandisp(pred[:len(transcript)]))
+    plt.subplot(513)
+    plt.imshow(network.aligned.T[1:],vmin=0,cmap=plt.cm.hot)
+    plt.title(cleandisp(gta[:len(transcript)]))
+    plt.subplot(514)
+    plt.plot(network.outputs[:,0],color='yellow',linewidth=3,alpha=0.5)
+    plt.plot(network.outputs[:,1],color='green',linewidth=3,alpha=0.5)
+    plt.plot(np.amax(network.outputs[:,2:],axis=1),color='blue',linewidth=3,alpha=0.5)
+    plt.plot(network.aligned[:,0],color='orange',linestyle='dashed',alpha=0.7)
+    plt.plot(network.aligned[:,1],color='green',linestyle='dashed',alpha=0.5)
+    plt.plot(np.amax(network.aligned[:,2:],axis=1),color='blue',linestyle='dashed',alpha=0.5)
+    plt.subplot(515)
+    plt.gca().set_yscale('log')
     r = 10000
     errs = network.errors(range=r,smooth=100)
-    xs = arange(len(errs))+network.last_trial-len(errs)
-    plot(xs,errs,color='black')
-    plot(xs,network.errors(range=r),color='black',alpha=0.4)
-    plot(xs,network.cerrors(range=r,smooth=100),color='red',linestyle='dashed')
+    xs = np.arange(len(errs))+network.last_trial-len(errs)
+    plt.plot(xs,errs,color='black')
+    plt.plot(xs,network.errors(range=r),color='black',alpha=0.4)
+    plt.plot(xs,network.cerrors(range=r,smooth=100),color='red',linestyle='dashed')
 
 start = args.start if args.start>=0 else network.last_trial
 
@@ -270,21 +276,21 @@ for trial in range(start,args.ntrain):
 
     if not args.nolineest:
         assert "dew.png" not in fname,"don't dewarp already dewarped lines"
-        network.lnorm.measure(amax(line)-line)
-        line = network.lnorm.normalize(line,cval=amax(line))
+        network.lnorm.measure(np.amax(line)-line)
+        line = network.lnorm.normalize(line,cval=np.amax(line))
     else:
         assert "dew.png" in fname,"input must already be dewarped"
 
-    if line.size<10 or amax(line)==amin(line):
+    if line.size<10 or np.amax(line)==np.amin(line):
         print("EMPTY-INPUT")
         continue
-    line = line * 1.0/amax(line)
-    line = amax(line)-line
+    line = line * 1.0/np.amax(line)
+    line = np.amax(line)-line
     line = line.T
     if args.pad>0:
         w = line.shape[1]
-        line = vstack([zeros((args.pad,w)),line,zeros((args.pad,w))])
-    cs = array(codec.encode(transcript),'i')
+        line = np.vstack([np.zeros((args.pad,w)),line,np.zeros((args.pad,w))])
+    cs = np.array(codec.encode(transcript),'i')
     try:
         pcs = network.trainSequence(line,cs,update=do_update,key=fname)
     except FloatingPointError as e:
@@ -313,12 +319,11 @@ for trial in range(start,args.ntrain):
         last_save = ofile
 
     if do_display:
-        figure("training",figsize=(1400//75,800//75),dpi=75)
-        clf()
-        gcf().canvas.set_window_title(args.output)
+        plt.figure("training",figsize=(1400//75,800//75),dpi=75)
+        plt.clf()
+        plt.gcf().canvas.set_window_title(args.output)
         plot_network_info(network,transcript,pred,gta)
-        ginput(1,0.01)
+        plt.ginput(1,0.01)
         if args.movie is not None:
-            draw()
-            savefig("%s-%08d.png"%(args.movie,trial),bbox_inches=0)
-
+            plt.draw()
+            plt.savefig("%s-%08d.png"%(args.movie,trial),bbox_inches=0)
