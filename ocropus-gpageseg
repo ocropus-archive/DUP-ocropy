@@ -78,8 +78,8 @@ group_column.add_argument('--csminaspect',type=float,default=1.1,
 
 # output parameters
 group_output = parser.add_argument_group('output parameters')
-group_output.add_argument('--naming',default="hex",
-                    help='naming convention for the lines either "hex" (default), "dec", or own pattern')
+group_output.add_argument('--naming',default=False,
+                    help='change naming of the lines with an own pattern, e.g. "--naming %%04d" for four decimal digits, default: %(default)s')
 group_output.add_argument('--gray',action='store_true',
                     help='output grayscale lines as well, default: %(default)s')
 group_output.add_argument('-p','--pad',type=int,default=3,
@@ -426,14 +426,11 @@ def process1(job):
     lines = [lines[i] for i in lsort]
     ocrolib.write_page_segmentation("%s.pseg.png"%outputdir,segmentation)
     cleaned = ocrolib.remove_noise(binary,args.noise)
-    if (args.naming=="hex"):
-       pattern = "01%04x"
-    elif (args.naming=="dec"):
-       pattern = "%04d"
-    else:
+    pattern = "01%04x"
+    if (args.naming):
        pattern = args.naming
     pattern = "%s/"+pattern
-    print_info(pattern)
+    print_info("with file name pattern",pattern)
     for i,l in enumerate(lines):
         binline = psegutils.extract_masked(1-cleaned,l,pad=args.pad,expand=args.expand)
         ocrolib.write_image_binary(pattern%(outputdir,i+1)+".bin.png",binline)

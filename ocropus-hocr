@@ -24,8 +24,8 @@ For each page like 'book/0001.bin.png', it uses the following files:
 parser.add_argument("-b","--nobreaks",action="store_true",help="don't output line breaks")
 parser.add_argument("-p","--nopars",action="store_true",help="don't output paragraphs")
 parser.add_argument("-s","--fscale",type=float,default=1.0,help="scale factor for translating xheights into font size (use 0 to disable), default: %(default)s")
-parser.add_argument('--naming',default="hex",
-                    help='naming convention for the lines either "hex" (default), "dec", or own pattern')
+parser.add_argument('--naming',default=False,
+                    help='indicate naming of the lines with an own pattern, e.g. "--naming %%04d" for four decimal digits, default: %(default)s')
 parser.add_argument("-o","--output",default="book.html",help="output file, default: %(default)s")
 parser.add_argument('files',nargs='+')
 args = parser.parse_args()
@@ -108,11 +108,8 @@ for arg in args.files:
             last_coords = (x0,y0)
 
             # get the text for the line itself
-            if (args.naming=="hex"):
-               pattern = "01%04x"
-            elif (args.naming=="dec"):
-               pattern = "%04d"
-            else:
+            pattern = "01%04x"
+            if (args.naming):
                pattern = args.naming
             pattern = "%s/"+pattern
             id=id-0x010000
