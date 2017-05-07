@@ -45,4 +45,4 @@ install:
 script:
   - mkdir ../test_folder
   - cd ../test_folder
-  - ../ocropy/run-test
+  - ../ocropy/run-test-ci

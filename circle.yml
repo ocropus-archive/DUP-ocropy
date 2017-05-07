@@ -14,4 +14,4 @@ dependencies:
     - models
 test:
   override:
-    - PATH=$PWD:$PATH ./run-test
+    - PATH=$PWD:$PATH ./run-test-ci
