@@ -85,17 +85,18 @@ group_output.add_argument('-p','--pad',type=int,default=3,
 group_output.add_argument('-e','--expand',type=int,default=3,
                     help='expand mask for grayscale extraction, default: %(default)s')
 
+# other parameters
 group_others = parser.add_argument_group('others')
 group_others.add_argument('-q','--quiet',action='store_true',
                     help='be less verbose, default: %(default)s')
-
-# other parameters
 group_others.add_argument('-Q','--parallel',type=int,default=0,
                     help="number of CPUs to use")
 group_others.add_argument('-d','--debug',action="store_true")
 group_others.add_argument("-h", "--help", action="help", help="show this help message and exit")
+
 # input files
 parser.add_argument('files',nargs='+')
+
 args = parser.parse_args()
 args.files = ocrolib.glob_all(args.files)
 
