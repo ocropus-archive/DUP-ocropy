@@ -13,3 +13,5 @@ build/
 *.os
 *.a
 *.so
+.~*.vue
+doc/.ipynb_checkpoints/

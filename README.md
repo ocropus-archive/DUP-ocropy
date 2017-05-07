@@ -2,6 +2,8 @@ ocropy
 ======
 
 [![Build Status](https://travis-ci.org/tmbdev/ocropy.svg)](https://travis-ci.org/tmbdev/ocropy)
+[![license](https://img.shields.io/github/license/tmbdev/ocropy.svg)](https://github.com/tmbdev/ocropy/blob/master/LICENSE)
+[![Wiki](https://img.shields.io/badge/wiki-11%20pages-orange.svg)](https://github.com/tmbdev/ocropy/wiki)
 [![Join the chat at https://gitter.im/tmbdev/ocropy](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/tmbdev/ocropy?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
 OCRopus is a collection of document analysis programs, not a turn-key OCR system.
@@ -24,14 +26,15 @@ To install OCRopus dependencies system-wide:
     $ mv en-default.pyrnn.gz models/
     $ sudo python setup.py install
 
-Alternatively, dependencies can be installed into a [Python Virtual Environment]
-(http://docs.python-guide.org/en/latest/dev/virtualenvs/):
+Alternatively, dependencies can be installed into a
+[Python Virtual Environment](http://docs.python-guide.org/en/latest/dev/virtualenvs/):
 
     $ virtualenv ocropus_venv/
     $ source ocropus_venv/bin/activate
     $ pip install -r requirements.txt
     $ wget -nd http://www.tmbdev.net/en-default.pyrnn.gz
     $ mv en-default.pyrnn.gz models/
+    $ python setup.py install
 
 An additional method using [Conda](http://conda.pydata.org/) is also possible:
 

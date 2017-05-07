@@ -25,69 +25,80 @@ from ocrolib import psegutils,morph,sl
 from ocrolib.exceptions import OcropusException
 from ocrolib.toplevel import *
 
-parser = argparse.ArgumentParser()
+parser = argparse.ArgumentParser(add_help=False)
+
 # error checking
-parser.add_argument('-n','--nocheck',action="store_true",
+group_error_checking = parser.add_argument_group('error checking')
+group_error_checking.add_argument('-n','--nocheck',action="store_true",
                     help="disable error checking on inputs")
-
-parser.add_argument('-z','--zoom',type=float,default=0.5,
-                    help='zoom for page background estimation, smaller=faster, default: %(default)s')
-
-parser.add_argument('--naming',default="hex",
-                    help='naming convention for the lines either "hex" (default), "dec", or own pattern')
-parser.add_argument('--gray',action='store_true',
-                    help='output grayscale lines as well, default: %(default)s')
-parser.add_argument('-q','--quiet',action='store_true',
-                    help='be less verbose, default: %(default)s')
-
 # limits
-parser.add_argument('--minscale',type=float,default=12.0,
+group_error_checking.add_argument('--minscale',type=float,default=12.0,
                     help='minimum scale permitted, default: %(default)s')
-parser.add_argument('--maxlines',type=float,default=300,
+group_error_checking.add_argument('--maxlines',type=float,default=300,
                     help='maximum # lines permitted, default: %(default)s')
 
 # scale parameters
-parser.add_argument('--scale',type=float,default=0.0,
+group_scale = parser.add_argument_group('scale parameters')
+group_scale.add_argument('--scale',type=float,default=0.0,
                     help='the basic scale of the document (roughly, xheight) 0=automatic, default: %(default)s')
-parser.add_argument('--hscale',type=float,default=1.0,
+group_scale.add_argument('--hscale',type=float,default=1.0,
                     help='non-standard scaling of horizontal parameters, default: %(default)s')
-parser.add_argument('--vscale',type=float,default=1.0,
+group_scale.add_argument('--vscale',type=float,default=1.0,
                     help='non-standard scaling of vertical parameters, default: %(default)s')
 
 # line parameters
-parser.add_argument('--threshold',type=float,default=0.2,
+group_line = parser.add_argument_group('line parameters')
+group_line.add_argument('--threshold',type=float,default=0.2,
                     help='baseline threshold, default: %(default)s')
-parser.add_argument('--noise',type=int,default=8,
+group_line.add_argument('--noise',type=int,default=8,
                     help="noise threshold for removing small components from lines, default: %(default)s")
-parser.add_argument('--usegauss',action='store_true',
+group_line.add_argument('--usegauss',action='store_true',
                     help='use gaussian instead of uniform, default: %(default)s')
 
 # column parameters
-parser.add_argument('--maxseps',type=int,default=2,
+group_column = parser.add_argument_group('column parameters')
+group_column.add_argument('--maxseps',type=int,default=0,
                     help='maximum black column separators, default: %(default)s')
-parser.add_argument('--sepwiden',type=int,default=10,
+group_column.add_argument('--sepwiden',type=int,default=10,
                     help='widen black separators (to account for warping), default: %(default)s')
-parser.add_argument('-b','--blackseps',action="store_true",
-                    help="also check for black column separators")
+# Obsolete parameter for 'also check for black column separators'
+# which can now be triggered simply by a positive maxseps value.
+group_column.add_argument('-b','--blackseps',action="store_true",
+                    help=argparse.SUPPRESS)
 
 # whitespace column separators
-parser.add_argument('--maxcolseps',type=int,default=3,
+group_column.add_argument('--maxcolseps',type=int,default=3,
                     help='maximum # whitespace column separators, default: %(default)s')
-parser.add_argument('--csminaspect',type=float,default=1.1,
-                    help='minimum aspect ratio for column separators')
-parser.add_argument('--csminheight',type=float,default=10,
+group_column.add_argument('--csminheight',type=float,default=10,
                     help='minimum column height (units=scale), default: %(default)s')
+# Obsolete parameter for the 'minimum aspect ratio for column separators'
+# used in the obsolete function compute_colseps_morph
+group_column.add_argument('--csminaspect',type=float,default=1.1,
+                    help=argparse.SUPPRESS)
 
-# wait for input after everything is done
-
-parser.add_argument('-p','--pad',type=int,default=3,
+# output parameters
+group_output = parser.add_argument_group('output parameters')
+group_output.add_argument('--naming',default="hex",
+                    help='naming convention for the lines either "hex" (default), "dec", or own pattern')
+group_output.add_argument('--gray',action='store_true',
+                    help='output grayscale lines as well, default: %(default)s')
+group_output.add_argument('-p','--pad',type=int,default=3,
                     help='padding for extracted lines, default: %(default)s')
-parser.add_argument('-e','--expand',type=int,default=3,
+group_output.add_argument('-e','--expand',type=int,default=3,
                     help='expand mask for grayscale extraction, default: %(default)s')
-parser.add_argument('-Q','--parallel',type=int,default=0,
+
+# other parameters
+group_others = parser.add_argument_group('others')
+group_others.add_argument('-q','--quiet',action='store_true',
+                    help='be less verbose, default: %(default)s')
+group_others.add_argument('-Q','--parallel',type=int,default=0,
                     help="number of CPUs to use")
-parser.add_argument('-d','--debug',action="store_true")
+group_others.add_argument('-d','--debug',action="store_true")
+group_others.add_argument("-h", "--help", action="help", help="show this help message and exit")
+
+# input files
 parser.add_argument('files',nargs='+')
+
 args = parser.parse_args()
 args.files = ocrolib.glob_all(args.files)
 
@@ -219,9 +230,16 @@ def compute_colseps_conv(binary,scale=1.0):
 
 def compute_colseps(binary,scale):
     """Computes column separators either from vertical black lines or whitespace."""
+    print_info("considering at most %g whitespace column separators" % args.maxcolseps)
     colseps = compute_colseps_conv(binary,scale)
     DSAVE("colwsseps",0.7*colseps+0.3*binary)
-    if args.blackseps:
+    if args.blackseps and args.maxseps == 0:
+        # simulate old behaviour of blackseps when the default value
+        # for maxseps was 2, but only when the maxseps-value is still zero
+        # and not set manually to a non-zero value
+        args.maxseps = 2
+    if args.maxseps > 0:
+        print_info("considering at most %g black column separators" % args.maxseps)
         seps = compute_separators_morph(binary,scale)
         DSAVE("colseps",0.7*seps+0.3*binary)
         #colseps = compute_colseps_morph(binary,scale)
