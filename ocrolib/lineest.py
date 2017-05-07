@@ -1,17 +1,12 @@
-import sys,os,re
+from __future__ import print_function
+
+import sys
+import os
+import re
 from scipy import stats
 from scipy.ndimage import measurements,interpolation,filters
 from pylab import *
-import common,morph
-import ocrolib
 from toplevel import *
-import argparse
-
-
-
-
-from pylab import *
-import ocrolib
 
 def scale_to_h(img,target_height,order=1,dtype=dtype('f'),cval=0):
     h,w = img.shape
@@ -28,7 +23,7 @@ class CenterNormalizer:
         self.debug = int(os.getenv("debug_center") or "0")
         self.target_height = target_height
         self.range,self.smoothness,self.extra = params
-        print "# CenterNormalizer"
+        print("# CenterNormalizer")
     def setHeight(self,target_height):
         self.target_height = target_height
     def measure(self,line):

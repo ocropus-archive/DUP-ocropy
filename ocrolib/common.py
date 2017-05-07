@@ -3,105 +3,45 @@
 ### common functions for data structures, file name manipulation, etc.
 ################################################################
 
-import os,os.path
+from __future__ import print_function
+
+import os
+import os.path
 import re
-import numpy
-import unicodedata
 import sys
-import warnings
+import sysconfig
+import unicodedata
 import inspect
 import glob
-from numpy import *
-from scipy.ndimage import morphology
-import ligatures
-import multiprocessing
-import lstm
+import cPickle
+from ocrolib.exceptions import (BadClassLabel, BadInput, FileNotFound,
+                                OcropusException)
+
+import numpy
+from numpy import (amax, amin, array, bitwise_and, clip, dtype, mean, minimum,
+                   nan, sin, sqrt, zeros)
 import pylab
+from pylab import (clf, cm, ginput, gray, imshow, ion, subplot, where)
+from scipy.ndimage import morphology, measurements
+import PIL
 
-from pylab import imshow
+from default import getlocal
+from toplevel import (checks, ABINARY2, AINT2, AINT3, BOOL, DARKSEG, GRAYSCALE,
+                      LIGHTSEG, LINESEG, PAGESEG)
+import chars
+import codecs
+import ligatures
+import lstm
 import morph
-from toplevel import *
-
-################################################################
-### exceptions
-################################################################
-
-class OcropusException(Exception):
-    trace = 1
-    def __init__(self,*args,**kw):
-        Exception.__init__(self,*args,**kw)
-
-class Unimplemented(OcropusException):
-    trace = 1
-    "Exception raised when a feature is unimplemented."
-    def __init__(self,s):
-        Exception.__init__(self,inspect.stack()[1][3])
-
-class Internal(OcropusException):
-    trace = 1
-    "Exception raised when a feature is unimplemented."
-    def __init__(self,s):
-        Exception.__init__(self,inspect.stack()[1][3])
-
-class RecognitionError(OcropusException):
-    trace = 1
-    "Some kind of error during recognition."
-    def __init__(self,explanation,**kw):
-        self.context = kw
-        s = [explanation]
-        s += ["%s=%s"%(k,summary(kw[k])) for k in kw]
-        message = " ".join(s)
-        Exception.__init__(self,message)
-
-class Warning(OcropusException):
-    trace = 0
-    def __init__(self,*args,**kw):
-        OcropusException.__init__(self,*args,**kw)
-
-class BadClassLabel(OcropusException):
-    trace = 0
-    "Exception for bad class labels in a dataset or input."
-    def __init__(self,s):
-        Exception.__init__(self,s)
-
-class BadImage(OcropusException):
-    trace = 0
-    def __init__(self,*args,**kw):
-        OcropusException.__init__(self,*args)
-
-class BadInput(OcropusException):
-    trace = 0
-    def __init__(self,*args,**kw):
-        OcropusException.__init__(self,*args,**kw)
-
-class FileNotFound(OcropusException):
-    trace = 0
-    """Some file-not-found error during OCRopus processing."""
-    def __init__(self,fname):
-        self.fname = fname
-    def __str__(self):
-        return "file not found %s"%(self.fname,)
+import multiprocessing
+import sl
 
 pickle_mode = 2
 
-def deprecated(f):
-    def _wrap(f):
-        warned = 0
-        def _wrapper(*args,**kw):
-            if not warned:
-                print f,"has been DEPRECATED"
-                warned = 1
-            return f(*args,**kw)
-    return _wrap
-
-
 
 ################################################################
 # text normalization
 ################################################################
-
-import chars
-replacements = chars.replacements
 
 def normalize_text(s):
     """Apply standard Unicode normalizations for OCR.
@@ -113,7 +53,7 @@ def normalize_text(s):
     s = re.sub(ur'\n(?u)','',s)
     s = re.sub(ur'^\s+(?u)','',s)
     s = re.sub(ur'\s+$(?u)','',s)
-    for m,r in replacements:
+    for m,r in chars.replacements:
         s = re.sub(unicode(m),unicode(r),s)
     return s
 
@@ -144,8 +84,6 @@ def project_text(s,kind="exact"):
 ### Text I/O
 ################################################################
 
-import codecs
-
 def read_text(fname,nonl=1,normalize=1):
     """Read text. This assumes files are in unicode.
     By default, it removes newlines and normalizes the
@@ -172,8 +110,6 @@ def write_text(fname,text,nonl=0,normalize=1):
 ################################################################
 ### Image I/O
 ################################################################
-
-import PIL
 
 def pil2array(im,alpha=0):
     if im.mode=="L":
@@ -248,7 +184,7 @@ def write_image_gray(fname,image,normalize=0,verbose=0):
     type, its values are clipped to the range [0,1],
     multiplied by 255 and converted to unsigned bytes.  Otherwise,
     the image must be of type unsigned byte."""
-    if verbose: print "# writing",fname
+    if verbose: print("# writing", fname)
     if isfloatarray(image):
         image = array(255*clip(image,0.0,1.0),'B')
     assert image.dtype==dtype('B'),"array has wrong dtype: %s"%image.dtype
@@ -271,7 +207,7 @@ def write_image_binary(fname,image,verbose=0):
     """Write a binary image to disk. This verifies first that the given image
     is, in fact, binary.  The image may be of any type, but must consist of only
     two values."""
-    if verbose: print "# writing",fname
+    if verbose: print("# writing", fname)
     assert image.ndim==2
     image = array(255*(image>midrange(image)),'B')
     im = array2pil(image)
@@ -428,7 +364,7 @@ class RegionExtractor:
         """Return the bounding box in raster coordinates
         (row0,col0,row1,col1)."""
         r = self.objects[i]
-        # print "@@@bbox",i,r
+        # print("@@@bbox", i, r)
         return (r[0].start,r[1].start,r[0].stop,r[1].stop)
     def bboxMath(self,i):
         """Return the bounding box in math coordinates
@@ -442,7 +378,7 @@ class RegionExtractor:
     def mask(self,index,margin=0):
         """Return the mask for component index."""
         b = self.objects[index]
-        #print "@@@mask",index,b
+        # print("@@@mask", index, b)
         m = self.labels[b]
         m[m!=index] = 0
         if margin>0: m = pad_by(m,margin)
@@ -463,19 +399,16 @@ class RegionExtractor:
         mh,mw = mask.shape
         box = self.bbox(index)
         r0,c0,r1,c1 = box
-        subimage = improc.cut(image,(r0,c0,r0+mh-2*margin,c0+mw-2*margin),margin,bg=bg)
+        subimage = sl.cut(image,(r0,c0,r0+mh-2*margin,c0+mw-2*margin),margin,bg=bg)
         return where(mask,subimage,bg)
 
-
+
 
 ################################################################
 ### Object reading and writing
 ### This handles reading and writing zipped files directly,
 ### and it also contains workarounds for changed module/class names.
 ################################################################
-
-import cPickle
-import gzip
 
 def save_object(fname,obj,zip=0):
     if zip==0 and fname.endswith(".gz"):
@@ -502,7 +435,7 @@ def load_object(fname,zip=0,nofind=0,verbose=0):
     if not nofind:
         fname = ocropus_find_file(fname)
     if verbose:
-        print "# loading object",fname
+        print("# loading object", fname)
     if zip==0 and fname.endswith(".gz"):
         zip = 1
     if zip>0:
@@ -517,7 +450,7 @@ def load_object(fname,zip=0,nofind=0,verbose=0):
             unpickler.find_global = unpickle_find_global
             return unpickler.load()
 
-
+
 
 ################################################################
 ### Simple record object.
@@ -581,22 +514,9 @@ def check_valid_class_label(s):
     else:
         raise BadClassLabel(s)
 
-def summary(x):
-    """Summarize a datatype as a string (for display and debugging)."""
-    if type(x)==numpy.ndarray:
-        return "<ndarray %s %s>"%(x.shape,x.dtype)
-    if type(x)==str and len(x)>10:
-        return '"%s..."'%x
-    if type(x)==list and len(x)>10:
-        return '%s...'%x
-    return str(x)
-
 ################################################################
 ### file name manipulation
 ################################################################
-
-from default import getlocal
-
 
 @checks(str,_=str)
 def findfile(name,error=1):
@@ -665,33 +585,65 @@ def expand_args(args):
     else:
         return args
 
-data_paths = [
-    ".",
-    "./models",
-    "./data",
-    "./gui",
-    "/usr/local/share/ocropus/models",
-    "/usr/local/share/ocropus/data",
-    "/usr/local/share/ocropus/gui",
-    "/usr/local/share/ocropus",
-]
 
-def ocropus_find_file(fname,gz=1):
-    """Search for OCRopus-related files in common OCRopus install
-    directories (as well as the current directory)."""
-    if os.path.exists(fname):
-        return fname
-    if gz:
-        if os.path.exists(fname+".gz"):
-            return fname+".gz"
-    for path in data_paths:
-        full = path+"/"+fname
-        if os.path.exists(full): return full
-    if gz:
-        for path in data_paths:
-            full = path+"/"+fname+".gz"
-            if os.path.exists(full): return full
+def ocropus_find_file(fname, gz=True):
+    """Search for `fname` in one of the OCRopus data directories, as well as
+    the current directory). If `gz` is True, search also for gzipped files.
+
+    Result of searching $fname is the first existing in:
+
+        * $base/$fname
+        * $base/$fname.gz       # if gz
+        * $base/model/$fname
+        * $base/model/$fname.gz # if gz
+        * $base/data/$fname
+        * $base/data/$fname.gz  # if gz
+        * $base/gui/$fname
+        * $base/gui/$fname.gz   # if gz
+
+    $base can be four base paths:
+        * `$OCROPUS_DATA` environment variable
+        * current working directory
+        * ../../../../share/ocropus from this file's install location
+        * `/usr/local/share/ocropus`
+        * `$PREFIX/share/ocropus` ($PREFIX being the Python installation 
+           prefix, usually `/usr`)
+    """
+    possible_prefixes = []
+
+    if os.getenv("OCROPUS_DATA"):
+        possible_prefixes.append(os.getenv("OCROPUS_DATA"))
+
+    possible_prefixes.append(os.curdir)
+
+    possible_prefixes.append(os.path.normpath(os.path.join(
+        os.path.dirname(inspect.getfile(inspect.currentframe())),
+        os.pardir, os.pardir, os.pardir, os.pardir, "share", "ocropus")))
+
+    possible_prefixes.append("/usr/local/share/ocropus")
+
+    possible_prefixes.append(os.path.join(
+        sysconfig.get_config_var("datarootdir"), "ocropus"))
+
+
+    # Unique entries with preserved order in possible_prefixes
+    # http://stackoverflow.com/a/15637398/201318
+    possible_prefixes = [possible_prefixes[i] for i in
+            sorted(numpy.unique(possible_prefixes, return_index=True)[1])]
+    for prefix in possible_prefixes:
+        if not os.path.isdir(prefix):
+            continue
+        for basename in [".", "models", "data", "gui"]:
+            if not os.path.isdir(os.path.join(prefix, basename)):
+                continue
+            full = os.path.join(prefix, basename, fname)
+            if os.path.exists(full):
+                return full
+            if gz and os.path.exists(full + ".gz"):
+                return full + ".gz"
+
     raise FileNotFound(fname)
+
 
 def fvariant(fname,kind,gt=""):
     """Find the file variant corresponding to the given file name.
@@ -795,19 +747,6 @@ def quick_check_line_components(line_bin,dpi):
     there is probably something wrong."""
     return 1.0
 
-def deprecated(func):
-    """This is a decorator which can be used to mark functions
-    as deprecated. It will result in a warning being emitted
-    when the function is used."""
-    def newFunc(*args, **kwargs):
-        warnings.warn("Call to deprecated function %s." % func.__name__,
-                      category=DeprecationWarning,stacklevel=2)
-        return func(*args, **kwargs)
-    newFunc.__name__ = func.__name__
-    newFunc.__doc__ = func.__doc__
-    newFunc.__dict__.update(func.__dict__)
-    return newFunc
-
 ################################################################
 ### conversion functions
 ################################################################
@@ -839,7 +778,7 @@ def pyconstruct(s):
     path = s[:s.find("(")]
     if "." in path:
         module = path[:path.rfind(".")]
-        print "import",module
+        print("import", module)
         exec "import "+module in env
     return eval(s,env)
 
@@ -875,67 +814,6 @@ def obinfo(ob):
         result += str(ob.shape)
     return result
 
-def save_component(file,object,verbose=0,verify=0):
-    """Save an object to disk in an appropriate format.  If the object
-    is a wrapper for a native component (=inherits from
-    CommonComponent and has a comp attribute, or is in package
-    ocropus), write it using ocropus.save_component in native format.
-    Otherwise, write it using Python's pickle.  We could use pickle
-    for everything (since the native components pickle), but that
-    would be slower and more confusing."""
-    if hasattr(object,"save_component"):
-        object.save_component(file)
-        return
-    if object.__class__.__name__=="CommonComponent" and hasattr(object,"comp"):
-        # FIXME -- get rid of this eventually
-        import ocropus
-        ocropus.save_component(file,object.comp)
-        return
-    if type(object).__module__=="ocropus":
-        import ocropus
-        ocropus.save_component(file,object)
-        return
-    if verbose:
-        print "[save_component]"
-    if verbose:
-        for k,v in object.__dict__.items():
-            print ":",k,obinfo(v)
-    with open(file,"wb") as stream:
-        pickle.dump(object,stream,pickle_mode)
-    if verify:
-        if verbose:
-            print "[trying to read it again]"
-        with open(file,"rb") as stream:
-            pickle.load(stream)
-
-def load_component(file):
-    """Load a component. This handles various special cases,
-    including old-style C++ recognizers (soon to be gotten rid of),
-    python expressions ("=package.ObjectName(arg1,arg2)"),
-    and simple pickled Python objects (default)."""
-    if file[0]=="=":
-        return pyconstruct(file[1:])
-    elif file[0]=="@":
-        file = file[1:]
-    with open(file,"r") as stream:
-        # FIXME -- get rid of this eventually
-        start = stream.read(128)
-    if start.startswith("<object>\nlinerec\n"):
-        # FIXME -- get rid of this eventually
-        warnings.warn("loading old-style linerec: %s"%file)
-        result = RecognizeLine()
-        import ocropus
-        result.comp = ocropus.load_IRecognizeLine(file)
-        return result
-    if start.startswith("<object>"):
-        # FIXME -- get rid of this eventually
-        warnings.warn("loading old-style cmodel: %s"%file)
-        import ocroold
-        result = ocroold.Model()
-        import ocropus
-        result.comp = ocropus.load_IModel(file)
-        return result
-    return load_object(file)
 
 def binarize_range(image,dtype='B',threshold=0.5):
     """Binarize an image by its range."""
@@ -943,39 +821,6 @@ def binarize_range(image,dtype='B',threshold=0.5):
     scale = 1
     if dtype=='B': scale = 255
     return array(scale*(image>threshold),dtype=dtype)
-
-def draw_pseg(pseg,axis=None):
-    if axis is None:
-        axis = subplot(111)
-    h = pseg.dim(1)
-    regions = ocropy.RegionExtractor()
-    regions.setPageLines(pseg)
-    for i in range(1,regions.length()):
-        x0,y0,x1,y1 = (regions.x0(i),regions.y0(i),regions.x1(i),regions.y1(i))
-        p = patches.Rectangle((x0,h-y1-1),x1-x0,y1-y0,edgecolor="red",fill=0)
-        axis.add_patch(p)
-
-def draw_aligned(result,axis=None):
-    raise Unimplemented("FIXME draw_aligned")
-    if axis is None:
-        axis = subplot(111)
-    axis.imshow(NI(result.image),cmap=cm.gray)
-    cseg = result.cseg
-    if type(cseg)==numpy.ndarray: cseg = common.lseg2narray(cseg)
-    ocropy.make_line_segmentation_black(cseg)
-    ocropy.renumber_labels(cseg,1)
-    bboxes = ocropy.rectarray()
-    ocropy.bounding_boxes(bboxes,cseg)
-    s = re.sub(r'\s+','',result.output)
-    h = cseg.dim(1)
-    for i in range(1,bboxes.length()):
-        r = bboxes.at(i)
-        x0,y0,x1,y1 = (r.x0,r.y0,r.x1,r.y1)
-        p = patches.Rectangle((x0,h-y1-1),x1-x0,y1-y0,edgecolor=(0.0,0.0,1.0,0.5),fill=0)
-        axis.add_patch(p)
-        if i>0 and i-1<len(s):
-            axis.text(x0,h-y0-1,s[i-1],color="red",weight="bold",fontsize=14)
-    draw()
 
 def plotgrid(data,d=10,shape=(30,30)):
     """Plot a list of images on a grid."""
@@ -995,14 +840,13 @@ def showrgb(r,g=None,b=None):
     imshow(array([r,g,b]).transpose([1,2,0]))
 
 def showgrid(l,cols=None,n=400,titles=None,xlabels=None,ylabels=None,**kw):
-    import pylab
-    if "cmap" not in kw: kw["cmap"] = pylab.cm.gray
+    if "cmap" not in kw: kw["cmap"] = cm.gray
     if "interpolation" not in kw: kw["interpolation"] = "nearest"
     n = minimum(n,len(l))
     if cols is None: cols = int(sqrt(n))
     rows = (n+cols-1)//cols
     for i in range(n):
-        pylab.xticks([]); pylab.yticks([])
+        pylab.xticks([]) ;pylab.yticks([])
         pylab.subplot(rows,cols,i+1)
         pylab.imshow(l[i],**kw)
         if titles is not None: pylab.title(str(titles[i]))
@@ -1043,7 +887,6 @@ def midrange(image,frac=0.5):
     """Computes the center of the range of image values
     (for quick thresholding)."""
     return frac*(amin(image)+amax(image))
-from scipy.ndimage import measurements
 
 def remove_noise(line,minsize=8):
     """Remove small pixels from an image."""

@@ -63,7 +63,9 @@ for arg in args.files:
     base,_ = ocrolib.allsplitext(arg)
     try:
         E("===",arg)
-        P("<div class='ocr_page' title='file %s'>"%arg)
+        image = ocrolib.read_image_binary(arg)
+        height, width = image.shape
+        P("<div class='ocr_page' title='image %s; bbox 0 0 %d %d'>"%(arg,width,height))
 
         # to proceed, we need a pseg file and a
         # subdirectory containing text lines
@@ -88,7 +90,7 @@ for arg in args.files:
             # and insert paragraph breaks as needed
 
             id = regions.id(i)
-            y0,x0,y1,x1 = regions.bboxMath(i)
+            y0,x0,y1,x1 = regions.bbox(i)
             if last_coords is not None:
                 lx0,ly0 = last_coords
                 dx,dy = x0-lx0,y1-ly0

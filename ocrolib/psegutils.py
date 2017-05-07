@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 from toplevel import *
 from pylab import *
 from scipy.ndimage import filters,interpolation
@@ -23,7 +25,7 @@ def blackout_images(image,ticlass):
     components = ocropy.intarray()
     components.copy(g)
     n = ocropy.label_components(components)
-    print "[note] number of image regions",n
+    print("[note] number of image regions", n)
     tirects = ocropy.rectarray()
     ocropy.bounding_boxes(tirects,components)
     for i in range(1,tirects.length()):
@@ -86,7 +88,7 @@ def extract(image,y0,x0,y1,x1,mode='nearest',cval=0):
     ch,cw = y1-y0,x1-x0
     y,x = clip(y0,0,max(h-ch,0)),clip(x0,0,max(w-cw, 0))
     sub = image[y:y+ch,x:x+cw]
-    # print "extract",image.dtype,image.shape
+    # print("extract", image.dtype, image.shape)
     try:
         r = interpolation.shift(sub,(y-y0,x-x0),mode=mode,cval=cval,order=0)
         if cw > w or ch > h:
@@ -146,12 +148,12 @@ def reading_order(lines,highlight=None,debug=0):
                 if [w for w in lines if separates(w,u,v)]==[]:
                     if left_of(u,v): order[i,j] = 1
             if j==highlight and order[i,j]:
-                print (i,j),
+                print((i, j), end=' ')
                 y0,x0 = sl.center(lines[i])
                 y1,x1 = sl.center(lines[j])
                 plot([x0,x1+200],[y0,y1])
     if highlight is not None:
-        print
+        print()
         ginput(1,debug)
     return order
 
@@ -218,6 +220,6 @@ def rgbshow(r,g,b=None,gn=1,cn=0,ab=0,**kw):
         combo /= max(abs(amin(combo)),abs(amax(combo)))
     if ab:
         combo = abs(combo)
-    if amin(combo)<0: print "warning: values less than zero"
+    if amin(combo)<0: print("warning: values less than zero")
     imshow(clip(combo,0,1),**kw)
 

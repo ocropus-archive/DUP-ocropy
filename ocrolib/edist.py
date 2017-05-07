@@ -21,6 +21,8 @@ def xlevenshtein(a,b,context=1):
     """Calculates the Levensthein distance between a and b
     and generates a list of differences by context."""
     n, m = len(a), len(b)
+    assert m>0 # xlevenshtein should only be called with non-empty b string (ground truth)
+    if a == b: return 0,[] # speed up for the easy case
     sources = empty((m+1,n+1),object)
     sources[:,:] = None
     dists = 99999*ones((m+1,n+1))
@@ -72,8 +74,8 @@ def xlevenshtein(a,b,context=1):
     same = filters.minimum_filter(same,1+2*context)
     als = "".join([al[i] if not same[i] else "~" for i in range(len(al))])
     bls = "".join([bl[i] if not same[i] else "~" for i in range(len(bl))])
-    # print als
-    # print bls
+    # print(als)
+    # print(bls)
     ags = re.split(r'~+',als)
     bgs = re.split(r'~+',bls)
     confusions = [(a,b) for a,b in zip(ags,bgs) if a!="" or b!=""]

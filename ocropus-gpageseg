@@ -12,6 +12,7 @@
 # ? laplacian as well
 
 from __future__ import print_function
+
 from pylab import *
 import argparse,glob,os,os.path
 import traceback
@@ -21,6 +22,7 @@ from scipy.ndimage.filters import gaussian_filter,uniform_filter,maximum_filter
 from multiprocessing import Pool
 import ocrolib
 from ocrolib import psegutils,morph,sl
+from ocrolib.exceptions import OcropusException
 from ocrolib.toplevel import *
 
 parser = argparse.ArgumentParser()
@@ -67,7 +69,7 @@ parser.add_argument('-b','--blackseps',action="store_true",
                     help="also check for black column separators")
 
 # whitespace column separators
-parser.add_argument('--maxcolseps',type=int,default=2,
+parser.add_argument('--maxcolseps',type=int,default=3,
                     help='maximum # whitespace column separators, default: %(default)s')
 parser.add_argument('--csminaspect',type=float,default=1.1,
                     help='minimum aspect ratio for column separators')
@@ -209,7 +211,7 @@ def compute_colseps_conv(binary,scale=1.0):
     seps = maximum_filter(seps,(int(2*scale),1))
     DSAVE("3seps",seps)
     # select only the biggest column separators
-    seps = morph.select_regions(seps,sl.dim0,min=args.csminheight*scale,nbest=args.maxcolseps+1)
+    seps = morph.select_regions(seps,sl.dim0,min=args.csminheight*scale,nbest=args.maxcolseps)
     DSAVE("4seps",seps)
     return seps
 
@@ -225,7 +227,7 @@ def compute_colseps(binary,scale):
         binary = minimum(binary,1-seps)
     return colseps,binary
 
-
+
 
 ################################################################
 ### Text Line Finding.
@@ -281,7 +283,7 @@ def compute_line_seeds(binary,bottom,top,colseps,scale):
     seeds,_ = morph.label(seeds)
     return seeds
 
-
+
 
 ################################################################
 ### The complete line segmentation process.
@@ -324,7 +326,7 @@ def compute_segmentation(binary,scale):
     segmentation = llabels*binary
     return segmentation
 
-
+
 
 ################################################################
 ### Processing each file.
@@ -421,7 +423,7 @@ def safe_process1(job):
     fname,i = job
     try:
         process1(job)
-    except ocrolib.OcropusException as e:
+    except OcropusException as e:
         if e.trace:
             traceback.print_exc()
         else:
