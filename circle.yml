@@ -9,8 +9,7 @@ dependencies:
     # 'models' folder is cached, don't download twice
     - cd models && wget -nc http://www.tmbdev.net/en-default.pyrnn.gz
     # Pipe to cat to hide the progress bars
-    - pip install -r requirements_1.txt|cat
-    - pip install -r requirements_2.txt|cat
+    - pip install -r requirements.txt|cat
   cache_directories:
     - models
 test:
