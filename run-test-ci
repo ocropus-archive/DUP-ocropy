@@ -12,12 +12,12 @@ RUNNER="${RUNNER:-python2}"
 
 test_page() {
     set -x
-    $RUNNER ocropus-nlbin "$BASE/tests/testpage.png" -o temp
-    $RUNNER ocropus-gpageseg 'temp/????.bin.png'
-    $RUNNER ocropus-rpred --parallel=0 --nocheck  'temp/0001/01000?.bin.png'
-    $RUNNER ocropus-hocr 'temp/????.bin.png' -o temp.html 2>/dev/null
-    $RUNNER ocropus-visualize-results temp
-    $RUNNER ocropus-gtedit html temp/????/??????.bin.png -o temp-correction.html
+    $RUNNER "$BASE/ocropus-nlbin $BASE/tests/testpage.png" -o temp
+    $RUNNER "$BASE/ocropus-gpageseg" 'temp/????.bin.png'
+    $RUNNER "$BASE/ocropus-rpred" --parallel=0 --nocheck  'temp/0001/01000?.bin.png'
+    $RUNNER "$BASE/ocropus-hocr" 'temp/????.bin.png' -o temp.html 2>/dev/null
+    $RUNNER "$BASE/ocropus-visualize-results" temp
+    $RUNNER "$BASE/ocropus-gtedit html" temp/????/??????.bin.png -o temp-correction.html
     set +x
     echo "#     to see recognition results, type: firefox temp.html"
     echo "#     to see correction page, type: firefox temp-correction.html"
