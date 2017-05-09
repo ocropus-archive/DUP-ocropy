@@ -2,8 +2,17 @@
 
 COVERAGE="python2 -m coverage"
 
+python2 -c "\
+try:
+    import coverage
+    print('ok - python module coverage is installed')
+except ImportError:
+    print('\nYou need to install the coverage module first, e.g. \n$ pip2 install coverage\n')
+    exit(1)"
+
 rm -rf .coverage*
-PATH=$PWD:$PATH RUNNER="$COVERAGE run -p --include=$PWD/**/*" ./run-test
+PATH=$PWD:$PATH $COVERAGE run -p --include=$PWD/**/* ./tests/run-unit
+PATH=$PWD:$PATH RUNNER="$COVERAGE run -p --include=$PWD/**/*" ./run-test-ci
 $COVERAGE combine
 rm -rf htmlcov
 $COVERAGE html
