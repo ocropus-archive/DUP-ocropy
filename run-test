@@ -1,39 +1,15 @@
 #!/bin/bash -e
+
 BASE=$(dirname $0)
 
-# 'RUNNER' is the binary that the scripts are executed by. It defaults to
-# 'python2' if not set in the environment.
-# Examples:
-#       PATH=$PWD:$PATH RUNNER='coverage run --include=$PWD/**/*' ./run-test
-#       PATH=$PWD:$PATH RUNNER='python3' ./run-test
-# See ./run-coverage for a real example.
-RUNNER="${RUNNER:-python2}"
+rm -rf temp 
+ocropus-nlbin $BASE/tests/testpage.png -o temp
+ocropus-gpageseg 'temp/????.bin.png'
+ocropus-rpred -n 'temp/????/??????.bin.png'
+ocropus-hocr 'temp/????.bin.png' -o temp.html
+ocropus-visualize-results temp
+ocropus-gtedit html temp/????/??????.bin.png -o temp-correction.html
 
-test_page() {
-    set -x
-    $RUNNER ocropus-nlbin "$BASE/tests/testpage.png" -o temp
-    $RUNNER ocropus-gpageseg 'temp/????.bin.png'
-    $RUNNER ocropus-rpred -n 'temp/????/??????.bin.png'
-    $RUNNER ocropus-hocr 'temp/????.bin.png' -o temp.html
-    $RUNNER ocropus-visualize-results temp
-    $RUNNER ocropus-gtedit html temp/????/??????.bin.png -o temp-correction.html
-    set +x
-    echo "#     to see recognition results, type: firefox temp.html"
-    echo "#     to see correction page, type: firefox temp-correction.html"
-    echo "#     to see details on the recognition process, type: firefox temp/index.html"
-}
-
-test_conf() {
-    local TESTIMAGE=0079-01000d
-    mkdir -p temp
-    cp "$BASE/tests/$TESTIMAGE"* temp
-    set -x
-    $RUNNER ocropus-rpred temp/$TESTIMAGE.png
-    $RUNNER ocropus-errs  temp/$TESTIMAGE.gt.txt
-    $RUNNER ocropus-econf temp/$TESTIMAGE.gt.txt
-}
-
-rm -rf temp
-test_page
-test_conf
-
+echo "to see recognition results, type: firefox temp.html"
+echo "to see correction page, type: firefox temp-correction.html"
+echo "to see details on the recognition process, type: firefox temp/index.html"
