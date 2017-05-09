@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+from __future__ import print_function
+
 import warnings,numpy,argparse,sys,os,os.path,multiprocessing,codecs
 from collections import Counter
 import ocrolib
@@ -8,7 +10,7 @@ from pylab import *
 from ocrolib import edist
 
 # disable rank warnings from polyfit
-warnings.simplefilter('ignore',numpy.RankWarning) 
+warnings.simplefilter('ignore',numpy.RankWarning)
 
 parser = argparse.ArgumentParser(description = """
 Compute the edit distances between ground truth and recognizer output.
@@ -46,13 +48,19 @@ def process1(fname):
     else:
         missing = len(gt)
         txt = ""
-    if args.confusion>0 or args.allconf is not None:
+    # Also the ground truth cannot be empty, it is possible that
+    # after filtering (args.kind) the gt string is empty.
+    if len(gt) == 0:
+        err = len(txt)
+        if(len(txt)>0):
+            cs = [(txt,'_'*len(txt))]
+        else:
+            cs = []
+    else:
         err,cs = edist.xlevenshtein(txt,gt,context=args.context)
+    if args.confusion>0 or args.allconf is not None:
         for u,v in cs:
             counts[(u,v)] += 1
-    else:
-        err = edist.levenshtein(txt,gt)
-    #assert err==xerr
     return fname,err,len(gt),missing,counts
 
 outputs = ocrolib.parallel_map(process1,args.files,parallel=args.parallel,chunksize=10)
@@ -84,14 +92,18 @@ for fname,e,t,m,c in outputs:
 if perfile is not None: perfile.close()
 if allconf is not None: allconf.close()
 
-sys.stderr.write("errors    %8d\n"%errs)
-sys.stderr.write("missing   %8d\n"%missing)
-sys.stderr.write("total     %8d\n"%total)
-sys.stderr.write("err       %8.3f %%\n"%(errs*100.0/total))
-sys.stderr.write("errnomiss %8.3f %%\n"%((errs-missing)*100.0/total))
+print("errors    %8d"%errs)
+print("missing   %8d"%missing)
+print("total     %8d"%total)
+if (total>0):
+    print("err       %8.3f %%"%(errs*100.0/total))
+    print("errnomiss %8.3f %%"%((errs-missing)*100.0/total))
 
 if args.confusion>0:
     for (a,b),v in counts.most_common(args.confusion):
-        print "%d\t%s\t%s"%(v,a,b)
+        print("%d\t%s\t%s" % (v, a, b))
 
-print errs*1.0/total
+if (total>0):
+    print(errs * 1.0 / total)
+else:
+    print("Nothing to compare")

@@ -14,8 +14,10 @@ german = u"ÄäÖöÜüß"
 french = u"ÀàÂâÆæÇçÉéÈèÊêËëÎîÏïÔôŒœÙùÛûÜüŸÿ"
 turkish = u"ĞğŞşıſ"
 greek = u"ΑαΒβΓγΔδΕεΖζΗηΘθΙιΚκΛλΜμΝνΞξΟοΠπΡρΣσςΤτΥυΦφΧχΨψΩω"
+portuguese = u"ÁÃÌÍÒÓÕÚáãìíòóõú"
+telugu = u" ఁంఃఅఆఇఈఉఊఋఌఎఏఐఒఓఔకఖగఘఙచఛజఝఞటఠడఢణతథదధనపఫబభమయరఱలళవశషసహఽాిీుూృౄెేైొోౌ్ౘౙౠౡౢౣ౦౧౨౩౪౫౬౭౮౯"
 
-default = ascii+xsymbols+german+french
+default = ascii+xsymbols+german+french+portuguese
 
 european = default+turkish+greek
 

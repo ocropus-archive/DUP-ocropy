@@ -1,17 +1,12 @@
-import sys,os,re
+from __future__ import print_function
+
+import sys
+import os
+import re
 from scipy import stats
 from scipy.ndimage import measurements,interpolation,filters
 from pylab import *
-import common,morph
-import ocrolib
 from toplevel import *
-import argparse
-
-
-
-
-from pylab import *
-import ocrolib
 
 def scale_to_h(img,target_height,order=1,dtype=dtype('f'),cval=0):
     h,w = img.shape
@@ -28,7 +23,7 @@ class CenterNormalizer:
         self.debug = int(os.getenv("debug_center") or "0")
         self.target_height = target_height
         self.range,self.smoothness,self.extra = params
-        print "# CenterNormalizer"
+        print("# CenterNormalizer")
     def setHeight(self,target_height):
         self.target_height = target_height
     def measure(self,line):
@@ -50,8 +45,11 @@ class CenterNormalizer:
     def dewarp(self,img,cval=0,dtype=dtype('f')):
         assert img.shape==self.shape
         h,w = img.shape
-        padded = vstack([cval*ones((h,w)),img,cval*ones((h,w))])
-        center = self.center+h
+        # The actual image img is embedded into a larger image by
+        # adding vertical space on top and at the bottom (padding)
+        hpadding = self.r # this is large enough
+        padded = vstack([cval*ones((hpadding,w)),img,cval*ones((hpadding,w))])
+        center = self.center + hpadding
         dewarped = [padded[center[i]-self.r:center[i]+self.r,i] for i in range(w)]
         dewarped = array(dewarped,dtype=dtype).T
         return dewarped
