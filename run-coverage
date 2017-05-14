@@ -11,8 +11,8 @@ except ImportError:
     exit(1)"
 
 rm -rf .coverage*
-PATH=$PWD:$PATH $COVERAGE run -p --include=$PWD/**/* ./tests/run-unit
-PATH=$PWD:$PATH RUNNER="$COVERAGE run -p --include=$PWD/**/*" ./run-test-ci
+PATH=$PWD:$PATH $COVERAGE run -p --include=$PWD/ocropus-*,$PWD/**/* ./tests/run-unit
+PATH=$PWD:$PATH RUNNER="$COVERAGE run -p --include=$PWD/ocropus-*,$PWD/**/*" ./run-test-ci
 $COVERAGE combine
 rm -rf htmlcov
 $COVERAGE html
