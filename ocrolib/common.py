@@ -152,6 +152,11 @@ def isintarray(a):
 def isintegerarray(a):
     return a.dtype in [dtype('int32'),dtype('int64'),dtype('uint32'),dtype('uint64')]
 
+def isbinarized(a):
+    """Tests whether an array has only two unique values 0 and 1"""
+    a = sorted(unique(a))
+    return len(a) == 2 and a[0] == 0 and a[1] == 1
+
 @checks(str,pageno=int,_=GRAYSCALE)
 def read_image_gray(fname,pageno=0):
     """Read an image and returns it as a floating point array.

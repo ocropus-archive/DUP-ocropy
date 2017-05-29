@@ -98,6 +98,8 @@ for trial in range(args.start,args.ntrain):
         fname = inputs[randint(0,len(inputs))]
         base,_ = ocrolib.allsplitext(fname)
         line = ocrolib.read_image_gray(fname)
+        if not ocrolib.isbinarized(line):
+            raise ValueError("Image %s is not binarized" % (fname))
         transcript = ocrolib.read_text(base+".gt.txt")
         print("#", trial, fname, line.shape)
         line = preprocess(line)

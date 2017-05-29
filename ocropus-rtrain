@@ -263,6 +263,8 @@ for trial in range(start,args.ntrain):
     base,_ = ocrolib.allsplitext(fname)
     try:
         line = ocrolib.read_image_gray(fname)
+        if not ocrolib.isbinarized(line):
+            raise ValueError("Image %s is not binarized" % (fname))
         transcript = ocrolib.read_text(base+".gt.txt")
     except IOError as e:
         print("ERROR", e)

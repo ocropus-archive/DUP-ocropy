@@ -138,6 +138,8 @@ def process1(arg):
     (trial,fname) = arg
     base,_ = ocrolib.allsplitext(fname)
     line = ocrolib.read_image_gray(fname)
+    if not ocrolib.isbinarized(line):
+        raise ValueError("Image %s is not binarized" % (fname))
     raw_line = line.copy()
     if prod(line.shape)==0: return None
     if amax(line)==amin(line): return None
