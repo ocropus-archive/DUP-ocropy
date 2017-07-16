@@ -1,0 +1,48 @@
+#!/bin/bash -e
+
+BASE=$(dirname $0)
+
+# 'RUNNER' is the binary that the scripts are executed by. It defaults to
+# 'python2' if not set in the environment.
+# Other examples:
+#       PATH=$PWD:$PATH RUNNER='python2 -m coverage run --include=$PWD/**/*' ./run-test
+#       PATH=$PWD:$PATH RUNNER='python3' ./run-test
+# See ./run-coverage for a real example.
+RUNNER="${RUNNER:-python2}"
+
+test_page() {
+    set -x
+    $RUNNER $BASE/ocropus-nlbin "$BASE/tests/testpage.png" -o temp
+    $RUNNER $BASE/ocropus-gpageseg 'temp/????.bin.png'
+    $RUNNER $BASE/ocropus-rpred --parallel=0 --nocheck  'temp/0001/01000?.bin.png'
+    $RUNNER $BASE/ocropus-dewarp 'temp/0001/01001?.bin.png'
+    $RUNNER $BASE/ocropus-hocr 'temp/????.bin.png' -o temp.html 2>/dev/null
+    $RUNNER $BASE/ocropus-visualize-results temp
+    $RUNNER $BASE/ocropus-gtedit html temp/????/??????.bin.png -o temp-correction.html
+    set +x
+}
+
+test_conf() {
+    local TESTIMAGE=0079-01000d
+    mkdir -p temp
+    cp "$BASE/tests/$TESTIMAGE"* temp
+    set -x
+    $RUNNER $BASE/ocropus-rpred temp/$TESTIMAGE.png
+    $RUNNER $BASE/ocropus-errs  temp/$TESTIMAGE.gt.txt
+    $RUNNER $BASE/ocropus-econf temp/$TESTIMAGE.gt.txt
+}
+
+test_linegen() {
+    $RUNNER $BASE/ocropus-linegen -m 3 -t $BASE/tests/tomsawyer.txt -f $BASE/tests/DejaVuSans.ttf
+}
+
+test_rtrain() {
+    tar -zxf $BASE/tests/uw3-500.tgz
+    $RUNNER $BASE/ocropus-rtrain 'book/*/*.bin.png' -N 5 -o ci-test-model
+}
+
+rm -rf temp
+test_page
+test_conf
+test_linegen
+test_rtrain

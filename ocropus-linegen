@@ -149,14 +149,6 @@ if args.debug_show:
     plt.gray()
 
 
-def bounding_box(a):
-    a = np.array(a>0,'i')
-    l = measurements.find_objects(a)
-    if len(l)<1: return (0,0,0,0)
-    ys,xs = l[0]
-    # y0,x0,y1,x1
-    return (ys.start,xs.start,ys.stop,xs.stop)
-
 base = args.base
 print("base", base)
 os.system("rm -rf "+base)

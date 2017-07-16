@@ -58,11 +58,11 @@ for fname,e,t,m in sorted(outputs):
     total += t
     missing += m
 
-print("errors    %8d"%errs)
-print("missing   %8d"%missing)
-print("total     %8d"%total)
-print("err       %8.3f %%"%(errs*100.0/total))
-print("errnomiss %8.3f %%"%((errs-missing)*100.0/total))
+if not args.erroronly:
+    print("errors    %8d"%errs)
+    print("missing   %8d"%missing)
+    print("total     %8d"%total)
+    print("err       %8.3f %%"%(errs*100.0/total))
+    print("errnomiss %8.3f %%"%((errs-missing)*100.0/total))
 
-if args.erroronly:
-    print(errs * 1.0 / total)
+print(errs * 1.0 / total)

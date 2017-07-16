@@ -68,18 +68,6 @@ def check_page(image):
     if w>10000: return "line too wide for a page image %s"%(image.shape,)
     return None
 
-
-def estimate_scale(binary):
-    objects = binary_objects(binary)
-    bysize = sorted(objects,key=A)
-    scalemap = np.zeros(binary.shape)
-    for o in bysize:
-        if np.amax(scalemap[o])>0: continue
-        scalemap[o] = A(o)**0.5
-    scale = np.median(scalemap[(scalemap>3)&(scalemap<100)])
-    return scale
-
-
 def estimate_skew_angle(image,angles):
     estimates = []
     for a in angles:

@@ -1,6 +1,5 @@
 OLD
 JUNK
-.hg
 book/
 temp/
 models/
@@ -14,3 +13,4 @@ build/
 *.a
 *.so
 .~*.vue
+doc/.ipynb_checkpoints/

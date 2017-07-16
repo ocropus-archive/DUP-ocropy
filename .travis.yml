@@ -45,4 +45,5 @@ install:
 script:
   - mkdir ../test_folder
   - cd ../test_folder
-  - ../ocropy/run-test
+  - ../ocropy/tests/run-unit
+  - ../ocropy/run-test-ci
