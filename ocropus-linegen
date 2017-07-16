@@ -127,7 +127,7 @@ def rgeometry(image,eps=0.03,delta=0.3):
     m = np.array([[1+eps*np.random.randn(),0.0],[eps*np.random.randn(),1.0+eps*np.random.randn()]])
     w,h = image.shape
     c = np.array([w/2.0,h/2])
-    d = c-dot(m,c)+np.array([np.random.randn()*delta,np.random.randn()*delta])
+    d = c-np.dot(m,c)+np.array([np.random.randn()*delta,np.random.randn()*delta])
     return interpolation.affine_transform(image,m,offset=d,order=1,mode='constant',cval=image[0,0])
 
 

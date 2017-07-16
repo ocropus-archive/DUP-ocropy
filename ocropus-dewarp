@@ -7,6 +7,7 @@ import argparse
 import sys
 
 import numpy as np
+from scipy.misc import imsave
 
 import ocrolib
 from ocrolib import lineest
@@ -45,7 +46,7 @@ for fname in inputs:
         line = ocrolib.read_image_gray(fname)
         lnorm.measure(np.amax(line)-line)
         line = lnorm.normalize(line,cval=np.amax(line))
-        scipy.misc.imsave(base+".dew.png",line)
+        imsave(base+".dew.png",line)
     except Exception as e:
         print("ERROR", e)
         continue
