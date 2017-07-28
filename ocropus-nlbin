@@ -6,6 +6,7 @@ import argparse
 import os
 import multiprocessing
 import sys
+import codecs
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -13,6 +14,10 @@ from scipy.ndimage import filters,interpolation,morphology,measurements
 from scipy import stats
 
 import ocrolib
+
+utf8writer = codecs.getwriter('utf8')
+sys.stdout = utf8writer(sys.stdout)
+sys.stderr = utf8writer(sys.stderr)
 
 
 parser = argparse.ArgumentParser("""
@@ -51,11 +56,11 @@ if len(args.files)<1:
 
 
 def print_info(*objs):
-    print("INFO: ", *objs, file=sys.stdout)
+    print("INFO: ", " ".join(objs))
 
 
 def print_error(*objs):
-    print("ERROR: ", *objs, file=sys.stderr)
+    print("ERROR: ", " ".join(objs), file=sys.stderr)
 
 
 def check_page(image):
