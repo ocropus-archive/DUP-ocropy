@@ -1,12 +1,11 @@
-------------------------
-| Project Announcements
-|:-----------------------
-| The text line recognizer has been ported to C++ and is now a separate project, the CLSTM project, available here: https://github.com/tmbdev/clstm
-| Please welcome @zuphilip and @kba as additional project maintainers. @tmb is busy developing new DNN models for document analysis (among other things). (10/15/2016)
-------------------------
-
 ocropy
 ======
+
+[![Build Status](https://travis-ci.org/tmbdev/ocropy.svg)](https://travis-ci.org/tmbdev/ocropy)
+[![CircleCI](https://circleci.com/gh/UB-Mannheim/ocropy/tree/pull%2F4.svg?style=svg)](https://circleci.com/gh/UB-Mannheim/ocropy/tree/pull%2F4)
+[![license](https://img.shields.io/github/license/tmbdev/ocropy.svg)](https://github.com/tmbdev/ocropy/blob/master/LICENSE)
+[![Wiki](https://img.shields.io/badge/wiki-11%20pages-orange.svg)](https://github.com/tmbdev/ocropy/wiki)
+[![Join the chat at https://gitter.im/tmbdev/ocropy](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/tmbdev/ocropy?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
 OCRopus is a collection of document analysis programs, not a turn-key OCR system.
 In order to apply it to your documents, you may need to do some image preprocessing,
@@ -21,9 +20,6 @@ trace by default since it seems to confuse too many users).
 Installing
 ----------
 
-[![Build Status](https://travis-ci.org/tmbdev/ocropy.svg)](https://travis-ci.org/tmbdev/ocropy)
-[![Join the chat at https://gitter.im/tmbdev/ocropy](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/tmbdev/ocropy?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
-
 To install OCRopus dependencies system-wide:
 
     $ sudo apt-get install $(cat PACKAGES)
@@ -31,14 +27,15 @@ To install OCRopus dependencies system-wide:
     $ mv en-default.pyrnn.gz models/
     $ sudo python setup.py install
 
-Alternatively, dependencies can be installed into a [Python Virtual Environment]
-(http://docs.python-guide.org/en/latest/dev/virtualenvs/):
+Alternatively, dependencies can be installed into a
+[Python Virtual Environment](http://docs.python-guide.org/en/latest/dev/virtualenvs/):
 
     $ virtualenv ocropus_venv/
     $ source ocropus_venv/bin/activate
     $ pip install -r requirements.txt
     $ wget -nd http://www.tmbdev.net/en-default.pyrnn.gz
     $ mv en-default.pyrnn.gz models/
+    $ python setup.py install
 
 An additional method using [Conda](http://conda.pydata.org/) is also possible:
 
@@ -96,6 +93,14 @@ This will create a directory "linegen/..." containing training data
 suitable for training OCRopus with synthetic data.
 
 ## Roadmap
+
+------------------------
+| Project Announcements
+|:-----------------------
+| The text line recognizer has been ported to C++ and is now a separate project, the CLSTM project, available here: https://github.com/tmbdev/clstm
+| New GPU-capable text line recognizers and deep-learning based layout analysis methods are in the works and will be published as separate projects some time in 2017.
+| Please welcome @zuphilip and @kba as additional project maintainers. @tmb is busy developing new DNN models for document analysis (among other things). (10/15/2016)
+------------------------
 
 A lot of excellent packages have become available for deep learning, vision, and GPU computing over the last few years.
 At the same time, it has become feasible now to address problems like layout analysis and text line following

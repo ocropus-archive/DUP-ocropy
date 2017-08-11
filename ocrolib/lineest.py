@@ -45,8 +45,11 @@ class CenterNormalizer:
     def dewarp(self,img,cval=0,dtype=dtype('f')):
         assert img.shape==self.shape
         h,w = img.shape
-        padded = vstack([cval*ones((h,w)),img,cval*ones((h,w))])
-        center = self.center+h
+        # The actual image img is embedded into a larger image by
+        # adding vertical space on top and at the bottom (padding)
+        hpadding = self.r # this is large enough
+        padded = vstack([cval*ones((hpadding,w)),img,cval*ones((hpadding,w))])
+        center = self.center + hpadding
         dewarped = [padded[center[i]-self.r:center[i]+self.r,i] for i in range(w)]
         dewarped = array(dewarped,dtype=dtype).T
         return dewarped
