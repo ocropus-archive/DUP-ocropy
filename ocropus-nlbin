@@ -83,6 +83,86 @@ def dshow(image,info):
     if args.debug<=0: return
     ion(); gray(); imshow(image); title(info); ginput(1,args.debug)
 
+
+def normalize(raw):
+    ''' perform image normalization '''
+    image = raw-amin(raw)
+    if amax(image)==amin(image):
+        print_info("# image is empty: %s" % (fname))
+        return None
+    image /= amax(image)
+    return image
+
+
+def estimate_local_whitelevel(image, zoom=0.5, perc=80, range=20, debug=0):
+    '''flatten it by estimating the local whitelevel
+    zoom for page background estimation, smaller=faster, default: %(default)s
+    percentage for filters, default: %(default)s
+    range for filters, default: %(default)s
+    '''
+    m = interpolation.zoom(image,zoom)
+    m = filters.percentile_filter(m,perc,size=(range,2))
+    m = filters.percentile_filter(m,perc,size=(2,range))
+    m = interpolation.zoom(m,1.0/zoom)
+    if debug>0: clf(); imshow(m,vmin=0,vmax=1); ginput(1,debug)
+    w,h = minimum(array(image.shape),array(m.shape))
+    flat = clip(image[:w,:h]-m[:w,:h]+1,0,1)
+    if debug>0: clf(); imshow(flat,vmin=0,vmax=1); ginput(1,debug)
+    return flat
+
+
+def estimate_skew(flat, bignore=0.1, maxskew=2, skewsteps=8):
+    ''' estimate skew angle and rotate'''
+    d0,d1 = flat.shape
+    o0,o1 = int(bignore*d0),int(bignore*d1) # border ignore
+    flat = amax(flat)-flat
+    flat -= amin(flat)
+    est = flat[o0:d0-o0,o1:d1-o1]
+    ma = maxskew
+    ms = int(2*maxskew*skewsteps)
+    # print(linspace(-ma,ma,ms+1))
+    angle = estimate_skew_angle(est,linspace(-ma,ma,ms+1))
+    flat = interpolation.rotate(flat,angle,mode='constant',reshape=0)
+    flat = amax(flat)-flat
+    return flat, angle
+
+
+
+def binary(flat, bignore=0.1, escale=1.0, lo=5, hi=90, threshold=0.5, debug=0):
+    '''# estimate low and high thresholds
+    ignore this much of the border for threshold estimation, default: %(default)s
+    scale for estimating a mask over the text region, default: %(default)s
+    lo percentile for black estimation, default: %(default)s
+    hi percentile for white estimation, default: %(default)s
+    threshold, determines lightness, default: %(default)s
+    '''
+    d0,d1 = flat.shape
+    o0,o1 = int(bignore*d0),int(bignore*d1)
+    est = flat[o0:d0-o0,o1:d1-o1]
+    if escale>0:
+        # by default, we use only regions that contain
+        # significant variance; this makes the percentile
+        # based low and high estimates more reliable
+        e = escale
+        v = est-filters.gaussian_filter(est,e*20.0)
+        v = filters.gaussian_filter(v**2,e*20.0)**0.5
+        v = (v>0.3*amax(v))
+        v = morphology.binary_dilation(v,structure=ones((int(e*50),1)))
+        v = morphology.binary_dilation(v,structure=ones((1,int(e*50))))
+        if debug>0: imshow(v); ginput(1,debug)
+        est = est[v]
+    lo = stats.scoreatpercentile(est.ravel(),lo)
+    hi = stats.scoreatpercentile(est.ravel(),hi)
+    # rescale the image to get the gray scale image
+    # if args.parallel<2: print_info("rescaling")
+    flat -= lo
+    flat /= (hi-lo)
+    flat = clip(flat,0,1)
+    if debug>0: imshow(flat,vmin=0,vmax=1); ginput(1,debug)
+    bin = 1*(flat>threshold)
+    return bin
+
+
 def process1(job):
     fname,i = job
     print_info("# %s" % (fname))
@@ -90,11 +170,7 @@ def process1(job):
     raw = ocrolib.read_image_gray(fname)
     dshow(raw,"input")
     # perform image normalization
-    image = raw-amin(raw)
-    if amax(image)==amin(image):
-        print_info("# image is empty: %s" % (fname))
-        return
-    image /= amax(image)
+    image = normalze(raw)
 
     if not args.nocheck:
         check = check_page(amax(image)-image)
@@ -114,57 +190,18 @@ def process1(job):
         comment = ""
         # if not, we need to flatten it by estimating the local whitelevel
         if args.parallel<2: print_info("flattening")
-        m = interpolation.zoom(image,args.zoom)
-        m = filters.percentile_filter(m,args.perc,size=(args.range,2))
-        m = filters.percentile_filter(m,args.perc,size=(2,args.range))
-        m = interpolation.zoom(m,1.0/args.zoom)
-        if args.debug>0: clf(); imshow(m,vmin=0,vmax=1); ginput(1,args.debug)
-        w,h = minimum(array(image.shape),array(m.shape))
-        flat = clip(image[:w,:h]-m[:w,:h]+1,0,1)
-        if args.debug>0: clf(); imshow(flat,vmin=0,vmax=1); ginput(1,args.debug)
+        flat = estimate_local_whitelevel(image, args.zoom, args.perc, args.range, args.debug)
 
     # estimate skew angle and rotate
     if args.maxskew>0:
         if args.parallel<2: print_info("estimating skew angle")
-        d0,d1 = flat.shape
-        o0,o1 = int(args.bignore*d0),int(args.bignore*d1)
-        flat = amax(flat)-flat
-        flat -= amin(flat)
-        est = flat[o0:d0-o0,o1:d1-o1]
-        ma = args.maxskew
-        ms = int(2*args.maxskew*args.skewsteps)
-        angle = estimate_skew_angle(est,linspace(-ma,ma,ms+1))
-        flat = interpolation.rotate(flat,angle,mode='constant',reshape=0)
-        flat = amax(flat)-flat
+        flat, angle = estimate_skew(flat, args.bignore, args.maxskew, args.skewsteps)
     else:
         angle = 0
 
     # estimate low and high thresholds
     if args.parallel<2: print_info("estimating thresholds")
-    d0,d1 = flat.shape
-    o0,o1 = int(args.bignore*d0),int(args.bignore*d1)
-    est = flat[o0:d0-o0,o1:d1-o1]
-    if args.escale>0:
-        # by default, we use only regions that contain
-        # significant variance; this makes the percentile
-        # based low and high estimates more reliable
-        e = args.escale
-        v = est-filters.gaussian_filter(est,e*20.0)
-        v = filters.gaussian_filter(v**2,e*20.0)**0.5
-        v = (v>0.3*amax(v))
-        v = morphology.binary_dilation(v,structure=ones((int(e*50),1)))
-        v = morphology.binary_dilation(v,structure=ones((1,int(e*50))))
-        if args.debug>0: imshow(v); ginput(1,args.debug)
-        est = est[v]
-    lo = stats.scoreatpercentile(est.ravel(),args.lo)
-    hi = stats.scoreatpercentile(est.ravel(),args.hi)
-    # rescale the image to get the gray scale image
-    if args.parallel<2: print_info("rescaling")
-    flat -= lo
-    flat /= (hi-lo)
-    flat = clip(flat,0,1)
-    if args.debug>0: imshow(flat,vmin=0,vmax=1); ginput(1,args.debug)
-    bin = 1*(flat>args.threshold)
+    bin = binary(flat, args.bignore, args.escale, args.lo, args.hi, args.threshold, args.debug)
 
     # output the normalized grayscale and the thresholded images
     print_info("%s lo-hi (%.2f %.2f) angle %4.1f %s" % (fname, lo, hi, angle, comment))
