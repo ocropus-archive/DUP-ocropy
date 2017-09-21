@@ -170,7 +170,7 @@ def process1(job):
     raw = ocrolib.read_image_gray(fname)
     dshow(raw,"input")
     # perform image normalization
-    image = normalze(raw)
+    image = normalize(raw)
 
     if not args.nocheck:
         check = check_page(amax(image)-image)
