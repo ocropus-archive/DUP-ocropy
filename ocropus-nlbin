@@ -128,13 +128,12 @@ def estimate_skew(flat, bignore=0.1, maxskew=2, skewsteps=8):
 
 
 
-def binary(flat, bignore=0.1, escale=1.0, lo=5, hi=90, threshold=0.5, debug=0):
+def estimate_thresholds(flat, bignore=0.1, escale=1.0, lo=5, hi=90, debug=0):
     '''# estimate low and high thresholds
     ignore this much of the border for threshold estimation, default: %(default)s
     scale for estimating a mask over the text region, default: %(default)s
     lo percentile for black estimation, default: %(default)s
     hi percentile for white estimation, default: %(default)s
-    threshold, determines lightness, default: %(default)s
     '''
     d0,d1 = flat.shape
     o0,o1 = int(bignore*d0),int(bignore*d1)
@@ -153,14 +152,7 @@ def binary(flat, bignore=0.1, escale=1.0, lo=5, hi=90, threshold=0.5, debug=0):
         est = est[v]
     lo = stats.scoreatpercentile(est.ravel(),lo)
     hi = stats.scoreatpercentile(est.ravel(),hi)
-    # rescale the image to get the gray scale image
-    # if args.parallel<2: print_info("rescaling")
-    flat -= lo
-    flat /= (hi-lo)
-    flat = clip(flat,0,1)
-    if debug>0: imshow(flat,vmin=0,vmax=1); ginput(1,debug)
-    bin = 1*(flat>threshold)
-    return bin
+    return lo, hi
 
 
 def process1(job):
@@ -201,7 +193,14 @@ def process1(job):
 
     # estimate low and high thresholds
     if args.parallel<2: print_info("estimating thresholds")
-    bin = binary(flat, args.bignore, args.escale, args.lo, args.hi, args.threshold, args.debug)
+    lo, hi = estimate_thresholds(flat, args.bignore, args.escale, args.lo, args.hi, args.debug)
+    # rescale the image to get the gray scale image
+    if args.parallel<2: print_info("rescaling")
+    flat -= lo
+    flat /= (hi-lo)
+    flat = clip(flat,0,1)
+    if args.debug>0: imshow(flat,vmin=0,vmax=1); ginput(1,args.debug)
+    bin = 1*(flat>args.threshold)
 
     # output the normalized grayscale and the thresholded images
     print_info("%s lo-hi (%.2f %.2f) angle %4.1f %s" % (fname, lo, hi, angle, comment))
