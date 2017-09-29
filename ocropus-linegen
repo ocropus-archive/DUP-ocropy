@@ -80,7 +80,9 @@ if args.fonts is not None:
         if pat=="": continue
         fonts += sorted(glob.glob(pat))
 elif args.fontlist is not None:
-    fonts = re.split(r'\s*\n\s*',open(args.fontlist).read())
+    with open(args.fontlist) as fh:
+        lines = (line.strip() for line in fh)
+        fonts = [line for line in lines if line]
 else:
     print("use -f or -F arguments to specify fonts")
     sys.exit(1)
