@@ -121,7 +121,7 @@ def estimate_local_whitelevel(image, zoom=0.5, perc=80, range=20, debug=0):
         plt.ginput(1,debug)
     w,h = np.minimum(np.array(image.shape),np.array(m.shape))
     flat = np.clip(image[:w,:h]-m[:w,:h]+1,0,1)
-    if debug>0
+    if debug>0:
         plt.clf()
         plt.imshow(flat,vmin=0,vmax=1)
         plt.ginput(1,debug)
@@ -165,7 +165,7 @@ def estimate_thresholds(flat, bignore=0.1, escale=1.0, lo=5, hi=90, debug=0):
         v = (v>0.3*np.amax(v))
         v = morphology.binary_dilation(v,structure=np.ones((int(e*50),1)))
         v = morphology.binary_dilation(v,structure=np.ones((1,int(e*50))))
-        if debug>0
+        if debug>0:
             plt.imshow(v)
             plt.ginput(1,debug)
         est = est[v]
