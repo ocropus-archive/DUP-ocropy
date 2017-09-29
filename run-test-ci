@@ -105,7 +105,6 @@ test_conf
 test_linegen
 test_rtrain
 test_nlbin
-#this depends on #220:
-#test_gpageseg
+test_gpageseg
 test_rpred
 test_gtedit
