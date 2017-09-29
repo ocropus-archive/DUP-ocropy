@@ -162,7 +162,7 @@ def DSAVE(title,image):
 def compute_separators_morph(binary,scale):
     """Finds vertical black lines corresponding to column separators."""
     d0 = int(max(5,scale/4))
-    d1 = int(max(5,scale))+args.sepwiden
+    d1 = int(max(5,scale/4)) + args.sepwiden
     thick = morph.r_dilation(binary,(d0,d1))
     vert = morph.rb_opening(thick,(10*scale,1))
     vert = morph.r_erosion(vert,(d0//2,args.sepwiden))
@@ -218,7 +218,7 @@ def compute_colseps_conv(binary,scale=1.0):
     grad = (grad>0.5*amax(grad))
     DSAVE("2grad",grad)
     # combine edges and whitespace
-    seps = minimum(thresh,maximum_filter(grad,(int(scale),int(5*scale))))
+    seps = minimum(thresh,maximum_filter(grad,(int(5*scale),int(5*scale))))
     seps = maximum_filter(seps,(int(2*scale),1))
     DSAVE("3seps",seps)
     # select only the biggest column separators
