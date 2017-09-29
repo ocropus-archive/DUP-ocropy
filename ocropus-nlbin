@@ -95,6 +95,85 @@ def dshow(image,info):
     plt.ginput(1,args.debug)
 
 
+def normalize_raw_image(raw):
+    ''' perform image normalization '''
+    image = raw-np.amin(raw)
+    if np.amax(image)==np.amin(image):
+        print_info("# image is empty: %s" % (fname))
+        return None
+    image /= np.amax(image)
+    return image
+
+
+def estimate_local_whitelevel(image, zoom=0.5, perc=80, range=20, debug=0):
+    '''flatten it by estimating the local whitelevel
+    zoom for page background estimation, smaller=faster, default: %(default)s
+    percentage for filters, default: %(default)s
+    range for filters, default: %(default)s
+    '''
+    m = interpolation.zoom(image,zoom)
+    m = filters.percentile_filter(m,perc,size=(range,2))
+    m = filters.percentile_filter(m,perc,size=(2,range))
+    m = interpolation.zoom(m,1.0/zoom)
+    if debug>0:
+        plt.clf()
+        plt.imshow(m,vmin=0,vmax=1)
+        plt.ginput(1,debug)
+    w,h = np.minimum(np.array(image.shape),np.array(m.shape))
+    flat = np.clip(image[:w,:h]-m[:w,:h]+1,0,1)
+    if debug>0
+        plt.clf()
+        plt.imshow(flat,vmin=0,vmax=1)
+        plt.ginput(1,debug)
+    return flat
+
+
+def estimate_skew(flat, bignore=0.1, maxskew=2, skewsteps=8):
+    ''' estimate skew angle and rotate'''
+    d0,d1 = flat.shape
+    o0,o1 = int(bignore*d0),int(bignore*d1) # border ignore
+    flat = np.amax(flat)-flat
+    flat -= np.amin(flat)
+    est = flat[o0:d0-o0,o1:d1-o1]
+    ma = maxskew
+    ms = int(2*maxskew*skewsteps)
+    # print(linspace(-ma,ma,ms+1))
+    angle = estimate_skew_angle(est,np.linspace(-ma,ma,ms+1))
+    flat = interpolation.rotate(flat,angle,mode='constant',reshape=0)
+    flat = np.amax(flat)-flat
+    return flat, angle
+
+
+
+def estimate_thresholds(flat, bignore=0.1, escale=1.0, lo=5, hi=90, debug=0):
+    '''# estimate low and high thresholds
+    ignore this much of the border for threshold estimation, default: %(default)s
+    scale for estimating a mask over the text region, default: %(default)s
+    lo percentile for black estimation, default: %(default)s
+    hi percentile for white estimation, default: %(default)s
+    '''
+    d0,d1 = flat.shape
+    o0,o1 = int(bignore*d0),int(bignore*d1)
+    est = flat[o0:d0-o0,o1:d1-o1]
+    if escale>0:
+        # by default, we use only regions that contain
+        # significant variance; this makes the percentile
+        # based low and high estimates more reliable
+        e = escale
+        v = est-filters.gaussian_filter(est,e*20.0)
+        v = filters.gaussian_filter(v**2,e*20.0)**0.5
+        v = (v>0.3*np.amax(v))
+        v = morphology.binary_dilation(v,structure=np.ones((int(e*50),1)))
+        v = morphology.binary_dilation(v,structure=np.ones((1,int(e*50))))
+        if debug>0
+            plt.imshow(v)
+            plt.ginput(1,debug)
+        est = est[v]
+    lo = stats.scoreatpercentile(est.ravel(),lo)
+    hi = stats.scoreatpercentile(est.ravel(),hi)
+    return lo, hi
+
+
 def process1(job):
     fname,i = job
     print_info("# %s" % (fname))
@@ -102,11 +181,7 @@ def process1(job):
     raw = ocrolib.read_image_gray(fname)
     dshow(raw,"input")
     # perform image normalization
-    image = raw-np.amin(raw)
-    if np.amax(image)==np.amin(image):
-        print_info("# image is empty: %s" % (fname))
-        return
-    image /= np.amax(image)
+    image = normalize_raw_image(raw)
 
     if not args.nocheck:
         check = check_page(np.amax(image)-image)
@@ -126,58 +201,18 @@ def process1(job):
         comment = ""
         # if not, we need to flatten it by estimating the local whitelevel
         if args.parallel<2: print_info("flattening")
-        m = interpolation.zoom(image,args.zoom)
-        m = filters.percentile_filter(m,args.perc,size=(args.range,2))
-        m = filters.percentile_filter(m,args.perc,size=(2,args.range))
-        m = interpolation.zoom(m,1.0/args.zoom)
-        if args.debug>0:
-            plt.clf()
-            plt.imshow(m,vmin=0,vmax=1)
-            plt.ginput(1,args.debug)
-        w,h = np.minimum(np.array(image.shape),np.array(m.shape))
-        flat = np.clip(image[:w,:h]-m[:w,:h]+1,0,1)
-        if args.debug>0:
-            plt.clf()
-            plt.imshow(flat,vmin=0,vmax=1)
-            plt.ginput(1,args.debug)
+        flat = estimate_local_whitelevel(image, args.zoom, args.perc, args.range, args.debug)
 
     # estimate skew angle and rotate
     if args.maxskew>0:
         if args.parallel<2: print_info("estimating skew angle")
-        d0,d1 = flat.shape
-        o0,o1 = int(args.bignore*d0),int(args.bignore*d1)
-        flat = np.amax(flat)-flat
-        flat -= np.amin(flat)
-        est = flat[o0:d0-o0,o1:d1-o1]
-        ma = args.maxskew
-        ms = int(2*args.maxskew*args.skewsteps)
-        angle = estimate_skew_angle(est,np.linspace(-ma,ma,ms+1))
-        flat = interpolation.rotate(flat,angle,mode='constant',reshape=0)
-        flat = np.amax(flat)-flat
+        flat, angle = estimate_skew(flat, args.bignore, args.maxskew, args.skewsteps)
     else:
         angle = 0
 
     # estimate low and high thresholds
     if args.parallel<2: print_info("estimating thresholds")
-    d0,d1 = flat.shape
-    o0,o1 = int(args.bignore*d0),int(args.bignore*d1)
-    est = flat[o0:d0-o0,o1:d1-o1]
-    if args.escale>0:
-        # by default, we use only regions that contain
-        # significant variance; this makes the percentile
-        # based low and high estimates more reliable
-        e = args.escale
-        v = est-filters.gaussian_filter(est,e*20.0)
-        v = filters.gaussian_filter(v**2,e*20.0)**0.5
-        v = (v>0.3*np.amax(v))
-        v = morphology.binary_dilation(v,structure=np.ones((int(e*50),1)))
-        v = morphology.binary_dilation(v,structure=np.ones((1,int(e*50))))
-        if args.debug>0:
-            plt.imshow(v)
-            plt.ginput(1,args.debug)
-        est = est[v]
-    lo = stats.scoreatpercentile(est.ravel(),args.lo)
-    hi = stats.scoreatpercentile(est.ravel(),args.hi)
+    lo, hi = estimate_thresholds(flat, args.bignore, args.escale, args.lo, args.hi, args.debug)
     # rescale the image to get the gray scale image
     if args.parallel<2: print_info("rescaling")
     flat -= lo
