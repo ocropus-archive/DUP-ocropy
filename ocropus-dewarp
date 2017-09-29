@@ -2,20 +2,17 @@
 
 from __future__ import print_function
 
-import random as pyrandom
 import re
-from pylab import *
-import os.path
-import ocrolib
 import argparse
-import matplotlib
-import numpy
-from ocrolib import lineest
-import ocrolib.lstm as lstm
-import traceback
-import scipy
+import sys
 
-numpy.seterr(divide='raise',over='raise',invalid='raise',under='ignore')
+import numpy as np
+from scipy.misc import imsave
+
+import ocrolib
+from ocrolib import lineest
+
+np.seterr(divide='raise',over='raise',invalid='raise',under='ignore')
 
 parser = argparse.ArgumentParser("dewarp lines as used for the recognizer")
 
@@ -36,9 +33,9 @@ if len(inputs)==0:
 print("# inputs", len(inputs))
 
 if args.lineest=="center":
-  lnorm = lineest.CenterNormalizer()
+    lnorm = lineest.CenterNormalizer()
 else:
-  raise Exception(args.lineest+": unknown line normalizer")
+    raise Exception(args.lineest+": unknown line normalizer")
 
 lnorm.setHeight(args.height)
 
@@ -47,9 +44,9 @@ for fname in inputs:
     base,_ = ocrolib.allsplitext(fname)
     try:
         line = ocrolib.read_image_gray(fname)
-        lnorm.measure(amax(line)-line)
-        line = lnorm.normalize(line,cval=amax(line))
-        scipy.misc.imsave(base+".dew.png",line)
+        lnorm.measure(np.amax(line)-line)
+        line = lnorm.normalize(line,cval=np.amax(line))
+        imsave(base+".dew.png",line)
     except Exception as e:
         print("ERROR", e)
         continue

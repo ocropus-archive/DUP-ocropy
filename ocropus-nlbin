@@ -2,14 +2,17 @@
 
 from __future__ import print_function
 
-from pylab import *
-from numpy.ctypeslib import ndpointer
-import argparse,os,os.path
+import argparse
+import os
+import multiprocessing
+import sys
+
+import numpy as np
+import matplotlib.pyplot as plt
 from scipy.ndimage import filters,interpolation,morphology,measurements
 from scipy import stats
-import multiprocessing
-import ocrolib
 
+import ocrolib
 
 
 parser = argparse.ArgumentParser("""
@@ -50,12 +53,14 @@ if len(args.files)<1:
 def print_info(*objs):
     print("INFO: ", *objs, file=sys.stdout)
 
+
 def print_error(*objs):
     print("ERROR: ", *objs, file=sys.stderr)
 
+
 def check_page(image):
     if len(image.shape)==3: return "input image is color image %s"%(image.shape,)
-    if mean(image)<median(image): return "image may be inverted"
+    if np.mean(image)<np.median(image): return "image may be inverted"
     h,w = image.shape
     if h<600: return "image not tall enough for a page image %s"%(image.shape,)
     if h>10000: return "image too tall for a page image %s"%(image.shape,)
@@ -66,31 +71,37 @@ def check_page(image):
 def estimate_skew_angle(image,angles):
     estimates = []
     for a in angles:
-        v = mean(interpolation.rotate(image,a,order=0,mode='constant'),axis=1)
-        v = var(v)
+        v = np.mean(interpolation.rotate(image,a,order=0,mode='constant'),axis=1)
+        v = np.var(v)
         estimates.append((v,a))
     if args.debug>0:
-        plot([y for x,y in estimates],[x for x,y in estimates])
-        ginput(1,args.debug)
+        plt.plot([y for x,y in estimates],[x for x,y in estimates])
+        plt.ginput(1,args.debug)
     _,a = max(estimates)
     return a
+
 
 def H(s): return s[0].stop-s[0].start
 def W(s): return s[1].stop-s[1].start
 def A(s): return W(s)*H(s)
 
+
 def dshow(image,info):
     if args.debug<=0: return
-    ion(); gray(); imshow(image); title(info); ginput(1,args.debug)
+    plt.ion()
+    plt.gray()
+    plt.imshow(image)
+    plt.title(info)
+    plt.ginput(1,args.debug)
 
 
 def normalize_raw_image(raw):
     ''' perform image normalization '''
-    image = raw-amin(raw)
-    if amax(image)==amin(image):
+    image = raw-np.amin(raw)
+    if np.amax(image)==np.amin(image):
         print_info("# image is empty: %s" % (fname))
         return None
-    image /= amax(image)
+    image /= np.amax(image)
     return image
 
 
@@ -104,10 +115,16 @@ def estimate_local_whitelevel(image, zoom=0.5, perc=80, range=20, debug=0):
     m = filters.percentile_filter(m,perc,size=(range,2))
     m = filters.percentile_filter(m,perc,size=(2,range))
     m = interpolation.zoom(m,1.0/zoom)
-    if debug>0: clf(); imshow(m,vmin=0,vmax=1); ginput(1,debug)
-    w,h = minimum(array(image.shape),array(m.shape))
-    flat = clip(image[:w,:h]-m[:w,:h]+1,0,1)
-    if debug>0: clf(); imshow(flat,vmin=0,vmax=1); ginput(1,debug)
+    if debug>0:
+        plt.clf()
+        plt.imshow(m,vmin=0,vmax=1)
+        plt.ginput(1,debug)
+    w,h = np.minimum(np.array(image.shape),np.array(m.shape))
+    flat = np.clip(image[:w,:h]-m[:w,:h]+1,0,1)
+    if debug>0:
+        plt.clf()
+        plt.imshow(flat,vmin=0,vmax=1)
+        plt.ginput(1,debug)
     return flat
 
 
@@ -115,15 +132,15 @@ def estimate_skew(flat, bignore=0.1, maxskew=2, skewsteps=8):
     ''' estimate skew angle and rotate'''
     d0,d1 = flat.shape
     o0,o1 = int(bignore*d0),int(bignore*d1) # border ignore
-    flat = amax(flat)-flat
-    flat -= amin(flat)
+    flat = np.amax(flat)-flat
+    flat -= np.amin(flat)
     est = flat[o0:d0-o0,o1:d1-o1]
     ma = maxskew
     ms = int(2*maxskew*skewsteps)
     # print(linspace(-ma,ma,ms+1))
-    angle = estimate_skew_angle(est,linspace(-ma,ma,ms+1))
+    angle = estimate_skew_angle(est,np.linspace(-ma,ma,ms+1))
     flat = interpolation.rotate(flat,angle,mode='constant',reshape=0)
-    flat = amax(flat)-flat
+    flat = np.amax(flat)-flat
     return flat, angle
 
 
@@ -145,10 +162,12 @@ def estimate_thresholds(flat, bignore=0.1, escale=1.0, lo=5, hi=90, debug=0):
         e = escale
         v = est-filters.gaussian_filter(est,e*20.0)
         v = filters.gaussian_filter(v**2,e*20.0)**0.5
-        v = (v>0.3*amax(v))
-        v = morphology.binary_dilation(v,structure=ones((int(e*50),1)))
-        v = morphology.binary_dilation(v,structure=ones((1,int(e*50))))
-        if debug>0: imshow(v); ginput(1,debug)
+        v = (v>0.3*np.amax(v))
+        v = morphology.binary_dilation(v,structure=np.ones((int(e*50),1)))
+        v = morphology.binary_dilation(v,structure=np.ones((1,int(e*50))))
+        if debug>0:
+            plt.imshow(v)
+            plt.ginput(1,debug)
         est = est[v]
     lo = stats.scoreatpercentile(est.ravel(),lo)
     hi = stats.scoreatpercentile(est.ravel(),hi)
@@ -165,7 +184,7 @@ def process1(job):
     image = normalize_raw_image(raw)
 
     if not args.nocheck:
-        check = check_page(amax(image)-image)
+        check = check_page(np.amax(image)-image)
         if check is not None:
             print_error(fname+"SKIPPED"+check+"(use -n to disable this check)")
             return
@@ -174,7 +193,7 @@ def process1(job):
     if args.gray:
         extreme = 0
     else:
-        extreme = (sum(image<0.05)+sum(image>0.95))*1.0/prod(image.shape)
+        extreme = (np.sum(image<0.05)+np.sum(image>0.95))*1.0/np.prod(image.shape)
     if extreme>0.95:
         comment = "no-normalization"
         flat = image
@@ -198,14 +217,20 @@ def process1(job):
     if args.parallel<2: print_info("rescaling")
     flat -= lo
     flat /= (hi-lo)
-    flat = clip(flat,0,1)
-    if args.debug>0: imshow(flat,vmin=0,vmax=1); ginput(1,args.debug)
+    flat = np.clip(flat,0,1)
+    if args.debug>0:
+        plt.imshow(flat,vmin=0,vmax=1)
+        plt.ginput(1,args.debug)
     bin = 1*(flat>args.threshold)
 
     # output the normalized grayscale and the thresholded images
     print_info("%s lo-hi (%.2f %.2f) angle %4.1f %s" % (fname, lo, hi, angle, comment))
     if args.parallel<2: print_info("writing")
-    if args.debug>0 or args.show: clf(); gray();imshow(bin); ginput(1,max(0.1,args.debug))
+    if args.debug>0 or args.show:
+        plt.clf()
+        plt.gray()
+        plt.imshow(bin)
+        plt.ginput(1,max(0.1,args.debug))
     if args.output:
         if args.rawcopy: ocrolib.write_image_gray(args.output+"/%04d.raw.png"%i,raw)
         ocrolib.write_image_binary(args.output+"/%04d.bin.png"%i,bin)
