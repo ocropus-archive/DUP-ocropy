@@ -13,6 +13,8 @@
 
 from __future__ import print_function
 
+from pylab import find
+
 import argparse
 import glob
 import os
@@ -302,7 +304,7 @@ def compute_line_seeds(binary,bottom,top,colseps,scale):
     seeds = np.zeros(binary.shape,'i')
     delta = max(3,int(scale/2))
     for x in range(bmarked.shape[1]):
-        transitions = sorted([(y,1) for y in np.where(bmarked[:,x])[0]]+[(y,0) for y in np.where(tmarked[:,x][0])])[::-1]
+        transitions = sorted([(y,1) for y in find(bmarked[:,x])]+[(y,0) for y in find(tmarked[:,x])])[::-1]
         transitions += [(0,0)]
         for l in range(len(transitions)-1):
             y0,s0 = transitions[l]
