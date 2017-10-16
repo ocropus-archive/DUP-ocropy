@@ -13,8 +13,6 @@
 
 from __future__ import print_function
 
-from pylab import find
-
 import argparse
 import glob
 import os
@@ -108,7 +106,11 @@ parser.add_argument('files',nargs='+')
 args = parser.parse_args()
 args.files = ocrolib.glob_all(args.files)
 
-
+def find(condition):
+    "Return the indices where ravel(condition) is true"
+    res, = np.nonzero(np.ravel(condition))
+    return res
+    
 def norm_max(v):
     return v/np.amax(v)
 
