@@ -852,12 +852,15 @@ def ctc_align_targets(outputs,targets,threshold=100.0,verbose=0,debug=0,lo=1e-5)
 def normalize_nfkc(s):
     return unicodedata.normalize('NFKC',s)
 
+def normalize_nfc(s):
+    return unicodedata.normalize('NFC',s)
+
 def add_training_info(network):
     return network
 
 class SeqRecognizer:
     """Perform sequence recognition using BIDILSTM and alignment."""
-    def __init__(self,ninput,nstates,noutput=-1,codec=None,normalize=normalize_nfkc):
+    def __init__(self,ninput,nstates,noutput=-1,codec=None,normalize=normalize_nfc):
         self.Ni = ninput
         if codec: noutput = codec.size()
         assert noutput>0
