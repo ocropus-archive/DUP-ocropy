@@ -444,10 +444,10 @@ def process1(job):
     cleaned = ocrolib.remove_noise(binary,args.noise)
     for i,l in enumerate(lines):
         binline = psegutils.extract_masked(1-cleaned,l,pad=args.pad,expand=args.expand)
-        ocrolib.write_image_binary("%s/01%04x.bin.png"%(outputdir,i+1),binline)
+        ocrolib.write_image_binary("%s/01%04d.bin.png"%(outputdir,i+1),binline)
         if args.gray:
             grayline = psegutils.extract_masked(gray,l,pad=args.pad,expand=args.expand)
-            ocrolib.write_image_gray("%s/01%04x.nrm.png"%(outputdir,i+1),grayline)
+            ocrolib.write_image_gray("%s/01%04d.nrm.png"%(outputdir,i+1),grayline)
     print_info("%6d  %s %4.1f %d" % (i, fname,  scale,  len(lines)))
 
 if len(args.files)==1 and os.path.isdir(args.files[0]):
