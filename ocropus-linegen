@@ -4,15 +4,23 @@
 from __future__ import print_function
 
 import random as pyrandom
-import glob,sys,os,re,codecs,traceback
-from pylab import *
+import glob
+import sys
+import os
+import re
+import codecs
+import traceback
+import argparse
+
+import numpy as np
+import matplotlib.pyplot as plt
 from PIL import Image
 from PIL import ImageFont,ImageDraw
 from scipy.ndimage import filters,measurements,interpolation
 from scipy.misc import imsave
+
 import ocrolib
 
-import argparse
 parser = argparse.ArgumentParser(description = "Generate text line training data")
 parser.add_argument('-o','--base',default='linegen',help='output directory, default: %(default)s')
 parser.add_argument('-r','--distort',type=float,default=1.0)
@@ -80,7 +88,9 @@ if args.fonts is not None:
         if pat=="": continue
         fonts += sorted(glob.glob(pat))
 elif args.fontlist is not None:
-    fonts = re.split(r'\s*\n\s*',open(args.fontlist).read())
+    with open(args.fontlist) as fh:
+        lines = (line.strip() for line in fh)
+        fonts = [line for line in lines if line]
 else:
     print("use -f or -F arguments to specify fonts")
     sys.exit(1)
@@ -114,36 +124,41 @@ assert len(lines)>0
 lines = list(set(lines))
 print("got", len(lines), "unique lines")
 
+
 def rgeometry(image,eps=0.03,delta=0.3):
-    m = array([[1+eps*randn(),0.0],[eps*randn(),1.0+eps*randn()]])
+    m = np.array([[1+eps*np.random.randn(),0.0],[eps*np.random.randn(),1.0+eps*np.random.randn()]])
     w,h = image.shape
-    c = array([w/2.0,h/2])
-    d = c-dot(m,c)+array([randn()*delta,randn()*delta])
+    c = np.array([w/2.0,h/2])
+    d = c-np.dot(m,c)+np.array([np.random.randn()*delta,np.random.randn()*delta])
     return interpolation.affine_transform(image,m,offset=d,order=1,mode='constant',cval=image[0,0])
+
 
 def rdistort(image,distort=3.0,dsigma=10.0,cval=0):
     h,w = image.shape
-    hs = randn(h,w)
-    ws = randn(h,w)
+    hs = np.random.randn(h,w)
+    ws = np.random.randn(h,w)
     hs = filters.gaussian_filter(hs,dsigma)
     ws = filters.gaussian_filter(ws,dsigma)
-    hs *= distort/amax(hs)
-    ws *= distort/amax(ws)
+    hs *= distort/np.amax(hs)
+    ws *= distort/np.amax(ws)
     def f(p):
         return (p[0]+hs[p[0],p[1]],p[1]+ws[p[0],p[1]])
     return interpolation.geometric_transform(image,f,output_shape=(h,w),
         order=1,mode='constant',cval=cval)
 
 if args.debug_show:
-    ion(); gray()
+    plt.ion()
+    plt.gray()
+
 
 base = args.base
 print("base", base)
 os.system("rm -rf "+base)
 os.mkdir(base)
 
+
 def crop(image,pad=1):
-    [[r,c]] = measurements.find_objects(array(image==0,'i'))
+    [[r,c]] = measurements.find_objects(np.array(image==0,'i'))
     r0 = r.start
     r1 = r.stop
     c0 = c.start
@@ -154,6 +169,7 @@ def crop(image,pad=1):
 last_font = None
 last_size = None
 last_fontfile = None
+
 
 def genline(text,fontfile=None,size=36,sigma=0.5,threshold=0.5):
     global image,draw,last_font,last_fontfile
@@ -166,13 +182,13 @@ def genline(text,fontfile=None,size=36,sigma=0.5,threshold=0.5):
     draw.rectangle((0,0,6000,6000),fill="white")
     # print("\t", size, font)
     draw.text((250,20),text,fill="black",font=font)
-    a = asarray(image,'f')
-    a = a*1.0/amax(a)
+    a = np.asarray(image,'f')
+    a = a*1.0/np.amax(a)
     if sigma>0.0:
         a = filters.gaussian_filter(a,sigma)
-    a += clip(randn(*a.shape)*0.2,-0.25,0.25)
+    a += np.clip(np.random.randn(*a.shape)*0.2,-0.25,0.25)
     a = rgeometry(a)
-    a = array(a>threshold,'f')
+    a = np.array(a>threshold,'f')
     a = crop(a,pad=3)
     # FIXME add grid warping here
     # clf(); ion(); gray(); imshow(a); ginput(1,0.1)
@@ -194,8 +210,8 @@ for pageno,font in enumerate(fonts):
     lineno = 0
     while lineno<args.maxlines:
         (sigma,ssigma,threshold,sthreshold) = pyrandom.choice(degradations)
-        sigma += (2*rand()-1)*ssigma
-        threshold += (2*rand()-1)*sthreshold
+        sigma += (2*np.random.rand()-1)*ssigma
+        threshold += (2*np.random.rand()-1)*sthreshold
         line = pyrandom.choice(lines)
         size = pyrandom.choice(sizes)
         with open(pagedir+".info","w") as stream:
@@ -206,13 +222,15 @@ for pageno,font in enumerate(fonts):
         except:
             traceback.print_exc()
             continue
-        if amin(image.shape)<10: continue
-        if amax(image)<0.5: continue
+        if np.amin(image.shape)<10: continue
+        if np.amax(image)<0.5: continue
         if args.distort>0:
-            image = rdistort(image,args.distort,args.dsigma,cval=amax(image))
+            image = rdistort(image,args.distort,args.dsigma,cval=np.amax(image))
         if args.display:
-            gray()
-            clf(); imshow(image); ginput(1,0.1)
+            plt.gray()
+            plt.clf()
+            plt.imshow(image)
+            plt.ginput(1,0.1)
         fname = pagedir+"/01%04d"%lineno
         imsave(fname+".bin.png",image)
         gt = ocrolib.normalize_text(line)

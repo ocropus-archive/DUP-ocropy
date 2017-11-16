@@ -380,7 +380,8 @@ class MLP(Network):
 
 def ffunc(x):
     "Nonlinearity used for gates."
-    return 1.0/(1.0+exp(-x))
+    # cliping to avoid overflows
+    return 1.0/(1.0+exp(clip(-x,-20,20)))
 def fprime(x,y=None):
     "Derivative of nonlinearity used for gates."
     if y is None: y = sigmoid(x)

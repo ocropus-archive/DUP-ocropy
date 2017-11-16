@@ -2,8 +2,15 @@
 
 import __builtin__ as python
 import random as pyrandom
-import sys,os,re,glob,argparse,codecs
-from pylab import median, imread
+import sys
+import os.path
+import re
+import glob
+import argparse
+import codecs
+
+import numpy as np
+from matplotlib.pyplot import imread
 
 import ocrolib
 from ocrolib import hocr
@@ -47,12 +54,12 @@ xhfiles = python.sum([glob.glob(d+"/??????.xheight") for d in dirs],[])
 if len(xhfiles)>5:
     xheights = [float(ocrolib.read_text(f)) for f in xhfiles]
     if len(xheights)>0:
-        median_xheight = median(xheights)
+        median_xheight = np.median(xheights)
 else:    
     lfiles = python.sum([glob.glob(d+"/??????.bin.png") for d in dirs],[])
     pyrandom.shuffle(lfiles)
     if len(lfiles)>0:
-        median_xheight = 0.5*median([imread(f).shape[0] for f in lfiles[:100]])
+        median_xheight = 0.5*np.median([imread(f).shape[0] for f in lfiles[:100]])
 E("median_xheight",median_xheight)
 
 P(hocr.header())
@@ -127,7 +134,7 @@ for arg in args.files:
 
             if median_xheight is not None and os.path.exists(lbase+".xheight"):
                 xheight = float(ocrolib.read_text(lbase+".xheight"))
-                perc = int(clip(xheight*100.0/median_xheight,30,300))
+                perc = int(np.clip(xheight*100.0/median_xheight,30,300))
                 perc = 10*((perc+5)//10)
                 if perc!=100:
                     style += "font-size:%d%%;"%perc

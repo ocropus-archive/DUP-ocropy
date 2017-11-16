@@ -98,6 +98,7 @@ suitable for training OCRopus with synthetic data.
 | Project Announcements
 |:-----------------------
 | The text line recognizer has been ported to C++ and is now a separate project, the CLSTM project, available here: https://github.com/tmbdev/clstm
+| New GPU-capable text line recognizers and deep-learning based layout analysis methods are in the works and will be published as separate projects some time in 2017.
 | Please welcome @zuphilip and @kba as additional project maintainers. @tmb is busy developing new DNN models for document analysis (among other things). (10/15/2016)
 ------------------------
 

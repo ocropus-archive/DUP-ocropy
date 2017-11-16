@@ -2,10 +2,16 @@
 
 from __future__ import print_function
 
-from pylab import *
-import argparse,codecs,re,os.path,ocrolib,base64
-from lxml import etree
+import argparse
+import codecs
+import re
+import os.path
+import base64
 import urllib2
+
+from lxml import etree
+
+import ocrolib
 
 parser = argparse.ArgumentParser()
 subparsers = parser.add_subparsers(help="subcommands",dest="subparser_name")

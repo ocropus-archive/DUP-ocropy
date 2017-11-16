@@ -2,25 +2,26 @@
 
 from __future__ import print_function
 
-import random as pyrandom
 import re
-from pylab import *
-import os.path
-import ocrolib
 import argparse
-import matplotlib
-import numpy
+import traceback
+import sys
+
+import numpy as np
+import matplotlib.pyplot as plt
+
+import ocrolib
 from ocrolib import lineest
 import ocrolib.lstm as lstm
-import traceback
 import clstm
-ion()
-matplotlib.rc('xtick',labelsize=7)
-matplotlib.rc('ytick',labelsize=7)
-matplotlib.rcParams.update({"font.size":7})
+
+plt.ion()
+plt.matplotlib.rc('xtick',labelsize=7)
+plt.matplotlib.rc('ytick',labelsize=7)
+plt.matplotlib.rcParams.update({"font.size":7})
 
 
-numpy.seterr(divide='raise',over='raise',invalid='raise',under='ignore')
+np.seterr(divide='raise',over='raise',invalid='raise',under='ignore')
 
 parser = argparse.ArgumentParser("train an RNN recognizer")
 
@@ -74,20 +75,22 @@ if args.load: network.load(args.load)
 
 network.setLearningRate(args.lrate,0.9)
 
+
 def cleandisp(s):
     return re.sub('[$]',r'#',s)
 
+
 def preprocess(line):
-    lnorm.measure(amax(line)-line)
-    line = lnorm.normalize(line,cval=amax(line))
-    if line.size<10 or amax(line)==amin(line):
+    lnorm.measure(np.amax(line)-line)
+    line = lnorm.normalize(line,cval=np.amax(line))
+    if line.size<10 or np.amax(line)==np.amin(line):
         return None
-    line = line * 1.0/amax(line)
-    line = amax(line)-line
+    line = line * 1.0/np.amax(line)
+    line = np.amax(line)-line
     line = line.T
     if args.pad>0:
         w = line.shape[1]
-        line = vstack([zeros((args.pad,w)),line,zeros((args.pad,w))])
+        line = np.vstack([np.zeros((args.pad,w)),line,np.zeros((args.pad,w))])
     return line
 
 for trial in range(args.start,args.ntrain):
@@ -95,17 +98,17 @@ for trial in range(args.start,args.ntrain):
         network.save(args.output % trial)
     try:
         # fname = inputs[trial%len(inputs)]
-        fname = inputs[randint(0,len(inputs))]
+        fname = inputs[np.random.randint(0,len(inputs))]
         base,_ = ocrolib.allsplitext(fname)
         line = ocrolib.read_image_gray(fname)
         transcript = ocrolib.read_text(base+".gt.txt")
         print("#", trial, fname, line.shape)
         line = preprocess(line)
         if line is None: continue
-        cs = array(codec.encode(transcript),'i')
-        outputs = array(network.forward(line))
-        targets = array(lstm.make_target(cs,network.noutput()))
-        aligned = array(lstm.ctc_align_targets(outputs,targets))
+        cs = np.array(codec.encode(transcript),'i')
+        outputs = np.array(network.forward(line))
+        targets = np.array(lstm.make_target(cs,network.noutput()))
+        aligned = np.array(lstm.ctc_align_targets(outputs,targets))
         deltas = aligned-outputs
         network.backward(deltas)
         result = lstm.translate_back(outputs)
@@ -116,17 +119,17 @@ for trial in range(args.start,args.ntrain):
         print("   ALN:", repr(gta[:len(transcript)+5]))
         print("   OUT:", repr(pred[:len(transcript)+5]))
         if trial%20==0:
-            clf()
-            subplot(311)
-            title(cleandisp(transcript))
-            imshow(line.T,cmap=cm.gray,interpolation='bilinear')
-            subplot(312)
-            title(cleandisp(gta))
-            imshow(aligned.T,cmap=cm.hot,interpolation='bilinear',aspect='auto')
-            subplot(313)
-            title(cleandisp(pred))
-            imshow(outputs.T,cmap=cm.hot,interpolation='bilinear',aspect='auto')
+            plt.clf()
+            plt.subplot(311)
+            plt.title(cleandisp(transcript))
+            plt.imshow(line.T,cmap=plt.cm.gray,interpolation='bilinear')
+            plt.subplot(312)
+            plt.title(cleandisp(gta))
+            plt.imshow(aligned.T,cmap=plt.cm.hot,interpolation='bilinear',aspect='auto')
+            plt.subplot(313)
+            plt.title(cleandisp(pred))
+            plt.imshow(outputs.T,cmap=plt.cm.hot,interpolation='bilinear',aspect='auto')
             tight_layout()
-        ginput(1,0.01)
+        plt.ginput(1,0.01)
     except Exception as e:
         print(e)

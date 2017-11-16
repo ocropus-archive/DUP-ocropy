@@ -260,9 +260,14 @@ def compute_colseps(binary,scale):
         seps = compute_separators_morph(binary,scale)
         DSAVE("colseps",0.7*seps+0.3*binary)
         #colseps = compute_colseps_morph(binary,scale)
+<<<<<<< HEAD
+        colseps = maximum(colseps,seps)
+        binary = minimum(binary,1-seps)
+    binary,colseps = apply_mask(binary,colseps)
+=======
         colseps = np.maximum(colseps,seps)
         binary = np.minimum(binary,1-seps)
-    binary,colseps = apply_mask(binary,colseps)
+>>>>>>> ebd82354f08c54912a3261e4428b35849cf45f95
     return colseps,binary
 
 def apply_mask(binary,colseps):
