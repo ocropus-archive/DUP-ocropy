@@ -134,13 +134,14 @@ if args.codec!=[]:
     print(args.codec)
     for fname in ocrolib.glob_all(args.codec):
         transcript = ocrolib.read_text(fname)
-        l = list(lstm.normalize_nfkc(transcript))
+        l = lstm.graphemelist(lstm.normalize_nfkc(transcript))
         charset = charset.union(l)
     charset = sorted(list(charset))
     charset = [c for c in charset if c>" " and c!="~"]
 else:
     print("# using default codec")
-    charset = sorted(list(set(list(lstm.ascii_labels) + list(ocrolib.chars.default))))
+    chars = "".join(lstm.ascii_labels) + ocrolib.chars.default
+    charset = sorted(list(set(lstm.graphemelist(chars))))
 
 charset = [""," ","~",]+[c for c in charset if c not in [" ","~"]]
 print("# charset size", len(charset), end=' ')
