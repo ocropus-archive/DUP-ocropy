@@ -221,7 +221,7 @@ def compute_colseps_mconv(binary,scale=1.0):
 
 
 def compute_colseps_conv(binary,scale=1.0):
-    """Find column separators by convoluation and
+    """Find column separators by convolution and
     thresholding."""
     h,w = binary.shape
     # find vertical whitespace by thresholding
