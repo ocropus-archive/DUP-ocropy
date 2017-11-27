@@ -8,9 +8,14 @@ import sys
 import os
 import os.path
 import multiprocessing
+import codecs
 
 import ocrolib
 from ocrolib import edist
+
+utf8writer = codecs.getwriter('utf8')
+sys.stdout = utf8writer(sys.stdout)
+sys.stderr = utf8writer(sys.stderr)
 
 parser = argparse.ArgumentParser(description = """
 Compute the edit distances between ground truth and recognizer output.
