@@ -287,6 +287,19 @@ class Softmax(Network):
         self.No = No
         self.W2 = randu(No,Nh+1)*initial_range
         self.DW2 = np.zeros((No,Nh+1))
+        self.initial_range = initial_range
+    def resizeOutput(self,No, deleted_positions):
+        """resize all matrices to the new codec created by a given charset"""
+        # delete rows for chars that are not necessary
+        W2_temp = np.delete(self.W2, deleted_positions, axis=0)
+        # enlarge output and weights for extra chars
+        W2 = randu(No, self.Nh + 1) * initial_range
+        # use the trained weights (if --load was used)
+        W2[: len(W2_temp)] = W2_temp
+        self.W2 = W2
+        self.DW2 = np.zeros((No, self.Nh + 1))
+        self.No = No
+        self.deltas = None
     def ninputs(self):
         return self.Nh
     def noutputs(self):
@@ -577,6 +590,8 @@ class LSTM(Network):
                     self.DWGI,self.DWGF,self.DWGO,self.DWCI,
                     self.DWIP,self.DWFP,self.DWOP)
         return [s[1:1+ni] for s in self.sourceerr[:n]]
+    def resizeOutput(self, No, deleted_positions):
+        pass
 
 ################################################################
 # combination classifiers
@@ -620,6 +635,9 @@ class Stacked(Network):
         for i,net in enumerate(self.nets):
             for w,dw,n in net.weights():
                 yield w,dw,"Stacked%d/%s"%(i,n)
+    def resizeOutput(self, nout, deleted_positions):
+        self.nets[-1].resizeOutput(nout, deleted_positions)
+        self.deltas = None
 
 class Reversed(Network):
     """Run a network on the time-reversed input."""
@@ -644,6 +662,8 @@ class Reversed(Network):
     def weights(self):
         for w,dw,n in self.net.weights():
             yield w,dw,"Reversed/%s"%n
+    def resizeOutput(self, no, deleted_positions):
+        self.net.resizeOutput(no, deleted_positions)
 
 class Parallel(Network):
     """Run multiple networks in parallel on the same input."""
@@ -678,6 +698,9 @@ class Parallel(Network):
         for i,net in enumerate(self.nets):
             for w,dw,n in net.weights():
                 yield w,dw,"Parallel%d/%s"%(i,n)
+    def resizeOutput(self, no, deleted_positions):
+        for net in self.nets:
+            net.resizeOutput(no, deleted_positions)
 
 def MLP1(Ni,Ns,No):
     """An MLP implementation by stacking two `Logreg` networks on top
@@ -932,6 +955,17 @@ class SeqRecognizer:
         "Predict output as a string. This uses codec and normalizer."
         cs = self.predictSequence(xs)
         return self.l2s(cs)
+    def resizeCodec(self, codec):
+        """create a codec that exactly fits to ground truth/given codec as parameter"""
+        print("# creating a codec thas fits to the given charset")
+        # add all unknown and new chars to the codec
+        self.codec.extend(codec)
+        # search for chars that should not be in the codec anymore
+        deleted_positions = self.codec.shrink(codec)
+        # let the output fit to the new defined codec
+        self.lstm.resizeOutput(self.codec.size(), deleted_positions)
+        self.No = self.codec.size()
+        return self.codec
 
 class Codec:
     """Translate between integer codes and characters."""
@@ -956,6 +990,33 @@ class Codec:
         "Decode a code sequence into a string."
         s = [self.code2char.get(c,"~") for c in l]
         return s
+    def extend(self, codec):
+        charset = self.code2char.values()
+        size = self.size()
+        counter = 0
+        for c in codec.code2char.values():
+            if not c in charset: # append chars that doesn't appear in the codec
+                self.code2char[size] = c
+                self.char2code[c] = size
+                size += 1
+                counter += 1
+        print("#", counter, " extra chars added")
+    def shrink(self, codec):
+        deleted_positions = []
+        positions = []
+        for number, char in self.code2char.iteritems():
+            if not char in codec.char2code and char != "~":
+                deleted_positions.append(number)
+            else:
+                positions.append(number)
+        charset = [self.code2char[c] for c in sorted(positions)]
+        self.code2char = {}
+        self.char2code = {}
+        for code, char in enumerate(charset):
+            self.code2char[code] = char
+            self.char2code[char] = code
+        print("#", len(deleted_positions), " unnecessary chars deleted")
+        return deleted_positions
 
 ascii_labels = [""," ","~"] + [unichr(x) for x in range(33,126)]
 
