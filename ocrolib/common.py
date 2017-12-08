@@ -621,8 +621,10 @@ def ocropus_find_file(fname, gz=True):
 
     possible_prefixes.append("/usr/local/share/ocropus")
 
-    possible_prefixes.append(os.path.join(
-        sysconfig.get_config_var("datarootdir"), "ocropus"))
+    # datarootdir is None in windows so don't add it to search list
+    if sysconfig.get_config_var("datarootdir") is not None:
+        possible_prefixes.append(os.path.join(
+            sysconfig.get_config_var("datarootdir"), "ocropus"))
 
 
     # Unique entries with preserved order in possible_prefixes
