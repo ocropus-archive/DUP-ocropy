@@ -24,7 +24,7 @@ scripts = [c for c in glob.glob("ocropus-*") if "." not in c and "~" not in c]
 
 setup(
     name = 'ocropy',
-    version = 'v1.0',
+    version = 'v1.3.2',
     author = "Thomas Breuel",
     description = "The OCRopy RNN-based Text Line Recognizer",
     packages = ["ocrolib"],
