@@ -150,7 +150,3 @@ retrain models as better recognizers become available.
 After making CLSTM a full replacement for `ocropus-rtrain`/`ocropus-rpred`, the
 next step will be to replace the binarization, text/image segmentation, and layout 
 analysis in OCRopus with trainable 2D LSTM models.
-
-## Solution for clang
-
-[Read README_OSX.md](README_OSX.md)
