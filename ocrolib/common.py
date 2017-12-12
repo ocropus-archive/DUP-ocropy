@@ -767,37 +767,6 @@ def ustrg2unicode(u,lig=ligatures.lig):
                 result += "<%d>"%value
     return result
 
-### code for instantiation native components
-
-def pyconstruct(s):
-    """Constructs a Python object from a constructor, an expression
-    of the form x.y.z.name(args).  This ensures that x.y.z is imported.
-    In the future, more forms of syntax may be accepted."""
-    env = {}
-    if "(" not in s:
-        s += "()"
-    path = s[:s.find("(")]
-    if "." in path:
-        module = path[:path.rfind(".")]
-        print("import", module)
-        exec "import "+module in env
-    return eval(s,env)
-
-def mkpython(name):
-    """Tries to instantiate a Python class.  Gives an error if it looks
-    like a Python class but can't be instantiated.  Returns None if it
-    doesn't look like a Python class."""
-    if name is None or len(name)==0:
-        return None
-    elif type(name) is not str:
-        return name()
-    elif name[0]=="=":
-        return pyconstruct(name[1:])
-    elif "(" in name or "." in name:
-        return pyconstruct(name)
-    else:
-        return None
-
 ################################################################
 ### loading and saving components
 ################################################################
