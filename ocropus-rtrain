@@ -72,10 +72,20 @@ parser.add_argument("-q","--quiet",action="store_true")
 parser.add_argument("-Q","--nocheck",action="store_true")
 parser.add_argument("-p","--pad",type=int,default=16)
 
+# add file
+parser.add_argument("-f","--file",default=None,help="input the training data as a file list")
+
 parser.add_argument("files",nargs="*")
 args = parser.parse_args()
 
 inputs = ocrolib.glob_all(args.files)
+
+if args.file is not None:
+    print("getting training data from file")
+    with open(args.file) as file:
+        for l in file:
+            inputs.append(l.rstrip())
+
 if len(inputs)==0:
     parser.print_help()
     sys.exit(0)
