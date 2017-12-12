@@ -2,7 +2,7 @@
 
 import sys
 
-from ocrolib import edist
+from ocrolib import edist, utils
 
 # Test the levenshtein function and returns 0 if the computed value
 # equals the one it should be, otherwise returns 1 for failed tests.
@@ -43,5 +43,12 @@ failed_tests += testXLevenshtein('exccpt', 'except', 4, should=(1.0, [(' exccpt 
 failed_tests += testXLevenshtein('', 'test', 1, should=(4.0, []))
 failed_tests += testXLevenshtein('aaaaaaaaaaa', 'a', 1, should=(10.0, [('aaaaaaaaaaa ', 'a__________ ')]))
 failed_tests += testXLevenshtein('123 111 456', '132 111 444', 1, should=(4.0, [('123_ ', '1_32 '), ('456 ', '444 ')]))
+
+print('\n# 3 utils.sumouter / utils.sumprod')
+from pylab import randn
+utils.sumouter(randn(10,3),randn(10,4),out=randn(3,4))
+print('ok - dimensions of sumouter')
+utils.sumprod(randn(11,7),randn(11,7),out=randn(7))
+print('ok - dimensions of sumprod')
 
 sys.exit(failed_tests)
