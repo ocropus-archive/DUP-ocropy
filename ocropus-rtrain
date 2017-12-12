@@ -73,7 +73,7 @@ parser.add_argument("-Q","--nocheck",action="store_true")
 parser.add_argument("-p","--pad",type=int,default=16)
 
 # add file
-parser.add_argument("-f","--file",default=None,help="input the training data as a file list")
+parser.add_argument("-f","--file",default=None,help="path to file listing input files, one per line")
 
 parser.add_argument("files",nargs="*")
 args = parser.parse_args()
