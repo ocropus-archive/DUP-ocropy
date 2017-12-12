@@ -14,3 +14,8 @@ build/
 *.so
 .~*.vue
 doc/.ipynb_checkpoints/
+reference.html
+.coverage
+temp.html
+temp-correction.html
+linegen
