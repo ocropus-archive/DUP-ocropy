@@ -200,11 +200,7 @@ def read_image_binary(fname,dtype='i',pageno=0):
     of the given dtype."""
     if type(fname)==tuple: fname,pageno = fname
     assert pageno==0
-<<<<<<< HEAD
     if issubclass(type(fname), PIL.Image.Image):
-=======
-    if type(fname) == PIL.Image.Image:
->>>>>>> c9fcdac8426b350404f369d04e0db197cb3e477e
         pil = fname
     else:
         pil = PIL.Image.open(fname)
