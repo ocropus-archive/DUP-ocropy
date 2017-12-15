@@ -44,6 +44,8 @@ parser.add_argument('--alocs',action="store_true",
                     help="output aligned LSTM locations for characters")
 parser.add_argument('--probabilities',action="store_true",
                     help="output probabilities for each letter")
+parser.add_argument("--probmat",action="store_true",
+                    help="output and save probability matrix after LSTM Network")
 
 # error measures
 parser.add_argument("-r","--estrate",action="store_true",
@@ -263,7 +265,21 @@ def process1(arg):
             plt.ginput(1,99999999)
         else:
             plt.ginput(1,args.show)
+
+
+    # output probability matrix -------------------------------
+    if args.probmat:
+        out = network.outputs.T[0:]
+        #print(len(out))
+
+        timestamp = len(network.outputs[0:])
+        #print(timestamp)
+
+        Text_out = open(base + ".pm","w") 
+        np.savetxt(Text_out, network.outputs.T, fmt='%f') 
+        Text_out.close() 
     return None
+
 
 
 def safe_process1(arg):
