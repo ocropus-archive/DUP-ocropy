@@ -14,7 +14,7 @@ header_template = """\
 <head>
 <title>OCR Results</title>
 <meta http-equiv="content-type" content="text/html; charset=utf-8" />
-<meta name="ocr-system" content="ocropy-1.0" />
+<meta name="ocr-system" content="ocropy-1.3.2" />
 <meta name="ocr-capabilities" content="ocr_line ocr_page" />
 </head>
 <body>
