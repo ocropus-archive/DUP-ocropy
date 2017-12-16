@@ -1,5 +1,12 @@
 #!/bin/bash -e
 
+# Usage: ./run-test-ci [tests...]
+#
+# Examples:
+#
+#    ./run-test-ci              # Run all tests
+#    ./run-test-ci page conf    # Run only 'test_page' and 'test_conf'
+#
 BASE=$(dirname $0)
 
 # 'RUNNER' is the binary that the scripts are executed by. It defaults to
@@ -61,6 +68,13 @@ test_rtrain() {
     $RUNNER $BASE/ocropus-rtrain 'book/*/*.bin.png' -N 5 -o ci-test-model
 }
 
+test_rtrain_files() {
+    tar -zxf $BASE/tests/uw3-500.tgz
+    find 'book' -name '*.bin.png' > INPUT_FILES
+    $RUNNER $BASE/ocropus-rtrain -f INPUT_FILES -N 5 -o ci-test-model
+    rm INPUT_FILES
+}
+
 test_nlbin() {
     local TESTIMAGE=0071-010012.png
     cp $BASE/tests/$TESTIMAGE temp
@@ -100,11 +114,18 @@ test_gtedit() {
 
 rm -rf temp
 mkdir -p temp
-test_page
-test_conf
-test_linegen
-test_rtrain
-test_nlbin
-test_gpageseg
-test_rpred
-test_gtedit
+if (( $# > 0 ));then
+    for test in "$@";do
+        test_$test
+    done
+else
+    test_page
+    test_conf
+    test_linegen
+    test_rtrain
+    test_rtrain_files
+    test_nlbin
+    test_gpageseg
+    test_rpred
+    test_gtedit
+fi
