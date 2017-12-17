@@ -121,6 +121,16 @@ def extract_masked(image,linedesc,pad=5,expand=0):
     line = where(mask,line,amax(line))
     return line
 
+def lindedesc_as_list(linedesc, pad=5):
+    """
+    Convert a line segmentation into the JSON format used by kraken
+    """
+    y0,x0,y1,x1 = [int(x) for x in [
+        linedesc.bounds[0].start, linedesc.bounds[1].start,
+        linedesc.bounds[0].stop, linedesc.bounds[1].stop
+    ]]
+    return (x0-pad,y0-pad,x1+pad,y1+pad)
+
 def reading_order(lines,highlight=None,debug=0):
     """Given the list of lines (a list of 2D slices), computes
     the partial reading order.  The output is a binary 2D array
