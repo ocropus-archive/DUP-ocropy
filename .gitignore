@@ -14,3 +14,4 @@ build/
 *.so
 .~*.vue
 doc/.ipynb_checkpoints/
+.idea/

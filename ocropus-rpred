@@ -9,6 +9,8 @@ import argparse
 import sys
 from multiprocessing import Pool
 from collections import Counter
+from collections import OrderedDict as OD
+import json
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -44,6 +46,10 @@ parser.add_argument('--alocs',action="store_true",
                     help="output aligned LSTM locations for characters")
 parser.add_argument('--probabilities',action="store_true",
                     help="output probabilities for each letter")
+parser.add_argument('--nojson',action="store_true",
+                    help="deactivates the output to the *.ocropy.json file of \
+                         LSTM character-positions including start, end and maxima values \
+                         and probabilities (on available if -j/--json was set in gpageseg)")
 
 # error measures
 parser.add_argument("-r","--estrate",action="store_true",
@@ -148,13 +154,11 @@ def process1(arg):
     raw_line = line.copy()
     if np.prod(line.shape)==0: return None
     if np.amax(line)==np.amin(line): return None
-
     if not args.nocheck:
         check = check_line(np.amax(line)-line)
         if check is not None:
             print_error("%s SKIPPED %s (use -n to disable this check)" % (fname, check))
             return (0,[],0,trial,fname)
-
     if not args.nolineest:
         assert "dew.png" not in fname,"don't dewarp dewarped images"
         temp = np.amax(line)-line
@@ -167,18 +171,30 @@ def process1(arg):
     line = lstm.prepare_line(line,args.pad)
     pred = network.predictString(line)
 
+    if not args.nojson:
+        if os.path.exists(base+".ocropy.json"):
+            func = "rpred"
+            with open(base+".ocropy.json","r") as jsonfile:
+                jsondata = json.load(jsonfile, object_pairs_hook=OD)
+            jsondata["global"]["chars"]=pred
+            jsondata["bbox"]["line"]["chars"] = pred
+            jsondata["chars"]=OD()
+        else:
+            print_error("There is no %s.ocropy.json file, please set the '--json'-option on gpageseg." % (base))
+            args.nojson = True
+
     if args.llocs:
         # output recognized LSTM locations of characters
-        result = lstm.translate_back(network.outputs,pos=1)
-        scale = len(raw_line.T)*1.0/(len(network.outputs)-2*args.pad)
-        #ion(); imshow(raw_line,cmap=cm.gray)
-        with codecs.open(base+".llocs","w","utf-8") as locs:
-            for r,c in result:
+        result = lstm.translate_back(network.outputs, pos=1)
+        scale = len(raw_line.T) * 1.0 / (len(network.outputs) - 2 * args.pad)
+        # ion(); imshow(raw_line,cmap=cm.gray)
+        with codecs.open(base + ".llocs", "w", "utf-8") as locs:
+            for r, c in result:
                 c = network.l2s([c])
-                r = (r-args.pad)*scale
-                locs.write("%s\t%.1f\n"%(c,r))
-                #plot([r,r],[0,20],'r' if c==" " else 'b')
-        #ginput(1,1000)
+                r = (r - args.pad) * scale
+                locs.write("%s\t%.1f\n" % (c, r))
+                # plot([r,r],[0,20],'r' if c==" " else 'b')
+        # ginput(1,1000)
 
     if args.alocs:
         # output recognized and aligned LSTM locations
@@ -194,13 +210,34 @@ def process1(arg):
                     r = (r-args.pad)*scale
                     locs.write("%s\t%.1f\n"%(c,r))
 
-    if args.probabilities:
+    if args.probabilities or not args.nojson:
         # output character probabilities
         result = lstm.translate_back(network.outputs,pos=2)
         with codecs.open(base+".prob","w","utf-8") as file:
-            for c,p in result:
+            for idx, (c,p) in enumerate(result):
                 c = network.l2s([c])
-                file.write("%s\t%s\n"%(c,p))
+                file.write("%s\t%s\n" % (c, p))
+                if not args.nojson:
+                    jsondata["chars"][idx] = OD()
+                    jsondata["chars"][idx]["char"] = c
+                    jsondata["chars"][idx]["prob"] = p
+
+    if not args.nojson:
+        # output recognized LSTM locations of characters
+        result = lstm.translate_back(network.outputs,pos=3)
+        scale = len(raw_line.T)*1.0/(len(network.outputs)-2*args.pad)
+        #ion(); imshow(raw_line,cmap=cm.gray)
+        for idx, (xmax,x0,x1,c) in enumerate(result):
+            x0 = int((x0-args.pad)*scale)
+            x1 = int((x1-args.pad)*scale)
+            xmax = xmax-args.pad
+            jsondata["chars"][idx]["x0"] = x0
+            jsondata["chars"][idx]["x1"] = x1
+            jsondata["chars"][idx]["xmax"] = xmax
+
+        # Output the scale and pad
+        jsondata["scale"][func] = scale
+        jsondata["pad"][func] = args.pad
 
     if not args.nonormalize:
         pred = ocrolib.normalize_text(pred)
@@ -223,8 +260,15 @@ def process1(arg):
         return (err,conf,len(gt0),trial,fname)
 
     if not args.quiet:
-        print_info(fname+":"+pred)
+        infotxt = fname + ":" + pred
+        if len(fname) > 25:
+            infotxt = (fname[::-1][:25]+"...")[::-1]+":"+pred
+        print_info(infotxt)
     ocrolib.write_text(base+".txt",pred)
+
+    if not args.nojson:
+        with codecs.open(base+".ocropy.json","w", encoding="utf-8") as jsonfile:
+            json.dump(jsondata,jsonfile,indent=4,ensure_ascii=False)
 
     if args.show>0 or args.save is not None:
         plt.ion()

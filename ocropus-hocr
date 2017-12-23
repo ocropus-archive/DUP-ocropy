@@ -3,11 +3,14 @@
 import __builtin__ as python
 import random as pyrandom
 import sys
-import os.path
 import re
 import glob
 import argparse
 import codecs
+import os
+from collections import OrderedDict as OD
+import json
+from copy import deepcopy
 
 import numpy as np
 from matplotlib.pyplot import imread
@@ -30,6 +33,8 @@ For each page like 'book/0001.bin.png', it uses the following files:
 """)
 parser.add_argument("-b","--nobreaks",action="store_true",help="don't output line breaks")
 parser.add_argument("-p","--nopars",action="store_true",help="don't output paragraphs")
+parser.add_argument("-n","--normal",action="store_true",help="surpress the output of extended hocr version (only available if '-j/--json' was set to gpageseg)")
+parser.add_argument("-c","--charconfs",action="store_true",help="output confidences of every char, only in combination with extened hocr-file.")
 parser.add_argument("-s","--fscale",type=float,default=1.0,help="scale factor for translating xheights into font size (use 0 to disable), default: %(default)s")
 parser.add_argument("-o","--output",default="book.html",help="output file, default: %(default)s")
 parser.add_argument('files',nargs='+')
@@ -145,13 +150,108 @@ for arg in args.files:
             if os.path.exists(lbase+".baseline"):
                 info += "; baseline "+ocrolib.read_text(lbase+".baseline")
 
-            # put it all together into a SPAN
+            # extend the hocr files with information from cloc and prob files
+            if not args.normal:
+                if not os.path.exists(lbase + ".ocropy.json"):
+                    print("There is no %s.ocropy.json file." %(lbase))
+                    args.normal = True
+                else:
+                    with open(lbase + ".ocropy.json", "r") as jsonfile:
+                        jsondata = json.load(jsonfile, object_pairs_hook=OD)
 
-            PN("<span")
-            if style!="": PN(" style='"+style+"'")
-            PN(" class='ocr_line' title='%s'>"%info,text,"</span>")
-            if not args.nobreaks: P("<br />")
-            else: P()
+                    # put all information about the ocr_line together into a SPAN
+
+                    PN("    <span")
+                    if style != "": PN(" style='" + style + "'")
+                    PN(" class='ocr_line' title='%s'>" % info, )
+                    P("<br />")
+
+                    pad = jsondata["pad"]["gpageseg"]
+                    scale = jsondata["scale"]["rpred"]
+                    jsondata["bbox"]["word"]= OD()
+                    wcount= 0
+                    #convert string key value to int
+                    for key in jsondata["chars"].keys():
+                        jsondata["chars"][int(key)] = deepcopy(jsondata["chars"][key])
+                        del jsondata["chars"][key]
+                    jsondata["chars"][len(jsondata["chars"])] = OD()
+                    jsondata["chars"][len(jsondata["chars"])-1]["char"]=" "
+                    jsondata["bbox"]["word"] = OD()
+
+
+                    # idx0 = start_index, idx1 = stop_index(whitespace) of the recognized word
+                    idx0 = 0
+                    chars = ""
+                    charconfs = ""
+                    wconf = 1.0
+
+                    # set lineparameter
+                    wy0 = jsondata["bbox"]["line"]["y0"]
+                    wy1 = jsondata["bbox"]["line"]["y1"]
+
+                    if "x0" in jsondata["chars"][0]:
+                        for idx1 in jsondata["chars"]:
+                            if jsondata["chars"][idx1]["char"] == " ":
+                                # set lineparameter
+                                wx0= jsondata["bbox"]["line"]["x0"]
+                                if idx0 != 0:
+                                    #Take the end value of the previous whitespace
+                                    # scale factor correct?
+                                    wx0 = jsondata["bbox"]["line"]["x0"] + jsondata["chars"][idx0-2]["x1"]
+                                if idx1 == len(jsondata["chars"]):
+                                    wx1 = jsondata["bbox"]["line"]["x1"]
+                                else:
+                                    # Take the maxima value of the current whitespace
+                                    wx1= jsondata["bbox"]["line"]["x0"] + jsondata["chars"][idx1-1]["x1"]
+
+                                # Store the char and bbox values in dict
+                                jsondata["bbox"]["word"][len(jsondata["bbox"]["word"])] = OD()
+                                jsondata["bbox"]["word"][len(jsondata["bbox"]["word"]) - 1]["chars"] = chars
+                                jsondata["bbox"]["word"][len(jsondata["bbox"]["word"]) - 1]["x0"]= wx0
+                                jsondata["bbox"]["word"][len(jsondata["bbox"]["word"]) - 1]["x1"]= wx1
+                                jsondata["bbox"]["word"][len(jsondata["bbox"]["word"]) - 1]["y0"]= wy0
+                                jsondata["bbox"]["word"][len(jsondata["bbox"]["word"]) - 1]["y1"]= wy1
+
+                                # Stores all information in one string
+                                info = "bbox " + ' '.join(map(str, [wx0,wy0,wx1,wy1]))
+                                info += "; x_wconf "+str(wconf)
+                                if args.charconfs:
+                                    info += "; x_confs "+charconfs
+
+                                # reset conf values
+                                charconfs = ""
+                                wconf = 1
+
+                                # put all information about the ocr_word together into a SPAN
+
+                                PN("        <span")
+                                if style != "": PN(" style='" + style + "'")
+                                PN(" class='ocrx_word' title='%s'>" % info, chars, "</span>\n")
+                                idx0 = idx1+1
+                                chars = ""
+
+                            elif jsondata["chars"][idx1]["char"] != "":
+                                # atm unknown chars will be skipped (you could maybe use them to cut finer?)
+                                chars += jsondata["chars"][idx1]["char"]
+                                wconf = wconf * jsondata["chars"][idx1]["prob"]
+                                charconfs += " " + str(jsondata["chars"][idx1]["prob"])
+
+                        PN("    </span>\n")
+                    else:
+                        print("There are no bbox information in %s.ocropy.json file, please set '--clocs'-option on rpred." % (lbase))
+                        args.normal = True
+                    with codecs.open(lbase + ".ocropy.json", "w", encoding="utf-8") as jsonfile:
+                        del jsondata["chars"][len(jsondata["chars"]) - 1]
+                        json.dump(jsondata, jsonfile, indent=4, ensure_ascii=False)
+            if args.normal:
+
+                # put it all together into a SPAN (not extend hocr-files)
+
+                PN("<span")
+                if style!="": PN(" style='"+style+"'")
+                PN(" class='ocr_line' title='%s'>"%info,text,"</span>")
+                if not args.nobreaks: P("<br />")
+                else: P()
 
     finally:
         P("</div>")
