@@ -10,7 +10,7 @@ except ImportError:
     print('\nYou need to install the coverage module first, e.g. \n$ pip2 install coverage\n')
     exit(1)"
 
-rm -rf .coverage*
+$COVERAGE erase
 PATH=$PWD:$PATH $COVERAGE run -p --include=$PWD/ocropus-*,$PWD/**/* ./tests/run-unit
 PATH=$PWD:$PATH RUNNER="$COVERAGE run -p --include=$PWD/ocropus-*,$PWD/**/*" ./run-test-ci
 $COVERAGE combine
