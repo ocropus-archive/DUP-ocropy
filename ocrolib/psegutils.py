@@ -1,13 +1,16 @@
 from __future__ import print_function
 
-from toplevel import *
-from pylab import *
+import numpy as np
+import matplotlib.pyplot as plt
+import matplotlib.patches as mpatches
 from scipy.ndimage import filters,interpolation
+
+from toplevel import *
 import sl,morph
 
 def B(a):
-    if a.dtype==dtype('B'): return a
-    return array(a,'B')
+    if a.dtype==np.dtype('B'): return a
+    return np.array(a,'B')
 
 class record:
     def __init__(self,**kw): self.__dict__.update(kw)
@@ -42,17 +45,17 @@ def binary_objects(binary):
 def estimate_scale(binary):
     objects = binary_objects(binary)
     bysize = sorted(objects,key=sl.area)
-    scalemap = zeros(binary.shape)
+    scalemap = np.zeros(binary.shape)
     for o in bysize:
-        if amax(scalemap[o])>0: continue
+        if np.amax(scalemap[o])>0: continue
         scalemap[o] = sl.area(o)**0.5
-    scale = median(scalemap[(scalemap>3)&(scalemap<100)])
+    scale = np.median(scalemap[(scalemap>3)&(scalemap<100)])
     return scale
 
 def compute_boxmap(binary,scale,threshold=(.5,4),dtype='i'):
     objects = binary_objects(binary)
     bysize = sorted(objects,key=sl.area)
-    boxmap = zeros(binary.shape,dtype)
+    boxmap = np.zeros(binary.shape,dtype)
     for o in bysize:
         if sl.area(o)**.5<threshold[0]*scale: continue
         if sl.area(o)**.5>threshold[1]*scale: continue
@@ -68,7 +71,7 @@ def compute_lines(segmentation,scale):
         if o is None: continue
         if sl.dim1(o)<2*scale or sl.dim0(o)<scale: continue
         mask = (segmentation[o]==i+1)
-        if amax(mask)==0: continue
+        if np.amax(mask)==0: continue
         result = record()
         result.label = i+1
         result.bounds = o
@@ -76,9 +79,9 @@ def compute_lines(segmentation,scale):
         lines.append(result)
     return lines
 
-def pad_image(image,d,cval=inf):
-    result = ones(array(image.shape)+2*d)
-    result[:,:] = amax(image) if cval==inf else cval
+def pad_image(image,d,cval=np.inf):
+    result = np.ones(np.array(image.shape)+2*d)
+    result[:,:] = np.amax(image) if cval==np.inf else cval
     result[d:-d,d:-d] = image
     return result
 
@@ -86,23 +89,23 @@ def pad_image(image,d,cval=inf):
 def extract(image,y0,x0,y1,x1,mode='nearest',cval=0):
     h,w = image.shape
     ch,cw = y1-y0,x1-x0
-    y,x = clip(y0,0,max(h-ch,0)),clip(x0,0,max(w-cw, 0))
+    y,x = np.clip(y0,0,max(h-ch,0)),np.clip(x0,0,max(w-cw, 0))
     sub = image[y:y+ch,x:x+cw]
     # print("extract", image.dtype, image.shape)
     try:
         r = interpolation.shift(sub,(y-y0,x-x0),mode=mode,cval=cval,order=0)
         if cw > w or ch > h:
             pady0, padx0 = max(-y0, 0), max(-x0, 0)
-            r = interpolation.affine_transform(r, eye(2), offset=(pady0, padx0), cval=1, output_shape=(ch, cw))
+            r = interpolation.affine_transform(r, np.eye(2), offset=(pady0, padx0), cval=1, output_shape=(ch, cw))
         return r
 
     except RuntimeError:
         # workaround for platform differences between 32bit and 64bit
         # scipy.ndimage
         dtype = sub.dtype
-        sub = array(sub,dtype='float64')
+        sub = np.array(sub,dtype='float64')
         sub = interpolation.shift(sub,(y-y0,x-x0),mode=mode,cval=cval,order=0)
-        sub = array(sub,dtype=dtype)
+        sub = np.array(sub,dtype=dtype)
         return sub
 
 @checks(ARANK(2),True,pad=int,expand=int,_=GRAYSCALE)
@@ -118,7 +121,7 @@ def extract_masked(image,linedesc,pad=5,expand=0):
     line = extract(image,y0-pad,x0-pad,y1+pad,x1+pad)
     if expand>0:
         mask = filters.maximum_filter(mask,(expand,expand))
-    line = where(mask,line,amax(line))
+    line = np.where(mask,line,np.amax(line))
     return line
 
 def reading_order(lines,highlight=None,debug=0):
@@ -126,7 +129,7 @@ def reading_order(lines,highlight=None,debug=0):
     the partial reading order.  The output is a binary 2D array
     such that order[i,j] is true if line i comes before line j
     in reading order."""
-    order = zeros((len(lines),len(lines)),'B')
+    order = np.zeros((len(lines),len(lines)),'B')
     def x_overlaps(u,v):
         return u[1].start<v[1].stop and u[1].stop>v[1].start
     def above(u,v):
@@ -138,7 +141,10 @@ def reading_order(lines,highlight=None,debug=0):
         if w[0].start>max(u[0].stop,v[0].stop): return 0
         if w[1].start<u[1].stop and w[1].stop>v[1].start: return 1
     if highlight is not None:
-        clf(); title("highlight"); imshow(binary); ginput(1,debug)
+        plt.clf()
+        plt.title("highlight")
+        plt.imshow(binary)
+        plt.ginput(1,debug)
     for i,u in enumerate(lines):
         for j,v in enumerate(lines):
             if x_overlaps(u,v):
@@ -151,10 +157,10 @@ def reading_order(lines,highlight=None,debug=0):
                 print((i, j), end=' ')
                 y0,x0 = sl.center(lines[i])
                 y1,x1 = sl.center(lines[j])
-                plot([x0,x1+200],[y0,y1])
+                plt.plot([x0,x1+200],[y0,y1])
     if highlight is not None:
         print()
-        ginput(1,debug)
+        plt.ginput(1,debug)
     return order
 
 def topsort(order):
@@ -162,7 +168,7 @@ def topsort(order):
     compute a topological sort.  This is a quick and dirty implementation
     that works for up to a few thousand elements."""
     n = len(order)
-    visited = zeros(n)
+    visited = np.zeros(n)
     L = []
     def visit(k):
         if visited[k]: return
@@ -174,52 +180,59 @@ def topsort(order):
         visit(k)
     return L #[::-1]
 
+def find(condition):
+    "Return the indices where ravel(condition) is true"
+    res, = np.nonzero(np.ravel(condition))
+    return res
+
 def show_lines(image,lines,lsort):
     """Overlays the computed lines on top of the image, for debugging
     purposes."""
     ys,xs = [],[]
-    clf(); cla()
-    imshow(image)
+    plt.clf()
+    plt.cla()
+    plt.imshow(image)
     for i in range(len(lines)):
         l = lines[lsort[i]]
         y,x = sl.center(l.bounds)
         xs.append(x)
         ys.append(y)
         o = l.bounds
-        r = matplotlib.patches.Rectangle((o[1].start,o[0].start),edgecolor='r',fill=0,width=sl.dim1(o),height=sl.dim0(o))
-        gca().add_patch(r)
+        r = mpatches.Rectangle((o[1].start,o[0].start),edgecolor='r',fill=0,width=sl.dim1(o),height=sl.dim0(o))
+        plt.gca().add_patch(r)
     h,w = image.shape
-    ylim(h,0); xlim(0,w)
-    plot(xs,ys)
+    plt.ylim(h,0)
+    plt.xlim(0,w)
+    plt.plot(xs,ys)
 
 @obsolete
 def read_gray(fname):
-    image = imread(fname)
+    image = plt.imread(fname)
     if image.ndim==3: image = mean(image,2)
     return image
 
 @obsolete
 def read_binary(fname):
-    image = imread(fname)
-    if image.ndim==3: image = mean(image,2)
-    image -= amin(image)
-    image /= amax(image)
-    assert sum(image<0.01)+sum(image>0.99)>0.99*prod(image.shape),"input image is not binary"
+    image = plt.imread(fname)
+    if image.ndim==3: image = np.mean(image,2)
+    image -= np.amin(image)
+    image /= np.amax(image)
+    assert sum(image<0.01)+sum(image>0.99)>0.99*np.prod(image.shape),"input image is not binary"
     binary = 1.0*(image<0.5)
     return binary
 
 @obsolete
 def rgbshow(r,g,b=None,gn=1,cn=0,ab=0,**kw):
     """Small function to display 2 or 3 images as RGB channels."""
-    if b is None: b = zeros(r.shape)
-    combo = transpose(array([r,g,b]),axes=[1,2,0])
+    if b is None: b = np.zeros(r.shape)
+    combo = np.transpose(array([r,g,b]),axes=[1,2,0])
     if cn:
         for i in range(3):
-            combo[:,:,i] /= max(abs(amin(combo[:,:,i])),abs(amax(combo[:,:,i])))
+            combo[:,:,i] /= max(np.abs(np.amin(combo[:,:,i])),np.abs(np.amax(combo[:,:,i])))
     elif gn:
-        combo /= max(abs(amin(combo)),abs(amax(combo)))
+        combo /= max(np.abs(np.amin(combo)),np.abs(np.amax(combo)))
     if ab:
-        combo = abs(combo)
-    if amin(combo)<0: print("warning: values less than zero")
-    imshow(clip(combo,0,1),**kw)
+        combo = np.abs(combo)
+    if np.amin(combo)<0: print("warning: values less than zero")
+    plt.imshow(np.clip(combo,0,1),**kw)
 
