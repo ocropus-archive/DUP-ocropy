@@ -77,6 +77,8 @@ test_gpageseg() {
     $RUNNER $BASE/ocropus-gpageseg temp/$TESTIMAGE -n --maxseps 3
     $RUNNER $BASE/ocropus-gpageseg temp/$TESTIMAGE -n -b
     $RUNNER $BASE/ocropus-gpageseg temp/$TESTIMAGE -n --usegauss
+    cp $BASE/tests/table.bin.png $BASE/tests/table.mask.png temp
+    $RUNNER $BASE/ocropus-gpageseg temp/table.bin.png --debug -n --minscale 7 --maxcolseps 0
 }
 
 test_rpred() {
