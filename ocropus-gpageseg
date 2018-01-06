@@ -480,13 +480,13 @@ def safe_process1(job, args):
         logger.exception(e)
 
 
-def process1(job, args):
-    fname, i = job
+def process1(job):
+    fname, i, args = job
     try:
         page_segmenter = GPageSeg(args)
-        page_segmenter.process1(job)
+        page_segmenter.process1((fname, i, ))
     except ProcessingException as ex:
-        logger.error("%s: %s" % (fname, ex.message))
+        logger.error("%s: %s"(fname, ex.message))
     except Exception as ex:
         logger.exception(ex.message)
 
@@ -540,7 +540,7 @@ def do_script():
         pool = Pool(processes=args.parallel)
         jobs = []
         for i, f in enumerate(files):
-            jobs += [(f, i + 1)]
+            jobs += [(f, i + 1, args)]
         pool.map(process1, jobs)
 
 
