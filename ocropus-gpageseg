@@ -15,9 +15,7 @@ from __future__ import print_function
 
 import argparse
 import glob
-import os
 import os.path
-import sys
 import traceback
 from multiprocessing import Pool
 
@@ -215,12 +213,10 @@ class GPageSeg(object):
         vert = morph.select_regions(vert, sl.dim0, min=20 * scale, nbest=self.args.maxseps)
         return vert
 
-    def compute_colseps_morph(self, binary, scale, maxseps=3, minheight=20, maxwidth=5):
+    def compute_colseps_morph(self, binary, scale):
         """Finds extended vertical whitespace corresponding to column separators
         using morphological operations."""
         boxmap = psegutils.compute_boxmap(binary, scale, dtype='B')
-        bounds = morph.rb_closing(self.CheckConvertBinaryArray(boxmap), (int(5 * scale), int(5 * scale)))
-        bounds = np.maximum(self.CheckConvertBinaryArray(1 - bounds), self.CheckConvertBinaryArray(boxmap))
         cols = 1 - morph.rb_closing(boxmap, (int(20 * scale), int(scale)))
         cols = morph.select_regions(cols, sl.aspect, min=self.args.csminaspect)
         cols = morph.select_regions(cols, sl.dim0, min=self.args.csminheight * scale, nbest=self.args.maxcolseps)
@@ -231,7 +227,6 @@ class GPageSeg(object):
     def compute_colseps_mconv(self, binary, scale=1.0):
         """Find column separators using a combination of morphological
         operations and convolution."""
-        h, w = binary.shape
         smoothed = gaussian_filter(1.0 * binary, (scale, scale * 0.5))
         smoothed = uniform_filter(smoothed, (5.0 * scale, 1))
         thresh = (smoothed < np.amax(smoothed) * 0.1)
@@ -250,7 +245,6 @@ class GPageSeg(object):
     def compute_colseps_conv(self, binary, scale=1.0):
         """Find column separators by convolution and
         thresholding."""
-        h, w = binary.shape
         # find vertical whitespace by thresholding
         smoothed = gaussian_filter(1.0 * binary, (scale, scale * 0.5))
         smoothed = uniform_filter(smoothed, (5.0 * scale, 1))
@@ -483,7 +477,7 @@ def safe_process1(job, args):
         else:
             logger.info(fname + ":" + e)
     except Exception as e:
-        traceback.print_exc()
+        logger.exception(e)
 
 
 def process1(job, args):
@@ -492,7 +486,7 @@ def process1(job, args):
         page_segmenter = GPageSeg(args)
         page_segmenter.process1(job)
     except ProcessingException as ex:
-        logger.error("%s: %s" (fname, ex.message))
+        logger.error("%s: %s" % (fname, ex.message))
     except Exception as ex:
         logger.exception(ex.message)
 
@@ -547,7 +541,7 @@ def do_script():
         jobs = []
         for i, f in enumerate(files):
             jobs += [(f, i + 1)]
-        result = pool.map(process1, jobs)
+        pool.map(process1, jobs)
 
 
 if __name__ == '__main__':
