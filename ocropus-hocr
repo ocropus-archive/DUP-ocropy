@@ -214,9 +214,11 @@ for arg in args.files:
 
                                 # Stores all information in one string
                                 info = "bbox " + ' '.join(map(str, [wx0,wy0,wx1,wy1]))
+                                if wconf == 1: wconf = 0
                                 info += "; x_wconf "+str(wconf)
                                 if args.charconfs:
-                                    info += "; x_confs "+charconfs
+                                    if charconfs == "": charconfs = " 0"
+                                    info += "; x_confs"+charconfs
 
                                 # reset conf values
                                 charconfs = ""
