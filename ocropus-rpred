@@ -262,7 +262,7 @@ def process1(arg):
     if not args.quiet:
         infotxt = fname + ":" + pred
         if len(fname) > 25:
-            infotxt = (fname[::-1][:25]+"...")[::-1]+":"+pred
+            infotxt = ("..."+fname[-25:])+":"+pred
         print_info(infotxt)
     ocrolib.write_text(base+".txt",pred)
 
