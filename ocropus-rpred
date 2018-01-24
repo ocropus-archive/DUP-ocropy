@@ -64,7 +64,8 @@ parser.add_argument("-q","--quiet",action="store_true",
                     help="turn off most output")
 parser.add_argument("-Q","--parallel",type=int,default=1,
                     help="number of parallel processes to use, default: %(default)s")
-
+parser.add_argument("--codec",default=[],nargs='*',
+                    help="construct a codec from the input text")
 # input files
 parser.add_argument("files",nargs="+",
                     help="input files; glob and @ expansion performed")
@@ -113,7 +114,30 @@ if not args.quiet: print_info("#inputs: %d" % (len(inputs)))
 
 if args.show>=0 or args.save is not None:
     args.parallel = 1
+# This is just cut-paste from ocropus-rtrain
+if args.codec!=[]:
+    print("# building codec")
+    codec = lstm.Codec()
+    charset = set()
+    print(args.codec)
+    for fname in ocrolib.glob_all(args.codec):
+        transcript = ocrolib.read_text(fname)
+        l = list(lstm.normalize_nfkc(transcript))
+        charset = charset.union(l)
+    charset = sorted(list(charset))
+    charset = [c for c in charset if c>" " and c!="~"]
+else:
+    print("# using default codec")
+    charset = sorted(list(set(list(lstm.ascii_labels) + list(ocrolib.chars.default))))
 
+charset = [""," ","~",]+[c for c in charset if c not in [" ","~"]]
+print("# charset size", len(charset), end=' ')
+if len(charset)<200:
+    print("[" + "".join(charset) + "]")
+else:
+    s = "".join(charset)
+    print("[" + s[:20], "...", s[-20:] + "]")
+codec = lstm.Codec().init(charset)
 # load the network used for classification
 
 try:
@@ -137,7 +161,7 @@ lnorm = getattr(network,"lnorm",None)
 
 if args.height>0:
     lnorm.setHeight(args.height)
-
+network.codec = codec
 
 # process one file
 
