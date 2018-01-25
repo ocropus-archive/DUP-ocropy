@@ -188,55 +188,58 @@ for arg in args.files:
                     # set lineparameter
                     wy0 = jsondata["bbox"]["line"]["y0"]
                     wy1 = jsondata["bbox"]["line"]["y1"]
-
                     if "x0" in jsondata["chars"][0]:
                         for idx1 in jsondata["chars"]:
                             if jsondata["chars"][idx1]["char"] == " ":
-                                # set lineparameter
-                                wx0= jsondata["bbox"]["line"]["x0"]
-                                if idx0 != 0:
-                                    #Take the end value of the previous whitespace
-                                    # scale factor correct?
-                                    wx0 = jsondata["bbox"]["line"]["x0"] + jsondata["chars"][idx0-2]["x1"]
-                                if idx1 == len(jsondata["chars"]):
-                                    wx1 = jsondata["bbox"]["line"]["x1"]
+                                if jsondata["bbox"]["line"]["chars"] != "":
+                                    # set lineparameter
+                                    wx0= jsondata["bbox"]["line"]["x0"]
+                                    if idx0 != 0:
+                                        #Take the end value of the previous whitespace
+                                        # scale factor correct?
+                                        wx0 = jsondata["bbox"]["line"]["x0"] + jsondata["chars"][idx0]["x1"]
+                                    if idx1 == len(jsondata["chars"])-1:
+                                        wx1 = jsondata["bbox"]["line"]["x1"]
+                                    else:
+                                        # Take the maxima value of the current whitespace
+                                        wx1= jsondata["bbox"]["line"]["x0"] + jsondata["chars"][idx1]["x1"]
+
+                                    # Store the char and bbox values in dict
+                                    jsondata["bbox"]["word"][len(jsondata["bbox"]["word"])] = OD()
+                                    jsondata["bbox"]["word"][len(jsondata["bbox"]["word"]) - 1]["chars"] = chars
+                                    jsondata["bbox"]["word"][len(jsondata["bbox"]["word"]) - 1]["x0"]= wx0
+                                    jsondata["bbox"]["word"][len(jsondata["bbox"]["word"]) - 1]["x1"]= wx1
+                                    jsondata["bbox"]["word"][len(jsondata["bbox"]["word"]) - 1]["y0"]= wy0
+                                    jsondata["bbox"]["word"][len(jsondata["bbox"]["word"]) - 1]["y1"]= wy1
+
+                                    # Stores all information in one string
+                                    info = "bbox " + ' '.join(map(str, [wx0,wy0,wx1,wy1]))
+                                    if wconf == 1: wconf = 0
+                                    info += "; x_wconf "+str(wconf*100)
+                                    if args.charconfs:
+                                        if charconfs == "": charconfs = " 0"
+                                        info += "; x_confs"+charconfs
+
+                                    # reset conf values
+                                    charconfs = ""
+                                    wconf = 1
+
+                                    # put all information about the ocr_word together into a SPAN
                                 else:
-                                    # Take the maxima value of the current whitespace
-                                    wx1= jsondata["bbox"]["line"]["x0"] + jsondata["chars"][idx1-1]["x1"]
-
-                                # Store the char and bbox values in dict
-                                jsondata["bbox"]["word"][len(jsondata["bbox"]["word"])] = OD()
-                                jsondata["bbox"]["word"][len(jsondata["bbox"]["word"]) - 1]["chars"] = chars
-                                jsondata["bbox"]["word"][len(jsondata["bbox"]["word"]) - 1]["x0"]= wx0
-                                jsondata["bbox"]["word"][len(jsondata["bbox"]["word"]) - 1]["x1"]= wx1
-                                jsondata["bbox"]["word"][len(jsondata["bbox"]["word"]) - 1]["y0"]= wy0
-                                jsondata["bbox"]["word"][len(jsondata["bbox"]["word"]) - 1]["y1"]= wy1
-
-                                # Stores all information in one string
-                                info = "bbox " + ' '.join(map(str, [wx0,wy0,wx1,wy1]))
-                                if wconf == 1: wconf = 0
-                                info += "; x_wconf "+str(wconf)
-                                if args.charconfs:
-                                    if charconfs == "": charconfs = " 0"
-                                    info += "; x_confs"+charconfs
-
-                                # reset conf values
-                                charconfs = ""
-                                wconf = 1
-
-                                # put all information about the ocr_word together into a SPAN
+                                    info = "bbox " + ' '.join(map(str, [jsondata["bbox"]["line"]["x0"], wy0, jsondata["bbox"]["line"]["x1"], wy1]))
+                                    info += "; x_wconf 0; x_confs 0"
 
                                 PN("        <span")
                                 if style != "": PN(" style='" + style + "'")
                                 PN(" class='ocrx_word' title='%s'>" % info, chars, "</span>\n")
-                                idx0 = idx1+1
+                                idx0 = idx1
                                 chars = ""
 
                             elif jsondata["chars"][idx1]["char"] != "":
                                 # atm unknown chars will be skipped (you could maybe use them to cut finer?)
                                 chars += jsondata["chars"][idx1]["char"]
                                 wconf = wconf * jsondata["chars"][idx1]["prob"]
-                                charconfs += " " + str(jsondata["chars"][idx1]["prob"])
+                                charconfs += " " + str(jsondata["chars"][idx1]["prob"]*100)
 
                         PN("    </span>\n")
                     else:
@@ -254,7 +257,6 @@ for arg in args.files:
                 PN(" class='ocr_line' title='%s'>"%info,text,"</span>")
                 if not args.nobreaks: P("<br />")
                 else: P()
-
     finally:
         P("</div>")
 
