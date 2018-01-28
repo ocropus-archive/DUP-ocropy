@@ -19,10 +19,9 @@ trace by default since it seems to confuse too many users).
 
 Installing
 ----------
-Install git.
-
-Preparation: Create working directory to save the source; Pull the respository
-
+Preparation: Install git(if not installed); Create working directory to save the source; Pull the respository
+ 
+    $ apt-get install git
     $ mkdir workingcopy/
     $ cd workingcopy/ 
     $ git init .
