@@ -19,7 +19,15 @@ trace by default since it seems to confuse too many users).
 
 Installing
 ----------
+Install git.
 
+Preparation: Create working directory to save the source; Pull the respository
+
+    $ mkdir workingcopy/
+    $ cd workingcopy/ 
+    $ git init .
+    $ git pull https://github.com/tmbdev/ocropy
+    
 To install OCRopus dependencies system-wide:
 
     $ sudo apt-get install $(cat PACKAGES)
