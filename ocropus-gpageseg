@@ -85,7 +85,7 @@ group_column.add_argument('--csminaspect',type=float,default=1.1,
 # output parameters
 group_output = parser.add_argument_group('output parameters')
 group_output.add_argument('--gray',action='store_true',
-                    help='output grayscale lines as well, default: %(default)s')
+                    help='output grayscale lines as well, which are extracted from the grayscale version of the pages, default: %(default)s')
 group_output.add_argument('-p','--pad',type=int,default=3,
                     help='padding for extracted lines, default: %(default)s')
 group_output.add_argument('-e','--expand',type=int,default=3,
@@ -395,7 +395,10 @@ def process1(job):
     if args.gray:
         if os.path.exists(base+".nrm.png"):
             gray = ocrolib.read_image_gray(base+".nrm.png")
-        checktype(gray,GRAYSCALE)
+            checktype(gray,GRAYSCALE)
+        else:
+            print_error("Grayscale version %s.nrm.png not found. Use ocropus-nlbin for creating normalized grayscale version of the pages as well." % base)
+            return
 
     binary = 1-binary # invert
 
