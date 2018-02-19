@@ -1,7 +1,7 @@
 ocropy
 ======
 
-[![Build Status](https://travis-ci.org/tmbdev/ocropy.svg)](https://travis-ci.org/tmbdev/ocropy)
+[![Build Status](https://travis-ci.org/tmbdev/ocropy.svg?branch=master)](https://travis-ci.org/tmbdev/ocropy)
 [![CircleCI](https://circleci.com/gh/UB-Mannheim/ocropy/tree/pull%2F4.svg?style=svg)](https://circleci.com/gh/UB-Mannheim/ocropy/tree/pull%2F4)
 [![license](https://img.shields.io/github/license/tmbdev/ocropy.svg)](https://github.com/tmbdev/ocropy/blob/master/LICENSE)
 [![Wiki](https://img.shields.io/badge/wiki-11%20pages-orange.svg)](https://github.com/tmbdev/ocropy/wiki)
