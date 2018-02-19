@@ -411,7 +411,7 @@ def PATCH(a):
 
 @makeargcheck("expected a segmentation image")
 def SEGMENTATION(a):
-    return isinstance(a,numpy.ndarray) and a.ndim==2 and a.dtype in int_dtypes
+    return isinstance(a,np.ndarray) and a.ndim==2 and a.dtype in int_dtypes
 @makeargcheck("expected a segmentation with white background")
 def WHITESEG(a):
     return np.amax(a)==0xffffff
