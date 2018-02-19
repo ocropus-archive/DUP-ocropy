@@ -20,6 +20,9 @@ import os.path
 import sys
 import traceback
 from multiprocessing import Pool
+import codecs
+import json
+from collections import OrderedDict as OD
 
 import numpy as np
 from scipy.ndimage import measurements
@@ -90,6 +93,9 @@ group_output.add_argument('-p','--pad',type=int,default=3,
                     help='padding for extracted lines, default: %(default)s')
 group_output.add_argument('-e','--expand',type=int,default=3,
                     help='expand mask for grayscale extraction, default: %(default)s')
+group_output.add_argument('-j','--json',action='store_true',
+                    help='store information about parameters in a *.ocropy.json-file \
+                    (this option can be used to create an extended hocr output)')
 
 # other parameters
 group_others = parser.add_argument_group('others')
@@ -442,9 +448,36 @@ def process1(job):
     lines = [lines[i] for i in lsort]
     ocrolib.write_page_segmentation("%s.pseg.png"%outputdir,segmentation)
     cleaned = ocrolib.remove_noise(binary,args.noise)
+
+    # create ordered-dictobj for json output
+    if args.json:
+        func = "gpageseg"
+        jsondata = OD()
+        jsondata["global"] = OD()
+        jsondata["pad"] = OD()
+        jsondata["pad"][func] = args.pad
+        jsondata["scale"] = OD()
+        jsondata["scale"][func] = scale
+        jsondata["bbox"] = OD()
+
     for i,l in enumerate(lines):
         binline = psegutils.extract_masked(1-cleaned,l,pad=args.pad,expand=args.expand)
         ocrolib.write_image_binary("%s/01%04x.bin.png"%(outputdir,i+1),binline)
+
+        if args.json:
+            # write dictobj to json file
+            with codecs.open("%s/01%04x.ocropy.json" % (outputdir,i+1), "w",encoding="utf-8") as jsonfile:
+                y0, x0, y1, x1 = [int(x) for x in [l.bounds[0].start, l.bounds[1].start, l.bounds[0].stop, l.bounds[1].stop]]
+                jsondata["global"]["fpath"] = fname
+                jsondata["global"]["id"] = "01%04x" % (i + 1)
+                jsondata["bbox"]["line"] = OD()
+                jsondata["bbox"]["line"]["chars"] = ""
+                jsondata["bbox"]["line"]["x0"] = x0
+                jsondata["bbox"]["line"]["x1"] = x1
+                jsondata["bbox"]["line"]["y0"] = y0
+                jsondata["bbox"]["line"]["y1"] = y1
+                json.dump(jsondata, jsonfile,indent=4,ensure_ascii=False)
+
         if args.gray:
             grayline = psegutils.extract_masked(gray,l,pad=args.pad,expand=args.expand)
             ocrolib.write_image_gray("%s/01%04x.nrm.png"%(outputdir,i+1),grayline)

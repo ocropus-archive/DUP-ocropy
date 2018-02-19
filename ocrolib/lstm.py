@@ -37,6 +37,7 @@ from ocrolib.exceptions import RecognitionError
 from ocrolib.edist import levenshtein
 import utils
 import unicodedata
+import sys
 from scipy.ndimage import measurements,filters
 
 initial_range = 0.1
@@ -743,14 +744,35 @@ def translate_back(outputs,threshold=0.7,pos=0):
     """Translate back. Thresholds on class 0, then assigns the maximum class to
     each region. ``pos`` determines the depth of character information returned:
         * `pos=0`: Return list of recognized characters
-        * `pos=1`: Return list of position-character tuples
+        * `pos=1`: Return list of position-character tuples (maxima only)
         * `pos=2`: Return list of character-probability tuples
+        * `pos=3`: Return list of position-character tuples (start, end and maxima values)
      """
     labels,n = measurements.label(outputs[:,0]<threshold)
     mask = tile(labels.reshape(-1,1),(1,outputs.shape[1]))
     maxima = measurements.maximum_position(outputs,mask,arange(1,amax(mask)+1))
     if pos==1: return maxima # include character position
     if pos==2: return [(c, outputs[r,c]) for (r,c) in maxima] # include character probabilities
+    if pos==3:
+        p = -1
+        x0 = None
+        x = []
+        for idx, val in enumerate(labels):
+            if val != 0 and x0 is None:
+                x0 = idx
+                p += 1
+            if val == 0 and x0 is not None:
+                #obosolete? This skips N/A strings
+                #if maxima[p][1] == 0:
+                    #ignore '' spaces
+                #    x0 = None
+                #else:
+                x.append((maxima[p][0], x0, idx, maxima[p][1]))
+                x0 = None
+        # append last non-zero region to list of no zero region occurs after it
+        if x0:
+            x.append((maxima[p][0], x0, len(outputs), maxima[p][1]))
+        return x
     return [c for (r,c) in maxima] # only recognized characters
 
 def log_mul(x,y):
