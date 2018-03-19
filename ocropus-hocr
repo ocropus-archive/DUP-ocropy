@@ -191,6 +191,8 @@ for arg in args.files:
                     if "x0" in jsondata["chars"][0]:
                         for idx1 in jsondata["chars"]:
                             if jsondata["chars"][idx1]["char"] == " ":
+                                if jsondata["chars"][idx1]["char"] in [">","<","&"]:
+                                    jsondata["chars"][idx1]["char"] = ["&lt;","&gt;","&amp;"][[">","<","&"].index(jsondata["chars"][idx1]["char"])]
                                 if jsondata["bbox"]["line"]["chars"] != "":
                                     # set lineparameter
                                     wx0= jsondata["bbox"]["line"]["x0"]
