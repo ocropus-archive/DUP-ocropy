@@ -171,7 +171,10 @@ for arg in args.files:
                     jsondata["bbox"]["word"]= OD()
                     wcount= 0
                     #convert string key value to int
+
                     for key in jsondata["chars"].keys():
+                        if jsondata["chars"][key]["char"] in [">","<","&"]:
+                            jsondata["chars"][key]["char"] = ["&lt;","&gt;","&amp;"][[">","<","&"].index(jsondata["chars"][key]["char"])]
                         jsondata["chars"][int(key)] = deepcopy(jsondata["chars"][key])
                         del jsondata["chars"][key]
                     jsondata["chars"][len(jsondata["chars"])] = OD()
@@ -191,8 +194,6 @@ for arg in args.files:
                     if "x0" in jsondata["chars"][0]:
                         for idx1 in jsondata["chars"]:
                             if jsondata["chars"][idx1]["char"] == " ":
-                                if jsondata["chars"][idx1]["char"] in [">","<","&"]:
-                                    jsondata["chars"][idx1]["char"] = ["&lt;","&gt;","&amp;"][[">","<","&"].index(jsondata["chars"][idx1]["char"])]
                                 if jsondata["bbox"]["line"]["chars"] != "":
                                     # set lineparameter
                                     wx0= jsondata["bbox"]["line"]["x0"]
