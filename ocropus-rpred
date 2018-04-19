@@ -227,10 +227,17 @@ def process1(arg):
         result = lstm.translate_back(network.outputs,pos=3)
         scale = len(raw_line.T)*1.0/(len(network.outputs)-2*args.pad)
         #ion(); imshow(raw_line,cmap=cm.gray)
+        xoffset = None
         for idx, (xmax,x0,x1,c) in enumerate(result):
             x0 = int((x0-args.pad)*scale)
-            x1 = int((x1-args.pad)*scale)
-            xmax = xmax-args.pad
+            x1 = int((x1 - args.pad) * scale)
+            xmax = xmax - args.pad
+            #TODO: experimental pad fixing
+            if xoffset ==None:
+                xoffset = x0
+            x0 = x0-xoffset
+            x1 = x1-xoffset
+            xmax = xmax-xoffset
             jsondata["chars"][idx]["x0"] = x0
             jsondata["chars"][idx]["x1"] = x1
             jsondata["chars"][idx]["xmax"] = xmax
