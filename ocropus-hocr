@@ -205,7 +205,7 @@ for arg in args.files:
                                         wx1 = jsondata["bbox"]["line"]["x1"]
                                     else:
                                         # Take the maxima value of the current whitespace
-                                        wx1= jsondata["bbox"]["line"]["x0"] + jsondata["chars"][idx1]["x1"]
+                                        wx1= jsondata["bbox"]["line"]["x0"] + jsondata["chars"][idx1]["xmax"]
 
                                     # Store the char and bbox values in dict
                                     jsondata["bbox"]["word"][len(jsondata["bbox"]["word"])] = OD()
