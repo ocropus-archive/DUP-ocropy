@@ -161,7 +161,7 @@ for arg in args.files:
 
                     if "chars" not in jsondata.keys() or "bbox" not in jsondata.keys():
                         continue
-                    print(jsondata.keys())
+
                     # put all information about the ocr_line together into a SPAN
 
                     PN("    <span")
