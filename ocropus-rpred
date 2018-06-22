@@ -232,9 +232,14 @@ def process1(arg):
             x0 = int((x0-args.pad)*scale)
             x1 = int((x1 - args.pad) * scale)
             xmax = int((xmax - args.pad) * scale)
-            #TODO: experimental pad fixing
+            #TODO: experimental fixing wrong padding
             if xoffset ==None:
-                xoffset = x0
+                if x0 > (args.pad+(x1-x0)*2):
+                    #print("----------------------HERE__________________")
+                    xoffset = x0-(x1-x0)*1.5
+                    jsondata["bbox"]["line"]["x0"]= xoffset
+                else:
+                    xoffset = x0
             x0 = x0-xoffset
             x1 = x1-xoffset
             xmax = xmax-xoffset
