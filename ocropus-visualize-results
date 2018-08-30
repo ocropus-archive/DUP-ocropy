@@ -49,6 +49,9 @@ def genpage(d):
     try:
         os.chdir(d)
         with open("index.html","w") as stream:
+            stream.write("<head>")
+            stream.write("<meta charset='UTF-8'>")
+            stream.write("</head>")
             stream.write("<h1>%s</h1>\n"%d)
             images = sorted(glob.glob("??????.bin.png"))
             for img in images:
