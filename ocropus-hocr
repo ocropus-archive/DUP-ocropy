@@ -128,7 +128,7 @@ for arg in args.files:
 
             # accumulate character position information for each line if the 
             # user wants <span char="ocr_word"> and if the llocs files are available
-            # (these are output by setting the --llocs switch on ocropus-gpageseg) 
+            # (these are output by setting the --llocs switch on ocropus-rpred) 
             if (args.ocrwords and os.path.exists(lbase+".llocs")):
                 char_pos_data =  codecs.open(lbase+".llocs",'r','utf-8').read()
                 lines = char_pos_data.split("\n")
@@ -216,7 +216,7 @@ for arg in args.files:
                             previous_char_x = char_x
 			PN("</span>")
 		    except:
-			E("Data for ocr_word elements is not available. Did you select --llocs in ocropus-gpageseg?")
+			E("Data for ocr_word elements is not available. Did you select --llocs in ocropus-rpred?")
 			PN(" class='ocr_line' title='%s'>"%info,text,"</span>")
             else:
                  PN(" class='ocr_line' title='%s'>"%info,text,"</span>")
