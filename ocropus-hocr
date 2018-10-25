@@ -32,6 +32,7 @@ parser.add_argument("-b","--nobreaks",action="store_true",help="don't output lin
 parser.add_argument("-p","--nopars",action="store_true",help="don't output paragraphs")
 parser.add_argument("-s","--fscale",type=float,default=1.0,help="scale factor for translating xheights into font size (use 0 to disable), default: %(default)s")
 parser.add_argument("-o","--output",default="book.html",help="output file, default: %(default)s")
+parser.add_argument("-w","--ocrwords",action="store_true",help="output ocr_word spans in hocr")
 parser.add_argument('files',nargs='+')
 args = parser.parse_args()
 args.files = ocrolib.glob_all(args.files)
@@ -125,8 +126,26 @@ for arg in args.files:
             text = re.sub(r'\&','\&amp;',text)
             text = re.sub(r'\<','\&lt;',text)
 
-            # accumulate information for each line here
-
+            # accumulate character position information for each line if the 
+            # user wants <span char="ocr_word"> and if the llocs files are available
+            # (these are output by setting the --llocs switch on ocropus-gpageseg) 
+            if (args.ocrwords and os.path.exists(lbase+".llocs")):
+                char_pos_data =  codecs.open(lbase+".llocs",'r','utf-8').read()
+                lines = char_pos_data.split("\n")
+                #the last line is blank, providing no info
+                lines = lines[:-1]
+                char_coords = []
+                for line in lines:
+                    elements = line.split("\t")
+                    to_coords = [elements[0],int(float(elements[1]))]
+                    if not (elements[0] == ''):
+                        char_coords.append(to_coords)
+                # remove final and initial spaces in lines, since they do not signify and they
+                # mess up word bboxes
+                if (char_coords[-1][0] == u" "):
+                    char_coords = char_coords[:-1]
+                if (char_coords[0][0] == u" "):
+                    char_coords = char_coords[1:]
             style = ""
             info = ""
 
@@ -149,7 +168,58 @@ for arg in args.files:
 
             PN("<span")
             if style!="": PN(" style='"+style+"'")
-            PN(" class='ocr_line' title='%s'>"%info,text,"</span>")
+            # use the data from the llocs files to provide <span class="ocr_word"> elements and their
+            # content if the user so desires and if the collected data is not empty. For instance,
+            # if the line only contained a space character, it would be striped and the list would
+            # be empty
+            if args.ocrwords and (len(char_coords) > 0):
+		    try:
+			PN(" class='ocr_line' title='%s'>"%info)
+			# loop through all the characters in the line, breaking to make a new ocr_word
+			# when we come to a space
+                        # use the line coordinates to seed the word coordinates. In particular the y values
+                        # are always used for word bounding boxes
+			word_x0 = x0
+			word_y0 = y0
+			word_x1 = x0
+			word_y1 = y1
+			current_word = u""
+                        # the last element is a special case, so we run a counter to be able to detect it
+			char_coords_count = len(char_coords)
+			count = 0 
+                        # keep track of the last char's x in order to put the word x boundary in the middle of the 
+                        # space between words. This ensures that no part of the word gets omitted from the bbox
+                        previous_char_x = 0
+			for char_coord in char_coords:
+			    current_char, char_x = char_coord
+			    if (current_char == u" "):
+                                midpoint = (char_x + previous_char_x) / 2
+				word_x1 = midpoint + x0
+				word_info="bbox %d %d %d %d"%(word_x0,word_y0,word_x1,word_y1)
+				PN("<span class='ocr_word' title='%s'>"%word_info,current_word,"</span> ")
+				# set the beginning x of the next word to the ending x of this one
+                                word_x0 = word_x1
+                                # reset the accumulated characters in the word
+				current_word = u""
+                            elif (count == (char_coords_count-1)):
+                                # in the case of the last character in the line:
+                                # 1) the *line's* greatest x value is used as this element's, too
+                                word_info="bbox %d %d %d %d"%(word_x0,word_y0,x1,word_y1)
+                                # 2) no space is put after the word span
+                                PN("<span class='ocr_word' title='%s'>"%word_info,current_word,"</span>")
+			    else:
+                                # if the current character is not a space, then append it to current word
+                                # which will be outputted in the <span class="ocr_word" when a space *is*
+                                # encountered
+				current_word = current_word + current_char
+			    count = count + 1
+                            previous_char_x = char_x
+			PN("</span>")
+		    except:
+			E("Data for ocr_word elements is not available. Did you select --llocs in ocropus-gpageseg?")
+			PN(" class='ocr_line' title='%s'>"%info,text,"</span>")
+            else:
+                 PN(" class='ocr_line' title='%s'>"%info,text,"</span>")
             if not args.nobreaks: P("<br />")
             else: P()
 
