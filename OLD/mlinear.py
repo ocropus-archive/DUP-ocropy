@@ -298,7 +298,7 @@ class LinKernelClassifier:
         if self.linear:
             pred = dot(make2d(data),self.M.T)
         else:
-            pred = sigmoid(make2d(data),self.M.T)
+            pred = sigmoid(dot(make2d(data),self.M.T))
         return [[(c,p[i]) for i,c in enumerate(self.classlist)] for j,p in enumerate(pred)]
     def classify(self,data):
         assert data.ndim>=2
