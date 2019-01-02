@@ -1,6 +1,13 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
+
+# pylint: disable=no-else-return, wrong-import-position
+
+import os
+os.environ['MPLBACKEND'] = 'Agg'
 
 import sys
+
+from numpy.random import randn
 
 from ocrolib import edist, utils
 
@@ -8,20 +15,20 @@ from ocrolib import edist, utils
 # equals the one it should be, otherwise returns 1 for failed tests.
 def testLevenshtein(a, b, should):
     if edist.levenshtein(a, b) == should:
-        print 'ok - levenshtein(%s, %s) == %s' % (a,b,should)
+        print('ok - levenshtein(%s, %s) == %s' % (a, b, should))
         return 0
     else:
-        print 'not ok - levenshtein(%s, %s) == %s' % (a,b,should)
+        print('not ok - levenshtein(%s, %s) == %s' % (a, b, should))
         return 1
 
 
 def testXLevenshtein(a, b, context, should):
     #print(edist.xlevenshtein(a, b, context))
     if edist.xlevenshtein(a, b, context) == should:
-        print 'ok - xlevenshtein(%s, %s, %s) == %s' % (a,b,context,should)
+        print('ok - xlevenshtein(%s, %s, %s) == %s' % (a, b, context, should))
         return 0
     else:
-        print 'not ok - xlevenshtein(%s, %s, %s) == %s' % (a,b,context,should)
+        print('not ok - xlevenshtein(%s, %s, %s) == %s' % (a, b, context, should))
         return 1
 
 
@@ -45,10 +52,9 @@ failed_tests += testXLevenshtein('aaaaaaaaaaa', 'a', 1, should=(10.0, [('aaaaaaa
 failed_tests += testXLevenshtein('123 111 456', '132 111 444', 1, should=(4.0, [('123_ ', '1_32 '), ('456 ', '444 ')]))
 
 print('\n# 3 utils.sumouter / utils.sumprod')
-from pylab import randn
-utils.sumouter(randn(10,3),randn(10,4),out=randn(3,4))
+utils.sumouter(randn(10, 3), randn(10, 4), out=randn(3, 4))
 print('ok - dimensions of sumouter')
-utils.sumprod(randn(11,7),randn(11,7),out=randn(7))
+utils.sumprod(randn(11, 7), randn(11, 7), out=randn(7))
 print('ok - dimensions of sumprod')
 
 sys.exit(failed_tests)

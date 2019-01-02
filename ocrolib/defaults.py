@@ -12,4 +12,3 @@ def getlocal():
     return local
 
 traceback = int(os.getenv("OCROTRACE") or "0")
-

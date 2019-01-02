@@ -1,15 +1,12 @@
 __all__ = [
     "common",
-    "hocr",
-    "lang",
-    "default",
-    "lineest",
+    "trace",
+    "defaults",
 ]
 
 ################################################################
 ### top level imports
 ################################################################
 
-import default
-from common import *
-from default import traceback as trace
+from .defaults import traceback as trace
+from .common import *

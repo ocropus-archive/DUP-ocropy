@@ -1,4 +1,4 @@
-#!/bin/bash -e
+#!/bin/bash -ex
 
 # Usage: ./run-test-ci [tests...]
 #
@@ -15,7 +15,7 @@ BASE=$(dirname $0)
 #       PATH=$PWD:$PATH RUNNER='python2 -m coverage run --include=$PWD/**/*' ./run-test
 #       PATH=$PWD:$PATH RUNNER='python3' ./run-test
 # See ./run-coverage for a real example.
-RUNNER="${RUNNER:-python2}"
+RUNNER="${RUNNER:-python}"
 
 test_page() {
     set -x
@@ -122,12 +122,12 @@ if (( $# > 0 ));then
     done
 else
     test_page
-    test_conf
-    test_linegen
-    test_rtrain
-    test_rtrain_files
-    test_nlbin
-    test_gpageseg
-    test_rpred
-    test_gtedit
+    # test_conf
+    # test_linegen
+    # test_rtrain
+    # test_rtrain_files
+    # test_nlbin
+    # test_gpageseg
+    # test_rpred
+    # test_gtedit
 fi

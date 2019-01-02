@@ -24,6 +24,10 @@
 # Author: Thomas M. Breuel
 # License: Apache 2.0
 
+
+# pylint: disable=bad-whitespace
+# pylint: disable=unused-argument
+
 from __future__ import print_function
 
 from collections import defaultdict
@@ -32,11 +36,11 @@ import unicodedata
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.ndimage import measurements,filters
+from six import unichr, text_type as unicode
 
-import common as ocrolib
 from ocrolib.exceptions import RecognitionError
 from ocrolib.edist import levenshtein
-import utils
+import ocrolib.utils
 
 initial_range = 0.1
 

@@ -1,12 +1,19 @@
 from __future__ import print_function
 
+# pylint: disable=bad-whitespace
+# pylint: disable=multiple-statements
+# pylint: disable=unused-argument
+# pylint: disable=unused-variable
+# pylint: disable=unidiomatic-typecheck
+
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 from scipy.ndimage import filters,interpolation
 
-from toplevel import *
-import sl,morph
+from ocrolib.toplevel import obsolete, GRAYSCALE, checks, ARANK
+import ocrolib.sl as sl
+import ocrolib.morph as morph
 
 def B(a):
     if a.dtype==np.dtype('B'): return a
@@ -15,10 +22,12 @@ def B(a):
 class record:
     def __init__(self,**kw): self.__dict__.update(kw)
 
+@obsolete
 def blackout_images(image,ticlass):
     """Takes a page image and a ticlass text/image classification image and replaces
     all regions tagged as 'image' with rectangles in the page image.  The page image
     is modified in place.  All images are iulib arrays."""
+    # pylint: disable=undefined-variable
     rgb = ocropy.intarray()
     ticlass.textImageProbabilities(rgb,image)
     r = ocropy.bytearray()
@@ -36,7 +45,7 @@ def blackout_images(image,ticlass):
         ocropy.fill_rect(image,r,0)
         r.pad_by(-5,-5)
         ocropy.fill_rect(image,r,255)
-        
+
 def binary_objects(binary):
     labels,n = morph.label(binary)
     objects = morph.find_objects(labels)
@@ -143,7 +152,7 @@ def reading_order(lines,highlight=None,debug=0):
     if highlight is not None:
         plt.clf()
         plt.title("highlight")
-        plt.imshow(binary)
+        plt.imshow(binary) # BUG TODO pylint: disable=undefined-variable
         plt.ginput(1,debug)
     for i,u in enumerate(lines):
         for j,v in enumerate(lines):
@@ -208,7 +217,7 @@ def show_lines(image,lines,lsort):
 @obsolete
 def read_gray(fname):
     image = plt.imread(fname)
-    if image.ndim==3: image = mean(image,2)
+    if image.ndim==3: image = np.mean(image,2)
     return image
 
 @obsolete
@@ -225,7 +234,7 @@ def read_binary(fname):
 def rgbshow(r,g,b=None,gn=1,cn=0,ab=0,**kw):
     """Small function to display 2 or 3 images as RGB channels."""
     if b is None: b = np.zeros(r.shape)
-    combo = np.transpose(array([r,g,b]),axes=[1,2,0])
+    combo = np.transpose(np.array([r,g,b]),axes=[1,2,0])
     if cn:
         for i in range(3):
             combo[:,:,i] /= max(np.abs(np.amin(combo[:,:,i])),np.abs(np.amax(combo[:,:,i])))
@@ -235,4 +244,3 @@ def rgbshow(r,g,b=None,gn=1,cn=0,ab=0,**kw):
         combo = np.abs(combo)
     if np.amin(combo)<0: print("warning: values less than zero")
     plt.imshow(np.clip(combo,0,1),**kw)
-
