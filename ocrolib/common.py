@@ -25,7 +25,7 @@ import unicodedata
 import inspect
 import glob
 from six.moves import cPickle as pickle
-from six import text_type as unicode, PY3, PY2
+from six import text_type as unicode, PY3  # pylint: disable=redefined-builtin
 
 import numpy
 from numpy import (amax, amin, array, bitwise_and, clip, dtype, mean, minimum,
@@ -36,7 +36,6 @@ from scipy.ndimage import morphology, measurements
 import PIL
 
 import ocrolib.ligatures as ligatures
-import ocrolib.lstm as lstm
 import ocrolib.morph as morph
 import ocrolib.sl as sl
 from ocrolib.defaults import getlocal
@@ -57,7 +56,7 @@ def normalize_text(s):
     """Apply standard Unicode normalizations for OCR.
     This eliminates common ambiguities and weird unicode
     characters."""
-    s = unicodedata.normalize('NFC',s)
+    s = unicodedata.normalize('NFC', unicode(s))
     s = re.sub(r'\s+(?u)',' ',s)
     s = re.sub(r'\n(?u)','',s)
     s = re.sub(r'^\s+(?u)','',s)
