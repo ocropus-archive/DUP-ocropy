@@ -117,6 +117,13 @@ test_gtedit() {
     $RUNNER $BASE/ocropus-gtedit write temp/gtedit-together.gt.txt temp/out -x .copy.gt.txt
 }
 
+# Make sure there are no syntax errors
+test_smoke() {
+    for i in $BASE/ocropus-*;do
+        $i --help > /dev/null
+    done
+}
+
 rm -rf temp
 mkdir -p temp
 if (( $# > 0 ));then
@@ -124,6 +131,7 @@ if (( $# > 0 ));then
         test_$test
     done
 else
+    test_smoke
     test_page
     test_conf
     test_linegen
