@@ -1,0 +1,25 @@
+version: 2
+
+jobs:
+
+  build-python27:
+    docker:
+      - image: python:2.7.13
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+            - default-model
+      - run: '(cd models && wget -nc http://www.tmbdev.net/en-default.pyrnn.gz)'
+      - save_cache:
+          key: default-model
+          paths:
+            - models
+      - run: pip install .
+      - run: ./run-test-ci
+
+workflows:
+  version: 2
+  build:
+    jobs:
+      - build-python27
