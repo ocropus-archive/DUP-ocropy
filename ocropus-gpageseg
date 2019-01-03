@@ -172,7 +172,7 @@ def DSAVE(title, image):
         image = np.transpose(np.array(image),[1,2,0])
     fname = "_"+title+".png"
     print_info("debug " + fname)
-    imwrite(fname, np.array(image, np.int32))
+    imwrite(fname, np.array(image, np.float32))
 
 
 ################################################################

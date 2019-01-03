@@ -2,14 +2,15 @@
 
 # pylint: disable=bad-whitespace
 
-from __future__ import print_function
+from __future__ import print_function, unicode_literals
 
 import argparse
 import codecs
 import re
 import os.path
 import base64
-import urllib2
+from six.moves.urllib.request import urlopen
+from six import text_type as unicode
 
 from lxml import etree
 
@@ -71,7 +72,7 @@ if args.subparser_name=="write":
         s = s.strip()
         if s=="": continue
         if s[0]=="#": continue
-        match = re.search(ur'^(\d{4})\.(\d{10})\s*(.*?)$(?i)',s)
+        match = re.search(r'^(\d{4})\.(\d{10})\s*(.*?)$(?i)',s)
         if not match:
             if "[[" not in s: print("???", lineno, ":", s)
             continue
@@ -200,9 +201,9 @@ if args.subparser_name=="html":
                 text = ocrolib.read_text(base+args.extension)
             else:
                 text = u""
-            with open(fname,"r") as pngstream: png = pngstream.read()
-            png = base64.b64encode(png)
-            png = "data:image/png;base64,"+png
+            with open(fname, 'rb') as pngstream:
+                png = pngstream.read()
+            png = "data:image/png;base64,%s" % base64.b64encode(png).decode('utf-8')
             P("<table>")
             P("<tr><td style='border:0px;color:#808080;font-size:12px'>%s</td></tr>",fname)
             P("<tr><td><img alt='line' src='%s' height='%d' /></td></tr>",png,args.height)
@@ -214,12 +215,13 @@ if args.subparser_name=="html":
         stream.close()
 
 def url_decode(image):
+    image = unicode(image)
     prefix = "data:image/png;base64,"
     if image.startswith(prefix):
         data = image[len(prefix):]
-        data = base64.b64decode(data)
+        data = base64.b64decode(unicode(data))
     else:
-        data = urllib2.urlopen(image).read()
+        data = urlopen(unicode(image)).read()
     return data
 
 if args.subparser_name=="extract":
