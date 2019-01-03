@@ -2,24 +2,48 @@ version: 2
 
 jobs:
 
-  build-python27:
+  build-python27: &job-template
     docker:
       - image: python:2.7.13
+    working_directory: ~/ocropy-build
     steps:
       - checkout
       - restore_cache:
           keys:
-            - default-model
+            - default-model-{{ .Environment.CIRCLE_JOB }}
       - run: '(cd models && wget -nc http://www.tmbdev.net/en-default.pyrnn.gz)'
       - save_cache:
-          key: default-model
+          key: default-model-{{ .Environment.CIRCLE_JOB }}
           paths:
             - models
-      - run: pip install .
+      - run: pip install --user .
       - run: ./run-test-ci
+
+  build-python34:
+    <<: *job-template
+    docker:
+      - image: circleci/python:3.5
+
+  build-python35:
+    <<: *job-template
+    docker:
+      - image: circleci/python:3.5
+
+  build-python36:
+    <<: *job-template
+    docker:
+      - image: circleci/python:3.6
+
+  build-python37:
+    <<: *job-template
+    docker:
+      - image: circleci/python:3.7
 
 workflows:
   version: 2
   build:
     jobs:
       - build-python27
+      - build-python35
+      - build-python36
+      - build-python37
