@@ -86,13 +86,13 @@ test_nlbin() {
 test_gpageseg() {
     local TESTIMAGE=text-near-edge.bin.png
     cp $BASE/tests/$TESTIMAGE temp
-    $RUNNER $BASE/ocropus-gpageseg temp/$TESTIMAGE
-    $RUNNER $BASE/ocropus-gpageseg temp/$TESTIMAGE -n
-    $RUNNER $BASE/ocropus-gpageseg temp/$TESTIMAGE -n --maxseps 3
-    $RUNNER $BASE/ocropus-gpageseg temp/$TESTIMAGE -n -b
-    $RUNNER $BASE/ocropus-gpageseg temp/$TESTIMAGE -n --usegauss
+    $RUNNER $BASE/ocropus-gpageseg --debug temp/$TESTIMAGE
+    $RUNNER $BASE/ocropus-gpageseg --debug temp/$TESTIMAGE -n
+    $RUNNER $BASE/ocropus-gpageseg --debug temp/$TESTIMAGE -n --maxseps 3
+    $RUNNER $BASE/ocropus-gpageseg --debug temp/$TESTIMAGE -n -b
+    $RUNNER $BASE/ocropus-gpageseg --debug temp/$TESTIMAGE -n --usegauss
     cp $BASE/tests/table.bin.png $BASE/tests/table.mask.png temp
-    $RUNNER $BASE/ocropus-gpageseg temp/table.bin.png --debug -n --minscale 7 --maxcolseps 0
+    $RUNNER $BASE/ocropus-gpageseg --debug temp/table.bin.png --debug -n --minscale 7 --maxcolseps 0
 }
 
 test_rpred() {
@@ -122,12 +122,12 @@ if (( $# > 0 ));then
     done
 else
     test_page
-    # test_conf
-    # test_linegen
-    # test_rtrain
-    # test_rtrain_files
-    # test_nlbin
-    # test_gpageseg
-    # test_rpred
-    # test_gtedit
+    test_conf
+    test_linegen
+    test_rtrain
+    test_rtrain_files
+    test_nlbin
+    test_gpageseg
+    test_rpred
+    test_gtedit
 fi

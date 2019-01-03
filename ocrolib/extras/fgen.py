@@ -2,6 +2,12 @@
 ### text image generation with Cairo
 ################################################################
 
+# pylint: disable=bad-whitespace
+# pylint: disable=multiple-statements
+# pylint: disable=len-as-condition
+# pylint: disable=bare-except
+# pylint: disable=redefined-outer-name
+
 from __future__ import print_function
 
 import ctypes
@@ -9,7 +15,6 @@ import cairo
 from cairoextras import *
 from numpy import *
 from scipy import *
-from scipy.misc import imsave
 from pylab import *
 import pango,pangocairo
 from scipy.ndimage.filters import gaussian_filter

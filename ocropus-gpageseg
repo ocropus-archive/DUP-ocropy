@@ -1,5 +1,15 @@
 #!/usr/bin/env python
 
+# pylint: disable=bad-whitespace
+# pylint: disable=multiple-statements
+# pylint: disable=len-as-condition
+# pylint: disable=bare-except
+# pylint: disable=redefined-outer-name
+# pylint: disable=unidiomatic-typecheck
+# pylint: disable=too-many-return-statements
+# pylint: disable=wildcard-import
+# pylint: disable=unused-wildcard-import
+
 # TODO:
 # ! add option for padding
 # - fix occasionally missing page numbers
@@ -23,8 +33,8 @@ from multiprocessing import Pool
 
 import numpy as np
 from scipy.ndimage import measurements
-from scipy.misc import imsave
 from scipy.ndimage.filters import gaussian_filter,uniform_filter,maximum_filter
+from imageio import imwrite
 
 import ocrolib
 from ocrolib import psegutils,morph,sl
@@ -155,14 +165,14 @@ def B(a):
     return np.array(a,'B')
 
 
-def DSAVE(title,image):
+def DSAVE(title, image):
     if not args.debug: return
     if type(image)==list:
         assert len(image)==3
         image = np.transpose(np.array(image),[1,2,0])
     fname = "_"+title+".png"
     print_info("debug " + fname)
-    imsave(fname,image)
+    imwrite(fname, np.array(image, np.int32))
 
 
 ################################################################

@@ -1,6 +1,12 @@
 #!/usr/bin/env python
 # vim: set fileencoding=utf8 :
 
+# pylint: disable=bad-whitespace
+# pylint: disable=multiple-statements
+# pylint: disable=len-as-condition
+# pylint: disable=bare-except
+# pylint: disable=redefined-outer-name
+
 from __future__ import print_function
 
 import random as pyrandom
@@ -17,7 +23,7 @@ import matplotlib.pyplot as plt
 from PIL import Image
 from PIL import ImageFont,ImageDraw
 from scipy.ndimage import filters,measurements,interpolation
-from scipy.misc import imsave
+from imageio import imwrite
 
 import ocrolib
 
@@ -172,6 +178,7 @@ last_fontfile = None
 
 
 def genline(text,fontfile=None,size=36,sigma=0.5,threshold=0.5):
+    # pylint: disable=global-variable-undefined
     global image,draw,last_font,last_fontfile
     if last_fontfile!=fontfile or last_size!=size:
         last_font = ImageFont.truetype(fontfile,size)
@@ -232,7 +239,7 @@ for pageno,font in enumerate(fonts):
             plt.imshow(image)
             plt.ginput(1,0.1)
         fname = pagedir+"/01%04d"%lineno
-        imsave(fname+".bin.png",image)
+        imwrite("%s.bin.png" % fname, image)
         gt = ocrolib.normalize_text(line)
         with codecs.open(fname+".gt.txt","w",'utf-8') as stream:
             stream.write(gt+"\n")

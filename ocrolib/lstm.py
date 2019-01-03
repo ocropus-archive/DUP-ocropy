@@ -36,11 +36,11 @@ import unicodedata
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.ndimage import measurements,filters
-from six import unichr, text_type as unicode
+from six import unichr  # pylint: disable=redefine-builtin
 
 from ocrolib.exceptions import RecognitionError
 from ocrolib.edist import levenshtein
-import ocrolib.utils
+import ocrolib.utils as utils
 
 initial_range = 0.1
 
@@ -961,7 +961,7 @@ class Codec:
         s = [self.code2char.get(c,"~") for c in l]
         return s
 
-ascii_labels = [""," ","~"] + [unichr(x) for x in range(33,126)]
+ascii_labels = [""," ","~"] + [unichr(chr_ord) for chr_ord in range(33,126)]
 
 def ascii_codec():
     "Create a codec containing just ASCII characters."
@@ -984,4 +984,3 @@ def getstates_for_display(net):
     if isinstance(net,Stacked) and isinstance(net.nets[0],LSTM):
         return net.nets[0].state[:net.nets[0].last_n]
     return None
-

@@ -16,3 +16,5 @@ build/
 doc/.ipynb_checkpoints/
 htmlcov/
 dist
+*.egg-info
+linegen/
