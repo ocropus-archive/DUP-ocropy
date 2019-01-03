@@ -25,7 +25,7 @@ import unicodedata
 import inspect
 import glob
 from six.moves import cPickle as pickle
-from six import text_type as unicode
+from six import text_type as unicode, PY3, PY2
 
 import numpy
 from numpy import (amax, amin, array, bitwise_and, clip, dtype, mean, minimum,
@@ -429,14 +429,7 @@ def save_object(fname,obj,zip=0):
         with open(fname,"wb") as stream:
             pickle.dump(obj,stream,2)
 
-def unpickle_find_global(mname,cname):
-    if mname=="lstm.lstm":
-        return getattr(lstm,cname)
-    if not mname in sys.modules.keys():
-        exec("import %s" % mname) # pylint: disable=exec-used
-    return getattr(sys.modules[mname],cname)
-
-def load_object(fname,zip=0,nofind=0,verbose=0):
+def load_object(fname, zip=0, nofind=0, verbose=0):
     """Loads an object from disk. By default, this handles zipped files
     and searches in the usual places for OCRopus. It also handles some
     class names that have changed."""
@@ -446,19 +439,18 @@ def load_object(fname,zip=0,nofind=0,verbose=0):
         print("# loading object", fname)
     if zip==0 and fname.endswith(".gz"):
         zip = 1
+    def unpickle_stream(stream):
+        if PY3:
+            return pickle.load(stream, encoding='latin1')
+        else:
+            return pickle.load(stream)
     if zip>0:
-        # with gzip.GzipFile(fname,"rb") as stream:
-        with os.popen("gunzip < '%s'"%fname,"rb") as stream:
-            unpickler = pickle.Unpickler(stream)
-            unpickler.find_global = unpickle_find_global
-            return unpickler.load()
+        import gzip
+        with gzip.GzipFile(fname, "r") as stream:
+            return unpickle_stream(stream)
     else:
-        with open(fname,"rb") as stream:
-            unpickler = pickle.Unpickler(stream)
-            unpickler.find_global = unpickle_find_global
-            return unpickler.load()
-
-
+        with open(fname, "r") as stream:
+            return unpickle_stream(stream)
 
 ################################################################
 ### Simple record object.

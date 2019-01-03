@@ -198,7 +198,7 @@ if args.subparser_name=="html":
                 text = ocrolib.read_text(base+args.extension)
             else:
                 text = u""
-            with open(fname,"rb") as pngstream: png = pngstream.read()
+            with open(fname,"r") as pngstream: png = pngstream.read()
             png = base64.b64encode(png)
             png = "data:image/png;base64,"+png
             P("<table>")
