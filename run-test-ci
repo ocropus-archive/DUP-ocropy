@@ -120,6 +120,12 @@ test_gtedit() {
 # Make sure there are no syntax errors
 test_smoke() {
     for i in $BASE/ocropus-*;do
+        if [[ "$i" = *ocropus-lpred ]];then
+            continue
+        fi
+        if [[ "$i" = *ocropus-ltrain ]];then
+            continue
+        fi
         $i --help > /dev/null
     done
 }
