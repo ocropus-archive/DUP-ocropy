@@ -17,6 +17,9 @@ BASE=$(dirname $0)
 # See ./run-coverage for a real example.
 RUNNER="${RUNNER:-python}"
 
+# Number of iterations to train
+TRAIN_ITERATIONS="${TRAIN_ITERATIONS:-5}"
+
 test_page() {
     set -x
     $RUNNER $BASE/ocropus-nlbin "$BASE/tests/testpage.png" -o temp
@@ -65,13 +68,13 @@ test_linegen() {
 
 test_rtrain() {
     tar -zxf $BASE/tests/uw3-500.tgz
-    $RUNNER $BASE/ocropus-rtrain 'book/*/*.bin.png' -N 5 -o ci-test-model
+    $RUNNER $BASE/ocropus-rtrain 'book/*/*.bin.png' -N $TRAIN_ITERATIONS -o ci-test-model
 }
 
 test_rtrain_files() {
     tar -zxf $BASE/tests/uw3-500.tgz
     find 'book' -name '*.bin.png' > INPUT_FILES
-    $RUNNER $BASE/ocropus-rtrain -f INPUT_FILES -N 5 -o ci-test-model
+    $RUNNER $BASE/ocropus-rtrain -f INPUT_FILES -N $TRAIN_ITERATIONS -o ci-test-model
     rm INPUT_FILES
 }
 
