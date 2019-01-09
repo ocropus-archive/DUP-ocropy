@@ -15,6 +15,7 @@
 from __future__ import print_function
 
 import os
+import gzip
 import os.path
 import codecs
 import re
@@ -417,16 +418,15 @@ class RegionExtractor:
 ### and it also contains workarounds for changed module/class names.
 ################################################################
 
-def save_object(fname,obj,zip=0):
-    if zip==0 and fname.endswith(".gz"):
+def save_object(fname, obj, zip=0):
+    if zip == 0 and fname.endswith(".gz"):
         zip = 1
-    if zip>0:
-        # with gzip.GzipFile(fname,"wb") as stream:
-        with os.popen("gzip -9 > '%s'"%fname,"wb") as stream:
-            pickle.dump(obj,stream,2)
+    if zip > 0:
+        with gzip.GzipFile(fname, "wb") as stream:
+            pickle.dump(obj, stream, 2)
     else:
-        with open(fname,"wb") as stream:
-            pickle.dump(obj,stream,2)
+        with open(fname, "wb") as stream:
+            pickle.dump(obj, stream, 2)
 
 def load_object(fname, zip=0, nofind=0, verbose=0):
     """Loads an object from disk. By default, this handles zipped files
@@ -444,7 +444,6 @@ def load_object(fname, zip=0, nofind=0, verbose=0):
         else:
             return pickle.load(stream)
     if zip>0:
-        import gzip
         with gzip.GzipFile(fname, "r") as stream:
             return unpickle_stream(stream)
     else:

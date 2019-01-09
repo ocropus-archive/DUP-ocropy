@@ -328,10 +328,10 @@ for trial in range(start,args.ntrain):
     pred = re.sub(' ','_',pred)
     gta = re.sub(' ','_',gta)
 
-    if (trial+1)%args.savefreq==0:
-        ofile = oname%(trial+1)+".gz"
+    if (trial + 1) % args.savefreq == 0:
+        ofile = oname % (trial+1) + ".gz"
         print("# saving", ofile)
-        save_lstm(ofile,network)
+        save_lstm(ofile, network)
         last_save = ofile
 
     if do_display:
