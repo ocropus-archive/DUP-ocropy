@@ -68,13 +68,13 @@ test_linegen() {
 
 test_rtrain() {
     tar -zxf $BASE/tests/uw3-500.tgz
-    $RUNNER $BASE/ocropus-rtrain 'book/*/*.bin.png' -N $TRAIN_ITERATIONS -o ci-test-model
+    $RUNNER $BASE/ocropus-rtrain 'book/*/*.bin.png' -F $TRAIN_ITERATIONS -N $TRAIN_ITERATIONS -o ci-test-model
 }
 
 test_rtrain_files() {
     tar -zxf $BASE/tests/uw3-500.tgz
     find 'book' -name '*.bin.png' > INPUT_FILES
-    $RUNNER $BASE/ocropus-rtrain -f INPUT_FILES -N $TRAIN_ITERATIONS -o ci-test-model
+    $RUNNER $BASE/ocropus-rtrain -f INPUT_FILES -F $TRAIN_ITERATIONS -N $TRAIN_ITERATIONS -o ci-test-model
     rm INPUT_FILES
 }
 
