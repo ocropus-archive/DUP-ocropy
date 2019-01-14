@@ -313,7 +313,7 @@ def pad_by(image,r,dtype=None):
     result = zeros((w+2*r,h+2*r))
     result[r:(w+r),r:(h+r)] = image
     return result
-class RegionExtractor:
+class RegionExtractor(object):
     """A class facilitating iterating over the parts of a segmentation."""
     def __init__(self):
         self.cache = {}
@@ -454,7 +454,7 @@ def load_object(fname, zip=0, nofind=0, verbose=0):
 ### Simple record object.
 ################################################################
 
-class Record:
+class Record(object):
     """A simple record datatype that allows initialization with
     keyword arguments, as in Record(x=3,y=9)"""
     def __init__(self,**kw):
@@ -867,7 +867,7 @@ def remove_noise(line,minsize=8):
     good = minimum(bin,1-(sums>0)*(sums<minsize))
     return good
 
-class MovingStats:
+class MovingStats(object):
     def __init__(self,n=100):
         self.data = []
         self.n = n

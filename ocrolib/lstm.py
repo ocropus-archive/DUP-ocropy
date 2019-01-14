@@ -94,7 +94,7 @@ def sumouter(us,vs,lo=-1.0,hi=1.0,out=None):
         result += np.outer(np.clip(u,lo,hi),v)
     return result
 
-class Network:
+class Network():
     """General interface for networks. This mainly adds convenience
     functions for `predict` and `train`.
 
@@ -847,9 +847,9 @@ def normalize_nfkc(s):
 def add_training_info(network):
     return network
 
-class SeqRecognizer:
+class SeqRecognizer():
     """Perform sequence recognition using BIDILSTM and alignment."""
-    def __init__(self,ninput,nstates,noutput=-1,codec=None,normalize=normalize_nfkc):
+    def __init__(self, ninput=None, nstates=None, noutput=-1, codec=None, normalize=normalize_nfkc):
         self.Ni = ninput
         if codec: noutput = codec.size()
         assert noutput>0
@@ -937,7 +937,7 @@ class SeqRecognizer:
         cs = self.predictSequence(xs)
         return self.l2s(cs)
 
-class Codec:
+class Codec(object):
     """Translate between integer codes and characters."""
     def init(self,charset):
         charset = sorted(list(set(charset)))

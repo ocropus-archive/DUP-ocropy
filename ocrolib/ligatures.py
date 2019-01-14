@@ -40,7 +40,7 @@ def common_ligatures(s):
     if len(s)>=3 and s[:3] in common_ligature_table:
         yield s[:3]
 
-class LigatureTable:
+class LigatureTable(object):
     def __init__(self):
         self.lig2code = {}
         self.code2lig = {}

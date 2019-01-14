@@ -19,8 +19,9 @@ def B(a):
     if a.dtype==np.dtype('B'): return a
     return np.array(a,'B')
 
-class record:
-    def __init__(self,**kw): self.__dict__.update(kw)
+class record(object):
+    def __init__(self,**kw):
+        self.__dict__.update(kw)
 
 @obsolete
 def blackout_images(image,ticlass):
