@@ -7,7 +7,6 @@ scripts = [c for c in glob('ocropus-*') if '.' not in c and '~' not in c]
 setup(
     name='ocropy',
     version='2.0.0a1',
-
     author='Thomas Breuel',
     maintainer='Konstantin Baierer',
     maintainer_email='unixprog@gmail.com',
@@ -23,6 +22,14 @@ setup(
     scripts=scripts,
     include_package_data=True,
 
-    install_requires=open('requirements.txt').read().split('\n'),
+    install_requires=[
+        'numpy      >= 1.15.4',
+        'scipy      >= 1.1.0',
+        'matplotlib >= 2.2.3',
+        'imageio    >= 2.4.1',
+        'Pillow     >= 2.7.0',
+        'lxml       >= 3.5.0',
+        'six        >= 1.11.0',
+    ],
     keywords=['OCR', 'optical character recognition', 'ocropy', 'ocropus', 'kraken', 'calamari'],
 )

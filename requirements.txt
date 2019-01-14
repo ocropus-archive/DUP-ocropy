@@ -1,7 +1,1 @@
-numpy>=1.15.4
-scipy>=1.1.0
-matplotlib>=2.2.3
-imageio>=2.4.1
-Pillow>=2.7.0
-lxml>=3.5.0
-six>=1.11.0
+.
