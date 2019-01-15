@@ -29,7 +29,7 @@ setup(
         'imageio    >= 2.4.1',
         'Pillow     >= 2.7.0',
         'lxml       >= 3.5.0',
-        'six        >= 1.11.0',
+        'six        >= 1.10.0',
     ],
     keywords=['OCR', 'optical character recognition', 'ocropy', 'ocropus', 'kraken', 'calamari'],
 )
