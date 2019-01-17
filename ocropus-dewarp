@@ -16,10 +16,14 @@ from imageio import imwrite
 
 import ocrolib
 from ocrolib import lineest
+from ocrolib.version import VERSION
 
 np.seterr(divide='raise',over='raise',invalid='raise',under='ignore')
 
-parser = argparse.ArgumentParser("dewarp lines as used for the recognizer")
+parser = argparse.ArgumentParser(usage="dewarp lines as used for the recognizer")
+
+# --version
+parser.add_argument("--version", action="version", version="%(prog)s, v"+VERSION)
 
 parser.add_argument("-e","--lineest",default="center",
                     help="type of text line estimator, default: %(default)s")

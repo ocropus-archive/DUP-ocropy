@@ -1,4 +1,4 @@
-#!/bin/bash -ex
+#!/bin/bash -e
 
 # Usage: ./run-test-ci [tests...]
 #
@@ -120,14 +120,21 @@ test_gtedit() {
 
 # Make sure there are no syntax errors
 test_smoke() {
+    failed=false
     for i in $BASE/ocropus-*;do
-        if [[ "$i" = *ocropus-lpred ]];then
+        basename=$(basename $i)
+        if [[ "$i" = *ocropus-lpred || "$i" = *ocropus-ltrain ]];then
             continue
         fi
-        if [[ "$i" = *ocropus-ltrain ]];then
-            continue
+        echo -n "$i --version	"
+        if [[ "$($i --version 2>/dev/null)" = "$basename, v"* ]];then
+            echo "✓"
+        else
+            echo "✗"
+            failed=true
+            $i --version
+            exit "$?"
         fi
-        $i --help > /dev/null
     done
 }
 

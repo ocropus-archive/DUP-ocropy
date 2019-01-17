@@ -40,8 +40,12 @@ import ocrolib
 from ocrolib import psegutils,morph,sl
 from ocrolib.exceptions import OcropusException
 from ocrolib.toplevel import *
+from ocrolib.version import VERSION
 
 parser = argparse.ArgumentParser(add_help=False)
+
+# --version
+parser.add_argument("--version", action="version", version="%(prog)s, v"+VERSION)
 
 # error checking
 group_error_checking = parser.add_argument_group('error checking')

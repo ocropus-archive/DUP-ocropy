@@ -15,8 +15,13 @@ from six import text_type as unicode
 from lxml import etree
 
 import ocrolib
+from ocrolib.version import VERSION
 
 parser = argparse.ArgumentParser()
+
+# --version
+parser.add_argument("--version", action="version", version="%(prog)s, v"+VERSION)
+
 subparsers = parser.add_subparsers(help="subcommands",dest="subparser_name")
 
 p_gttext = subparsers.add_parser("write",help="incorporate transcriptions into book dir")

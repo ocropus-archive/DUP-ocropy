@@ -21,10 +21,14 @@ import matplotlib.pyplot as plt
 import ocrolib
 import ocrolib.lstm as lstm
 from ocrolib import lineest
+from ocrolib.version import VERSION
 
 np.seterr(divide='raise',over='raise',invalid='raise',under='ignore')
 
-parser = argparse.ArgumentParser("train an RNN recognizer")
+parser = argparse.ArgumentParser(description="train an RNN recognizer")
+
+# --version
+parser.add_argument("--version", action="version", version="%(prog)s, v"+VERSION)
 
 # line normalization
 parser.add_argument("-e","--lineest",default="center",

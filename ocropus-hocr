@@ -19,8 +19,9 @@ from matplotlib.pyplot import imread
 
 import ocrolib
 from ocrolib import hocr
+from ocrolib.version import VERSION
 
-parser = argparse.ArgumentParser("""
+parser = argparse.ArgumentParser(description="""
 Construct an HTML output file in hOCR format by putting together
 the recognition results for each page in sequence.
 You should usually invoke this program as
@@ -33,6 +34,10 @@ For each page like 'book/0001.bin.png', it uses the following files:
     book/0001.pseg.png           # page segmentation
     book/0001/010001.txt         # recognizer output for lines
 """)
+
+# --version
+parser.add_argument("--version", action="version", version="%(prog)s, v"+VERSION)
+
 parser.add_argument("-b","--nobreaks",action="store_true",help="don't output line breaks")
 parser.add_argument("-p","--nopars",action="store_true",help="don't output paragraphs")
 parser.add_argument("-s","--fscale",type=float,default=1.0,help="scale factor for translating xheights into font size (use 0 to disable), default: %(default)s")
