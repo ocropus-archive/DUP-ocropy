@@ -39,7 +39,7 @@ import PIL
 import ocrolib.ligatures as ligatures
 import ocrolib.morph as morph
 import ocrolib.sl as sl
-from ocrolib.defaults import getlocal
+from ocrolib.default import getlocal
 from ocrolib.toplevel import (checks, ABINARY2, AINT2, AINT3, BOOL, DARKSEG, GRAYSCALE,
                       LIGHTSEG, LINESEG, PAGESEG)
 from ocrolib.chars import replacements

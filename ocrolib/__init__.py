@@ -1,12 +1,12 @@
 __all__ = [
     "common",
     "trace",
-    "defaults",
+    "default",
 ]
 
 ################################################################
 ### top level imports
 ################################################################
 
-from .defaults import traceback as trace
+from .default import traceback as trace
 from .common import *
