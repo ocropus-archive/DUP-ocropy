@@ -19,4 +19,5 @@ install:
   - pip install .
 
 script:
+  - ./tests/run-unit
   - ./run-test-ci
