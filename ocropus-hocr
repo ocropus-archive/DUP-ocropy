@@ -8,10 +8,10 @@ import re
 import glob
 import argparse
 import codecs
-
+import unicodedata
 import numpy as np
 from matplotlib.pyplot import imread
-
+#from unicodedata import name
 import ocrolib
 from ocrolib import hocr
 
@@ -146,8 +146,24 @@ for arg in args.files:
                     char_coords = char_coords[:-1]
                 if (char_coords[0][0] == u" "):
                     char_coords = char_coords[1:]
+                    #it seems rpred messes up when this happens, and gives the coord of the first real
+                    #(non-space) character. So we need to bump them up
+                    #print "we be spacing!"
+                    #print "in"
+                    #print char_coords
+                    #b=[row[0] for row in char_coords]
+                    #c=[row[1] for row in char_coords]
+                    #b=b[1:]
+                    #c=c[:-1]
+                    #out = []
+                    #for x, y in zip(b, c):
+                       #out = out + [[x,y]]
+                    #char_coords=out
+                    #print "out"
+                    #print char_coords
                 for char_coord in char_coords:
-                    print char_coord
+                    print    char_coord[0] + " " + unicodedata.name(char_coord[0][0]) + " " + str(char_coord[1])
+                    #print "'", name(char_cood[0])
             style = ""
             info = ""
 
@@ -192,11 +208,12 @@ for arg in args.files:
                         # keep track of the last char's x in order to put the word x boundary in the middle of the 
                         # space between words. This ensures that no part of the word gets omitted from the bbox
                         previous_char_x = 0
+                        previous_char = u""
 			for char_coord in char_coords:
 			    current_char, char_x = char_coord
-			    if (current_char == u" "):
+                            if (current_char == u" "):
                                 midpoint = (char_x + previous_char_x) / 2
-				word_x1 = midpoint + x0
+				word_x1 = char_x + x0
 				word_info="bbox %d %d %d %d"%(word_x0,word_y0,word_x1,word_y1)
 				PN("<span class='ocr_word' title='%s'>"%word_info,current_word,"</span> ")
 				# set the beginning x of the next word to the ending x of this one
@@ -216,6 +233,7 @@ for arg in args.files:
 				current_word = current_word + current_char
 			    count = count + 1
                             previous_char_x = char_x
+                            previous_char = current_char
 			PN("</span>")
 		    except:
 			E("Data for ocr_word elements is not available. Did you select --llocs in ocropus-rpred?")
