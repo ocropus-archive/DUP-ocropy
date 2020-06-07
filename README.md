@@ -24,7 +24,7 @@ Installing
 To install OCRopus dependencies system-wide:
 
     $ sudo apt-get install $(cat PACKAGES)
-    $ wget -nd http://www.tmbdev.net/en-default.pyrnn.gz
+    $ wget -nd https://github.com/zuphilip/ocropy-models/raw/master/en-default.pyrnn.gz
     $ mv en-default.pyrnn.gz models/
     $ sudo python setup.py install
 
@@ -34,7 +34,7 @@ Alternatively, dependencies can be installed into a
     $ virtualenv ocropus_venv/
     $ source ocropus_venv/bin/activate
     $ pip install -r requirements.txt
-    $ wget -nd http://www.tmbdev.net/en-default.pyrnn.gz
+    $ wget -nd https://github.com/zuphilip/ocropy-models/raw/master/en-default.pyrnn.gz
     $ mv en-default.pyrnn.gz models/
     $ python setup.py install
 
@@ -43,7 +43,7 @@ An additional method using [Conda](http://conda.pydata.org/) is also possible:
     $ conda create -n ocropus_env python=2.7
     $ source activate ocropus_env
     $ conda install --file requirements.txt
-    $ wget -nd http://www.tmbdev.net/en-default.pyrnn.gz
+    $ wget -nd https://github.com/zuphilip/ocropy-models/raw/master/en-default.pyrnn.gz
     $ mv en-default.pyrnn.gz models/
     $ python setup.py install
 
@@ -61,7 +61,7 @@ simplest thing to do is to downscale/upscale them to 300dpi. The text line recog
 fairly robust to different resolutions, but the layout analysis is quite resolution dependent.
 
 Here is an example for a page of Fraktur text (German);
-you need to download the Fraktur model from tmbdev.net/ocropy/fraktur.pyrnn.gz to run this
+you need to download the Fraktur model from https://github.com/zuphilip/ocropy-models/raw/master/fraktur.pyrnn.gz to run this
 example:
 
     # perform binarization
