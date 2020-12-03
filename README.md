@@ -41,7 +41,7 @@ Alternatively, dependencies can be installed into a
 An additional method using [Conda](http://conda.pydata.org/) is also possible:
 
     $ conda create -n ocropus_env python=2.7
-    $ source activate ocropus_env
+    $ conda activate ocropus_env
     $ conda install --file requirements.txt
     $ wget -nd https://github.com/zuphilip/ocropy-models/raw/master/en-default.pyrnn.gz
     $ mv en-default.pyrnn.gz models/
