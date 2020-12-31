@@ -18,8 +18,12 @@ import ocrolib
 from ocrolib import lstm
 from ocrolib import edist
 from ocrolib.exceptions import FileNotFound, OcropusException
+from ocrolib.version import VERSION
 
-parser = argparse.ArgumentParser("apply an RNN recognizer")
+parser = argparse.ArgumentParser(description="apply an RNN recognizer")
+
+# --version
+parser.add_argument("--version", action="version", version="%(prog)s, v"+VERSION)
 
 # error checking
 parser.add_argument('-n','--nocheck',action="store_true",

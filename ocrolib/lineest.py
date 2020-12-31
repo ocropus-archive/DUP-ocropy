@@ -16,7 +16,7 @@ def scale_to_h(img,target_height,order=1,dtype=np.dtype('f'),cval=0):
     output = np.array(output,dtype=dtype)
     return output
 
-class CenterNormalizer:
+class CenterNormalizer(object):
     def __init__(self,target_height=48,params=(4,1.0,0.3)):
         self.debug = int(os.getenv("debug_center") or "0")
         self.target_height = target_height

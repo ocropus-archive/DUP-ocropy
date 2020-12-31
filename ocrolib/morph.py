@@ -2,14 +2,21 @@
 ### various add-ons to the SciPy morphology package
 ################################################################
 
+# pylint: disable=bad-whitespace
+# pylint: disable=bare-except
+# pylint: disable=multiple-statements
+# pylint: disable=unused-wildcard-import
+# pylint: disable=wildcard-import
+
 from __future__ import print_function
 
+# TODO make explicit imports
 from numpy import *
 import pylab
 from pylab import *
 from scipy.ndimage import morphology,measurements,filters
 from scipy.ndimage.morphology import *
-from toplevel import *
+from ocrolib.toplevel import *
 
 @checks(ABINARY2)
 def label(image,**kw):
@@ -40,7 +47,7 @@ def find_objects(image,**kw):
         except: pass
     # let it raise the same exception as before
     return measurements.find_objects(image,**kw)
-    
+
 def check_binary(image):
     assert image.dtype=='B' or image.dtype=='i' or image.dtype==dtype('bool'),\
         "array should be binary, is %s %s"%(image.dtype,image.shape)
@@ -245,7 +252,10 @@ def renumber_labels(a):
     """Alias for renumber_labels_ordered"""
     return renumber_labels_ordered(a)
 
-def pyargsort(seq,cmp=cmp,key=lambda x:x):
+def fallback_cmp(a, b):
+    return (a > b) - (a < b)
+
+def pyargsort(seq,cmp=fallback_cmp, key=lambda x:x):
     """Like numpy's argsort, but using the builtin Python sorting
     function.  Takes an optional cmp."""
     return sorted(range(len(seq)),key=lambda x:key(seq.__getitem__(x)),cmp=cmp)
@@ -258,7 +268,7 @@ def renumber_by_xcenter(seg):
     are non-decreasing.  This is used for sorting the components
     of a segmented text line into left-to-right reading order."""
     objects = [(slice(0,0),slice(0,0))]+find_objects(seg)
-    def xc(o): 
+    def xc(o):
         # if some labels of the segmentation are missing, we
         # return a very large xcenter, which will move them all
         # the way to the right (they don't show up in the final

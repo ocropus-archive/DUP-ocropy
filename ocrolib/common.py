@@ -3,19 +3,30 @@
 ### common functions for data structures, file name manipulation, etc.
 ################################################################
 
+# pylint: disable=bad-whitespace
+# pylint: disable=wrong-import-order
+# pylint: disable=too-many-return-statements
+# pylint: disable=len-as-condition
+# pylint: disable=multiple-statements
+# pylint: disable=no-else-return
+# pylint: disable=unused-argument
+# pylint: disable=unidiomatic-typecheck
+
 from __future__ import print_function
 
 import os
+import gzip
 import os.path
+import codecs
 import re
 import sys
 import sysconfig
+import multiprocessing
 import unicodedata
 import inspect
 import glob
-import cPickle
-from ocrolib.exceptions import (BadClassLabel, BadInput, FileNotFound,
-                                OcropusException)
+from six.moves import cPickle as pickle
+from six import text_type as unicode, PY3  # pylint: disable=redefined-builtin
 
 import numpy
 from numpy import (amax, amin, array, bitwise_and, clip, dtype, mean, minimum,
@@ -25,16 +36,15 @@ from pylab import (clf, cm, ginput, gray, imshow, ion, subplot, where)
 from scipy.ndimage import morphology, measurements
 import PIL
 
-from default import getlocal
-from toplevel import (checks, ABINARY2, AINT2, AINT3, BOOL, DARKSEG, GRAYSCALE,
+import ocrolib.ligatures as ligatures
+import ocrolib.morph as morph
+import ocrolib.sl as sl
+from ocrolib.default import getlocal
+from ocrolib.toplevel import (checks, ABINARY2, AINT2, AINT3, BOOL, DARKSEG, GRAYSCALE,
                       LIGHTSEG, LINESEG, PAGESEG)
-import chars
-import codecs
-import ligatures
-import lstm
-import morph
-import multiprocessing
-import sl
+from ocrolib.chars import replacements
+from ocrolib.exceptions import (BadClassLabel, BadInput, FileNotFound,
+                                OcropusException)
 
 pickle_mode = 2
 
@@ -47,37 +57,36 @@ def normalize_text(s):
     """Apply standard Unicode normalizations for OCR.
     This eliminates common ambiguities and weird unicode
     characters."""
-    s = unicode(s)
-    s = unicodedata.normalize('NFC',s)
-    s = re.sub(ur'\s+(?u)',' ',s)
-    s = re.sub(ur'\n(?u)','',s)
-    s = re.sub(ur'^\s+(?u)','',s)
-    s = re.sub(ur'\s+$(?u)','',s)
-    for m,r in chars.replacements:
-        s = re.sub(unicode(m),unicode(r),s)
+    s = unicodedata.normalize('NFC', unicode(s))
+    s = re.sub(r'\s+(?u)',' ',s)
+    s = re.sub(r'\n(?u)','',s)
+    s = re.sub(r'^\s+(?u)','',s)
+    s = re.sub(r'\s+$(?u)','',s)
+    for m, r in replacements:
+        s = re.sub(m, r, s)
     return s
 
 def project_text(s,kind="exact"):
     """Project text onto a smaller subset of characters
     for comparison."""
     s = normalize_text(s)
-    s = re.sub(ur'( *[.] *){4,}',u'....',s) # dot rows
-    s = re.sub(ur'[~_]',u'',s) # dot rows
+    s = re.sub(r'( *[.] *){4,}',u'....',s) # dot rows
+    s = re.sub(r'[~_]',u'',s) # dot rows
     if kind=="exact":
         return s
     if kind=="nospace":
-        return re.sub(ur'\s','',s)
+        return re.sub(r'\s','',s)
     if kind=="spletdig":
-        return re.sub(ur'[^A-Za-z0-9 ]','',s)
+        return re.sub(r'[^A-Za-z0-9 ]','',s)
     if kind=="letdig":
-        return re.sub(ur'[^A-Za-z0-9]','',s)
+        return re.sub(r'[^A-Za-z0-9]','',s)
     if kind=="letters":
-        return re.sub(ur'[^A-Za-z]','',s)
+        return re.sub(r'[^A-Za-z]','',s)
     if kind=="digits":
-        return re.sub(ur'[^0-9]','',s)
+        return re.sub(r'[^0-9]','',s)
     if kind=="lnc":
         s = s.upper()
-        return re.sub(ur'[^A-Z]','',s)
+        return re.sub(r'[^A-Z]','',s)
     raise BadInput("unknown normalization: "+kind)
 
 ################################################################
@@ -304,7 +313,7 @@ def pad_by(image,r,dtype=None):
     result = zeros((w+2*r,h+2*r))
     result[r:(w+r),r:(h+r)] = image
     return result
-class RegionExtractor:
+class RegionExtractor(object):
     """A class facilitating iterating over the parts of a segmentation."""
     def __init__(self):
         self.cache = {}
@@ -409,25 +418,17 @@ class RegionExtractor:
 ### and it also contains workarounds for changed module/class names.
 ################################################################
 
-def save_object(fname,obj,zip=0):
-    if zip==0 and fname.endswith(".gz"):
+def save_object(fname, obj, zip=0):
+    if zip == 0 and fname.endswith(".gz"):
         zip = 1
-    if zip>0:
-        # with gzip.GzipFile(fname,"wb") as stream:
-        with os.popen("gzip -9 > '%s'"%fname,"wb") as stream:
-            cPickle.dump(obj,stream,2)
+    if zip > 0:
+        with gzip.GzipFile(fname, "wb") as stream:
+            pickle.dump(obj, stream, 2)
     else:
-        with open(fname,"wb") as stream:
-            cPickle.dump(obj,stream,2)
+        with open(fname, "wb") as stream:
+            pickle.dump(obj, stream, 2)
 
-def unpickle_find_global(mname,cname):
-    if mname=="lstm.lstm":
-        return getattr(lstm,cname)
-    if not mname in sys.modules.keys():
-        exec "import "+mname
-    return getattr(sys.modules[mname],cname)
-
-def load_object(fname,zip=0,nofind=0,verbose=0):
+def load_object(fname, zip=0, nofind=0, verbose=0):
     """Loads an object from disk. By default, this handles zipped files
     and searches in the usual places for OCRopus. It also handles some
     class names that have changed."""
@@ -437,25 +438,23 @@ def load_object(fname,zip=0,nofind=0,verbose=0):
         print("# loading object", fname)
     if zip==0 and fname.endswith(".gz"):
         zip = 1
+    def unpickle_stream(stream):
+        if PY3:
+            return pickle.load(stream, encoding='latin1')
+        else:
+            return pickle.load(stream)
     if zip>0:
-        # with gzip.GzipFile(fname,"rb") as stream:
-        with os.popen("gunzip < '%s'"%fname,"rb") as stream:
-            unpickler = cPickle.Unpickler(stream)
-            unpickler.find_global = unpickle_find_global
-            return unpickler.load()
+        with gzip.GzipFile(fname, "r") as stream:
+            return unpickle_stream(stream)
     else:
-        with open(fname,"rb") as stream:
-            unpickler = cPickle.Unpickler(stream)
-            unpickler.find_global = unpickle_find_global
-            return unpickler.load()
-
-
+        with open(fname, "r") as stream:
+            return unpickle_stream(stream)
 
 ################################################################
 ### Simple record object.
 ################################################################
 
-class Record:
+class Record(object):
     """A simple record datatype that allows initialization with
     keyword arguments, as in Record(x=3,y=9)"""
     def __init__(self,**kw):
@@ -752,7 +751,7 @@ def quick_check_line_components(line_bin,dpi):
 ### conversion functions
 ################################################################
 
-def ustrg2unicode(u,lig=ligatures.lig):
+def ustrg2unicode(u, lig=ligatures.lig):
     """Convert an iulib ustrg to a Python unicode string; the
     C++ version iulib.ustrg2unicode does weird things for special
     symbols like -3"""
@@ -868,7 +867,7 @@ def remove_noise(line,minsize=8):
     good = minimum(bin,1-(sums>0)*(sums<minsize))
     return good
 
-class MovingStats:
+class MovingStats(object):
     def __init__(self,n=100):
         self.data = []
         self.n = n

@@ -16,15 +16,20 @@ from scipy.ndimage import interpolation
 
 import ocrolib
 from ocrolib import morph
+from ocrolib.version import VERSION
 
 signal.signal(signal.SIGINT,lambda *args:sys.exit(1))
 
-parser = argparse.ArgumentParser(description = """
+parser = argparse.ArgumentParser(description="""
 Generate HTML for debugging a book directory.
 
 Input: a directory in standard OCRopus book format
 Output: index.html files and thumbnails showing recognition results
 """)
+
+# --version
+parser.add_argument("--version", action="version", version="%(prog)s, v"+VERSION)
+
 parser.add_argument("book",default="book")
 parser.add_argument("-N","--npages",type=int,default=100000,help="max number of pages, default: %(default)s")
 args = parser.parse_args()

@@ -13,14 +13,18 @@ from scipy.ndimage import filters,interpolation,morphology,measurements
 from scipy import stats
 
 import ocrolib
+from ocrolib.version import VERSION
 
 
-parser = argparse.ArgumentParser("""
+parser = argparse.ArgumentParser(description="""
 Image binarization using non-linear processing.
 
 This is a compute-intensive binarization method that works on degraded
 and historical book pages.
 """)
+
+# --version
+parser.add_argument("--version", action="version", version="%(prog)s, v"+VERSION)
 
 parser.add_argument('-n','--nocheck',action="store_true",
                     help="disable error checking on inputs")

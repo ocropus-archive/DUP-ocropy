@@ -1,12 +1,18 @@
+# pylint: disable=bad-whitespace
+# pylint: disable=multiple-statements
+# pylint: disable=unused-argument
+# pylint: disable=unidiomatic-typecheck
+# pylint: disable=global-statement
+
 from __future__ import print_function
+
+from six.moves import reduce
 
 import functools
 import linecache
 import os
 import sys
 import warnings
-from types import NoneType
-# FIXME from ... import wrap
 
 import numpy as np
 
@@ -30,8 +36,8 @@ def deprecated(f):
     def wrapper(*args,**kw):
         warnings.warn_explicit("calling deprecated function %s"%f.__name__,
                                category=DeprecationWarning,
-                               filename=f.func_code.co_filename,
-                               lineno=f.func_code.co_firstlineno+1)
+                               filename=f.__code__.co_filename,
+                               lineno=f.__code__.co_firstlineno+1)
         return f(*args,**kw)
     return wrapper
 
@@ -49,8 +55,8 @@ _trace1_depth = 0
 
 def trace1(f):
     """Print arguments/return values for the decorated function before each call."""
-    name = f.func_name
-    argnames = f.func_code.co_varnames[:f.func_code.co_argcount]
+    name = f.__name__
+    argnames = f.__code__.co_varnames[:f.__code__.co_argcount]
     @functools.wraps(f)
     def wrapper(*args,**kw):
         try:
@@ -95,7 +101,7 @@ def method(cls):
     """Adds the function as a method to the given class."""
     import new
     def _wrap(f):
-        cls.__dict__[f.func_name] = new.instancemethod(f,None,cls)
+        cls.__dict__[f.__name__] = new.instancemethod(f,None,cls)
         return None
     return _wrap
 
@@ -200,10 +206,10 @@ def checks(*types,**ktypes):
         def argument_checks(*args,**kw):
             # print("@@@", f, "decl", types, ktypes, "call",
             #       [strc(x) for x in args], kw)
-            name = f.func_name
-            argnames = f.func_code.co_varnames[:f.func_code.co_argcount]
-            kw3 = [(var,value,ktypes.get(var,True)) for var,value in kw.items()]
-            for var,value,type_ in zip(argnames,args,types)+kw3:
+            name = f.__name__
+            argnames = f.__code__.co_varnames[:f.__code__.co_argcount]
+            kw3 = [(var, value, ktypes.get(var, True)) for var, value in kw.items()]
+            for var, value, type_ in list(zip(argnames, args, types)) + kw3:
                 try:
                     checktype(value,type_)
                 except AssertionError as e:

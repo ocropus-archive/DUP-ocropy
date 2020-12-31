@@ -24,6 +24,10 @@
 # Author: Thomas M. Breuel
 # License: Apache 2.0
 
+
+# pylint: disable=bad-whitespace
+# pylint: disable=unused-argument
+
 from __future__ import print_function
 
 from collections import defaultdict
@@ -32,11 +36,11 @@ import unicodedata
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.ndimage import measurements,filters
+from six import unichr  # pylint: disable=redefine-builtin
 
-import common as ocrolib
 from ocrolib.exceptions import RecognitionError
 from ocrolib.edist import levenshtein
-import utils
+import ocrolib.utils as utils
 
 initial_range = 0.1
 
@@ -90,7 +94,7 @@ def sumouter(us,vs,lo=-1.0,hi=1.0,out=None):
         result += np.outer(np.clip(u,lo,hi),v)
     return result
 
-class Network:
+class Network():
     """General interface for networks. This mainly adds convenience
     functions for `predict` and `train`.
 
@@ -843,9 +847,9 @@ def normalize_nfkc(s):
 def add_training_info(network):
     return network
 
-class SeqRecognizer:
+class SeqRecognizer():
     """Perform sequence recognition using BIDILSTM and alignment."""
-    def __init__(self,ninput,nstates,noutput=-1,codec=None,normalize=normalize_nfkc):
+    def __init__(self, ninput=None, nstates=None, noutput=-1, codec=None, normalize=normalize_nfkc):
         self.Ni = ninput
         if codec: noutput = codec.size()
         assert noutput>0
@@ -933,7 +937,7 @@ class SeqRecognizer:
         cs = self.predictSequence(xs)
         return self.l2s(cs)
 
-class Codec:
+class Codec(object):
     """Translate between integer codes and characters."""
     def init(self,charset):
         charset = sorted(list(set(charset)))
@@ -957,7 +961,7 @@ class Codec:
         s = [self.code2char.get(c,"~") for c in l]
         return s
 
-ascii_labels = [""," ","~"] + [unichr(x) for x in range(33,126)]
+ascii_labels = [""," ","~"] + [unichr(chr_ord) for chr_ord in range(33,126)]
 
 def ascii_codec():
     "Create a codec containing just ASCII characters."
@@ -980,4 +984,3 @@ def getstates_for_display(net):
     if isinstance(net,Stacked) and isinstance(net.nets[0],LSTM):
         return net.nets[0].state[:net.nets[0].last_n]
     return None
-

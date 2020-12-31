@@ -11,6 +11,7 @@ import multiprocessing
 
 import ocrolib
 from ocrolib import edist
+from ocrolib.version import VERSION
 
 parser = argparse.ArgumentParser(description = """
 Compute the edit distances between ground truth and recognizer output.
@@ -19,6 +20,10 @@ corresponnding recognizer output files using the given extension (-x).
 Missing output files are handled as empty strings, unless the -s
 option is given.
 """)
+
+# --version
+parser.add_argument("--version", action="version", version="%(prog)s, v"+VERSION)
+
 parser.add_argument("files",default=[],nargs='*',help="input lines")
 parser.add_argument("-x","--extension",default=".txt",help="extension for recognizer output, default: %(default)s")
 # parser.add_argument("-g","--gtextension",default=".gt.txt",help="extension for ground truth, default: %(default)s")

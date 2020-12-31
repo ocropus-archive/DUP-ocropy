@@ -1,20 +1,29 @@
 #!/usr/bin/env python
 
+# pylint: disable=bad-whitespace
+# pylint: disable=multiple-statements
+# pylint: disable=len-as-condition
+# pylint: disable=bare-except
+# pylint: disable=redefined-outer-name
+
 from __future__ import print_function
 
-import re
 import argparse
 import sys
 
 import numpy as np
-from scipy.misc import imsave
+from imageio import imwrite
 
 import ocrolib
 from ocrolib import lineest
+from ocrolib.version import VERSION
 
 np.seterr(divide='raise',over='raise',invalid='raise',under='ignore')
 
-parser = argparse.ArgumentParser("dewarp lines as used for the recognizer")
+parser = argparse.ArgumentParser(usage="dewarp lines as used for the recognizer")
+
+# --version
+parser.add_argument("--version", action="version", version="%(prog)s, v"+VERSION)
 
 parser.add_argument("-e","--lineest",default="center",
                     help="type of text line estimator, default: %(default)s")
@@ -46,7 +55,7 @@ for fname in inputs:
         line = ocrolib.read_image_gray(fname)
         lnorm.measure(np.amax(line)-line)
         line = lnorm.normalize(line,cval=np.amax(line))
-        imsave(base+".dew.png",line)
+        imwrite("%s.dew.png" % base, line)
     except Exception as e:
         print("ERROR", e)
         continue

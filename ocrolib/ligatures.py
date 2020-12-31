@@ -1,4 +1,9 @@
 # -*- coding: utf-8 -*-
+# pylint: disable=bad-whitespace
+# pylint: disable=unidiomatic-typecheck
+# pylint: disable=redefined-outer-name
+# pylint: disable=redefined-argument-from-local
+# pylint: disable=multiple-statements
 
 ################################################################
 ### Ligatures-related data.
@@ -6,6 +11,7 @@
 
 import re
 from pylab import uint32
+from six import unichr, text_type as unicode
 
 ### These aren't formal ligatures, they are character pairs
 ### that are frequently touching in Latin script documents.
@@ -21,12 +27,12 @@ a, c, e, m, n, t, z, A, C, E, K, L, M, N, R,
 a- b- e- d- g- m- n- o- p- u-
 "B "D "F "H "K "L "P "R "T "W "Z "b "h "l
 'B 'D 'F 'H 'K 'L 'P 'R 'T 'W 'Z 'b 'h 'l
-d" f" l" 
-""" 
+d" f" l"
+"""
 
 """ " """
 
-common_chars = [ u'„', u'“' ]
+common_chars = [u'„', u'“']
 
 def common_ligatures(s):
     if len(s)>=2 and s[:2] in common_ligature_table:
@@ -34,7 +40,7 @@ def common_ligatures(s):
     if len(s)>=3 and s[:3] in common_ligature_table:
         yield s[:3]
 
-class LigatureTable:
+class LigatureTable(object):
     def __init__(self):
         self.lig2code = {}
         self.code2lig = {}
@@ -52,7 +58,7 @@ class LigatureTable:
         for i in range(32,1024):
             self.add(unichr(i),i)
         for c in common_chars:
-            self.add(c,ord(c))
+            self.add(c, ord(c))
     def add(self,name,code,override=1):
         assert type(name)==unicode or not re.search(r'[\x80-\xff]',name)
         if not override and self.lig2code.get(name) is not None:
@@ -74,7 +80,7 @@ class LigatureTable:
         with open(name,"w") as stream:
             for name,code in self.lig2code.items():
                 stream.write("%s %d\n"%(name,uint32(code)))
-                    
+
 lig = LigatureTable()
 ligcode = 0x200000
 
@@ -108,7 +114,7 @@ for c1 in doubles:
         ligcode += 1
 
 # add German and additional German ligatures (DO NOT CHANGE THIS)
-        
+
 german = u"ÄÖÜäöüß"
 
 for c in german:

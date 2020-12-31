@@ -2,7 +2,7 @@ ocropy
 ======
 
 [![Build Status](https://travis-ci.org/tmbdev/ocropy.svg?branch=master)](https://travis-ci.org/tmbdev/ocropy)
-[![CircleCI](https://circleci.com/gh/UB-Mannheim/ocropy.png)](https://circleci.com/gh/UB-Mannheim/ocropy.png)
+[![CircleCI](https://circleci.com/gh/OCR-D/ocropy.png)](https://circleci.com/gh/OCR-D/ocropy.png)
 [![Docker Automated build](https://img.shields.io/docker/automated/ubma/ocropy.svg?maxAge=86400)](https://hub.docker.com/r/ubma/ocropy/) [![Docker Pulls](https://img.shields.io/docker/pulls/ubma/ocropy.svg?maxAge=86400)](https://hub.docker.com/r/ubma/ocropy/)
 [![license](https://img.shields.io/github/license/tmbdev/ocropy.svg)](https://github.com/tmbdev/ocropy/blob/master/LICENSE)
 [![Wiki](https://img.shields.io/badge/wiki-11%20pages-orange.svg)](https://github.com/tmbdev/ocropy/wiki)

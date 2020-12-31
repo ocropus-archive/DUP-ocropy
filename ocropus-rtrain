@@ -1,10 +1,16 @@
 #!/usr/bin/env python
 
+# pylint: disable=bad-whitespace
+# pylint: disable=multiple-statements
+# pylint: disable=len-as-condition
+# pylint: disable=bare-except
+# pylint: disable=redefined-outer-name
+
+
 from __future__ import print_function
 
 import random as pyrandom
 import re
-import os.path
 import traceback
 import argparse
 import sys
@@ -15,10 +21,14 @@ import matplotlib.pyplot as plt
 import ocrolib
 import ocrolib.lstm as lstm
 from ocrolib import lineest
+from ocrolib.version import VERSION
 
 np.seterr(divide='raise',over='raise',invalid='raise',under='ignore')
 
-parser = argparse.ArgumentParser("train an RNN recognizer")
+parser = argparse.ArgumentParser(description="train an RNN recognizer")
+
+# --version
+parser.add_argument("--version", action="version", version="%(prog)s, v"+VERSION)
 
 # line normalization
 parser.add_argument("-e","--lineest",default="center",
@@ -94,7 +104,7 @@ print("# inputs", len(inputs))
 
 # pre-execute any python commands
 
-exec args.execute
+exec(args.execute) # pylint: disable=exec-used
 
 # make sure movie mode is used correctly
 
@@ -322,10 +332,10 @@ for trial in range(start,args.ntrain):
     pred = re.sub(' ','_',pred)
     gta = re.sub(' ','_',gta)
 
-    if (trial+1)%args.savefreq==0:
-        ofile = oname%(trial+1)+".gz"
+    if (trial + 1) % args.savefreq == 0:
+        ofile = oname % (trial+1) + ".gz"
         print("# saving", ofile)
-        save_lstm(ofile,network)
+        save_lstm(ofile, network)
         last_save = ofile
 
     if do_display:

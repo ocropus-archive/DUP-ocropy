@@ -1,5 +1,15 @@
 #!/usr/bin/env python
 
+# pylint: disable=bad-whitespace
+# pylint: disable=multiple-statements
+# pylint: disable=len-as-condition
+# pylint: disable=bare-except
+# pylint: disable=redefined-outer-name
+# pylint: disable=unidiomatic-typecheck
+# pylint: disable=too-many-return-statements
+# pylint: disable=wildcard-import
+# pylint: disable=unused-wildcard-import
+
 # TODO:
 # ! add option for padding
 # - fix occasionally missing page numbers
@@ -23,15 +33,19 @@ from multiprocessing import Pool
 
 import numpy as np
 from scipy.ndimage import measurements
-from scipy.misc import imsave
 from scipy.ndimage.filters import gaussian_filter,uniform_filter,maximum_filter
+from imageio import imwrite
 
 import ocrolib
 from ocrolib import psegutils,morph,sl
 from ocrolib.exceptions import OcropusException
 from ocrolib.toplevel import *
+from ocrolib.version import VERSION
 
 parser = argparse.ArgumentParser(add_help=False)
+
+# --version
+parser.add_argument("--version", action="version", version="%(prog)s, v"+VERSION)
 
 # error checking
 group_error_checking = parser.add_argument_group('error checking')
@@ -155,14 +169,14 @@ def B(a):
     return np.array(a,'B')
 
 
-def DSAVE(title,image):
+def DSAVE(title, image):
     if not args.debug: return
     if type(image)==list:
         assert len(image)==3
         image = np.transpose(np.array(image),[1,2,0])
     fname = "_"+title+".png"
     print_info("debug " + fname)
-    imsave(fname,image.astype('float'))
+    imwrite(fname, image.astype('float'))
 
 
 ################################################################

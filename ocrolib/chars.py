@@ -1,21 +1,22 @@
 # -*- encoding: utf-8 -*-
+from __future__ import unicode_literals
 
 import re
 
 # common character sets
 
-digits = u"0123456789"
-letters = u"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
-symbols = ur"""!"#$%&'()*+,-./:;<=>?@[\]^_`{|}~"""
-ascii = digits+letters+symbols
+digits = "0123456789"
+letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+symbols = """!"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~"""
+ascii = digits+letters+symbols  # pylint: disable=redefined-builtin
 
-xsymbols = u"""€¢£»«›‹÷©®†‡°∙•◦‣¶§÷¡¿▪▫"""
-german = u"ÄäÖöÜüß"
-french = u"ÀàÂâÆæÇçÉéÈèÊêËëÎîÏïÔôŒœÙùÛûÜüŸÿ"
-turkish = u"ĞğŞşıſ"
-greek = u"ΑαΒβΓγΔδΕεΖζΗηΘθΙιΚκΛλΜμΝνΞξΟοΠπΡρΣσςΤτΥυΦφΧχΨψΩω"
-portuguese = u"ÁÃÌÍÒÓÕÚáãìíòóõú"
-telugu = u" ఁంఃఅఆఇఈఉఊఋఌఎఏఐఒఓఔకఖగఘఙచఛజఝఞటఠడఢణతథదధనపఫబభమయరఱలళవశషసహఽాిీుూృౄెేైొోౌ్ౘౙౠౡౢౣ౦౧౨౩౪౫౬౭౮౯"
+xsymbols = """€¢£»«›‹÷©®†‡°∙•◦‣¶§÷¡¿▪▫"""
+german = "ÄäÖöÜüß"
+french = "ÀàÂâÆæÇçÉéÈèÊêËëÎîÏïÔôŒœÙùÛûÜüŸÿ"
+turkish = "ĞğŞşıſ"
+greek = "ΑαΒβΓγΔδΕεΖζΗηΘθΙιΚκΛλΜμΝνΞξΟοΠπΡρΣσςΤτΥυΦφΧχΨψΩω"
+portuguese = "ÁÃÌÍÒÓÕÚáãìíòóõú"
+telugu = " ఁంఃఅఆఇఈఉఊఋఌఎఏఐఒఓఔకఖగఘఙచఛజఝఞటఠడఢణతథదధనపఫబభమయరఱలళవశషసహఽాిీుూృౄెేైొోౌ్ౘౙౠౡౢౣ౦౧౨౩౪౫౬౭౮౯"
 
 default = ascii+xsymbols+german+french+portuguese
 
@@ -35,53 +36,53 @@ european = default+turkish+greek
 # there seems to be left vs right leaning, and top-heavy vs bottom-heavy
 
 replacements = [
-    (u'[_~#]',u"~"), # OCR control characters
-    (u'"',u"''"), # typewriter double quote
-    (u"`",u"'"), # grave accent
-    (u'[“”]',u"''"), # fancy quotes
-    (u"´",u"'"), # acute accent
-    (u"[‘’]",u"'"), # left single quotation mark
-    (u"[“”]",u"''"), # right double quotation mark
-    (u"“",u"''"), # German quotes
-    (u"„",u",,"), # German quotes
-    (u"…",u"..."), # ellipsis
-    (u"′",u"'"), # prime
-    (u"″",u"''"), # double prime
-    (u"‴",u"'''"), # triple prime
-    (u"〃",u"''"), # ditto mark
-    (u"µ",u"μ"), # replace micro unit with greek character
-    (u"[–—]",u"-"), # variant length hyphens
-    (u"ﬂ",u"fl"), # expand Unicode ligatures
-    (u"ﬁ",u"fi"),
-    (u"ﬀ",u"ff"),
-    (u"ﬃ",u"ffi"),
-    (u"ﬄ",u"ffl"),
+    ('[_~#]', "~"),  # OCR control characters
+    ('"', "''"),  # typewriter double quote
+    ("`", "'"),  # grave accent
+    ('[“”]', "''"),  # fancy quotes
+    ("´", "'"),  # acute accent
+    ("[‘’]", "'"),  # left single quotation mark
+    ("[“”]", "''"),  # right double quotation mark
+    ("“", "''"),  # German quotes
+    ("„", ",,"),  # German quotes
+    ("…", "..."),  # ellipsis
+    ("′", "'"),  # prime
+    ("″", "''"),  # double prime
+    ("‴", "'''"),  # triple prime
+    ("〃", "''"),  # ditto mark
+    ("µ", "μ"),  # replace micro unit with greek character
+    ("[–—]", "-"),  # variant length hyphens
+    ("ﬂ", "fl"),  # expand Unicode ligatures
+    ("ﬁ", "fi"),
+    ("ﬀ", "ff"),
+    ("ﬃ", "ffi"),
+    ("ﬄ", "ffl"),
 ]
 
+
 def requote(s):
-    s = unicode(s)
-    s = re.sub(ur"''",u'"',s)
+    s = re.sub("''", '"', s)
     return s
 
-def requote_fancy(s,germanic=0):
-    s = unicode(s)
+
+def requote_fancy(s, germanic=0):
     if germanic:
         # germanic quoting style reverses the shapes
         # straight double quotes
-        s = re.sub(ur"\s+''",u"”",s)
-        s = re.sub(u"''\s+",u"“",s)
-        s = re.sub(ur"\s+,,",u"„",s)
+        s = re.sub(r"\s+''", "”", s)
+        s = re.sub(r"''\s+", "“", s)
+        s = re.sub(r"\s+,,", "„", s)
         # straight single quotes
-        s = re.sub(ur"\s+'",u"’",s)
-        s = re.sub(ur"'\s+",u"‘",s)
-        s = re.sub(ur"\s+,",u"‚",s)
+        s = re.sub(r"\s+'", "’", s)
+        s = re.sub(r"'\s+", "‘", s)
+        s = re.sub(r"\s+,", "‚", s)
     else:
         # straight double quotes
-        s = re.sub(ur"\s+''",u"“",s)
-        s = re.sub(ur"''\s+",u"”",s)
-        s = re.sub(ur"\s+,,",u"„",s)
+        s = re.sub(r"\s+''", "“", s)
+        s = re.sub(r"''\s+", "”", s)
+        s = re.sub(r"\s+,,", "„", s)
         # straight single quotes
-        s = re.sub(ur"\s+'",u"‘",s)
-        s = re.sub(ur"'\s+",u"’",s)
-        s = re.sub(ur"\s+,",u"‚",s)
+        s = re.sub(r"\s+'", "‘", s)
+        s = re.sub(r"'\s+", "’", s)
+        s = re.sub(r"\s+,", "‚", s)
     return s
