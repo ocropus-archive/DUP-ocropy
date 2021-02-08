@@ -178,7 +178,7 @@ def save_lstm(fname,network):
             for x in network.walk(): x.postLoad()
 
 
-def load_lstm(fname):
+def load_lstm(fname, codec):
     if args.clstm:
         network = lstm.SeqRecognizer(args.height,args.hiddensize,
             codec=codec,
@@ -188,17 +188,27 @@ def load_lstm(fname):
         mylstm.init(network.No,args.hiddensize,network.Ni)
         mylstm.load(fname)
         network.lstm = clstm.CNetwork(mylstm)
-        return network
     else:
         network = ocrolib.load_object(last_save)
         network.upgrade()
         for x in network.walk(): x.postLoad()
-        return network
+
+    # if a model was loaded we must change the local codec in any case
+    # either resize the codec of the network if a codec is given
+    # or use the loaded codec directly
+    if args.codec != []:
+        # resize the network codec (including the network weights)
+        codec = network.resizeCodec(codec)
+    else:
+        # the local codec is simply the local codec
+        codec = network.codec
+
+    return network, codec
 
 if args.load:
     print("# loading", args.load)
     last_save = args.load
-    network = load_lstm(args.load)
+    network, codec = load_lstm(args.load, codec)
 else:
     last_save = None
     network = lstm.SeqRecognizer(args.height,args.hiddensize,
@@ -306,7 +316,7 @@ for trial in range(start,args.ntrain):
     except FloatingPointError as e:
         print("# oops, got FloatingPointError", e)
         traceback.print_exc()
-        network = load_lstm(last_save)
+        network, codec = load_lstm(last_save, codec)
         continue
     except lstm.RangeError as e:
         continue
