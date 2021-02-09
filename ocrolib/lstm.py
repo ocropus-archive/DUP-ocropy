@@ -838,7 +838,7 @@ def ctc_align_targets(outputs,targets,threshold=100.0,verbose=0,debug=0,lo=1e-5)
     return aligned
 
 def normalize_nfkc(s):
-    return unicodedata.normalize('NFKC',s)
+    return unicodedata.normalize('NFD',s)
 
 def add_training_info(network):
     return network

@@ -48,7 +48,7 @@ def normalize_text(s):
     This eliminates common ambiguities and weird unicode
     characters."""
     s = unicode(s)
-    s = unicodedata.normalize('NFC',s)
+    s = unicodedata.normalize('NFD',s)
     s = re.sub(ur'\s+(?u)',' ',s)
     s = re.sub(ur'\n(?u)','',s)
     s = re.sub(ur'^\s+(?u)','',s)
