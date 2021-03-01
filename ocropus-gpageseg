@@ -438,7 +438,10 @@ def process1(job):
 
     if not args.quiet: print_info("finding reading order")
     lines = psegutils.compute_lines(segmentation,scale)
-    order = psegutils.reading_order([l.bounds for l in lines])
+    if args.maxcolseps>0 or args.blackseps:
+        order = psegutils.reading_order([l.bounds for l in lines])
+    else:
+        order = psegutils.reading_order([l.bounds for l in lines], nocolumns=True)
     lsort = psegutils.topsort(order)
 
     # renumber the labels so that they conform to the specs

@@ -124,7 +124,7 @@ def extract_masked(image,linedesc,pad=5,expand=0):
     line = np.where(mask,line,np.amax(line))
     return line
 
-def reading_order(lines,highlight=None,debug=0):
+def reading_order(lines,nocolumns=False,highlight=None,debug=0):
     """Given the list of lines (a list of 2D slices), computes
     the partial reading order.  The output is a binary 2D array
     such that order[i,j] is true if line i comes before line j
@@ -147,7 +147,7 @@ def reading_order(lines,highlight=None,debug=0):
         plt.ginput(1,debug)
     for i,u in enumerate(lines):
         for j,v in enumerate(lines):
-            if x_overlaps(u,v):
+            if x_overlaps(u,v) or nocolumns:
                 if above(u,v):
                     order[i,j] = 1
             else:
