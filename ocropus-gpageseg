@@ -84,6 +84,8 @@ group_column.add_argument('--csminaspect',type=float,default=1.1,
 
 # output parameters
 group_output = parser.add_argument_group('output parameters')
+group_output.add_argument('--naming',default=False,
+                    help='change naming of the lines with an own pattern, e.g. "--naming %%04d" for four decimal digits, default: %(default)s')
 group_output.add_argument('--gray',action='store_true',
                     help='output grayscale lines as well, which are extracted from the grayscale version of the pages, default: %(default)s')
 group_output.add_argument('-p','--pad',type=int,default=3,
@@ -456,12 +458,17 @@ def process1(job):
     lines = [lines[i] for i in lsort]
     ocrolib.write_page_segmentation("%s.pseg.png"%outputdir,segmentation)
     cleaned = ocrolib.remove_noise(binary,args.noise)
+    pattern = "01%04x"
+    if (args.naming):
+       pattern = args.naming
+    pattern = "%s/"+pattern
+    print_info("with file name pattern",pattern)
     for i,l in enumerate(lines):
         binline = psegutils.extract_masked(1-cleaned,l,pad=args.pad,expand=args.expand)
-        ocrolib.write_image_binary("%s/01%04x.bin.png"%(outputdir,i+1),binline)
+        ocrolib.write_image_binary(pattern%(outputdir,i+1)+".bin.png",binline)
         if args.gray:
             grayline = psegutils.extract_masked(gray,l,pad=args.pad,expand=args.expand)
-            ocrolib.write_image_gray("%s/01%04x.nrm.png"%(outputdir,i+1),grayline)
+            ocrolib.write_image_gray(pattern%(outputdir,i+1)+".nrm.png",grayline)
     print_info("%6d  %s %4.1f %d" % (i, fname,  scale,  len(lines)))
 
 if len(args.files)==1 and os.path.isdir(args.files[0]):

@@ -31,6 +31,8 @@ For each page like 'book/0001.bin.png', it uses the following files:
 parser.add_argument("-b","--nobreaks",action="store_true",help="don't output line breaks")
 parser.add_argument("-p","--nopars",action="store_true",help="don't output paragraphs")
 parser.add_argument("-s","--fscale",type=float,default=1.0,help="scale factor for translating xheights into font size (use 0 to disable), default: %(default)s")
+parser.add_argument('--naming',default=False,
+                    help='indicate naming of the lines with an own pattern, e.g. "--naming %%04d" for four decimal digits, default: %(default)s')
 parser.add_argument("-o","--output",default="book.html",help="output file, default: %(default)s")
 parser.add_argument('files',nargs='+')
 args = parser.parse_args()
@@ -50,13 +52,13 @@ def PN(*args):
 E("writing to",args.output)
 median_xheight = None
 dirs = [ocrolib.allsplitext(name)[0] for name in args.files]
-xhfiles = python.sum([glob.glob(d+"/??????.xheight") for d in dirs],[])
+xhfiles = python.sum([glob.glob(d+"/*.xheight") for d in dirs],[])
 if len(xhfiles)>5:
     xheights = [float(ocrolib.read_text(f)) for f in xhfiles]
     if len(xheights)>0:
         median_xheight = np.median(xheights)
 else:    
-    lfiles = python.sum([glob.glob(d+"/??????.bin.png") for d in dirs],[])
+    lfiles = python.sum([glob.glob(d+"/*.bin.png") for d in dirs],[])
     pyrandom.shuffle(lfiles)
     if len(lfiles)>0:
         median_xheight = 0.5*np.median([imread(f).shape[0] for f in lfiles[:100]])
@@ -113,8 +115,12 @@ for arg in args.files:
             last_coords = (x0,y0)
 
             # get the text for the line itself
-
-            lbase = "%s/%06x"%(base,id)
+            pattern = "01%04x"
+            if (args.naming):
+               pattern = args.naming
+            pattern = "%s/"+pattern
+            id=id-0x010000
+            lbase = pattern%(base,id)
 
             if not os.path.exists(lbase+".txt"):
                 E("note: line %s produced no output (it may not have contained text)"%(lbase+".bin.png"))

@@ -50,7 +50,7 @@ def genpage(d):
         os.chdir(d)
         with open("index.html","w") as stream:
             stream.write("<h1>%s</h1>\n"%d)
-            images = sorted(glob.glob("??????.bin.png"))
+            images = sorted(glob.glob("*.bin.png"))
             for img in images:
                 txt = ocrolib.fvariant(img,"txt","")
                 if os.path.exists(txt):
