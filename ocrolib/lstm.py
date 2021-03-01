@@ -90,6 +90,18 @@ def sumouter(us,vs,lo=-1.0,hi=1.0,out=None):
         result += np.outer(np.clip(u,lo,hi),v)
     return result
 
+def graphemelist(str):
+    l = list()
+    s = ""
+    for char in str:
+        if unicodedata.category(char)[0] == 'M':
+            s += char
+        else:
+            l.append(s)
+            s = char
+    l.append(s)
+    return l
+
 class Network:
     """General interface for networks. This mainly adds convenience
     functions for `predict` and `train`.
@@ -951,7 +963,7 @@ class Codec:
         "Encode the string `s` into a code sequence."
         # tab = self.char2code
         dflt = self.char2code["~"]
-        return [self.char2code.get(c,dflt) for c in s]
+        return [self.char2code.get(c,dflt) for c in graphemelist(s)]
     def decode(self,l):
         "Decode a code sequence into a string."
         s = [self.code2char.get(c,"~") for c in l]
