@@ -837,6 +837,12 @@ def ctc_align_targets(outputs,targets,threshold=100.0,verbose=0,debug=0,lo=1e-5)
         plt.ginput(1,0.01);
     return aligned
 
+def normalize_nfc(s):
+    return unicodedata.normalize('NFC',s)
+
+def normalize_nfd(s):
+    return unicodedata.normalize('NFD',s)
+
 def normalize_nfkc(s):
     return unicodedata.normalize('NFKC',s)
 
