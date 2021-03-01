@@ -19,6 +19,7 @@ import os
 import os.path
 import sys
 import traceback
+import json
 from multiprocessing import Pool
 
 import numpy as np
@@ -30,6 +31,7 @@ import ocrolib
 from ocrolib import psegutils,morph,sl
 from ocrolib.exceptions import OcropusException
 from ocrolib.toplevel import *
+from ocrolib.psegutils import B
 
 parser = argparse.ArgumentParser(add_help=False)
 
@@ -90,6 +92,8 @@ group_output.add_argument('-p','--pad',type=int,default=3,
                     help='padding for extracted lines, default: %(default)s')
 group_output.add_argument('-e','--expand',type=int,default=3,
                     help='expand mask for grayscale extraction, default: %(default)s')
+group_output.add_argument('--kraken',action='store_true',
+                    help='produce kraken-compatible segmentation output instead of masked images, default: %(default)s')
 
 # other parameters
 group_others = parser.add_argument_group('others')
@@ -149,10 +153,6 @@ print_info("")
 if args.parallel>1:
     args.quiet = 1
 
-
-def B(a):
-    if a.dtype==np.dtype('B'): return a
-    return np.array(a,'B')
 
 
 def DSAVE(title,image):
@@ -454,14 +454,22 @@ def process1(job):
     if not os.path.exists(outputdir):
         os.mkdir(outputdir)
     lines = [lines[i] for i in lsort]
-    ocrolib.write_page_segmentation("%s.pseg.png"%outputdir,segmentation)
-    cleaned = ocrolib.remove_noise(binary,args.noise)
-    for i,l in enumerate(lines):
-        binline = psegutils.extract_masked(1-cleaned,l,pad=args.pad,expand=args.expand)
-        ocrolib.write_image_binary("%s/01%04x.bin.png"%(outputdir,i+1),binline)
-        if args.gray:
-            grayline = psegutils.extract_masked(gray,l,pad=args.pad,expand=args.expand)
-            ocrolib.write_image_gray("%s/01%04x.nrm.png"%(outputdir,i+1),grayline)
+    if (args.kraken):
+        with open("%s.json" % (outputdir), "w") as jsonfile:
+            jsonfile.write(json.dumps({
+                "text_direction": "horizontal-lr",
+                "script_detection": False,
+                "boxes": [psegutils.lindedesc_as_list(l, pad=args.pad) for l in lines]
+            }))
+    else:
+        ocrolib.write_page_segmentation("%s.pseg.png"%outputdir,segmentation)
+        cleaned = ocrolib.remove_noise(binary,args.noise)
+        for i,l in enumerate(lines):
+            binline = psegutils.extract_masked(1-cleaned,l,pad=args.pad,expand=args.expand)
+            ocrolib.write_image_binary("%s/01%04x.bin.png"%(outputdir,i+1),binline)
+            if args.gray:
+                grayline = psegutils.extract_masked(gray,l,pad=args.pad,expand=args.expand)
+                ocrolib.write_image_gray("%s/01%04x.nrm.png"%(outputdir,i+1),grayline)
     print_info("%6d  %s %4.1f %d" % (i, fname,  scale,  len(lines)))
 
 if len(args.files)==1 and os.path.isdir(args.files[0]):
