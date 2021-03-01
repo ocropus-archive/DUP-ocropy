@@ -8,6 +8,7 @@ import os.path
 import traceback
 import argparse
 import sys
+import codecs
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -15,6 +16,9 @@ import matplotlib.pyplot as plt
 import ocrolib
 import ocrolib.lstm as lstm
 from ocrolib import lineest
+
+utf8writer = codecs.getwriter('utf8')
+sys.stdout = utf8writer(sys.stdout)
 
 np.seterr(divide='raise',over='raise',invalid='raise',under='ignore')
 

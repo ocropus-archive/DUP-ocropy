@@ -19,6 +19,7 @@ import os
 import os.path
 import sys
 import traceback
+import codecs
 from multiprocessing import Pool
 
 import numpy as np
@@ -30,6 +31,10 @@ import ocrolib
 from ocrolib import psegutils,morph,sl
 from ocrolib.exceptions import OcropusException
 from ocrolib.toplevel import *
+
+utf8writer = codecs.getwriter('utf8')
+sys.stdout = utf8writer(sys.stdout)
+sys.stderr = utf8writer(sys.stderr)
 
 parser = argparse.ArgumentParser(add_help=False)
 
@@ -131,11 +136,11 @@ def check_page(image):
 
 
 def print_info(*objs):
-    print("INFO: ", *objs, file=sys.stdout)
+    print("INFO: ", " ".join(objs))
 
 
 def print_error(*objs):
-    print("ERROR: ", *objs, file=sys.stderr)
+    print("ERROR: ", " ".join(objs), file=sys.stderr)
 
 
 if len(args.files)<1:

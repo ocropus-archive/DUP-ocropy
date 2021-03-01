@@ -19,6 +19,10 @@ from ocrolib import lstm
 from ocrolib import edist
 from ocrolib.exceptions import FileNotFound, OcropusException
 
+utf8writer = codecs.getwriter('utf8')
+sys.stdout = utf8writer(sys.stdout)
+sys.stderr = utf8writer(sys.stderr)
+
 parser = argparse.ArgumentParser("apply an RNN recognizer")
 
 # error checking
@@ -72,11 +76,11 @@ args = parser.parse_args()
 
 
 def print_info(*objs):
-    print("INFO: ", *objs, file=sys.stdout)
+    print("INFO: ", " ".join(objs))
 
 
 def print_error(*objs):
-    print("ERROR: ", *objs, file=sys.stderr)
+    print("ERROR: ", " ".join(objs), file=sys.stderr)
 
 
 def check_line(image):
