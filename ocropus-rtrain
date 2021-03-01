@@ -144,7 +144,7 @@ if args.codec!=[]:
     print(args.codec)
     for fname in ocrolib.glob_all(args.codec):
         transcript = ocrolib.read_text(fname)
-        l = list(lstm.normalize_nfkc(transcript))
+        l = list(lstm.normalize_nfc(transcript))
         charset = charset.union(l)
     charset = sorted(list(charset))
     charset = [c for c in charset if c>" " and c!="~"]
@@ -182,7 +182,7 @@ def load_lstm(fname):
     if args.clstm:
         network = lstm.SeqRecognizer(args.height,args.hiddensize,
             codec=codec,
-            normalize=lstm.normalize_nfkc)
+            normalize=lstm.normalize_nfc)
         import clstm
         mylstm = clstm.make_BIDILSTM()
         mylstm.init(network.No,args.hiddensize,network.Ni)
@@ -203,7 +203,7 @@ else:
     last_save = None
     network = lstm.SeqRecognizer(args.height,args.hiddensize,
         codec=codec,
-        normalize=lstm.normalize_nfkc)
+        normalize=lstm.normalize_nfc)
     if args.clstm:
         import clstm
         mylstm = clstm.make_BIDILSTM()
