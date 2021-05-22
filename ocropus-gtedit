@@ -7,7 +7,7 @@ import codecs
 import re
 import os.path
 import base64
-import urllib2
+import urllib
 
 from lxml import etree
 
@@ -69,7 +69,7 @@ if args.subparser_name=="write":
         s = s.strip()
         if s=="": continue
         if s[0]=="#": continue
-        match = re.search(ur'^(\d{4})\.(\d{10})\s*(.*?)$(?i)',s)
+        match = re.search(r'^(\d{4})\.(\d{10})\s*(.*?)$(?i)',s)
         if not match:
             if "[[" not in s: print("???", lineno, ":", s)
             continue
@@ -199,7 +199,7 @@ if args.subparser_name=="html":
             else:
                 text = u""
             with open(fname,"rb") as pngstream: png = pngstream.read()
-            png = base64.b64encode(png)
+            png = base64.b64encode(png).decode('ascii')
             png = "data:image/png;base64,"+png
             P("<table>")
             P("<tr><td style='border:0px;color:#808080;font-size:12px'>%s</td></tr>",fname)
@@ -217,7 +217,7 @@ def url_decode(image):
         data = image[len(prefix):]
         data = base64.b64decode(data)
     else:
-        data = urllib2.urlopen(image).read()
+        data = urllib.request.urlopen(image).read()
     return data
 
 if args.subparser_name=="extract":

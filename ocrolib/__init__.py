@@ -10,6 +10,6 @@ __all__ = [
 ### top level imports
 ################################################################
 
-import default
-from common import *
-from default import traceback as trace
+from . import default
+from .common import *
+from .default import traceback as trace

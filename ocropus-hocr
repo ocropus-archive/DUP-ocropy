@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 
-import __builtin__ as python
 import random as pyrandom
 import sys
 import os.path
@@ -50,13 +49,13 @@ def PN(*args):
 E("writing to",args.output)
 median_xheight = None
 dirs = [ocrolib.allsplitext(name)[0] for name in args.files]
-xhfiles = python.sum([glob.glob(d+"/??????.xheight") for d in dirs],[])
+xhfiles = sum([glob.glob(d+"/??????.xheight") for d in dirs],[])
 if len(xhfiles)>5:
     xheights = [float(ocrolib.read_text(f)) for f in xhfiles]
     if len(xheights)>0:
         median_xheight = np.median(xheights)
 else:    
-    lfiles = python.sum([glob.glob(d+"/??????.bin.png") for d in dirs],[])
+    lfiles = sum([glob.glob(d+"/??????.bin.png") for d in dirs],[])
     pyrandom.shuffle(lfiles)
     if len(lfiles)>0:
         median_xheight = 0.5*np.median([imread(f).shape[0] for f in lfiles[:100]])

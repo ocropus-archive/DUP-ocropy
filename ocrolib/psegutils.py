@@ -5,8 +5,8 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 from scipy.ndimage import filters,interpolation
 
-from toplevel import *
-import sl,morph
+from .toplevel import *
+from . import sl,morph
 
 def B(a):
     if a.dtype==np.dtype('B'): return a

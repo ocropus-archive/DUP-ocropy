@@ -9,7 +9,7 @@ import pylab
 from pylab import *
 from scipy.ndimage import morphology,measurements,filters
 from scipy.ndimage.morphology import *
-from toplevel import *
+from .toplevel import *
 
 @checks(ABINARY2)
 def label(image,**kw):
@@ -244,6 +244,9 @@ def renumber_labels_ordered(a,correspondence=0):
 def renumber_labels(a):
     """Alias for renumber_labels_ordered"""
     return renumber_labels_ordered(a)
+
+def cmp(a, b):
+    return (a > b) - (a < b)
 
 def pyargsort(seq,cmp=cmp,key=lambda x:x):
     """Like numpy's argsort, but using the builtin Python sorting
