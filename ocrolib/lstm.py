@@ -33,10 +33,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.ndimage import measurements,filters
 
-import common as ocrolib
+from . import common as ocrolib
 from ocrolib.exceptions import RecognitionError
 from ocrolib.edist import levenshtein
-import utils
+from . import utils
 
 initial_range = 0.1
 
@@ -924,7 +924,7 @@ class SeqRecognizer:
     def l2s(self,l):
         "Convert a code sequence into a unicode string after recognition."
         l = self.codec.decode(l)
-        return u"".join(l)
+        return "".join(l)
     def trainString(self,xs,s,update=1):
         "Perform training with a string. This uses the codec and normalizer."
         return self.trainSequence(xs,self.s2l(s),update=update)
@@ -957,7 +957,7 @@ class Codec:
         s = [self.code2char.get(c,"~") for c in l]
         return s
 
-ascii_labels = [""," ","~"] + [unichr(x) for x in range(33,126)]
+ascii_labels = [""," ","~"] + [chr(x) for x in range(33,126)]
 
 def ascii_codec():
     "Create a codec containing just ASCII characters."

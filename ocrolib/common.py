@@ -13,7 +13,8 @@ import sysconfig
 import unicodedata
 import inspect
 import glob
-import cPickle
+import pickle as cPickle
+import subprocess
 from ocrolib.exceptions import (BadClassLabel, BadInput, FileNotFound,
                                 OcropusException)
 
@@ -25,16 +26,16 @@ from pylab import (clf, cm, ginput, gray, imshow, ion, subplot, where)
 from scipy.ndimage import morphology, measurements
 import PIL
 
-from default import getlocal
-from toplevel import (checks, ABINARY2, AINT2, AINT3, BOOL, DARKSEG, GRAYSCALE,
+from .default import getlocal
+from .toplevel import (checks, ABINARY2, AINT2, AINT3, BOOL, DARKSEG, GRAYSCALE,
                       LIGHTSEG, LINESEG, PAGESEG)
-import chars
+from . import chars
+from . import ligatures
+from . import lstm
+from . import morph
+from . import sl
 import codecs
-import ligatures
-import lstm
-import morph
 import multiprocessing
-import sl
 
 pickle_mode = 2
 
@@ -47,37 +48,36 @@ def normalize_text(s):
     """Apply standard Unicode normalizations for OCR.
     This eliminates common ambiguities and weird unicode
     characters."""
-    s = unicode(s)
     s = unicodedata.normalize('NFC',s)
-    s = re.sub(ur'\s+(?u)',' ',s)
-    s = re.sub(ur'\n(?u)','',s)
-    s = re.sub(ur'^\s+(?u)','',s)
-    s = re.sub(ur'\s+$(?u)','',s)
+    s = re.sub(r'\s+(?u)',' ',s)
+    s = re.sub(r'\n(?u)','',s)
+    s = re.sub(r'^\s+(?u)','',s)
+    s = re.sub(r'\s+$(?u)','',s)
     for m,r in chars.replacements:
-        s = re.sub(unicode(m),unicode(r),s)
+        s = re.sub(m,r,s)
     return s
 
 def project_text(s,kind="exact"):
     """Project text onto a smaller subset of characters
     for comparison."""
     s = normalize_text(s)
-    s = re.sub(ur'( *[.] *){4,}',u'....',s) # dot rows
-    s = re.sub(ur'[~_]',u'',s) # dot rows
+    s = re.sub(r'( *[.] *){4,}',u'....',s) # dot rows
+    s = re.sub(r'[~_]',u'',s) # dot rows
     if kind=="exact":
         return s
     if kind=="nospace":
-        return re.sub(ur'\s','',s)
+        return re.sub(r'\s','',s)
     if kind=="spletdig":
-        return re.sub(ur'[^A-Za-z0-9 ]','',s)
+        return re.sub(r'[^A-Za-z0-9 ]','',s)
     if kind=="letdig":
-        return re.sub(ur'[^A-Za-z0-9]','',s)
+        return re.sub(r'[^A-Za-z0-9]','',s)
     if kind=="letters":
-        return re.sub(ur'[^A-Za-z]','',s)
+        return re.sub(r'[^A-Za-z]','',s)
     if kind=="digits":
-        return re.sub(ur'[^0-9]','',s)
+        return re.sub(r'[^0-9]','',s)
     if kind=="lnc":
         s = s.upper()
-        return re.sub(ur'[^A-Z]','',s)
+        return re.sub(r'[^A-Z]','',s)
     raise BadInput("unknown normalization: "+kind)
 
 ################################################################
@@ -420,13 +420,6 @@ def save_object(fname,obj,zip=0):
         with open(fname,"wb") as stream:
             cPickle.dump(obj,stream,2)
 
-def unpickle_find_global(mname,cname):
-    if mname=="lstm.lstm":
-        return getattr(lstm,cname)
-    if not mname in sys.modules.keys():
-        exec "import "+mname
-    return getattr(sys.modules[mname],cname)
-
 def load_object(fname,zip=0,nofind=0,verbose=0):
     """Loads an object from disk. By default, this handles zipped files
     and searches in the usual places for OCRopus. It also handles some
@@ -439,15 +432,12 @@ def load_object(fname,zip=0,nofind=0,verbose=0):
         zip = 1
     if zip>0:
         # with gzip.GzipFile(fname,"rb") as stream:
-        with os.popen("gunzip < '%s'"%fname,"rb") as stream:
-            unpickler = cPickle.Unpickler(stream)
-            unpickler.find_global = unpickle_find_global
-            return unpickler.load()
+        gzip = subprocess.Popen(["gzip", "-cd", fname], stdout=subprocess.PIPE)
+        with gzip.stdout as stream:
+            return cPickle.load(stream, encoding='latin1')
     else:
         with open(fname,"rb") as stream:
-            unpickler = cPickle.Unpickler(stream)
-            unpickler.find_global = unpickle_find_global
-            return unpickler.load()
+            return pickler.load(stream, encoding='latin1')
 
 
 
@@ -504,11 +494,11 @@ def parallel_map(fun,jobs,parallel=0,chunksize=1):
 def check_valid_class_label(s):
     """Determines whether the given character is a valid class label.
     Control characters and spaces are not permitted."""
-    if type(s)==unicode:
+    if type(s)==str:
         if re.search(r'[\0-\x20]',s):
             raise BadClassLabel(s)
-    elif type(s)==str:
-        if re.search(r'[^\x21-\x7e]',s):
+    elif type(s)==bytes:
+        if re.search(rb'[^\x21-\x7e]',s):
             raise BadClassLabel(s)
     else:
         raise BadClassLabel(s)
@@ -551,11 +541,11 @@ def allsplitext(path):
 def base(path):
     return allsplitext(path)[0]
 
-@checks(str,{str,unicode})
+@checks(str,str)
 def write_text_simple(file,s):
     """Write the given string s to the output file."""
     with open(file,"w") as stream:
-        if type(s)==unicode: s = s.encode("utf-8")
+        if type(s)==str: s = s.encode("utf-8")
         stream.write(s)
 
 @checks([str])

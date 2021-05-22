@@ -272,10 +272,10 @@ def safe_process1(arg):
         return process1(arg)
     except IOError as e:
         if ocrolib.trace: traceback.print_exc()
-        print_info(fname+":"+e)
+        print_info(fname+":"+str(e))
     except ocrolib.OcropusException as e:
         if e.trace: traceback.print_exc()
-        print_info(fname+":"+e)
+        print_info(fname+":"+sr(e))
     except:
         traceback.print_exc()
         return None
